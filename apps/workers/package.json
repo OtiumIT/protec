@@ -1,0 +1,13 @@
+{
+  "name": "workers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Python workers para processamento pesado",
+  "scripts": {
+    "dev": "python -m uvicorn main:app --reload",
+    "build": "echo 'Python não requer build'",
+    "lint": "ruff check .",
+    "type-check": "mypy .",
+    "clean": "find . -type d -name __pycache__ -exec rm -r {} +"
+  }
+}

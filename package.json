@@ -1,0 +1,30 @@
+{
+  "name": "projeto-base",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SaaS Boilerplate Multitenant - Template Repository",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "type-check": "turbo run type-check",
+    "dev:api": "turbo run dev --filter=api",
+    "dev:portal": "turbo run dev --filter=portal",
+    "dev:workers": "turbo run dev --filter=workers"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

@@ -1,0 +1,2 @@
+# Dependências Python para workers
+# Adicionar conforme necessário

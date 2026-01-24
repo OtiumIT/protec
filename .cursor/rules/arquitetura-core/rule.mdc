@@ -1,0 +1,70 @@
+---
+description: "Princípios de arquitetura monorepo, isolamento de módulos e separação Node/Python"
+alwaysApply: true
+---
+
+# Arquitetura Core
+
+## Estrutura do Monorepo
+- `apps/api`: Backend principal em Node.js (Hono)
+- `apps/workers`: Processamento pesado em Python
+- `apps/portal`: React + Vite (Dashboard Administrativo)
+- `packages/shared`: Tipos, schemas de validação e lógica partilhada
+
+## Regras de Dependência (CRÍTICO)
+
+### Imports Permitidos vs Proibidos
+
+✅ **CORRETO** - Importar de `packages/shared`:
+```typescript
+// apps/api/src/modules/users/user.service.ts
+import { UserSchema, type User } from '@shared/core';
+import { validateEmail } from '@shared/core';
+
+// apps/portal/src/components/UserForm.tsx
+import { UserSchema } from '@shared/core';
+```
+
+✅ **CORRETO** - Importar de shared dentro da API:
+```typescript
+// apps/api/src/modules/users/user.repository.ts
+import { BaseRepository } from '../../shared/repositories/base.repository';
+```
+
+❌ **ERRADO** - Importar entre `apps/`:
+```typescript
+// apps/portal/src/hooks/useApi.ts
+import { UserService } from '../../api/src/modules/users/user.service'; // ❌ PROIBIDO
+
+// apps/api/src/modules/users/user.routes.ts
+import { UserForm } from '../../portal/src/components/UserForm'; // ❌ PROIBIDO
+```
+
+❌ **ERRADO** - Importar diretamente de outro módulo (prefira comunicação via API):
+```typescript
+// apps/api/src/modules/billing/billing.service.ts
+import { UserService } from '../users/user.service'; // ❌ Evite
+// Prefira comunicação via eventos ou API interna
+```
+
+### Comunicação entre Apps
+- **Frontend → Backend**: Apenas via HTTP/API REST (nunca acesso direto ao banco)
+- **Workers → API**: Via Filas (Redis/RabbitMQ) ou Banco de Dados comum (com filtro `company_id`)
+- **Compartilhamento**: Use `packages/shared` para tipos, schemas Zod, utilitários e constantes
+
+## Modularidade SaaS
+
+### Estrutura Modular do Backend
+- **Organização por domínio**: Cada módulo tem sua própria pasta com repository, service e routes
+- **Estrutura**: `apps/api/src/modules/{modulo}/{modulo}.{repository|service|routes}.ts`
+- **Exemplo**: `apps/api/src/modules/users/user.repository.ts`, `user.service.ts`, `user.routes.ts`
+
+### Sistema de Feature Toggles
+- Verifique se o módulo está ativo para o Tenant antes de qualquer lógica
+- Use `ModuleService.verify(companyId, 'NOME_DO_MODULO')` ou middleware `requireModule()`
+- Se desativado, retorne `402 Payment Required`
+
+## Ferramentas Recomendadas
+- **Monorepo**: Turborepo ou Nx para build e cache
+- **Package Manager**: pnpm ou npm workspaces
+- **TypeScript**: Configuração compartilhada em `packages/shared/tsconfig.json`

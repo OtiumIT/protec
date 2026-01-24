@@ -1,0 +1,73 @@
+---
+description: "Padrões React: UI baseada em permissões, Hooks e Tailwind"
+globs: ["apps/portal/**"]
+alwaysApply: false
+---
+
+# Padrões Frontend (React + Vite + Tailwind)
+
+## Estrutura de Pastas
+```
+apps/portal/src/
+  ├── components/     # Componentes reutilizáveis
+  │   ├── ui/        # Componentes base (Button, Input, etc)
+  │   └── layout/    # Layout components (Sidebar, Header)
+  ├── pages/         # Páginas/Views
+  ├── hooks/         # Hooks customizados
+  ├── services/      # API clients
+  ├── contexts/       # Context API (Auth, Tenant, etc)
+  ├── utils/         # Funções utilitárias
+  ├── types/         # Tipos TypeScript
+  └── routes/        # Definição de rotas
+```
+
+## Organização
+- **Routes**: Protegidas por permissões de módulo.
+- **State Management**: Context API ou Zustand para dados do Tenant.
+- **Layout**: Dashboard adaptável (Sidebar baseada em permissões).
+
+## Padrões de UI
+- **Menu Dinâmico**: Sidebar renderizada filtrando itens por `user.permissions` e `company.active_modules`.
+- **Hooks**: Use hooks customizados para API (ex: `useTenant()`, `useModules()`).
+
+### Exemplo de Hook Customizado
+```typescript
+// apps/portal/src/hooks/useTenant.ts
+export function useTenant() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['tenant'],
+    queryFn: () => api.get('/tenant'),
+  });
+  
+  return { tenant: data?.data, isLoading, error };
+}
+```
+
+- **Mobile First**: Priorize breakpoints responsivos do Tailwind (`sm:`, `md:`, `lg:`, `xl:`).
+- **Feedback**: Trate estados de `loading` e `error` visualmente.
+- **Acessibilidade**: Use elementos semânticos e ARIA labels.
+
+## Performance
+- **Lazy Loading**: Use `React.lazy()` e `Suspense` para rotas
+- **Code Splitting**: Separe bundles por rota
+- **Memoização**: Use `useMemo` e `useCallback` quando apropriado
+- **Imagens**: Use lazy loading para imagens (`loading="lazy"`)
+
+### Exemplo de Lazy Loading
+```typescript
+const UsersPage = React.lazy(() => import('./pages/UsersPage'));
+
+<Suspense fallback={<Loading />}>
+  <UsersPage />
+</Suspense>
+```
+
+## Testes
+- Use React Testing Library para testes de componentes
+- Teste hooks customizados isoladamente
+- Teste integração de rotas protegidas
+
+## Comunicação com Backend
+- **NUNCA** acesse o banco de dados diretamente do frontend.
+- Todas as operações devem passar pela API (Node.js).
+- Use uma biblioteca de HTTP client (axios, fetch) centralizada.

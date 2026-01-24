@@ -1,0 +1,206 @@
+---
+description: "Sistema Modular e Billing: Controle de permissões por módulos ativos e limite de usuários (seats)"
+globs: 
+  - "apps/api/src/modules/**"
+  - "apps/api/src/middleware/**"
+  - "apps/portal/src/routes/**"
+alwaysApply: false
+---
+
+# Regras de Modularidade e Cobrança
+
+## Sistema de Módulos (Feature Toggles)
+
+### Check de Módulo
+Chame `FeatureToggleService.verify(companyId, 'NOME_DO_MODULO')` antes da lógica de serviço.
+
+**Nota**: O módulo está em `modules/feature-toggles/` (não confundir com a pasta `modules/`).
+
+### Exemplo de Implementação
+```typescript
+// apps/api/src/modules/feature-toggles/feature-toggle.service.ts
+export class FeatureToggleService {
+  static async verify(companyId: string, moduleKey: string): Promise<boolean> {
+    const module = await db.query(`
+      SELECT tm.* FROM tenant_modules tm
+      JOIN modules m ON m.id = tm.module_id
+      WHERE tm.tenant_id = $1 AND m.key = $2 AND tm.enabled_until > NOW()
+    `, [companyId, moduleKey]);
+    
+    return module.rows.length > 0;
+  }
+}
+
+// Uso no serviço (dentro do módulo billing)
+// apps/api/src/modules/billing/billing.service.ts
+import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
+
+async createInvoice(companyId: string, data: InvoiceData) {
+  const hasModule = await FeatureToggleService.verify(companyId, 'BILLING');
+  if (!hasModule) {
+    throw new Error('BILLING module not active');
+  }
+  // ... lógica
+}
+```
+
+### Middleware de Módulo
+Retorne `402 Payment Required` ou `403 Forbidden` se o módulo estiver desativado.
+
+```typescript
+// apps/api/src/middleware/module.middleware.ts
+import { FeatureToggleService } from '../modules/feature-toggles/feature-toggle.service';
+
+export const requireModule = (moduleKey: string) => {
+  return async (c: Context, next: Next) => {
+    const companyId = c.get('companyId');
+    const hasModule = await FeatureToggleService.verify(companyId, moduleKey);
+    
+    if (!hasModule) {
+      return c.json({ 
+        error: { 
+          message: `Module ${moduleKey} is not active`, 
+          code: 'MODULE_NOT_ACTIVE' 
+        } 
+      }, 402);
+    }
+    
+    await next();
+  };
+};
+```
+
+### Uso em Rotas de Módulo
+```typescript
+// apps/api/src/modules/billing/billing.routes.ts
+import { requireModule } from '../../middleware/module.middleware';
+
+export const billingRoutes = new Hono()
+  .use('/invoices', requireModule('BILLING'))
+  .post('/invoices', async (c) => {
+    // ... lógica
+  });
+```
+
+### Estrutura de Tabelas
+```sql
+-- modules: Módulos disponíveis no sistema
+CREATE TABLE modules (
+  id UUID PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  key VARCHAR(100) UNIQUE NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- tenant_modules: Módulos ativados por tenant
+CREATE TABLE tenant_modules (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL REFERENCES companies(id),
+  module_id UUID NOT NULL REFERENCES modules(id),
+  enabled_until TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(tenant_id, module_id)
+);
+```
+
+## Limite de Usuários (Seats)
+
+### Criação de Usuário
+Verificar `count(users) < plan.max_users` antes de criar.
+
+```typescript
+// apps/api/src/modules/users/user.service.ts
+import { CompanyRepository } from '../companies/company.repository';
+import { SubscriptionService } from '../subscriptions/subscription.service';
+
+async createUser(companyId: string, userData: CreateUserData) {
+  // Verificar limite de seats
+  const subscription = await SubscriptionService.getByCompany(companyId);
+  const currentUsers = await this.userRepo.countByCompany(companyId);
+  
+  if (currentUsers >= subscription.plan.max_users) {
+    throw new Error('User limit reached');
+  }
+  
+  // ... criar usuário
+}
+```
+
+### Bloqueio de Escrita
+Se a assinatura estiver `past_due` ou `canceled`, bloquear operações de escrita (POST/PUT/PATCH).
+
+```typescript
+// apps/api/src/middleware/subscription.middleware.ts
+import { SubscriptionService } from '../modules/subscriptions/subscription.service';
+
+export const requireActiveSubscription = async (c: Context, next: Next) => {
+  const companyId = c.get('companyId');
+  const subscription = await SubscriptionService.getByCompany(companyId);
+  
+  if (['past_due', 'canceled'].includes(subscription.status)) {
+    return c.json({ 
+      error: { 
+        message: 'Subscription is not active', 
+        code: 'SUBSCRIPTION_INACTIVE' 
+      } 
+    }, 402);
+  }
+  
+  await next();
+};
+```
+
+### Grace Period
+Considere implementar um período de graça (ex: 7 dias) antes de bloquear completamente.
+
+## Integração de Billing
+
+### Stripe/ASAAS
+- Integração com Stripe ou ASAAS para processamento de pagamentos
+- Webhooks para sincronizar status de assinatura
+- Validação de 'seats' (número de usuários) em todas as operações relevantes
+
+### Webhooks de Billing
+```typescript
+// apps/api/src/modules/billing/billing.routes.ts
+import { BillingService } from './billing.service';
+
+export const billingRoutes = new Hono()
+  .post('/webhooks/stripe', async (c) => {
+    const event = await stripe.webhooks.constructEvent(/* ... */);
+    const billingService = new BillingService();
+    
+    switch (event.type) {
+      case 'customer.subscription.updated':
+        await billingService.handleWebhook(event);
+        break;
+      case 'invoice.payment_failed':
+        await billingService.handlePaymentFailure(event.data.object);
+        break;
+    }
+    
+    return c.json({ received: true });
+  });
+```
+
+### Estrutura de Planos
+```sql
+CREATE TABLE plans (
+  id UUID PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  max_users INTEGER NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  billing_cycle VARCHAR(20) -- 'monthly', 'yearly'
+);
+
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY,
+  company_id UUID NOT NULL REFERENCES companies(id),
+  plan_id UUID NOT NULL REFERENCES plans(id),
+  status VARCHAR(50) NOT NULL, -- 'active', 'past_due', 'canceled'
+  current_period_end TIMESTAMP,
+  stripe_subscription_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```

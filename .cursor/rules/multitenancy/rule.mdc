@@ -1,0 +1,90 @@
+---
+description: "Isolamento Multitenant: Garante que dados de diferentes empresas nunca se misturem (Schema-level ou Column-level)"
+alwaysApply: true
+---
+
+# Regras de Multitenancy
+
+Você é responsável por garantir o isolamento total de dados entre diferentes empresas (Tenants).
+
+## Identificação do Tenant
+O `company_id` ou `tenant_id` deve ser extraído **OBRIGATORIAMENTE** no `authMiddleware` através de:
+1. Subdomínio (ex: `empresa.dominio.com`)
+2. Header customizado `X-Tenant-ID`
+3. Payload do JWT (preferencial para rotas autenticadas)
+
+### Exemplo de Middleware
+```typescript
+// apps/api/src/middleware/tenant.middleware.ts
+export const tenantMiddleware = async (c: Context, next: Next) => {
+  const companyId = 
+    c.req.header('X-Tenant-ID') || 
+    extractFromSubdomain(c.req.url) ||
+    c.get('jwt')?.company_id;
+  
+  if (!companyId) {
+    return c.json({ error: { message: 'Tenant not identified', code: 'TENANT_REQUIRED' } }, 400);
+  }
+  
+  c.set('companyId', companyId);
+  await next();
+};
+```
+
+## Camada de Banco de Dados (Repositories)
+
+### Isolamento de Queries
+Toda e qualquer query ao banco de dados **DEVE** incluir a cláusula `where company_id = context.companyId`.
+
+✅ **CORRETO** - Estrutura Modular:
+```typescript
+// apps/api/src/modules/users/user.repository.ts
+import { BaseRepository } from '../../shared/repositories/base.repository';
+
+export class UserRepository extends BaseRepository {
+  async findById(id: string, companyId: string) {
+    return this.query('SELECT * FROM users WHERE id = $1 AND company_id = $2', [id, companyId]);
+  }
+}
+```
+
+❌ **ERRADO** - Sem filtro de company_id:
+```typescript
+// ❌ PROIBIDO - Sem filtro de company_id
+// apps/api/src/modules/users/user.repository.ts
+async findById(id: string) {
+  return db.query('SELECT * FROM users WHERE id = $1', [id]);
+}
+```
+
+### Base Repository
+Todos os repositories devem estender `BaseRepository` que garante o isolamento:
+```typescript
+// apps/api/src/shared/repositories/base.repository.ts
+export abstract class BaseRepository {
+  protected query(sql: string, params: any[]) {
+    // Garante que queries incluem company_id quando necessário
+  }
+}
+```
+
+### Casos Especiais
+- **Super Admin**: Se `user.role === 'super_admin'`, pode acessar dados de qualquer tenant (com auditoria)
+- **Sistema**: Operações do sistema (ex: webhooks) devem validar origem e incluir `company_id` explicitamente
+- **Migrations**: Não aplicam filtro de tenant (são operações de sistema)
+
+### Schema Dinâmico
+Se estiver usando múltiplos esquemas, o middleware deve setar o `search_path` do banco de dados:
+```typescript
+await db.query(`SET search_path TO tenant_${companyId}, public`);
+```
+
+## Checklist de Validação
+Antes de commitar código que acessa o banco:
+- [ ] Query inclui filtro `company_id`?
+- [ ] Repository recebe `companyId` como parâmetro?
+- [ ] Middleware de tenant está aplicado na rota?
+- [ ] Testes verificam isolamento entre tenants?
+
+## Regra de Ouro
+**NUNCA** execute queries sem filtro de `company_id`. Isso é uma violação crítica de segurança.

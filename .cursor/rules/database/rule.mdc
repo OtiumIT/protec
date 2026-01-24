@@ -1,0 +1,95 @@
+---
+description: "Configuração de Banco de Dados: PostgreSQL local ou Supabase (conexão direta)"
+globs: ["apps/api/src/db/**", "apps/api/src/modules/**/**.repository.ts"]
+alwaysApply: false
+---
+
+# Configuração de Banco de Dados
+
+## Opções Suportadas
+
+### PostgreSQL Local
+- Desenvolvimento local
+- Connection string: `postgresql://user:password@localhost:5432/database`
+
+### Supabase (Recomendado)
+- **PostgreSQL gerenciado** com recursos extras (auth, storage, etc.)
+- **Conexão direta PostgreSQL** (não usar API REST)
+- Funciona exatamente como PostgreSQL normal
+- Connection string: `postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres`
+
+### Connection Pooling (Supabase - Produção)
+- Usar pooler para melhor performance
+- Connection string: `postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`
+
+## Configuração
+
+### Variável de Ambiente
+```env
+DATABASE_URL=postgresql://postgres:password@xxxxx.supabase.co:5432/postgres
+```
+
+### Cliente PostgreSQL
+```typescript
+// apps/api/src/db/client.ts
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20, // máximo de conexões no pool
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+export default pool;
+```
+
+## Uso em Repositories
+
+```typescript
+// apps/api/src/modules/users/user.repository.ts
+import db from '../../db/client';
+
+export class UserRepository {
+  async findById(id: string, companyId: string) {
+    const result = await db.query(
+      'SELECT * FROM users WHERE id = $1 AND company_id = $2',
+      [id, companyId]
+    );
+    return result.rows[0];
+  }
+}
+```
+
+## Multitenancy com Supabase
+
+Supabase funciona exatamente como PostgreSQL normal. Você pode:
+- Usar `search_path` para schema dinâmico
+- Criar múltiplos schemas por tenant
+- Usar `company_id` em todas as queries (column-level)
+
+### Exemplo de Schema Dinâmico
+```typescript
+// No middleware de tenant
+await db.query(`SET search_path TO tenant_${companyId}, public`);
+```
+
+## Vantagens do Supabase
+
+- **PostgreSQL completo**: Todas as features do PostgreSQL
+- **Gerenciado**: Backups automáticos, updates, monitoramento
+- **Extras**: Auth, Storage, Realtime (opcionais)
+- **Connection pooling**: Incluído
+- **Escalável**: Fácil upgrade de plano
+
+## Migrations
+
+- Usar ferramentas padrão: Drizzle, Prisma Migrate, ou SQL direto
+- Supabase suporta migrations normalmente
+- Pode usar Supabase CLI ou ferramentas próprias
+
+## Importante
+
+- **NUNCA** usar API REST do Supabase para operações de banco
+- **SEMPRE** usar conexão PostgreSQL direta
+- Connection string funciona com qualquer biblioteca PostgreSQL (`pg`, Prisma, Drizzle, etc.)
