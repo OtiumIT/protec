@@ -1,0 +1,37 @@
+---
+description: "Migrations: público vs tenant, lista única e aplicação em tenants existentes"
+globs: ["apps/api/src/db/**", "apps/api/src/scripts/migrate.ts"]
+alwaysApply: true
+---
+
+# Migrations (Public + Tenant)
+
+## 1. Separação público vs tenant
+- **Public**: rodam no schema `public` (companies, users, plans, tenant_modules, etc.).
+- **Tenant**: rodam no schema `tenant_{company_id}` (clients, fiscal_files, judicial_processes, in_2306_simulations, etc.). Referenciam tabelas que só existem no tenant (ex.: `clients`).
+
+Migrations de tenant **nunca** rodam no public. O script `migrate.ts` pula essas e aplica-as nos schemas de tenant.
+
+## 2. Lista única (fonte da verdade)
+- **Arquivo**: `apps/api/src/db/tenant-migrations.ts`
+- Contém `TENANT_MIGRATION_FILES`: array ordenado dos arquivos `.sql` de tenant.
+- Usado por: `scripts/migrate.ts` (não rodar no public + aplicar em tenants existentes) e `db/schema-manager.ts` (aplicar em novo tenant na criação).
+
+Ao adicionar nova migration de tenant, **sempre** incluir o filename nesse array, na ordem numérica.
+
+## 3. Ao criar uma nova migration
+1. Criar o arquivo em `apps/api/src/db/migrations/NNN_nome.sql`.
+2. Se for migration **de tenant** (tabelas no schema do tenant, ex.: referência a `clients`):
+   - Adicionar em `tenant-migrations.ts`: `'NNN_nome.sql',` na posição correta do array.
+3. Rodar `pnpm run migrate` (a partir de `apps/api`): aplica pendentes no public e **em todos os tenants existentes**.
+
+## 4. Comportamento do `pnpm run migrate`
+- Cria/atualiza `schema_migrations` no public e executa apenas migrations **não** listadas em `TENANT_MIGRATION_FILES`.
+- Em seguida: lista schemas `tenant_*`, e em cada um aplica as migrations de tenant que ainda não constam na tabela `schema_migrations` daquele schema.
+- Assim, **novas migrations de tenant passam a valer para todos os tenants já existentes**, sem script manual.
+
+## 5. Checklist para a IA
+Ao criar ou alterar migrations:
+1. O novo `.sql` é de tenant? (ex.: cria tabela que referencia `clients` ou outras tabelas só do tenant.)
+2. Se sim, `tenant-migrations.ts` foi atualizado com o novo filename?
+3. Não remover arquivos da lista sem garantir que a migration já foi aplicada ou que o tenant não depende mais dela.
