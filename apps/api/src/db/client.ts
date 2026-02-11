@@ -1,4 +1,12 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { Pool } from 'pg';
+
+// Carregar .env da raiz do projeto (se não estiver carregado)
+if (!process.env.DATABASE_URL) {
+  const envPath = resolve(process.cwd(), '../../.env');
+  config({ path: envPath });
+}
 
 /**
  * Cliente PostgreSQL
@@ -6,20 +14,52 @@ import { Pool } from 'pg';
  * 
  * Connection strings:
  * - Local: postgresql://user:password@localhost:5432/database
- * - Supabase: postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres
+ * - Supabase: postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres
  * - Supabase Pooler: postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true
  */
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ DATABASE_URL não está configurado!');
+  console.error('💡 Configure no arquivo .env:');
+  console.error('   DATABASE_URL=postgresql://postgres:SENHA@db.PROJECT_REF.supabase.co:5432/postgres');
+  process.exit(1);
+}
+
+// Validar formato da connection string
+if (!connectionString.startsWith('postgresql://') && !connectionString.startsWith('postgres://')) {
+  console.error('❌ DATABASE_URL deve começar com postgresql:// ou postgres://');
+  process.exit(1);
+}
+
+// Supabase exige SSL; conexão direta sem SSL causa timeout
+const isSupabase = connectionString.includes('supabase.co');
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20, // máximo de conexões no pool
+  connectionString,
+  max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 15000,
+  ...(isSupabase && {
+    ssl: { rejectUnauthorized: false },
+  }),
 });
 
 // Tratamento de erros do pool
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+pool.on('error', (err: any) => {
+  console.error('❌ Erro inesperado no pool de conexões:', err.message);
+  console.error('   Tipo:', err.constructor.name);
+  if (err.code === 'EHOSTUNREACH' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
+    console.error('\n💡 Possíveis soluções:');
+    console.error('   1. Verifique sua conexão com a internet');
+    console.error('   2. Verifique se a DATABASE_URL está correta no .env');
+    console.error('   3. Se estiver usando Supabase, verifique se o projeto está ativo');
+    console.error('   4. Tente usar IPv4 ao invés de IPv6 (verifique a connection string)');
+    console.error('   5. Verifique se há firewall bloqueando a conexão');
+  }
+  // Não fazer exit automático em produção para evitar crashes
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('\n⚠️  Continuando, mas conexões podem falhar...');
+  }
 });
 
 /**
@@ -27,7 +67,9 @@ pool.on('error', (err) => {
  * @param companyId - ID da empresa/tenant
  */
 export async function setTenantSchema(companyId: string): Promise<void> {
-  await pool.query(`SET search_path TO tenant_${companyId}, public`);
+  // Substituir hífens por underscores (PostgreSQL não aceita hífens em nomes de schema)
+  const schemaName = `tenant_${companyId.replace(/-/g, '_')}`;
+  await pool.query(`SET search_path TO "${schemaName}", public`);
 }
 
 /**
@@ -35,7 +77,7 @@ export async function setTenantSchema(companyId: string): Promise<void> {
  */
 export interface QueryResult<T = any> {
   rows: T[];
-  rowCount: number;
+  rowCount: number | null;
 }
 
 /**
@@ -55,9 +97,42 @@ export async function query<T = any>(
       console.log('Slow query:', { text, duration, rows: result.rowCount });
     }
     
-    return result;
-  } catch (error) {
-    console.error('Database query error:', { text, params, error });
+    return {
+      rows: result.rows,
+      rowCount: result.rowCount ?? 0,
+    };
+  } catch (error: any) {
+    // Melhorar mensagens de erro de conexão
+    if (error.code === 'EHOSTUNREACH' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      const maskedUrl = connectionString?.replace(/:\/\/[^:]+:[^@]+@/, '://***:***@') || 'connection string não disponível';
+      console.error('❌ Erro de conexão com o banco de dados:');
+      console.error(`   Código: ${error.code}`);
+      console.error(`   Mensagem: ${error.message}`);
+      console.error(`   Connection String (mascarada): ${maskedUrl}`);
+      console.error('\n💡 Possíveis soluções:');
+      console.error('   1. Verifique sua conexão com a internet');
+      console.error('   2. Verifique se a DATABASE_URL está correta no arquivo .env');
+      console.error('   3. Se estiver usando Supabase, verifique se o projeto está ativo');
+      console.error('   4. Tente usar a connection string do pooler (porta 6543) ao invés da direta');
+      console.error('   5. Verifique se há firewall ou proxy bloqueando a conexão');
+      console.error('   6. Se o erro mencionar IPv6, tente usar IPv4 ou o pooler do Supabase');
+      console.error('\n📖 Veja COMO_ENCONTRAR_CONNECTION_STRING.md para mais informações');
+      
+      // Criar erro mais amigável
+      const friendlyError = new Error(
+        `Não foi possível conectar ao banco de dados. Verifique a configuração de DATABASE_URL no arquivo .env. ` +
+        `Erro: ${error.code || error.message}`
+      );
+      (friendlyError as any).code = error.code || 'DATABASE_CONNECTION_ERROR';
+      throw friendlyError;
+    }
+    
+    console.error('Database query error:', { 
+      code: error.code,
+      message: error.message,
+      query: text.substring(0, 100),
+      paramsCount: params?.length || 0
+    });
     throw error;
   }
 }

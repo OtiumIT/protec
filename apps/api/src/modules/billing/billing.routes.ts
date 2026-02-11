@@ -1,23 +1,25 @@
 import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
 import { BillingService } from './billing.service';
-import { SubscriptionRepository } from '../subscriptions/subscription.repository';
-import { PlanRepository } from './plan.repository';
+import { StripeWebhookSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const billingRoutes = new Hono();
 
-const subscriptionRepo = new SubscriptionRepository();
-const planRepo = new PlanRepository();
-const billingService = new BillingService(subscriptionRepo, planRepo);
+const billingService = new BillingService();
 
-billingRoutes.post('/webhooks/stripe', async (c) => {
-  try {
-    const event = await c.req.json();
-    await billingService.handleWebhook(event);
-    return c.json({ received: true });
-  } catch (error) {
-    return errorHandler(error, c);
+billingRoutes.post(
+  '/webhooks/stripe',
+  zValidator('json', StripeWebhookSchema),
+  async (c) => {
+    try {
+      const event = c.req.valid('json');
+      await billingService.handleWebhook(event);
+      return c.json({ received: true });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
   }
-});
+);
 
 export { billingRoutes };

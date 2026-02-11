@@ -1,8 +1,19 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { serve } from '@hono/node-server';
 import app from './modules';
 
-const port = parseInt(process.env.PORT || '3000', 10);
+// Carregar .env da raiz do projeto
+config({ path: resolve(process.cwd(), '../../.env') });
 
-console.log(`🚀 Server running on port ${port}`);
+const port = parseInt(process.env.PORT || '3001', 10);
+
+serve({
+  fetch: app.fetch,
+  port,
+}, (info) => {
+  console.log(`🚀 Server running on http://localhost:${info.port}`);
+});
 
 export default {
   port,

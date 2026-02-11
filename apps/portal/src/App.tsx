@@ -1,11 +1,19 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { Dashboard } from './pages/Dashboard';
-import { Clients } from './pages/Clients';
-import { Users } from './pages/Users';
-import { Plans } from './pages/Plans';
+import { AuthProvider, useAuth } from './shared/contexts/AuthContext';
+import { Login } from './modules/auth/pages/Login';
+import { Register } from './modules/auth/pages/Register';
+import { Dashboard } from './modules/system/pages/Dashboard';
+import { Clients } from './modules/clients/pages/Clients';
+import { Tenants } from './modules/companies/pages/Tenants';
+import { Users } from './modules/users/pages/Users';
+import { Administrators } from './modules/users/pages/Administrators';
+import { Editais } from './modules/editais/pages/Editais';
+import { Plans } from './modules/plans/pages/Plans';
+import { FiscalFiles } from './modules/fiscal-files/pages/FiscalFiles';
+import { FiscalFilesUpload } from './modules/fiscal-files/pages/FiscalFilesUpload';
+import { Modules } from './modules/modules/pages/Modules';
+import { RatingValidator } from './modules/rating-validator/pages/RatingValidator';
+import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -40,6 +48,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/tenants"
+        element={
+          <PrivateRoute>
+            <Tenants />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/users"
         element={
           <PrivateRoute>
@@ -48,10 +64,66 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/administrators"
+        element={
+          <PrivateRoute>
+            <Administrators />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/editais"
+        element={
+          <PrivateRoute>
+            <Editais />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/plans"
         element={
           <PrivateRoute>
             <Plans />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/fiscal-files"
+        element={
+          <PrivateRoute>
+            <FiscalFiles />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/fiscal-files/upload"
+        element={
+          <PrivateRoute>
+            <FiscalFilesUpload />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/modules"
+        element={
+          <PrivateRoute>
+            <Modules />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/rating-validator"
+        element={
+          <PrivateRoute>
+            <RatingValidator />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/simulador-in-2306"
+        element={
+          <PrivateRoute>
+            <SimuladorIN2306 />
           </PrivateRoute>
         }
       />

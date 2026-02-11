@@ -21,4 +21,5 @@ export const UpdateUserSchema = z.object({
   name: z.string().min(3).optional(),
   email: z.string().email().optional(),
   role: z.string().optional(),
+  status: z.enum(['active', 'inactive']).optional(),
 });

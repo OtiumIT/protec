@@ -31,12 +31,12 @@ export function logOperation(context: LogContext): void {
 export function logSensitiveOperation(
   action: string,
   userId: string,
-  companyId: string,
+  companyId: string | null,
   metadata?: Record<string, any>
 ): void {
   logOperation({
     userId,
-    companyId,
+    companyId: companyId || undefined,
     action,
     metadata: {
       ...metadata,

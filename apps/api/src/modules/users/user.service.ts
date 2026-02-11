@@ -26,10 +26,29 @@ export class UserService {
       throw new AppError('User limit reached', 'USER_LIMIT_REACHED', 409);
     }
 
-    // Verificar se email já existe
+    // Verificar se email já existe no tenant atual
     const existingUser = await this.userRepo.findByEmail(data.email, companyId);
     if (existingUser) {
-      throw new AppError('Email already exists', 'EMAIL_ALREADY_EXISTS', 409);
+      const statusInfo = existingUser.status === 'inactive' ? ' (usuário inativo)' : '';
+      throw new AppError(
+        `Email já existe neste tenant${statusInfo}. Verifique a lista de usuários, incluindo usuários inativos.`,
+        'EMAIL_ALREADY_EXISTS',
+        409
+      );
+    }
+
+    // Verificar se email existe como super_admin (não pode ser usado em tenants)
+    const existingSuperAdmin = await this.userRepo.findByEmailGlobal(data.email);
+    if (existingSuperAdmin && existingSuperAdmin.company_id === null) {
+      throw new AppError('Email já existe como super admin e não pode ser usado em tenants', 'EMAIL_ALREADY_EXISTS', 409);
+    }
+
+    // Debug: verificar se email existe em outros tenants (apenas para log)
+    const allUsersWithEmail = await this.userRepo.findAllByEmail(data.email);
+    if (allUsersWithEmail.length > 0) {
+      console.log(`[UserService.create] Email ${data.email} encontrado em outros tenants:`, 
+        allUsersWithEmail.map(u => ({ id: u.id, company_id: u.company_id, role: u.role, status: u.status }))
+      );
     }
 
     // Hash da senha
@@ -41,11 +60,20 @@ export class UserService {
       password: passwordHash,
     });
 
+    // Garantir que o status seja 'active'
+    if (!user.status || user.status !== 'active') {
+      console.warn(`[UserService.create] Usuário criado com status inesperado: ${user.status || 'undefined'}, forçando 'active'`);
+      user.status = 'active';
+    }
+
     // Log da operação
     logSensitiveOperation('user_created', user.id, companyId, {
       email: user.email,
       role: user.role,
+      status: user.status,
     });
+
+    console.log(`[UserService.create] Usuário criado com sucesso: ${user.email}, status: ${user.status}, company_id: ${companyId}`);
 
     return user;
   }
@@ -150,5 +178,39 @@ export class UserService {
       throw new AppError('User not found', 'USER_NOT_FOUND', 404);
     }
     return user;
+  }
+
+  /**
+   * Criar super_admin (sem company_id)
+   */
+  async createSuperAdmin(data: CreateUserData): Promise<User> {
+    // Verificar se email já existe (globalmente, sem company_id)
+    const existingUser = await this.userRepo.findByEmailGlobal(data.email);
+    if (existingUser) {
+      throw new AppError('Email already exists', 'EMAIL_ALREADY_EXISTS', 409);
+    }
+
+    // Hash da senha
+    const passwordHash = await hashPassword(data.password);
+
+    // Criar super_admin
+    const user = await this.userRepo.createSuperAdmin({
+      ...data,
+      password: passwordHash,
+    });
+
+    // Log da operação
+    logSensitiveOperation('super_admin_created', user.id, null, {
+      email: user.email,
+    });
+
+    return user;
+  }
+
+  /**
+   * Listar todos os super_admins
+   */
+  async listSuperAdmins(): Promise<User[]> {
+    return this.userRepo.findSuperAdmins();
   }
 }

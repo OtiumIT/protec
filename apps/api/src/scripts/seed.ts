@@ -1,4 +1,9 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { query } from '../db/client';
+
+// Carregar .env da raiz do projeto
+config({ path: resolve(process.cwd(), '../../.env') });
 
 /**
  * Seed de dados iniciais
@@ -29,8 +34,13 @@ async function seed() {
     }
 
     // Criar módulos padrão
+    // IMPORTANTE: Sempre que criar um novo módulo, adicione-o aqui e também na migration 020_create_default_modules.sql
+    // Esta lista deve estar sincronizada com a migration para garantir consistência
     const modules = [
       { name: 'Billing', key: 'BILLING', description: 'Sistema de cobrança e assinaturas' },
+      { name: 'Fiscal Files', key: 'FISCAL_FILES', description: 'Gerenciamento de arquivos fiscais (SPED, ECD, PGDAS, etc)' },
+      { name: 'Rating Validator', key: 'RATING_VALIDATOR', description: 'Validador de Rating PGFN (CAPAG) - Análise de capacidade de pagamento' },
+      { name: 'Simulador IN 2.306/2026', key: 'SIMULADOR_IN_2306', description: 'Simulador da Nova IN RFB 2.306/2026 - Parcelamento e condições' },
       { name: 'Reports', key: 'REPORTS', description: 'Relatórios e análises' },
       { name: 'Analytics', key: 'ANALYTICS', description: 'Analytics avançado' },
     ];
@@ -55,7 +65,12 @@ async function seed() {
   }
 }
 
-if (require.main === module) {
+// Executar se chamado diretamente
+const isMainModule = import.meta.url === `file://${process.argv[1]}` || 
+                     process.argv[1]?.endsWith('seed.ts') ||
+                     process.argv[1]?.endsWith('seed.js');
+
+if (isMainModule) {
   seed()
     .then(() => process.exit(0))
     .catch((error) => {

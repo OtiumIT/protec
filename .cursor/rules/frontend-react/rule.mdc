@@ -1,73 +1,54 @@
 ---
-description: "Padrões React: UI baseada em permissões, Hooks e Tailwind"
+description: "Padrões React: UI Modular, Hooks e Tailwind"
 globs: ["apps/portal/**"]
 alwaysApply: false
 ---
 
-# Padrões Frontend (React + Vite + Tailwind)
+# Frontend Standard (React + Vite + Tailwind)
 
-## Estrutura de Pastas
-```
-apps/portal/src/
-  ├── components/     # Componentes reutilizáveis
-  │   ├── ui/        # Componentes base (Button, Input, etc)
-  │   └── layout/    # Layout components (Sidebar, Header)
-  ├── pages/         # Páginas/Views
-  ├── hooks/         # Hooks customizados
-  ├── services/      # API clients
-  ├── contexts/       # Context API (Auth, Tenant, etc)
-  ├── utils/         # Funções utilitárias
-  ├── types/         # Tipos TypeScript
-  └── routes/        # Definição de rotas
-```
+## 1. Arquitetura Modular (Obrigatório)
+O frontend deve espelhar a estrutura do backend. **Proibido** centralizar páginas ou services fora de seus módulos.
 
-## Organização
-- **Routes**: Protegidas por permissões de módulo.
-- **State Management**: Context API ou Zustand para dados do Tenant.
-- **Layout**: Dashboard adaptável (Sidebar baseada em permissões).
+- **Estrutura por Módulo:** `apps/portal/src/modules/{modulo}/`
+  - `pages/`: Telas do módulo.
+  - `services/`: Lógica de API (`{modulo}.service.ts`).
+  - `components/`: UI exclusiva do módulo.
+  - `hooks/`: Lógica de estado específica.
+- **Shared:** `apps/portal/src/shared/` para recursos globais (UI base, Layout, Contexts, Utils).
 
-## Padrões de UI
-- **Menu Dinâmico**: Sidebar renderizada filtrando itens por `user.permissions` e `company.active_modules`.
-- **Hooks**: Use hooks customizados para API (ex: `useTenant()`, `useModules()`).
+## 2. Regras de Importação e Isolamento
+- **Isolamento:** Módulos não podem importar diretamente de outros módulos. 
+- **Comunicação:** Use a pasta `shared` ou estados globais para trocar informações entre módulos.
+- **Aliases:** Prefira o uso de `@/` para `apps/portal/src/`.
+  - ✅ `import { Button } from '@/shared/components/ui/button'`
+  - ✅ `import { service } from '../services/modulo.service'` (Import local)
+  - ❌ `import { service } from '../../outro-modulo/services/...'` (Proibido)
 
-### Exemplo de Hook Customizado
+## 3. Padrões de Código e UI
+- **Data Fetching:** Encapsule chamadas em `services`. Proibido Axios/Fetch direto no componente.
+- **Feedback:** **Proibido** `alert()`, `confirm()` ou `prompt()`. Use o hook `useToast()`.
+- **Loading/Error:** Sempre trate estados de carregamento e erro visualmente.
+- **Tailwind:** Mobile-first obrigatório (use `sm:`, `md:`, `lg:`).
+- **Performance:** Use `React.lazy()` e `Suspense` para todas as definições de rotas.
+
+## 4. UI Baseada em Permissões
+- **Sidebar/Menus:** Renderizar itens filtrando por `user.permissions` e `company.active_modules`.
+- **Botões de Ação:** Proteja botões de escrita (Criar, Editar, Excluir) verificando as permissões do usuário antes da renderização.
+
+## 5. Exemplo de Implementação Padrão
 ```typescript
-// apps/portal/src/hooks/useTenant.ts
-export function useTenant() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['tenant'],
-    queryFn: () => api.get('/tenant'),
-  });
-  
-  return { tenant: data?.data, isLoading, error };
-}
-```
+// Exemplo de Página Modular
+import React, { Suspense } from 'react';
+import { useToast } from '@/shared/hooks/useToast';
+import { moduleService } from '../services/module.service';
+import { Button } from '@/shared/components/ui/button';
 
-- **Mobile First**: Priorize breakpoints responsivos do Tailwind (`sm:`, `md:`, `lg:`, `xl:`).
-- **Feedback**: Trate estados de `loading` e `error` visualmente.
-- **Acessibilidade**: Use elementos semânticos e ARIA labels.
-
-## Performance
-- **Lazy Loading**: Use `React.lazy()` e `Suspense` para rotas
-- **Code Splitting**: Separe bundles por rota
-- **Memoização**: Use `useMemo` e `useCallback` quando apropriado
-- **Imagens**: Use lazy loading para imagens (`loading="lazy"`)
-
-### Exemplo de Lazy Loading
-```typescript
-const UsersPage = React.lazy(() => import('./pages/UsersPage'));
-
-<Suspense fallback={<Loading />}>
-  <UsersPage />
-</Suspense>
-```
-
-## Testes
-- Use React Testing Library para testes de componentes
-- Teste hooks customizados isoladamente
-- Teste integração de rotas protegidas
-
-## Comunicação com Backend
-- **NUNCA** acesse o banco de dados diretamente do frontend.
-- Todas as operações devem passar pela API (Node.js).
-- Use uma biblioteca de HTTP client (axios, fetch) centralizada.
+export const ModulePage = () => {
+  const { toast } = useToast();
+  // Lógica...
+  return (
+    <div className="p-4 flex flex-col md:flex-row">
+      <Button onClick={() => toast({ title: 'Sucesso' })}>Ação</Button>
+    </div>
+  );
+};

@@ -8,3 +8,12 @@ export const ActivateModuleSchema = z.object({
 export const DeactivateModuleSchema = z.object({
   moduleId: z.string().uuid(),
 });
+
+export const AddModuleToPlanSchema = z.object({
+  moduleId: z.string().uuid(),
+  isDefault: z.boolean().default(true),
+});
+
+export const PlanIdParamSchema = z.object({
+  planId: z.string().uuid(),
+});

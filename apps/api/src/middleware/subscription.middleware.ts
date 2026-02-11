@@ -8,7 +8,7 @@ import type { Subscription } from '@shared/core';
  * 
  * Nota: Será atualizado quando SubscriptionService for criado
  */
-export async function requireActiveSubscription(c: Context, next: Next) {
+export async function requireActiveSubscription(c: Context, next: Next): Promise<Response | void> {
   const companyId = c.get('companyId');
   const method = c.req.method;
 

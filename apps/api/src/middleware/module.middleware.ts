@@ -8,7 +8,7 @@ import { query } from '../db/client';
  * Nota: Será atualizado quando FeatureToggleService for criado
  */
 export function requireModule(moduleKey: string) {
-  return async (c: Context, next: Next) => {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const companyId = c.get('companyId');
 
     if (!companyId) {

@@ -28,6 +28,40 @@ export function errorHandler(error: unknown, c: Context): Response {
     );
   }
 
+  // Erro de conexão com banco de dados
+  if (error instanceof Error && ('code' in error)) {
+    const errorCode = (error as any).code;
+    if (errorCode === 'EHOSTUNREACH' || errorCode === 'ENOTFOUND' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED' || errorCode === 'DATABASE_CONNECTION_ERROR') {
+      return c.json<ApiError>(
+        {
+          error: {
+            message: 'Não foi possível conectar ao banco de dados. Verifique a configuração de DATABASE_URL no arquivo .env',
+            code: 'DATABASE_CONNECTION_ERROR',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+          },
+        },
+        500
+      );
+    }
+  }
+
+  // Erro de tabela não encontrada
+  if (error instanceof Error && (
+    error.message.includes('does not exist') ||
+    error.message.includes('relation') && error.message.includes('not found')
+  )) {
+    return c.json<ApiError>(
+      {
+        error: {
+          message: 'Tabela não encontrada no banco de dados. Execute as migrations: npm run migrate',
+          code: 'TABLE_NOT_FOUND',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        },
+      },
+      500
+    );
+  }
+
   // Erro de banco de dados
   if (error instanceof Error && error.message.includes('company_id')) {
     return c.json<ApiError>(
@@ -52,17 +86,25 @@ export function errorHandler(error: unknown, c: Context): Response {
           code: (error as any).code || 'UNKNOWN_ERROR',
         },
       },
-      statusCode
+      statusCode as 200 | 201 | 400 | 401 | 403 | 404 | 409 | 422 | 500
     );
   }
 
   // Erro genérico
   console.error('Unhandled error:', error);
+  console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+  console.error('Error details:', {
+    message: error instanceof Error ? error.message : String(error),
+    name: error instanceof Error ? error.name : typeof error,
+  });
   return c.json<ApiError>(
     {
       error: {
-        message: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Internal server error',
         code: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' 
+          ? (error instanceof Error ? error.stack : String(error))
+          : undefined,
       },
     },
     500

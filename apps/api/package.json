@@ -11,11 +11,18 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
     "migrate": "tsx src/scripts/migrate.ts",
-    "seed": "tsx src/scripts/seed.ts"
+    "setup": "tsx src/scripts/setup-supabase.ts",
+    "test-connection": "tsx src/scripts/test-connection.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "create-admin": "tsx src/scripts/create-admin.ts",
+    "cleanup-tenants": "tsx src/scripts/cleanup-tenant.ts",
+    "reset-password": "tsx src/scripts/reset-password.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.9",
     "@hono/zod-validator": "^0.2.1",
     "@shared/core": "workspace:*",
+    "@supabase/supabase-js": "^2.91.1",
     "bcrypt": "^5.1.1",
     "hono": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
@@ -27,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.0",
     "@types/pg": "^8.10.9",
+    "dotenv": "^17.2.3",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0"
   }

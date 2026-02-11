@@ -4,258 +4,67 @@ globs: ["apps/api/**"]
 alwaysApply: false
 ---
 
-# Padrões Backend (Node.js/Hono)
+# Backend Standards (Hono + Zod)
 
-## Validação (OBRIGATÓRIO)
-- Use `zValidator` do Hono em **todas** as entradas (body, query, params).
-- TypeScript: Tipagem estrita em todos os parâmetros e retornos.
+## 1. Validação e Tipagem (OBRIGATÓRIO)
+Toda rota deve ser validada na entrada. PROIBIDO acessar c.req sem o uso de zValidator.
+- Schemas: Utilize obrigatoriamente schemas definidos em @shared/core para garantir consistência entre os apps.
+- Strict Typing: Utilize c.req.valid('json' | 'query' | 'param') para garantir segurança de tipos no Hono.
 
-### Exemplo de Validação
-```typescript
-import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
-
-const createUserSchema = z.object({
-  name: z.string().min(3),
-  email: z.string().email(),
-  company_id: z.string().uuid(),
+Exemplo de Rota:
+app.post('/', zValidator('json', CreateUserSchema), async (c) => {
+  const payload = c.req.valid('json');
+  const companyId = c.get('companyId');
+  const service = new UserService(new UserRepository());
+  const result = await service.create(companyId, payload);
+  return c.json({ data: result }, 201);
 });
 
-app.post('/users', 
-  zValidator('json', createUserSchema),
-  async (c) => {
-    const data = c.req.valid('json');
-    // ... lógica
-  }
-);
-```
+## 2. Arquitetura Modular (Domínios)
+O código deve ser organizado por domínio de negócio, não por camadas técnicas.
+- Estrutura: apps/api/src/modules/{nome}/
+- Componentes: Cada pasta de módulo deve conter obrigatoriamente:
+  - {nome}.routes.ts: Definição de endpoints Hono.
+  - {nome}.service.ts: Lógica de negócio e orquestração.
+  - {nome}.repository.ts: Operações de banco de dados.
+  - README.md: Explicação sucinta das regras de negócio do módulo para contexto da IA.
 
-## Estrutura Modular (OBRIGATÓRIO)
+## 3. Multitenancy e Segurança
+- Isolamento de Dados: Todo método em repository.ts deve obrigatoriamente receber e filtrar por companyId.
+- Tenant Context: Recupere o companyId através do middleware de Tenant usando c.get('companyId').
+- Feature Toggles: Verifique a ativação do módulo para o cliente usando requireModule('NOME_DO_MODULO') antes de executar a lógica principal.
 
-O código deve ser organizado por **módulos/domínios**, não por camadas. Cada módulo contém seu próprio repository, service e routes.
+## 4. Padrão de Respostas e Erros
+Não utilize blocos try/catch genéricos em cada rota; os erros devem ser tratados pelo errorHandler global da aplicação.
 
-### Estrutura de Módulo
-```
-apps/api/src/modules/
-  ├── auth/
-  │   ├── README.md              # OBRIGATÓRIO: Regras de negócio do módulo
-  │   ├── auth.repository.ts
-  │   ├── auth.service.ts
-  │   └── auth.routes.ts
-  ├── users/
-  │   ├── README.md              # OBRIGATÓRIO: Regras de negócio do módulo
-  │   ├── user.repository.ts
-  │   ├── user.service.ts
-  │   └── user.routes.ts
-  ├── companies/
-  │   ├── README.md              # OBRIGATÓRIO: Regras de negócio do módulo
-  │   ├── company.repository.ts
-  │   ├── company.service.ts
-  │   └── company.routes.ts
-  ├── feature-toggles/           # Sistema de módulos (não confundir com pasta modules/)
-  │   ├── README.md
-  │   ├── feature-toggle.repository.ts
-  │   ├── feature-toggle.service.ts
-  │   └── feature-toggle.routes.ts
-  └── [outros-modulos]/
-```
+| Status | Código HTTP | Uso Sugerido |
+| :--- | :--- | :--- |
+| 200/201 | Success | Operações de leitura, atualização ou criação bem-sucedidas. |
+| 400 | Bad Request | Erros de validação do Zod (input inválido ou malformado). |
+| 401/403 | Auth/Forbidden | Falha de autenticação ou falta de permissão de acesso (ACL). |
+| 402 | Payment Required | Módulo desativado no plano atual do Tenant. |
+| 404 | Not Found | O recurso solicitado não existe no banco de dados. |
+| 409 | Conflict | Violação de regra única (ex: email já cadastrado). |
+| 500 | Internal Error | Erro inesperado ou falha de infraestrutura no servidor. |
 
-### Documentação de Módulo (OBRIGATÓRIO)
-
-**Todo módulo DEVE ter um `README.md`** explicando suas regras de negócio:
-
-```markdown
-# Módulo [Nome]
-
-## Descrição
-Breve descrição do que o módulo faz.
-
-## Regras de Negócio
-- Regra 1: Explicação detalhada
-- Regra 2: Quando aplicar, validações, etc.
-- Regra 3: Casos especiais
-
-## Dependências
-- Módulos que este módulo depende
-- Services compartilhados utilizados
-
-## Endpoints
-- `GET /resource` - Descrição
-- `POST /resource` - Validações, regras específicas
-
-## Exemplos de Uso
-Código ou fluxos de exemplo quando relevante
-```
-
-**Por que é importante:**
-- Cursor entende contexto sem ler todo o código
-- Facilita manutenção futura
-- Documenta decisões de negócio
-- Onboarding mais rápido
-
-### Regras de Organização
-- **Cada módulo é autocontido**: repository, service e routes ficam na mesma pasta
-- **Não criar pastas globais** de repositories ou services
-- **Shared apenas para código comum**: `apps/api/src/shared/repositories/base.repository.ts`
-- **Middlewares globais**: `apps/api/src/middleware/` (tenant, auth, etc.)
-
-### Fluxo de Requisição
-```
-Route (módulo) → Middleware (Auth, Tenant) → Service (módulo) → Repository (módulo) → Database
-```
-
-### Exemplo de Módulo Completo
-```typescript
-// apps/api/src/modules/users/user.repository.ts
-export class UserRepository extends BaseRepository {
-  async findById(id: string, companyId: string) {
-    return this.query('SELECT * FROM users WHERE id = $1 AND company_id = $2', [id, companyId]);
-  }
-}
-
-// apps/api/src/modules/users/user.service.ts
-export class UserService {
-  constructor(private userRepo: UserRepository) {}
-  
-  async create(companyId: string, data: CreateUserData) {
-    // Lógica de negócio
-    return this.userRepo.create(companyId, data);
-  }
-}
-
-// apps/api/src/modules/users/user.routes.ts
-export const userRoutes = new Hono()
-  .get('/', async (c) => {
-    const companyId = c.get('companyId');
-    const service = new UserService(new UserRepository());
-    const users = await service.list(companyId);
-    return c.json({ data: users });
-  });
-```
-
-## Padrão de Respostas
-
-### Sucesso
-```typescript
-return c.json({ data: result }, 200);
-```
-
-### Erro
-```typescript
-return c.json({ 
-  error: { 
-    message: 'User not found', 
-    code: 'USER_NOT_FOUND' 
+Formato de Resposta de Erro:
+{ 
+  "error": { 
+    "message": "Descrição legível para o desenvolvedor", 
+    "code": "SLUG_DO_ERRO_PARA_O_FRONTEND", 
+    "details": [] 
   } 
-}, 404);
-```
+}
 
-## Códigos HTTP
-- `200`: Sucesso (GET, PUT, PATCH)
-- `201`: Criado com sucesso (POST)
-- `400`: Erro de validação/requisição inválida
-- `401`: Não autenticado
-- `402`: Payment Required (módulo desativado)
-- `403`: Sem permissão
-- `404`: Recurso não encontrado
-- `409`: Conflito (ex: email já existe)
-- `422`: Erro de validação de negócio
-- `500`: Erro interno do servidor
+## 5. Regras de Importação e Dependências
+- PERMITIDO: Importar de @shared/core (schemas/tipos) e ../../shared/ (utilitários da API).
+- PERMITIDO: Um serviço importar outro serviço (ex: BillingService -> UserService).
+- PROIBIDO: Importar Repositories de outros módulos diretamente.
+- PROIBIDO: Importar qualquer código ou tipo de apps/portal ou apps/workers.
 
-## Tratamento de Erros
-```typescript
-// apps/api/src/utils/error-handler.ts
-export const errorHandler = (error: Error, c: Context) => {
-  if (error instanceof ZodError) {
-    return c.json({ 
-      error: { 
-        message: 'Validation error', 
-        code: 'VALIDATION_ERROR',
-        details: error.errors 
-      } 
-    }, 400);
-  }
-  
-  // Log error
-  console.error(error);
-  
-  return c.json({ 
-    error: { 
-      message: 'Internal server error', 
-      code: 'INTERNAL_ERROR' 
-    } 
-  }, 500);
-};
-```
-
-## Versionamento de API
-- Use prefixo `/api/v1/` para rotas
-- Mantenha compatibilidade retroativa quando possível
-- Documente breaking changes
-
-## Estrutura Completa do Projeto
-```
-apps/api/src/
-  ├── modules/              # Módulos organizados por domínio
-  │   ├── auth/
-  │   │   ├── auth.repository.ts
-  │   │   ├── auth.service.ts
-  │   │   └── auth.routes.ts
-  │   ├── users/
-  │   │   ├── user.repository.ts
-  │   │   ├── user.service.ts
-  │   │   └── user.routes.ts
-  │   ├── companies/
-  │   │   ├── README.md
-  │   │   └── ...
-  │   ├── feature-toggles/  # Sistema de módulos (não confundir com pasta modules/)
-  │   │   ├── README.md
-  │   │   └── ...
-  │   ├── subscriptions/
-  │   │   ├── README.md
-  │   │   └── ...
-  │   └── billing/
-  │       ├── README.md
-  │       └── ...
-  ├── shared/              # Código compartilhado entre módulos
-  │   ├── repositories/
-  │   │   └── base.repository.ts
-  │   └── utils/
-  │       ├── error-handler.ts
-  │       ├── jwt.ts
-  │       └── password.ts
-  ├── middleware/          # Middlewares globais
-  │   ├── tenant.middleware.ts
-  │   ├── auth.middleware.ts
-  │   └── module.middleware.ts
-  ├── db/                  # Configuração do banco
-  │   └── client.ts
-  └── index.ts             # Entry point, agregação de rotas
-```
-
-## Importações entre Módulos
-
-✅ **CORRETO** - Importar de shared ou packages:
-```typescript
-// apps/api/src/modules/users/user.service.ts
-import { BaseRepository } from '../../shared/repositories/base.repository';
-import { UserSchema, type User } from '@shared/core';
-```
-
-✅ **PERMITIDO** - Importar de outro módulo quando necessário:
-```typescript
-// apps/api/src/modules/billing/billing.service.ts
-import { SubscriptionService } from '../subscriptions/subscription.service';
-// Permitido, mas documente a dependência no README.md do módulo
-```
-
-⚠️ **ATENÇÃO** - Dependências entre módulos:
-- Documente dependências no `README.md` do módulo
-- Prefira comunicação via API interna para módulos muito acoplados
-- Evite dependências circulares (A → B → A)
-
-❌ **ERRADO** - Importar de apps diferentes:
-```typescript
-// ❌ PROIBIDO
-import { UserService } from '../../portal/src/services/user.service';
-```
+## 6. Organização de Pastas
+- src/modules/: Domínios (Routes, Service, Repo)
+- src/middleware/: Middlewares globais (Auth, Tenant, ModuleCheck)
+- src/shared/: BaseRepository, ErrorHandler, Utils globais da API
+- src/db/: Configuração de conexão (Prisma, Drizzle, etc)
+- src/index.ts: Ponto de entrada e agregação das rotas

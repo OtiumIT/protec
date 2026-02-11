@@ -5,9 +5,8 @@ import { AuthRepository } from './auth.repository';
 import { CompanyRepository } from '../companies/company.repository';
 import { UserRepository } from '../users/user.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema } from '@shared/core';
-import { errorHandler, AppError } from '../../shared/utils/error-handler';
+import { errorHandler } from '../../shared/utils/error-handler';
 
 const authRoutes = new Hono();
 

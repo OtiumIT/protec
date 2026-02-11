@@ -20,8 +20,7 @@ export class AuthRepository extends BaseRepository {
   async findByEmailOnly(email: string): Promise<User | null> {
     const result = await query<User>(
       'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE email = $1',
-      [email],
-      false // Não requer company_id nesta query específica
+      [email]
     );
     return result.rows[0] || null;
   }
@@ -29,7 +28,16 @@ export class AuthRepository extends BaseRepository {
   /**
    * Buscar senha hash do usuário
    */
-  async findPasswordHash(userId: string, companyId: string): Promise<string | null> {
+  async findPasswordHash(userId: string, companyId: string | null): Promise<string | null> {
+    // Se companyId for null (super_admin), buscar sem filtro de company_id
+    if (companyId === null) {
+      const result = await query<{ password_hash: string }>(
+        'SELECT password_hash FROM users WHERE id = $1 AND company_id IS NULL',
+        [userId]
+      );
+      return result.rows[0]?.password_hash || null;
+    }
+    
     const result = await this.query<{ password_hash: string }>(
       'SELECT password_hash FROM users WHERE id = $1 AND company_id = $2',
       [userId, companyId]
@@ -45,7 +53,7 @@ export class AuthRepository extends BaseRepository {
     token: string,
     expiresAt: Date
   ): Promise<RefreshToken> {
-    const result = await query<RefreshToken>(
+    const result = await this.query<RefreshToken>(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3) RETURNING id, user_id, token, expires_at, created_at',
       [userId, token, expiresAt],
       false // refresh_tokens não requer company_id diretamente
@@ -57,7 +65,7 @@ export class AuthRepository extends BaseRepository {
    * Buscar refresh token
    */
   async findRefreshToken(token: string): Promise<RefreshToken | null> {
-    const result = await query<RefreshToken>(
+    const result = await this.query<RefreshToken>(
       'SELECT id, user_id, token, expires_at, created_at FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
       [token],
       false
@@ -69,7 +77,7 @@ export class AuthRepository extends BaseRepository {
    * Deletar refresh token
    */
   async deleteRefreshToken(token: string): Promise<void> {
-    await query(
+    await this.query(
       'DELETE FROM refresh_tokens WHERE token = $1',
       [token],
       false
@@ -80,7 +88,7 @@ export class AuthRepository extends BaseRepository {
    * Deletar todos os refresh tokens de um usuário
    */
   async deleteRefreshTokensByUser(userId: string): Promise<void> {
-    await query(
+    await this.query(
       'DELETE FROM refresh_tokens WHERE user_id = $1',
       [userId],
       false

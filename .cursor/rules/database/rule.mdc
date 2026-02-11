@@ -1,95 +1,47 @@
 ---
-description: "Configuração de Banco de Dados: PostgreSQL local ou Supabase (conexão direta)"
+description: "Banco de Dados: Instanciação, Repositories e Multitenancy (PostgreSQL/Supabase)"
 globs: ["apps/api/src/db/**", "apps/api/src/modules/**/**.repository.ts"]
 alwaysApply: false
 ---
 
-# Configuração de Banco de Dados
+# Database Standard (PostgreSQL / Supabase)
 
-## Opções Suportadas
+## 1. Conexão e Cliente
+- Regra de Ouro: SEMPRE use conexão PostgreSQL direta via driver/ORM. PROIBIDO usar API REST do Supabase para operações de banco de dados.
+- Client Path: apps/api/src/db/client.ts deve exportar o Singleton do Pool.
+- Pooler: Em produção, utilize o Transaction Mode do Supabase (porta 6543) com o parâmetro ?pgbouncer=true na string de conexão.
 
-### PostgreSQL Local
-- Desenvolvimento local
-- Connection string: `postgresql://user:password@localhost:5432/database`
-
-### Supabase (Recomendado)
-- **PostgreSQL gerenciado** com recursos extras (auth, storage, etc.)
-- **Conexão direta PostgreSQL** (não usar API REST)
-- Funciona exatamente como PostgreSQL normal
-- Connection string: `postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres`
-
-### Connection Pooling (Supabase - Produção)
-- Usar pooler para melhor performance
-- Connection string: `postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`
-
-## Configuração
-
-### Variável de Ambiente
-```env
-DATABASE_URL=postgresql://postgres:password@xxxxx.supabase.co:5432/postgres
-```
-
-### Cliente PostgreSQL
-```typescript
-// apps/api/src/db/client.ts
+Exemplo de Cliente (apps/api/src/db/client.ts):
 import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20, // máximo de conexões no pool
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
-
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export default pool;
-```
 
-## Uso em Repositories
+## 2. Padrão de Repository (Strict)
+- Dependency: Todos os Repositories devem importar o db client de @/db/client.
+- Prepared Statements: OBRIGATÓRIO o uso de placeholders ($1, $2, etc.) em todas as queries para evitar SQL Injection.
+- Company Context: Toda query de busca, atualização ou exclusão DEVE incluir obrigatoriamente o filtro de company_id no WHERE.
 
-```typescript
-// apps/api/src/modules/users/user.repository.ts
-import db from '../../db/client';
-
-export class UserRepository {
-  async findById(id: string, companyId: string) {
-    const result = await db.query(
-      'SELECT * FROM users WHERE id = $1 AND company_id = $2',
-      [id, companyId]
-    );
-    return result.rows[0];
-  }
+Exemplo de Repository:
+async findById(id: string, companyId: string) {
+  const { rows } = await db.query(
+    'SELECT * FROM users WHERE id = $1 AND company_id = $2',
+    [id, companyId]
+  );
+  return rows[0] || null;
 }
-```
 
-## Multitenancy com Supabase
+## 3. Estratégia de Multitenancy
+- Column-level: Padrão principal. Use a coluna company_id em todas as tabelas compartilhadas.
+- Schema-level: Caso opte por schemas isolados, utilize o middleware de Tenant para executar:
+  await db.query('SET search_path TO tenant_' + companyId + ', public');
 
-Supabase funciona exatamente como PostgreSQL normal. Você pode:
-- Usar `search_path` para schema dinâmico
-- Criar múltiplos schemas por tenant
-- Usar `company_id` em todas as queries (column-level)
+## 4. Migrations e Schema
+- Ferramentas: Utilize Drizzle Kit ou Prisma Migrate para controle de versão do banco.
+- Local Dev: Use PostgreSQL via Docker ou Supabase CLI para garantir paridade entre ambientes.
+- Segurança: Nunca execute migrations que contenham DROP ou TRUNCATE de forma automatizada em produção.
 
-### Exemplo de Schema Dinâmico
-```typescript
-// No middleware de tenant
-await db.query(`SET search_path TO tenant_${companyId}, public`);
-```
-
-## Vantagens do Supabase
-
-- **PostgreSQL completo**: Todas as features do PostgreSQL
-- **Gerenciado**: Backups automáticos, updates, monitoramento
-- **Extras**: Auth, Storage, Realtime (opcionais)
-- **Connection pooling**: Incluído
-- **Escalável**: Fácil upgrade de plano
-
-## Migrations
-
-- Usar ferramentas padrão: Drizzle, Prisma Migrate, ou SQL direto
-- Supabase suporta migrations normalmente
-- Pode usar Supabase CLI ou ferramentas próprias
-
-## Importante
-
-- **NUNCA** usar API REST do Supabase para operações de banco
-- **SEMPRE** usar conexão PostgreSQL direta
-- Connection string funciona com qualquer biblioteca PostgreSQL (`pg`, Prisma, Drizzle, etc.)
+## 5. Proibições Críticas
+- PROIBIDO: Armazenar ou versionar credenciais (senhas/tokens) no código. Use variáveis de ambiente (DATABASE_URL).
+- PROIBIDO: Executar queries sem filtro de tenant (company_id) em módulos que não sejam de administração global/super-admin.
+- PROIBIDO: Instanciar novas conexões (new Pool) dentro de funções ou loops. Use sempre o singleton exportado pelo client.
+- PROIBIDO: Usar a porta 5432 do Supabase em ambientes de produção com alto volume (prefira o Pooler na porta 6543).

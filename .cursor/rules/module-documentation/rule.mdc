@@ -1,146 +1,52 @@
 ---
-description: "Documentação de Módulos: Todo módulo deve ter README.md explicando regras de negócio"
+description: "Documentação de Módulos: Todo módulo DEVE ter README.md com regras de negócio"
 globs: ["apps/api/src/modules/**"]
-alwaysApply: false
+alwaysApply: true
 ---
 
-# Documentação de Módulos
+# Module Documentation Standard (README.md)
 
-## Regra Obrigatória
+## 1. Regra Obrigatória
+Todo módulo localizado em apps/api/src/modules/{nome} DEVE conter um arquivo README.md na sua raiz. Este arquivo serve como a "Fonte da Verdade" para a IA entender o comportamento do domínio sem precisar ler todos os arquivos.
 
-**Todo módulo DEVE ter um arquivo `README.md`** na raiz da pasta do módulo explicando suas regras de negócio.
+## 2. Estrutura Mínima do README.md
+O arquivo deve seguir este modelo simplificado:
 
-## Estrutura do README.md
+# Módulo [Nome]
+## Descrição: Propósito e responsabilidades.
+## Regras de Negócio:
+- Regra X: O que valida, quando aplica e exceções.
+- Regra Y: Comportamentos críticos ou limites (ex: quotas, seats).
+## Dependências:
+- Módulos consumidos (ex: Auth, Billing).
+- Tabelas principais afetadas.
+## Fluxos e Endpoints:
+- Listagem dos endpoints e passos lógicos de fluxos complexos.
 
-```markdown
-# Módulo [Nome do Módulo]
-
-## Descrição
-Breve descrição do propósito e responsabilidades do módulo.
-
-## Regras de Negócio
-
-### Regra 1: [Nome da Regra]
-- **Quando aplicar**: Situações em que a regra se aplica
-- **Validações**: O que é validado
-- **Exceções**: Casos especiais ou exceções
-- **Exemplo**: Código ou cenário de exemplo
-
-### Regra 2: [Nome da Regra]
-- Detalhamento similar...
-
-## Dependências
-- **Módulos dependentes**: Lista de módulos que este módulo depende
-- **Services compartilhados**: Services de `shared/` utilizados
-- **Tabelas do banco**: Tabelas principais utilizadas
-
-## Endpoints
-
-### GET /resource
-- **Descrição**: O que o endpoint faz
-- **Validações**: Validações específicas
-- **Resposta**: Formato da resposta
-
-### POST /resource
-- **Descrição**: O que o endpoint faz
-- **Regras de negócio**: Regras específicas deste endpoint
-- **Validações**: Validações aplicadas
-
-## Fluxos Importantes
-
-### Fluxo 1: [Nome do Fluxo]
-1. Passo 1
-2. Passo 2
-3. Passo 3
-
-## Casos Especiais
-- Casos edge que precisam ser tratados
-- Comportamentos não óbvios
-
-## Exemplos de Uso
-```typescript
-// Exemplo prático quando relevante
-const result = await service.method();
-```
-```
-
-## Localização
-
-O `README.md` deve estar na raiz de cada módulo:
-
-```
+## 3. Localização Visual
+A estrutura esperada é:
 modules/
-  ├── auth/
-  │   ├── README.md          ← Aqui
-  │   ├── auth.repository.ts
-  │   ├── auth.service.ts
-  │   └── auth.routes.ts
-  └── users/
-      ├── README.md          ← Aqui
-      └── ...
-```
+  ├── {modulo}/
+  │   ├── README.md  <-- OBRIGATÓRIO
+  │   ├── {modulo}.routes.ts
+  │   ├── {modulo}.service.ts
+  │   └── {modulo}.repository.ts
 
-## Por que é Importante
+## 4. Checklist para a IA (Auto-Executável)
+Ao criar ou modificar um módulo, o Cursor deve garantir:
+1. Existência do README.md.
+2. Atualização das regras de negócio caso o código mude.
+3. Menção clara a filtros de Tenant (company_id) e permissões.
 
-1. **Contexto para IA**: Cursor entende regras de negócio sem ler todo o código
-2. **Manutenção**: Facilita manutenção futura e onboarding
-3. **Documentação viva**: Documentação próxima ao código
-4. **Decisões de negócio**: Registra o "porquê" das decisões
-
-## Checklist
-
-Ao criar ou atualizar um módulo:
-- [ ] README.md existe na raiz do módulo
-- [ ] Regras de negócio estão documentadas
-- [ ] Dependências estão listadas
-- [ ] Endpoints estão documentados
-- [ ] Casos especiais estão mencionados
-- [ ] Exemplos de uso quando relevante
-
-## Exemplo Completo
-
-```markdown
+## 5. Exemplo de Referência Rápida
 # Módulo Users
+## Regras:
+- Seats: Bloquear criação se count(users) >= plan.max_users. Erro 409.
+- Admin: Apenas usuários com role 'admin' podem deletar.
+## Dependências: Módulo 'subscriptions'.
+## Fluxo POST /users: Validar Zod -> Check Seats -> Hash Password -> DB Insert.
 
-## Descrição
-Gerencia usuários do sistema, incluindo criação, edição, exclusão e validação de limites (seats).
-
-## Regras de Negócio
-
-### Regra 1: Validação de Seats
-- **Quando aplicar**: Sempre ao criar um novo usuário
-- **Validação**: `count(users) < plan.max_users`
-- **Exceção**: Super admin pode criar além do limite
-- **Erro**: Retorna `409 CONFLICT` se limite atingido
-
-### Regra 2: Isolamento Multitenant
-- **Quando aplicar**: Todas as operações
-- **Validação**: `company_id` obrigatório em todas as queries
-- **Exceção**: Super admin pode acessar qualquer tenant
-
-## Dependências
-- **Módulos**: `subscriptions` (para verificar plan.max_users)
-- **Services**: `SubscriptionService.getByCompany()`
-- **Tabelas**: `users`, `companies`, `plans`, `subscriptions`
-
-## Endpoints
-
-### GET /users
-- Lista usuários do tenant atual
-- Paginação: `?page=1&limit=20`
-- Filtros: `?role=admin`
-
-### POST /users
-- Cria novo usuário
-- Valida seats antes de criar
-- Retorna 409 se limite atingido
-
-## Fluxos Importantes
-
-### Fluxo de Criação de Usuário
-1. Validar dados de entrada (Zod)
-2. Verificar limite de seats (SubscriptionService)
-3. Hash da senha (Argon2)
-4. Criar usuário no banco
-5. Retornar usuário criado (sem senha)
-```
+## 6. Por que manter?
+- Contexto Imediato: Permite que a IA tome decisões arquiteturais corretas rapidamente.
+- Onboarding: Documentação técnica viva e próxima ao código.
+- Redução de Erros: Evita que regras de negócio complexas sejam ignoradas em refatorações.

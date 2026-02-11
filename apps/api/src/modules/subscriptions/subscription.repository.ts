@@ -1,6 +1,5 @@
 import { BaseRepository } from '../../shared/repositories/base.repository';
-import { query } from '../../db/client';
-import type { Subscription, Plan } from '@shared/core';
+import type { Subscription } from '@shared/core';
 
 export interface CreateSubscriptionData {
   planId: string;
@@ -40,7 +39,7 @@ export class SubscriptionRepository extends BaseRepository {
    * Buscar assinatura por Stripe subscription ID
    */
   async findByStripeId(stripeSubscriptionId: string): Promise<Subscription | null> {
-    const result = await query<Subscription>(
+    const result = await this.query<Subscription>(
       `SELECT id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
        canceled_at, created_at, updated_at

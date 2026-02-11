@@ -4,18 +4,103 @@ import { CompanyService } from './company.service';
 import { CompanyRepository } from './company.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
-import { UpdateCompanySchema } from '@shared/core';
+import { UpdateCompanySchema, CreateCompanySchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const companyRoutes = new Hono();
 
-// Aplicar middlewares globais
-companyRoutes.use('/*', tenantMiddleware);
-companyRoutes.use('/*', authMiddleware);
-
 // Instanciar services
 const companyRepo = new CompanyRepository();
 const companyService = new CompanyService(companyRepo);
+
+/**
+ * GET /companies
+ * Listar todas as empresas (apenas super_admin)
+ * Não requer tenantMiddleware
+ */
+companyRoutes.get(
+  '/',
+  authMiddleware,
+  async (c) => {
+    try {
+      const currentUser = c.get('user');
+      
+      // Apenas super_admin pode listar todas as empresas
+      if (currentUser.role !== 'super_admin') {
+        return c.json(
+          {
+            error: {
+              message: 'Only super admin can list all companies',
+              code: 'FORBIDDEN',
+            },
+          },
+          403
+        );
+      }
+
+      const companies = await companyRepo.findAll();
+
+      return c.json({
+        data: {
+          companies,
+          total: companies.length,
+        },
+      });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /companies
+ * Criar nova empresa (sem tenantMiddleware - permite criar primeira empresa)
+ * Requer autenticação
+ * Apenas super_admin pode criar empresas
+ */
+companyRoutes.post(
+  '/',
+  authMiddleware,
+  zValidator('json', CreateCompanySchema),
+  async (c) => {
+    try {
+      const currentUser = c.get('user');
+      
+      // Apenas super_admin pode criar empresas
+      if (currentUser.role !== 'super_admin') {
+        return c.json(
+          {
+            error: {
+              message: 'Only super admin can create companies',
+              code: 'FORBIDDEN',
+            },
+          },
+          403
+        );
+      }
+
+      const data = c.req.valid('json');
+      
+      // Criar empresa (schema será criado automaticamente pelo CompanyService)
+      const company = await companyService.create(data);
+
+      return c.json(
+        {
+          data: {
+            company,
+          },
+        },
+        201
+      );
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+// Aplicar middlewares globais para outras rotas
+companyRoutes.use('/*', tenantMiddleware);
+companyRoutes.use('/*', authMiddleware);
 
 /**
  * GET /companies/:id

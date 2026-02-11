@@ -67,6 +67,8 @@ planRoutes.post(
         price: data.price,
         billingCycle: data.billingCycle,
         features: data.features,
+        isCustom: data.isCustom,
+        isManaged: data.isManaged,
       });
 
       return c.json(
@@ -103,6 +105,8 @@ planRoutes.put(
         price: data.price,
         billingCycle: data.billingCycle,
         features: data.features,
+        isCustom: data.isCustom,
+        isManaged: data.isManaged,
         status: data.status,
       });
 

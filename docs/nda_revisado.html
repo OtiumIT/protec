@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Termo de Confidencialidade e Não Divulgação - PROTEC e OtiumIT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --brand: #32CD32;
+            --brand-dark: #28a428;
+            --brand-light: #7CFC00;
+            --otium-black: #000000;
+            --otium-dark: #2d2d2d;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            line-height: 1.7;
+            color: var(--slate-800);
+            background: var(--slate-50);
+            font-size: 17px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: -0.01em;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--slate-200);
+            background: white;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+        }
+
+        .logo-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .logo-link:hover {
+            opacity: 0.8;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--otium-black);
+        }
+
+        /* Main Content */
+        main {
+            min-height: calc(100vh - 200px);
+            padding: 3rem 0;
+            position: relative;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        .main-content {
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .container-inner {
+                padding: 0 1rem;
+            }
+
+            main {
+                padding: 2rem 0;
+            }
+
+            .header-content {
+                padding: 1rem 0.75rem;
+            }
+        }
+
+        /* Document Styles */
+        .document-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--slate-200);
+        }
+
+        .document-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 1rem;
+        }
+
+        .document-header .subtitle {
+            font-size: 1.125rem;
+            color: var(--slate-600);
+        }
+
+        .document-body {
+            background: white;
+            padding: 3rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            line-height: 1.8;
+        }
+
+        @media (max-width: 768px) {
+            .document-body {
+                padding: 1.5rem;
+            }
+
+            .document-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        .parties {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: var(--slate-50);
+            border-radius: 0.5rem;
+            border-left: 4px solid var(--brand);
+        }
+
+        .party {
+            margin-bottom: 1.5rem;
+        }
+
+        .party:last-child {
+            margin-bottom: 0;
+        }
+
+        .party-title {
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+        }
+
+        .party-details {
+            color: var(--slate-700);
+            font-size: 0.9375rem;
+            line-height: 1.6;
+        }
+
+        .clause {
+            margin: 2.5rem 0;
+            counter-increment: clause-counter;
+        }
+
+        .clause-title {
+            font-weight: 700;
+            color: var(--slate-900);
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .clause-number {
+            color: var(--brand);
+            font-weight: 800;
+        }
+
+        .clause-content {
+            color: var(--slate-700);
+            margin-left: 2rem;
+        }
+
+        .clause-content p {
+            margin-bottom: 1rem;
+        }
+
+        .clause-content ul,
+        .clause-content ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .clause-content li {
+            margin: 0.5rem 0;
+        }
+
+        .highlight-box {
+            background: rgba(50, 205, 50, 0.05);
+            border-left: 4px solid var(--brand);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.5rem;
+        }
+
+        .highlight-box strong {
+            color: var(--slate-900);
+        }
+
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.5rem;
+        }
+
+        .signature-section {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 2px solid var(--slate-200);
+        }
+
+        .signature-block {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: var(--slate-50);
+            border-radius: 0.5rem;
+        }
+
+        .signature-line {
+            margin-top: 4rem;
+            border-top: 2px solid var(--slate-800);
+            padding-top: 0.5rem;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .signature-line small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--slate-600);
+            font-size: 0.875rem;
+        }
+
+        .footer {
+            background: white;
+            border-top: 1px solid var(--slate-200);
+            padding: 2rem 0;
+            margin-top: 4rem;
+            text-align: center;
+            color: var(--slate-600);
+            font-size: 0.875rem;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .document-body {
+                box-shadow: none;
+                padding: 2rem;
+            }
+
+            header {
+                position: relative;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo-link">
+                <span class="logo-text">OtiumIT</span>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="container-inner">
+                <div class="main-content">
+                    <div class="document-header">
+                        <h1>TERMO DE CONFIDENCIALIDADE E NÃO DIVULGAÇÃO</h1>
+                        <p class="subtitle">Proteção Mútua de Informações Confidenciais</p>
+                    </div>
+
+                    <div class="document-body">
+                        <div class="parties">
+                            <div class="party">
+                                <div class="party-title">DE UM LADO:</div>
+                                <div class="party-details">
+                                    <strong>PROTEC ASSESSORIA E CONSULTORIA S/S</strong>, pessoa jurídica de direito privado, 
+                                    com sede na cidade de Londrina, Estado do Paraná, na Rua Brasil, 862, 
+                                    inscrita no CNPJ sob n.º <strong>81.880.544/0001-97</strong>, 
+                                    neste ato representada por seu administrador, 
+                                    <strong>EDIVALDO SILVA VIEIRA</strong>, brasileiro, contador, 
+                                    residente e domiciliado na cidade de Londrina, Estado do Paraná, 
+                                    na Rua Doutor Elias César, n° 155, Apto 502, Jardim Caiçaras, CEP 86015-640, 
+                                    inscrito no CRC/PR sob nº 022574-O/3 e no CPF nº 235.476.699-87, 
+                                    doravante denominada simplesmente <strong>PROTEC</strong>.
+                                </div>
+                            </div>
+
+                            <div class="party">
+                                <div class="party-title">DE OUTRO LADO:</div>
+                                <div class="party-details">
+                                    <strong>OTIUMIT TECNOLOGIA LTDA</strong>, pessoa jurídica de direito privado, 
+                                    inscrita no CNPJ sob n.º <strong>18.511.810/0001-78</strong>, 
+                                    com sede em Rua Estado do Amazonas, 99, Ap 87A, São Paulo, SP, CEP 03935-000, 
+                                    neste ato representada por seu representante legal, 
+                                    <strong>JOSÉ FRANCO CORRÊA NETO</strong>, 
+                                    brasileiro, casado, Founder e CEO, 
+                                    portador do RG nº <strong>341.364.228</strong> e CPF nº <strong>413.087.898-07</strong>, 
+                                    residente e domiciliado em Rua Estado do Amazonas, 99, Ap 87A, São Paulo, SP, CEP 03935-000, 
+                                    doravante denominada simplesmente <strong>OTIUMIT</strong>.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="highlight-box">
+                            <p><strong>CONSIDERANDO QUE:</strong></p>
+                            <ul>
+                                <li>A <strong>PROTEC</strong> é um escritório de contabilidade que detém informações confidenciais e proprietárias de seus clientes, bem como informações estratégicas sobre seus produtos e métodos de trabalho;</li>
+                                <li>A <strong>OTIUMIT</strong> foi contratada para prestar serviços de programação e desenvolvimento de sistemas com base nos dados contábeis fornecidos pela PROTEC relativos a clientes desta última;</li>
+                                <li>Para a execução dos serviços, será necessária a troca de informações confidenciais, incluindo dados contábeis de clientes da PROTEC;</li>
+                                <li>A <strong>OTIUMIT</strong> detém conhecimento técnico, metodologias, algoritmos e expertise em desenvolvimento de software que são de sua propriedade intelectual;</li>
+                                <li>É de fundamental interesse de ambas as partes assegurar a proteção e o sigilo das informações confidenciais, respeitando os direitos de propriedade intelectual de cada parte.</li>
+                            </ul>
+                        </div>
+
+                        <p style="text-align: center; margin: 2rem 0; font-weight: 600;">
+                            Resolvem as partes firmar o presente Termo, nos seguintes termos:
+                        </p>
+
+                        <!-- CLÁUSULA PRIMEIRA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA PRIMEIRA</span>
+                                <span>– DO OBJETO E DA DEFINIÇÃO DE INFORMAÇÕES CONFIDENCIAIS</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>1.1.</strong> O presente Termo tem como objeto estabelecer as condições de sigilo e não divulgação das informações confidenciais a que ambas as partes terão acesso em decorrência da sua colaboração, garantindo proteção mútua e respeito aos direitos de propriedade intelectual de cada parte.</p>
+                                
+                                <p><strong>1.2.</strong> Para os fins deste Termo, <strong>"Informações Confidenciais da PROTEC"</strong> significam todas e quaisquer informações, de natureza técnica, operacional, comercial, financeira, jurídica, de mercado ou quaisquer outras, relativas aos clientes da PROTEC, aos seus produtos (existentes ou em desenvolvimento), processos, estratégias e ao próprio negócio da PROTEC, incluindo, mas não se limitando a:</p>
+                                
+                                <p><strong>a)</strong> Dados contábeis, financeiros, cadastrais, fiscais e quaisquer outras informações relacionadas aos clientes da PROTEC, incluindo dados pessoais protegidos pela LGPD (Lei Geral de Proteção de Dados Pessoais - Lei nº 13.709/2018);</p>
+                                
+                                <p><strong>b)</strong> Planos, projetos, especificações, métodos, técnicas, relatórios, estudos, documentos e todo e qualquer dado ou material relacionados aos produtos a serem desenvolvidos ou a produtos já existentes da PROTEC, desde que baseados em dados específicos de clientes ou informações proprietárias da PROTEC;</p>
+                                
+                                <p><strong>c)</strong> Informações sobre fornecedores, parceiros, estrutura organizacional e estratégias comerciais específicas da PROTEC;</p>
+                                
+                                <p><strong>d)</strong> Quaisquer outras informações que, por sua natureza, deveriam ser consideradas confidenciais, ou que assim forem expressamente indicadas pela PROTEC.</p>
+                                
+                                <p><strong>1.3.</strong> Para os fins deste Termo, <strong>"Informações Confidenciais da OTIUMIT"</strong> significam todas e quaisquer informações, de natureza técnica, operacional, comercial, financeira, jurídica, de mercado ou quaisquer outras, relativas à OTIUMIT, incluindo, mas não se limitando a:</p>
+                                
+                                <p><strong>a)</strong> Metodologias técnicas, algoritmos genéricos, frameworks, bibliotecas de código e conhecimento técnico geral que não dependem de dados específicos da PROTEC;</p>
+                                
+                                <p><strong>b)</strong> Estrutura organizacional, fornecedores, parceiros e estratégias comerciais da OTIUMIT;</p>
+                                
+                                <p><strong>c)</strong> Quaisquer outras informações que, por sua natureza, deveriam ser consideradas confidenciais, ou que assim forem expressamente indicadas pela OTIUMIT.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA SEGUNDA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA SEGUNDA</span>
+                                <span>– DA CONFIDENCIALIDADE DOS DADOS</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>2.1.</strong> Ambas as partes comprometem-se, por si e por seus prepostos ou colaboradores, a manter a mais estrita confidencialidade sobre todas as Informações Confidenciais às quais tiverem acesso em razão da sua colaboração.</p>
+                                
+                                <p><strong>2.2.</strong> Nenhuma das partes poderá, sob nenhuma hipótese, compartilhar, divulgar, reproduzir, copiar, tornar público, usar em benefício próprio ou de terceiros, ou permitir o acesso a terceiros a qualquer das Informações Confidenciais fornecidas pela outra parte, exceto na estrita medida necessária para o cumprimento de suas obrigações no âmbito da colaboração e sempre sob a supervisão e autorização da parte detentora das informações.</p>
+                                
+                                <p><strong>2.3.</strong> Ambas as partes deverão adotar todas as medidas de segurança razoáveis e necessárias para proteger as Informações Confidenciais contra acesso não autorizado, divulgação, cópia ou uso indevido, com o mesmo grau de cuidado que empregam para proteger suas próprias informações confidenciais de natureza similar, em conformidade com a LGPD e demais legislações aplicáveis.</p>
+                                
+                                <p><strong>2.4.</strong> A OTIUMIT compromete-se a não utilizar dados específicos de clientes da PROTEC para qualquer finalidade que não seja o desenvolvimento e manutenção do sistema contratado, incluindo a proibição de uso desses dados para treinamento de modelos de inteligência artificial, análise estatística para terceiros, ou qualquer outra finalidade não autorizada.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA TERCEIRA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA TERCEIRA</span>
+                                <span>– DA RESTRIÇÃO DE CONTATO DIRETO COM CLIENTES</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>3.1.</strong> Fica expressamente proibido à OTIUMIT entrar em contato direto com os clientes da PROTEC para quaisquer fins, incluindo, mas não se limitando a, coleta de dados, apresentação de soluções, oferta de serviços ou produtos, ou qualquer comunicação que possa ser interpretada como um desvio de clientes ou usurpação da relação comercial da PROTEC.</p>
+                                
+                                <p><strong>3.2.</strong> A única exceção a esta proibição ocorrerá mediante prévia, expressa e específica autorização por escrito da PROTEC, que deverá detalhar o propósito, o cliente envolvido e o escopo da comunicação permitida.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA QUARTA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA QUARTA</span>
+                                <span>– DO SIGILO SOBRE PRODUTOS</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>4.1.</strong> A OTIUMIT compromete-se a manter total sigilo sobre os produtos (softwares, sistemas, ferramentas, etc.) que forem desenvolvidos ou aprimorados com base nas Informações Confidenciais da PROTEC e nos dados contábeis fornecidos pela PROTEC relativos aos seus clientes.</p>
+                                
+                                <p><strong>4.2.</strong> A OTIUMIT não poderá divulgar informações sobre o desenvolvimento, as características técnicas, as funcionalidades, os resultados obtidos ou quaisquer outros detalhes relacionados a esses produtos que revelem dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC, antes, durante ou após a sua conclusão, sem a expressa autorização por escrito da PROTEC.</p>
+                                
+                                <p><strong>4.3.</strong> A PROTEC compromete-se a manter sigilo sobre metodologias técnicas genéricas, algoritmos e conhecimento técnico da OTIUMIT que não sejam específicos do produto desenvolvido para a PROTEC.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA QUINTA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA QUINTA</span>
+                                <span>– DA PROPRIEDADE INTELECTUAL E RESTRIÇÕES DE USO</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>5.1.</strong> <strong>Propriedade Intelectual Compartilhada:</strong> As partes reconhecem e concordam que os direitos de propriedade intelectual sobre o sistema desenvolvido serão compartilhados conforme segue:</p>
+                                
+                                <p><strong>a)</strong> <strong>Dados específicos de clientes da PROTEC:</strong> Todos os direitos de propriedade sobre dados específicos de clientes da PROTEC, incluindo dados contábeis, financeiros, cadastrais e fiscais, pertencem exclusivamente à PROTEC.</p>
+                                
+                                <p><strong>b)</strong> <strong>Metodologias técnicas genéricas e conhecimento técnico da OTIUMIT:</strong> Metodologias técnicas, algoritmos genéricos, frameworks, bibliotecas de código, conhecimento técnico (know-how) e expertise em desenvolvimento de software que não dependem de dados específicos da PROTEC permanecem como propriedade intelectual da OTIUMIT.</p>
+                                
+                                <p><strong>c)</strong> <strong>Sistema desenvolvido (código-fonte e funcionalidades):</strong> O código-fonte, funcionalidades, interface e demais componentes do sistema desenvolvido serão de propriedade compartilhada entre as partes, conforme acordado no contrato de prestação de serviços, com direito de uso para ambas as partes, incluindo o direito de white label conforme parceria futura acordada (30% OtiumIT / 70% PROTEC na NewCo).</p>
+                                
+                                <p><strong>5.2.</strong> <strong>Restrições de Uso:</strong></p>
+                                
+                                <p><strong>a)</strong> A OTIUMIT não poderá usar dados específicos de clientes da PROTEC para desenvolver produtos similares para terceiros, nem utilizar esses dados para qualquer finalidade que não seja o desenvolvimento e manutenção do sistema contratado.</p>
+                                
+                                <p><strong>b)</strong> A OTIUMIT poderá desenvolver produtos similares para terceiros utilizando seu conhecimento técnico genérico, metodologias e algoritmos próprios, desde que não utilize dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC.</p>
+                                
+                                <p><strong>c)</strong> A PROTEC não poderá replicar, copiar ou utilizar metodologias técnicas específicas e proprietárias da OTIUMIT para desenvolver sistemas similares com terceiros, sem autorização expressa da OTIUMIT.</p>
+                                
+                                <p><strong>5.3.</strong> <strong>Parceria Futura:</strong> As partes reconhecem que existe uma proposta de parceria futura para criação de uma nova empresa (NewCo) para comercialização do sistema desenvolvido no mercado, onde a OtiumIT terá 30% de participação e a PROTEC terá 70% de participação. Os termos específicos desta parceria serão objeto de contrato separado, e este Termo de Confidencialidade não se opõe a tal parceria, desde que respeitadas as restrições de uso de dados confidenciais estabelecidas neste Termo.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA SEXTA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA SEXTA</span>
+                                <span>– DA DURAÇÃO DA CONFIDENCIALIDADE</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>6.1.</strong> As obrigações de confidencialidade estabelecidas neste Termo terão vigência durante todo o período de colaboração entre as partes e por um período adicional de <strong>3 (três) anos</strong> após a conclusão, rescisão ou término, por qualquer motivo, dos trabalhos ou da relação contratual entre PROTEC e OTIUMIT.</p>
+                                
+                                <p><strong>6.2.</strong> Certas informações, como dados pessoais de clientes protegidos pela LGPD, segredos comerciais específicos e dados sensíveis, permanecerão confidenciais indefinidamente, mesmo após o término do período estipulado no item 6.1, conforme a natureza da informação e a legislação aplicável, especialmente a LGPD.</p>
+                                
+                                <p><strong>6.3.</strong> As obrigações de confidencialidade sobre metodologias técnicas genéricas da OTIUMIT que não dependem de dados específicos da PROTEC terão vigência de 3 (três) anos após o término da colaboração, após o que a OTIUMIT poderá livremente utilizar tais metodologias, desde que não revele dados específicos da PROTEC.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA SÉTIMA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA SÉTIMA</span>
+                                <span>– DAS OBRIGAÇÕES PÓS-RESCISÃO</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>7.1.</strong> Após a conclusão, rescisão ou término, por qualquer motivo, da relação de colaboração ou contrato de prestação de serviços, as partes comprometem-se a:</p>
+                                
+                                <p><strong>a)</strong> Devolver imediatamente à parte detentora todas as Informações Confidenciais, dados, documentos, materiais, mídias (físicas ou digitais) e quaisquer outros itens fornecidos pela outra parte ou produzidos em decorrência da colaboração, <strong>exceto</strong> o código-fonte e documentação técnica do sistema desenvolvido, que serão mantidos pela OTIUMIT para fins de manutenção, evolução e uso conforme parceria acordada;</p>
+                                
+                                <p><strong>b)</strong> Destruir ou apagar de forma segura e irrecuperável todas as cópias, registros, anotações, e quaisquer outras representações das Informações Confidenciais que estejam em seu poder ou sob seu controle, independentemente do formato ou meio, <strong>respeitando</strong> a necessidade de manter o código-fonte e documentação técnica do sistema desenvolvido para fins de manutenção e evolução;</p>
+                                
+                                <p><strong>c)</strong> Fornecer uma declaração por escrito à outra parte, atestando o cumprimento integral das obrigações desta Cláusula, com exceção dos itens expressamente permitidos neste Termo.</p>
+                                
+                                <p><strong>7.2.</strong> A OTIUMIT poderá manter cópias do código-fonte e documentação técnica do sistema desenvolvido para fins de manutenção, evolução e uso conforme parceria futura acordada, desde que não contenham dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC que não sejam necessárias para o funcionamento do sistema.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA OITAVA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA OITAVA</span>
+                                <span>– DA NOTIFICAÇÃO DE VIOLAÇÃO</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>8.1.</strong> Ambas as partes comprometem-se a notificar a outra parte imediatamente, no prazo máximo de 24 (vinte e quatro) horas, caso tomem conhecimento ou suspeitem de qualquer violação ou potencial violação deste Termo, incluindo, mas não se limitando a, acesso não autorizado, divulgação indevida, perda, roubo ou uso impróprio das Informações Confidenciais.</p>
+                                
+                                <p><strong>8.2.</strong> A notificação deverá ser feita por escrito, para os e-mails e/ou telefones designados pelas partes, e deverá descrever, na medida do possível, a natureza da violação, as informações afetadas e as medidas que estão sendo tomadas para mitigar os danos.</p>
+                                
+                                <p><strong>8.3.</strong> Contatos para notificação:</p>
+                                <ul>
+                                    <li><strong>PROTEC:</strong> E-mail: fabio@protec.cnt.br | Telefone: (43) 3374-6160</li>
+                                    <li><strong>OTIUMIT:</strong> E-mail: jose.correa@otiumit.com | Telefone: (11) 96778-5598</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA NONA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA NONA</span>
+                                <span>– DAS CONSEQUÊNCIAS LEGAIS DO NÃO CUMPRIMENTO</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>9.1.</strong> Ambas as partes reconhecem que a violação de qualquer das cláusulas deste Termo causará danos à outra parte, incluindo, mas não se limitando a, perda de clientes, perda de reputação, vantagem indevida a concorrentes e prejuízos financeiros.</p>
+                                
+                                <p><strong>9.2.</strong> Sem prejuízo das medidas legais cabíveis, incluindo ações indenizatórias por perdas e danos (danos emergentes e lucros cessantes), a violação deste Termo poderá ensejar:</p>
+                                
+                                <p><strong>a)</strong> A imediata rescisão do contrato de prestação de serviços ou da relação de colaboração entre as partes, sem qualquer direito a indenização ou aviso prévio à parte violadora, salvo disposição em contrário no contrato de prestação de serviços;</p>
+                                
+                                <p><strong>b)</strong> A aplicação de multa contratual a ser definida em instrumento específico ou a ser arbitrada judicialmente, em valor compatível com o prejuízo causado, limitada a um valor máximo de [VALOR A DEFINIR] ou 10% do valor total do contrato de prestação de serviços, o que for menor;</p>
+                                
+                                <p><strong>c)</strong> A responsabilidade civil da parte violadora por todos os prejuízos diretos e indiretos sofridos pela outra parte, incluindo, mas não se limitando a, custos com processos judiciais e honorários advocatícios, desde que comprovados e razoáveis;</p>
+                                
+                                <p><strong>d)</strong> A responsabilidade criminal da parte violadora, nos termos da legislação aplicável, especialmente no que tange à violação de segredo profissional (Art. 154 do Código Penal), concorrência desleal (Art. 195 da Lei nº 9.279/96) e uso indevido de dados pessoais (Lei Geral de Proteção de Dados – LGPD);</p>
+                                
+                                <p><strong>e)</strong> A parte prejudicada poderá buscar medidas judiciais coercitivas, como liminares e mandados de segurança, para impedir a continuidade da violação e exigir o cumprimento das obrigações de confidencialidade.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA DÉCIMA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA DÉCIMA</span>
+                                <span>– DA LEGISLAÇÃO APLICÁVEL E FORO</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>10.1.</strong> O presente Termo será regido e interpretado de acordo com a legislação da República Federativa do Brasil, em especial o Código Civil, a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018) e a Lei de Propriedade Intelectual (Lei nº 9.279/96).</p>
+                                
+                                <p><strong>10.2.</strong> As partes elegem o foro da Comarca de Londrina-PR para dirimir quaisquer dúvidas ou litígios decorrentes deste Termo, renunciando a qualquer outro, por mais privilegiado que seja.</p>
+                                
+                                <p><strong>10.3.</strong> As partes comprometem-se a tentar resolver eventuais controvérsias por meio de mediação ou arbitragem antes de recorrer ao Poder Judiciário, quando aplicável.</p>
+                            </div>
+                        </div>
+
+                        <!-- CLÁUSULA DÉCIMA PRIMEIRA -->
+                        <div class="clause">
+                            <div class="clause-title">
+                                <span class="clause-number">CLÁUSULA DÉCIMA PRIMEIRA</span>
+                                <span>– DISPOSIÇÕES GERAIS</span>
+                            </div>
+                            <div class="clause-content">
+                                <p><strong>11.1.</strong> Este Termo não cria nenhuma relação de sociedade, joint venture, parceria ou associação entre as partes, salvo acordo expresso em contrato separado.</p>
+                                
+                                <p><strong>11.2.</strong> Nenhuma das partes poderá ceder, transferir ou subcontratar suas obrigações ou direitos decorrentes deste Termo sem o consentimento prévio e por escrito da outra parte.</p>
+                                
+                                <p><strong>11.3.</strong> Caso qualquer disposição deste Termo seja considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.</p>
+                                
+                                <p><strong>11.4.</strong> As modificações deste Termo somente serão válidas se feitas por escrito e assinadas por ambas as partes.</p>
+                                
+                                <p><strong>11.5.</strong> Este Termo não impede que a OTIUMIT preste serviços similares a terceiros, desde que não utilize Informações Confidenciais da PROTEC e respeite as restrições estabelecidas neste Termo.</p>
+                            </div>
+                        </div>
+
+                        <div class="signature-section">
+                            <p style="text-align: center; margin: 2rem 0; font-weight: 600;">
+                                E, por estarem assim justas e contratadas, as partes assinam o presente Termo em 2 (duas) vias de igual teor e forma, na presença das duas testemunhas abaixo.
+                            </p>
+                            
+                            <p style="text-align: center; margin: 2rem 0; color: var(--slate-600);">
+                                Londrina, _____ de _______________ de 2026
+                            </p>
+
+                            <div style="display: flex; justify-content: space-around; margin: 3rem 0; flex-wrap: wrap; gap: 2rem;">
+                                <div class="signature-block" style="flex: 1; min-width: 300px;">
+                                    <div class="signature-line">
+                                        <strong>PROTEC ASSESSORIA E CONSULTORIA S/S</strong>
+                                        <small>EDIVALDO SILVA VIEIRA<br>Administrador</small>
+                                    </div>
+                                </div>
+
+                                <div class="signature-block" style="flex: 1; min-width: 300px;">
+                                    <div class="signature-line">
+                                        <strong>OTIUMIT TECNOLOGIA LTDA</strong>
+                                        <small>JOSÉ FRANCO CORRÊA NETO<br>Founder e CEO</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 4rem;">
+                                <p style="font-weight: 600; margin-bottom: 1rem;">TESTEMUNHAS:</p>
+                                <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 2rem;">
+                                    <div style="flex: 1; min-width: 250px;">
+                                        <div class="signature-line" style="margin-top: 2rem;">
+                                            <strong>1. _______________________________</strong>
+                                            <small>Nome: _______________________<br>CPF: _______________________</small>
+                                        </div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 250px;">
+                                        <div class="signature-line" style="margin-top: 2rem;">
+                                            <strong>2. _______________________________</strong>
+                                            <small>Nome: _______________________<br>CPF: _______________________</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="warning-box" style="margin-top: 3rem;">
+                            <p><strong>✅ DOCUMENTO COMPLETO</strong></p>
+                            <p style="margin-top: 1rem;">
+                                Todos os dados obrigatórios foram preenchidos. O documento está pronto para assinatura.
+                            </p>
+                            <p style="margin-top: 1rem; font-size: 0.9375rem;">
+                                <strong>Nota opcional:</strong> O valor máximo da multa contratual (Cláusula 9.2.b) pode ser definido posteriormente em instrumento específico ou deixado como está (10% do valor total do contrato).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container-inner">
+            <p>&copy; 2026 OtiumIT. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>

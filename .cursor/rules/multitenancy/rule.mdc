@@ -1,90 +1,53 @@
 ---
-description: "Isolamento Multitenant: Garante que dados de diferentes empresas nunca se misturem (Schema-level ou Column-level)"
+description: "Isolamento Multitenant: Garante isolamento total entre empresas (Tenants)"
 alwaysApply: true
 ---
 
-# Regras de Multitenancy
+# Multitenancy Security Rules (CRITICAL)
 
-Você é responsável por garantir o isolamento total de dados entre diferentes empresas (Tenants).
+## 1. Identificação do Tenant
+O `company_id` deve ser extraído obrigatoriamente via middleware global.
+- Origem: Payload do JWT (preferencial), Header `X-Tenant-ID` ou Subdomínio.
+- Acesso: Sempre utilize `c.get('companyId')` após o middleware.
 
-## Identificação do Tenant
-O `company_id` ou `tenant_id` deve ser extraído **OBRIGATORIAMENTE** no `authMiddleware` através de:
-1. Subdomínio (ex: `empresa.dominio.com`)
-2. Header customizado `X-Tenant-ID`
-3. Payload do JWT (preferencial para rotas autenticadas)
-
-### Exemplo de Middleware
-```typescript
-// apps/api/src/middleware/tenant.middleware.ts
+Exemplo de Middleware:
 export const tenantMiddleware = async (c: Context, next: Next) => {
-  const companyId = 
-    c.req.header('X-Tenant-ID') || 
-    extractFromSubdomain(c.req.url) ||
-    c.get('jwt')?.company_id;
-  
-  if (!companyId) {
-    return c.json({ error: { message: 'Tenant not identified', code: 'TENANT_REQUIRED' } }, 400);
-  }
-  
+  const companyId = c.get('jwt')?.company_id || c.req.header('X-Tenant-ID');
+  if (!companyId) throw new HTTPException(400, { message: 'TENANT_REQUIRED' });
   c.set('companyId', companyId);
   await next();
 };
-```
 
-## Camada de Banco de Dados (Repositories)
+## 2. Camada de Dados (Repositories)
+Regra de Ouro: PROIBIDO executar queries sem filtro de `company_id`.
+- Parâmetro: Todo método de Repository DEVE aceitar `companyId: string` como argumento obrigatório.
+- Injeção: O Repository não deve buscar o tenant do contexto global; ele deve receber via argumento do Service.
 
-### Isolamento de Queries
-Toda e qualquer query ao banco de dados **DEVE** incluir a cláusula `where company_id = context.companyId`.
-
-✅ **CORRETO** - Estrutura Modular:
-```typescript
-// apps/api/src/modules/users/user.repository.ts
-import { BaseRepository } from '../../shared/repositories/base.repository';
-
-export class UserRepository extends BaseRepository {
-  async findById(id: string, companyId: string) {
-    return this.query('SELECT * FROM users WHERE id = $1 AND company_id = $2', [id, companyId]);
-  }
+✅ CORRETO:
+async findById(id: string, companyId: string) {
+  return db.query('SELECT * FROM table WHERE id = $1 AND company_id = $2', [id, companyId]);
 }
-```
 
-❌ **ERRADO** - Sem filtro de company_id:
-```typescript
-// ❌ PROIBIDO - Sem filtro de company_id
-// apps/api/src/modules/users/user.repository.ts
+❌ PROIBIDO:
 async findById(id: string) {
-  return db.query('SELECT * FROM users WHERE id = $1', [id]);
+  return db.query('SELECT * FROM table WHERE id = $1', [id]);
 }
-```
 
-### Base Repository
-Todos os repositories devem estender `BaseRepository` que garante o isolamento:
-```typescript
-// apps/api/src/shared/repositories/base.repository.ts
-export abstract class BaseRepository {
-  protected query(sql: string, params: any[]) {
-    // Garante que queries incluem company_id quando necessário
-  }
-}
-```
+## 3. Estratégia de Isolamento
+- Column-level: Adicione `AND company_id = $X` em todas as cláusulas WHERE de SELECT, UPDATE e DELETE.
+- Schema-level: Se usar schemas dinâmicos, o middleware deve executar:
+  await db.query(`SET search_path TO tenant_${companyId}, public`);
 
-### Casos Especiais
-- **Super Admin**: Se `user.role === 'super_admin'`, pode acessar dados de qualquer tenant (com auditoria)
-- **Sistema**: Operações do sistema (ex: webhooks) devem validar origem e incluir `company_id` explicitamente
-- **Migrations**: Não aplicam filtro de tenant (são operações de sistema)
+## 4. Exceções e Casos Especiais
+- Super Admin: Apenas usuários com `role === 'super_admin'` podem omitir o filtro (requer log de auditoria).
+- Sistema/Cron: Tarefas de background devem carregar o `company_id` do recurso que estão processando.
+- Migrations: Operações de DDL (Data Definition Language) são as únicas isentas de filtro de tenant.
 
-### Schema Dinâmico
-Se estiver usando múltiplos esquemas, o middleware deve setar o `search_path` do banco de dados:
-```typescript
-await db.query(`SET search_path TO tenant_${companyId}, public`);
-```
+## 5. Checklist de Segurança para IA
+Sempre que gerar ou refatorar código de banco de dados, verifique:
+1. O SQL gerado contém `company_id`?
+2. O método do repository exige `companyId` no contrato?
+3. Há risco de vazamento de dados se o `id` existir mas o `company_id` for de outro tenant? (Sempre valide ambos).
 
-## Checklist de Validação
-Antes de commitar código que acessa o banco:
-- [ ] Query inclui filtro `company_id`?
-- [ ] Repository recebe `companyId` como parâmetro?
-- [ ] Middleware de tenant está aplicado na rota?
-- [ ] Testes verificam isolamento entre tenants?
-
-## Regra de Ouro
-**NUNCA** execute queries sem filtro de `company_id`. Isso é uma violação crítica de segurança.
+## 6. Violação Crítica
+Qualquer query SQL que ignore o isolamento de tenant deve ser sinalizada como FALHA DE SEGURANÇA GRAVE.

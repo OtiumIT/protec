@@ -5,6 +5,11 @@ export interface CreateClientData {
   name: string;
   cnpj: string;
   email?: string;
+  tax_regime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'outros';
+  cnae?: string;
+  state_registration?: string;
+  municipal_registration?: string;
+  notes?: string;
 }
 
 export interface UpdateClientData {
@@ -12,48 +17,78 @@ export interface UpdateClientData {
   cnpj?: string;
   email?: string;
   status?: 'active' | 'inactive';
+  tax_regime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'outros';
+  cnae?: string;
+  state_registration?: string;
+  municipal_registration?: string;
+  notes?: string;
 }
 
 export class ClientRepository extends BaseRepository {
   /**
-   * Buscar cliente por ID e company_id
+   * Buscar cliente por ID
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async findById(id: string, companyId: string): Promise<Client | null> {
+  async findById(id: string): Promise<Client | null> {
     const result = await this.query<Client>(
-      'SELECT id, name, cnpj, email, company_id, status, created_at, updated_at FROM clients WHERE id = $1 AND company_id = $2',
-      [id, companyId]
+      `SELECT id, name, cnpj, email, status, tax_regime, cnae, 
+              state_registration, municipal_registration, notes, 
+              created_at, updated_at 
+       FROM clients WHERE id = $1`,
+      [id],
+      false // Não requer company_id (isolado por schema)
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar cliente por CNPJ e company_id
+   * Buscar cliente por CNPJ
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async findByCnpj(cnpj: string, companyId: string): Promise<Client | null> {
+  async findByCnpj(cnpj: string): Promise<Client | null> {
     const result = await this.query<Client>(
-      'SELECT id, name, cnpj, email, company_id, status, created_at, updated_at FROM clients WHERE cnpj = $1 AND company_id = $2',
-      [cnpj, companyId]
+      `SELECT id, name, cnpj, email, status, tax_regime, cnae, 
+              state_registration, municipal_registration, notes, 
+              created_at, updated_at 
+       FROM clients WHERE cnpj = $1`,
+      [cnpj],
+      false // Não requer company_id (isolado por schema)
     );
     return result.rows[0] || null;
   }
 
   /**
    * Criar cliente
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async create(companyId: string, data: CreateClientData): Promise<Client> {
+  async create(data: CreateClientData): Promise<Client> {
     const result = await this.query<Client>(
-      `INSERT INTO clients (name, cnpj, email, company_id, status) 
-       VALUES ($1, $2, $3, $4, 'active') 
-       RETURNING id, name, cnpj, email, company_id, status, created_at, updated_at`,
-      [data.name, data.cnpj, data.email || null, companyId]
+      `INSERT INTO clients (name, cnpj, email, tax_regime, cnae, 
+                           state_registration, municipal_registration, notes, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active') 
+       RETURNING id, name, cnpj, email, status, tax_regime, cnae, 
+                 state_registration, municipal_registration, notes, 
+                 created_at, updated_at`,
+      [
+        data.name,
+        data.cnpj,
+        data.email || null,
+        data.tax_regime || null,
+        data.cnae || null,
+        data.state_registration || null,
+        data.municipal_registration || null,
+        data.notes || null,
+      ],
+      false // Não requer company_id (isolado por schema)
     );
     return result.rows[0];
   }
 
   /**
    * Atualizar cliente
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async update(id: string, companyId: string, data: UpdateClientData): Promise<Client> {
+  async update(id: string, data: UpdateClientData): Promise<Client> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -74,66 +109,97 @@ export class ClientRepository extends BaseRepository {
       updates.push(`status = $${paramIndex++}`);
       params.push(data.status);
     }
-
-    if (updates.length === 0) {
-      return this.findById(id, companyId) as Promise<Client>;
+    if (data.tax_regime !== undefined) {
+      updates.push(`tax_regime = $${paramIndex++}`);
+      params.push(data.tax_regime);
+    }
+    if (data.cnae !== undefined) {
+      updates.push(`cnae = $${paramIndex++}`);
+      params.push(data.cnae);
+    }
+    if (data.state_registration !== undefined) {
+      updates.push(`state_registration = $${paramIndex++}`);
+      params.push(data.state_registration);
+    }
+    if (data.municipal_registration !== undefined) {
+      updates.push(`municipal_registration = $${paramIndex++}`);
+      params.push(data.municipal_registration);
+    }
+    if (data.notes !== undefined) {
+      updates.push(`notes = $${paramIndex++}`);
+      params.push(data.notes);
     }
 
-    params.push(id, companyId);
+    if (updates.length === 0) {
+      return this.findById(id) as Promise<Client>;
+    }
+
+    params.push(id);
     const result = await this.query<Client>(
       `UPDATE clients 
        SET ${updates.join(', ')}, updated_at = NOW() 
-       WHERE id = $${paramIndex++} AND company_id = $${paramIndex++} 
-       RETURNING id, name, cnpj, email, company_id, status, created_at, updated_at`,
-      params
+       WHERE id = $${paramIndex} 
+       RETURNING id, name, cnpj, email, status, tax_regime, cnae, 
+                 state_registration, municipal_registration, notes, 
+                 created_at, updated_at`,
+      params,
+      false // Não requer company_id (isolado por schema)
     );
     return result.rows[0];
   }
 
   /**
    * Deletar cliente
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async delete(id: string, companyId: string): Promise<void> {
+  async delete(id: string): Promise<void> {
     await this.query(
-      'DELETE FROM clients WHERE id = $1 AND company_id = $2',
-      [id, companyId]
+      'DELETE FROM clients WHERE id = $1',
+      [id],
+      false // Não requer company_id (isolado por schema)
     );
   }
 
   /**
-   * Listar clientes por empresa (com paginação)
+   * Listar clientes (com paginação)
+   * NOTA: Schema já isola por tenant, não precisa company_id
    */
-  async findByCompany(
-    companyId: string,
+  async list(
     options: { page?: number; limit?: number; status?: string } = {}
   ): Promise<{ clients: Client[]; total: number }> {
     const page = options.page || 1;
     const limit = options.limit || 20;
     const offset = (page - 1) * limit;
 
-    const params: any[] = [companyId];
-    let whereClause = 'company_id = $1';
+    const params: any[] = [];
+    let whereClause = '';
 
     if (options.status) {
-      whereClause += ' AND status = $2';
+      whereClause = 'WHERE status = $1';
       params.push(options.status);
     }
 
     // Buscar total
     const countResult = await this.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM clients WHERE ${whereClause}`,
-      params
+      `SELECT COUNT(*) as count FROM clients ${whereClause}`,
+      params,
+      false // Não requer company_id (isolado por schema)
     );
     const total = parseInt(countResult.rows[0].count, 10);
 
     // Buscar clientes
+    const limitParam = params.length + 1;
+    const offsetParam = params.length + 2;
     const clientsResult = await this.query<Client>(
-      `SELECT id, name, cnpj, email, company_id, status, created_at, updated_at 
+      `SELECT id, name, cnpj, email, status, tax_regime, cnae, 
+              state_registration, municipal_registration, notes, 
+              created_at, updated_at 
        FROM clients 
-       WHERE ${whereClause} 
+       ${whereClause}
        ORDER BY created_at DESC 
-       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset]
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      [...params, limit, offset],
+      false // Não requer company_id (isolado por schema)
     );
 
     return {

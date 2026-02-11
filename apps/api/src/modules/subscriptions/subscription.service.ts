@@ -1,5 +1,5 @@
 import { SubscriptionRepository, CreateSubscriptionData, UpdateSubscriptionData } from './subscription.repository';
-import { PlanRepository } from '../billing/plan.repository';
+import { PlanRepository } from '../plans/plan.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import type { Subscription, Plan } from '@shared/core';
 
@@ -91,7 +91,18 @@ export class SubscriptionService {
   /**
    * Atualizar assinatura
    */
-  async update(companyId: string, data: UpdateSubscriptionData): Promise<Subscription> {
-    return this.subscriptionRepo.update(companyId, data);
+  async update(companyId: string, data: UpdateSubscriptionData): Promise<Subscription & { plan: Plan }> {
+    const subscription = await this.subscriptionRepo.update(companyId, data);
+    
+    // Buscar plano associado
+    const plan = await this.planRepo.findById(subscription.plan_id);
+    if (!plan) {
+      throw new AppError('Plan not found', 'PLAN_NOT_FOUND', 404);
+    }
+    
+    return {
+      ...subscription,
+      plan,
+    };
   }
 }

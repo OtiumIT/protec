@@ -5,7 +5,6 @@ import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import type { User, Company } from '@shared/core';
-import type { RegisterSchema, LoginSchema } from '@shared/core';
 
 export interface AuthTokens {
   access: string;
@@ -84,14 +83,20 @@ export class AuthService {
   async login(email: string, password: string, companyId?: string): Promise<{ user: User; tokens: AuthTokens }> {
     // Buscar usuário
     let user: User | null;
-    if (companyId) {
+    
+    // Primeiro tentar buscar super_admin (sem company_id)
+    user = await this.authRepo.findByEmailOnly(email);
+    
+    // Se não encontrou super_admin e tem companyId, buscar por tenant
+    if (!user && companyId) {
       user = await this.authRepo.findByEmail(email, companyId);
-    } else {
-      // Se não tiver companyId, buscar por email e depois identificar tenant
-      user = await this.authRepo.findByEmailOnly(email);
-      if (user) {
-        companyId = user.company_id;
-      }
+    }
+    
+    // Se encontrou super_admin, company_id será null
+    if (user && user.company_id === null) {
+      // É super_admin, não precisa de companyId
+    } else if (user && user.company_id) {
+      companyId = user.company_id;
     }
 
     if (!user) {
@@ -109,10 +114,10 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
-    // Gerar tokens
+    // Gerar tokens (companyId pode ser null para super_admin)
     const tokens = this.generateTokens({
       userId: user.id,
-      companyId: user.company_id,
+      companyId: user.company_id || null,
       email: user.email,
       role: user.role,
     });
@@ -123,7 +128,7 @@ export class AuthService {
     await this.authRepo.createRefreshToken(user.id, tokens.refresh, expiresAt);
 
     // Log da operação
-    logSensitiveOperation('user_logged_in', user.id, user.company_id);
+    logSensitiveOperation('user_logged_in', user.id, user.company_id || 'super_admin');
 
     return { user, tokens };
   }

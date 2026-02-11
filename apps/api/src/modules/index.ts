@@ -8,14 +8,29 @@ import { planRoutes } from './plans/plan.routes';
 import { featureToggleRoutes } from './feature-toggles/feature-toggle.routes';
 import { subscriptionRoutes } from './subscriptions/subscription.routes';
 import { billingRoutes } from './billing/billing.routes';
+import { fiscalFileRoutes } from './fiscal-files/fiscal-file.routes';
+import { systemRoutes } from './system/system.routes';
+import { ratingValidatorRoutes } from './rating-validator/rating-validator.routes';
+import { editalRoutes } from './editais/edital.routes';
+import { judicialProcessRoutes } from './judicial-processes/judicial-process.routes';
+import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 
 const app = new Hono();
 
-// CORS
+// CORS: múltiplas origens (separadas por vírgula) ou em dev qualquer localhost
+const corsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+  : [];
+const isDev = process.env.NODE_ENV !== 'production';
 app.use('/*', cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: (origin) => {
+    if (isDev && /^https?:\/\/localhost(:\d+)?$/.test(origin ?? '')) return origin ?? '*';
+    if (corsOrigins.length && origin && corsOrigins.includes(origin)) return origin;
+    if (corsOrigins.length === 0) return origin ?? '*';
+    return null;
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
   credentials: true,
 }));
@@ -34,6 +49,12 @@ app.route('/api/v1/plans', planRoutes);
 app.route('/api/v1/modules', featureToggleRoutes);
 app.route('/api/v1/subscriptions', subscriptionRoutes);
 app.route('/api/v1/webhooks', billingRoutes);
+app.route('/api/v1/fiscal-files', fiscalFileRoutes);
+app.route('/api/v1/system', systemRoutes);
+app.route('/api/v1/rating-validator', ratingValidatorRoutes);
+app.route('/api/v1/editais', editalRoutes);
+app.route('/api/v1/judicial-processes', judicialProcessRoutes);
+app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 
 // Health check
 app.get('/health', (c) => {

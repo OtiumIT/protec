@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Análise de Custos: Desenvolvimento Interno vs. Parceria Protec + OtiumIT | OtiumIT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --brand: #32CD32;
+            --brand-dark: #28a428;
+            --brand-light: #7CFC00;
+            --otium-black: #000000;
+            --otium-dark: #2d2d2d;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            line-height: 1.7;
+            color: var(--slate-800);
+            background: var(--slate-50);
+            font-size: 17px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: -0.01em;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container-inner {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--slate-200);
+            background: white;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 1rem 0.75rem;
+            }
+
+            .logo-img {
+                height: 2rem;
+            }
+        }
+
+        .logo-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .logo-link:hover {
+            opacity: 0.8;
+        }
+
+        .logo-img {
+            height: 2.5rem;
+            width: auto;
+        }
+
+        /* Table of Contents */
+        .toc {
+            position: fixed;
+            left: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 280px;
+            max-width: 280px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 40;
+        }
+
+        .toc-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--slate-200);
+        }
+
+        .toc ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toc li {
+            margin: 0.5rem 0;
+        }
+
+        .toc a {
+            color: var(--slate-600);
+            text-decoration: none;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+        }
+
+        .toc a:hover {
+            background: var(--slate-50);
+            color: var(--brand);
+            padding-left: 1rem;
+        }
+
+        .toc a.active {
+            background: rgba(50, 205, 50, 0.1);
+            color: var(--brand);
+            font-weight: 600;
+            border-left: 3px solid var(--brand);
+        }
+
+        .toc .toc-level-2 {
+            padding-left: 1.25rem;
+            font-size: 0.8125rem;
+        }
+
+        .toc .toc-level-3 {
+            padding-left: 2rem;
+            font-size: 0.75rem;
+            color: var(--slate-500);
+        }
+
+        /* Main Content */
+        main {
+            min-height: calc(100vh - 200px);
+            padding: 3rem 0;
+            position: relative;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        .main-content {
+            margin-left: 320px;
+            width: calc(100% - 320px);
+            padding-right: 2rem;
+        }
+
+        @media (min-width: 1920px) {
+            .container-inner {
+                max-width: 1600px;
+                margin: 0 auto;
+            }
+        }
+
+        h1 {
+            font-size: 2.75rem;
+            font-weight: 800;
+            color: var(--slate-900);
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin: 4rem 0 2rem 0;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            scroll-margin-top: 6rem;
+        }
+
+        @media (max-width: 768px) {
+            h2 {
+                scroll-margin-top: 5rem;
+            }
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin: 2.5rem 0 1.25rem 0;
+            line-height: 1.3;
+        }
+
+        h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--slate-800);
+            margin: 1.75rem 0 0.875rem 0;
+            line-height: 1.4;
+        }
+
+        p {
+            margin: 1.25rem 0;
+            color: var(--slate-700);
+            line-height: 1.75;
+            font-size: 1rem;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 1rem;
+            border: 1px solid var(--slate-200);
+            padding: 2.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .card-highlight {
+            background: linear-gradient(to bottom right, rgba(50, 205, 50, 0.1), rgba(50, 205, 50, 0.05));
+            border: 2px solid rgba(50, 205, 50, 0.3);
+        }
+
+        .card-success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+
+        /* Lists */
+        ul {
+            margin: 1.25rem 0;
+            padding-left: 1.75rem;
+        }
+
+        li {
+            margin: 0.75rem 0;
+            line-height: 1.8;
+            color: var(--slate-700);
+            font-size: 1rem;
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .checklist li {
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .checklist li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--brand);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 2rem 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        th {
+            background: var(--brand);
+            color: var(--otium-black);
+            padding: 1.25rem 1.5rem;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--slate-200);
+            color: var(--slate-700);
+            font-size: 0.9375rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: var(--slate-50);
+        }
+
+        /* Comparison Grid */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .comparison-card {
+            background: white;
+            border: 2px solid var(--slate-200);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .comparison-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .comparison-card.internal {
+            border-color: #dc3545;
+        }
+
+        .comparison-card.external {
+            border-color: var(--brand);
+        }
+
+        .price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 1rem 0;
+        }
+
+        .price.internal {
+            color: #dc3545;
+        }
+
+        .price.external {
+            color: var(--brand);
+        }
+
+        /* Savings Section */
+        .savings {
+            background: linear-gradient(to bottom right, var(--brand), var(--brand-dark));
+            color: var(--otium-black);
+            padding: 3rem;
+            border-radius: 1rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .savings h3 {
+            color: var(--otium-black);
+            margin-bottom: 1rem;
+        }
+
+        .savings .amount {
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 1rem 0;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin: 1.5rem 0;
+        }
+
+        .timeline:before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--brand);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .timeline-item:before {
+            content: "";
+            position: absolute;
+            left: -2.25rem;
+            top: 0.3rem;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background: var(--brand);
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px var(--brand);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid var(--slate-200);
+            padding: 4rem 0;
+            margin-top: 4rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-section p {
+            color: var(--slate-600);
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+
+        .footer-section a {
+            color: var(--slate-600);
+            text-decoration: none;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.75rem 0;
+        }
+
+        .footer-section a:hover {
+            color: var(--brand);
+        }
+
+        .footer-section a svg {
+            width: 1rem;
+            height: 1rem;
+            color: var(--brand);
+            transition: transform 0.2s;
+        }
+
+        .footer-section a:hover svg {
+            transform: translateX(4px);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--slate-200);
+            padding-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .footer-bottom p {
+            color: var(--slate-500);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .footer-links a {
+            color: var(--slate-500);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--brand);
+        }
+
+        .footer-quote {
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--slate-700);
+            font-style: italic;
+            line-height: 1.8;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--slate-50);
+            border-radius: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .toc {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding-right: 0 !important;
+            }
+
+            .container-inner {
+                padding: 0 1rem;
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                font-size: 16px;
+            }
+
+            .container-inner {
+                padding: 0 1rem;
+            }
+
+            main {
+                padding: 2rem 0;
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                padding-right: 0 !important;
+            }
+
+            h1 {
+                font-size: 1.875rem;
+                margin-bottom: 1rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+                margin: 2.5rem 0 1.25rem 0;
+            }
+
+            h3 {
+                font-size: 1.25rem;
+                margin: 2rem 0 1rem 0;
+            }
+
+            h4 {
+                font-size: 1rem;
+                margin: 1.5rem 0 0.75rem 0;
+            }
+
+            p {
+                font-size: 0.9375rem;
+                margin: 1rem 0;
+            }
+
+            .card {
+                padding: 1.5rem;
+                margin: 1.5rem 0;
+                border-radius: 0.75rem;
+            }
+
+            .hero-section {
+                padding: 3rem 1rem;
+                margin-bottom: 2rem;
+                border-radius: 0.75rem;
+            }
+
+            .hero-section h1 {
+                font-size: 1.875rem;
+                margin-bottom: 1rem;
+            }
+
+            .hero-section .subtitle {
+                font-size: 1.125rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+                gap: 1.25rem;
+                margin: 1.5rem 0;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+
+            .feature-icon {
+                font-size: 2.5rem;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+                gap: 1.25rem;
+            }
+
+            .comparison-card {
+                padding: 1.5rem;
+            }
+
+            .price {
+                font-size: 2rem;
+            }
+
+            .savings {
+                padding: 2rem 1.5rem;
+                margin: 2rem 0;
+            }
+
+            .savings .amount {
+                font-size: 2rem;
+            }
+
+            .table-wrapper {
+                margin: 1.5rem 0;
+            }
+
+            table {
+                font-size: 0.8125rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            th {
+                font-size: 0.75rem;
+            }
+
+            .flow-steps {
+                grid-template-columns: 1fr;
+                gap: 1.25rem;
+            }
+
+            .flow-step {
+                padding: 1.25rem;
+            }
+
+            .flow-number {
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 1.25rem;
+            }
+
+            .screen-mockup {
+                padding: 1.5rem;
+                min-height: 200px;
+            }
+
+            .screen-mockup::before {
+                font-size: 3rem;
+            }
+
+            .module-section {
+                padding: 1.5rem;
+                margin: 1.5rem 0;
+            }
+
+            .timeline {
+                padding-left: 1.5rem;
+            }
+
+            .timeline-item:before {
+                left: -1.75rem;
+                width: 0.875rem;
+                height: 0.875rem;
+            }
+
+            ul {
+                padding-left: 1.5rem;
+            }
+
+            li {
+                font-size: 0.9375rem;
+                margin: 0.5rem 0;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .footer-bottom {
+                text-align: center;
+            }
+
+            .footer-quote {
+                font-size: 1rem;
+                padding: 1.5rem;
+            }
+
+            .highlight-box {
+                padding: 1rem;
+                font-size: 0.9375rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                font-size: 15px;
+            }
+
+            .container-inner {
+                padding: 0 0.75rem;
+                max-width: 100%;
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding-right: 0 !important;
+            }
+
+            main {
+                padding: 1.5rem 0;
+            }
+
+            h1 {
+                font-size: 1.625rem;
+            }
+
+            h2 {
+                font-size: 1.375rem;
+            }
+
+            h3 {
+                font-size: 1.125rem;
+            }
+
+            .card {
+                padding: 1.25rem;
+            }
+
+            .hero-section {
+                padding: 2.5rem 0.75rem;
+            }
+
+            .hero-section h1 {
+                font-size: 1.625rem;
+            }
+
+            .hero-section .subtitle {
+                font-size: 1rem;
+            }
+
+            .feature-card {
+                padding: 1.25rem;
+            }
+
+            .comparison-card {
+                padding: 1.25rem;
+            }
+
+            .savings {
+                padding: 1.5rem 1rem;
+            }
+
+            .savings .amount {
+                font-size: 1.75rem;
+            }
+
+            table {
+                font-size: 0.75rem;
+            }
+
+            th, td {
+                padding: 0.5rem 0.375rem;
+            }
+        }
+
+        .highlight-box {
+            background: #fff3cd;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #ffc107;
+            margin: 1rem 0;
+        }
+
+        /* Project Overview Styles */
+        .hero-section {
+            background: linear-gradient(135deg, var(--otium-black) 0%, var(--slate-800) 100%);
+            color: white;
+            padding: 5rem 0;
+            margin-bottom: 4rem;
+            border-radius: 1rem;
+        }
+
+        .hero-section h1 {
+            color: white;
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            font-weight: 800;
+        }
+
+        .hero-section .subtitle {
+            font-size: 1.5rem;
+            color: var(--slate-300);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2.5rem;
+            border: 2px solid var(--slate-200);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: var(--brand);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .screen-mockup {
+            background: var(--slate-100);
+            border: 2px solid var(--slate-200);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .screen-mockup::before {
+            content: "📱";
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .module-section {
+            background: linear-gradient(to bottom right, rgba(50, 205, 50, 0.05), rgba(50, 205, 50, 0.02));
+            border: 2px solid rgba(50, 205, 50, 0.2);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .flow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .flow-step {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            border: 2px solid var(--slate-200);
+            position: relative;
+        }
+
+        .flow-step::after {
+            content: "→";
+            position: absolute;
+            right: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            color: var(--brand);
+        }
+
+        .flow-step:last-child::after {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .flow-step::after {
+                display: none;
+            }
+
+            .flow-steps {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .flow-number {
+            background: var(--brand);
+            color: var(--otium-black);
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin: 0 auto 1rem;
+        }
+
+        /* NDA Styles */
+        .parties {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: var(--slate-50);
+            border-radius: 0.5rem;
+            border-left: 4px solid var(--brand);
+        }
+
+        .party {
+            margin-bottom: 1.5rem;
+        }
+
+        .party:last-child {
+            margin-bottom: 0;
+        }
+
+        .party-title {
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+        }
+
+        .party-details {
+            color: var(--slate-700);
+            font-size: 0.9375rem;
+            line-height: 1.6;
+        }
+
+        .clause {
+            margin: 2.5rem 0;
+        }
+
+        .clause-title {
+            font-weight: 700;
+            color: var(--slate-900);
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .clause-number {
+            color: var(--brand);
+            font-weight: 800;
+        }
+
+        .clause-content {
+            color: var(--slate-700);
+            margin-left: 0;
+            margin-top: 1rem;
+        }
+
+        .clause-content p {
+            margin-bottom: 1rem;
+        }
+
+        .clause-content ul,
+        .clause-content ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .clause-content li {
+            margin: 0.5rem 0;
+        }
+
+        .signature-section {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 2px solid var(--slate-200);
+        }
+
+        .signature-block {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: var(--slate-50);
+            border-radius: 0.5rem;
+        }
+
+        .signature-line {
+            margin-top: 4rem;
+            border-top: 2px solid var(--slate-800);
+            padding-top: 0.5rem;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .signature-line small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--slate-600);
+            font-size: 0.875rem;
+        }
+
+        .nda-document-body {
+            background: white;
+            padding: 3rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            line-height: 1.8;
+        }
+
+        @media (max-width: 768px) {
+            .nda-document-body {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: auto;
+            border-radius: 0.75rem;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--slate-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--slate-900);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--slate-500);
+            cursor: pointer;
+            padding: 0;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--slate-100);
+            color: var(--slate-900);
+        }
+
+        .modal-actions {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--slate-200);
+            display: flex;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .btn-copy {
+            background: var(--brand);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            font-size: 0.9375rem;
+        }
+
+        .btn-copy:hover {
+            background: var(--brand-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(50, 205, 50, 0.3);
+        }
+
+        .btn-copy.copied {
+            background: var(--slate-600);
+        }
+
+        .modal-body {
+            padding: 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        @media (max-width: 768px) {
+            .modal.active {
+                padding: 1rem;
+            }
+
+            .modal-content {
+                width: 100%;
+                max-height: 95vh;
+            }
+
+            .modal-header {
+                padding: 1rem 1.5rem;
+            }
+
+            .modal-header h2 {
+                font-size: 1.25rem;
+            }
+
+            .modal-body {
+                padding: 1.5rem;
+            }
+
+            .modal-actions {
+                padding: 0.75rem 1.5rem;
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container-inner">
+            <div class="header-content">
+                <a href="/" class="logo-link">
+                    <img src="https://otiumit.com/logo.png" alt="OtiumIT" class="logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <span style="display:none; font-size: 1.5rem; font-weight: 700;">
+                        <span style="color: var(--otium-black);">Otium</span><span style="color: var(--brand);">IT</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Table of Contents -->
+    <aside class="toc">
+        <div class="toc-title">Índice</div>
+        <ul>
+            <li><a href="#visao-projeto" class="toc-level-2">Visão do Projeto</a></li>
+            <li><a href="#modulos-telas" class="toc-level-2">Módulos e Telas</a></li>
+            <li><a href="#funcionalidades" class="toc-level-2">Funcionalidades</a></li>
+            <li><a href="#entregaveis" class="toc-level-2">Entregáveis</a></li>
+            <li><a href="#fluxo" class="toc-level-2">Fluxo de Operação</a></li>
+            <li><a href="#analise-custos" class="toc-level-2">Análise de Custos</a></li>
+            <li><a href="#equipe-necessaria" class="toc-level-2">Equipe Necessária</a></li>
+            <li><a href="#tempo-desenvolvimento" class="toc-level-2">Tempo de Desenvolvimento</a></li>
+            <li><a href="#comparacao-financeira" class="toc-level-2">Comparação Financeira</a></li>
+            <li><a href="#roi" class="toc-level-2">Análise de ROI</a></li>
+            <li><a href="#vantagens" class="toc-level-2">Vantagens</a></li>
+            <li><a href="#proposta-valor" class="toc-level-2">Proposta de Valor</a></li>
+        </ul>
+    </aside>
+
+    <main>
+        <div class="main-content">
+            <div class="container-inner">
+            <!-- Visão do Projeto -->
+            <div class="hero-section" id="visao-projeto">
+                <div class="container-inner">
+                    <h1>🚀 Sistema de Inteligência Tributária</h1>
+                    <p class="subtitle">Automatize a identificação de oportunidades fiscais e recupere milhões em dívidas tributárias</p>
+                    <p style="font-size: 1.125rem; color: var(--slate-300); max-width: 800px; margin: 0 auto;">
+                        Sistema focado em identificar janelas de oportunidade tributária através do processamento automatizado de arquivos fiscais (SPED, ECD, PGDAS). 
+                        Substitua análises manuais por diagnósticos instantâneos de Enquadramento Tributário e Rating de Recuperabilidade (PGFN).
+                    </p>
+                </div>
+            </div>
+
+            <h2>📋 Visão Geral do Projeto</h2>
+            
+            <div class="card">
+                <h3>O Problema</h3>
+                <p>
+                    Escritórios de contabilidade e advocacia perdem milhões em oportunidades tributárias porque a análise de arquivos fiscais é manual e lenta. 
+                    Com centenas de clientes e milhares de arquivos SPED, ECD e PGDAS, é humanamente impossível identificar todas as oportunidades de:
+                </p>
+                <ul class="checklist">
+                    <li>Reenquadramento de Rating (CAPAG) para conseguir descontos de até 70% em dívidas</li>
+                    <li>Mudança de regime tributário (Lucro Real vs. Presumido)</li>
+                    <li>Adequação a novos editais da PGFN</li>
+                </ul>
+            </div>
+
+            <div class="card card-highlight">
+                <h3>A Solução</h3>
+                <p>
+                    Um sistema de <strong>Inteligência Tributária</strong> que processa automaticamente arquivos fiscais e identifica oportunidades em segundos, 
+                    gerando relatórios profissionais prontos para apresentação ao cliente.
+                </p>
+            </div>
+
+            <h2 id="modulos-telas">🖥️ Módulos e Telas do Sistema</h2>
+
+            <div class="module-section">
+                <h3>1. Módulo Administrativo (Multi-Tenant)</h3>
+                <p>Gestão completa do escritório e configuração do sistema</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🏢</div>
+                        <h4>Gestão de Contabilidades</h4>
+                        <ul>
+                            <li>Cadastro do escritório (Logo, Razão Social, CNPJ)</li>
+                            <li>Configuração de identidade visual</li>
+                            <li>Gestão de múltiplos escritórios (white label)</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <h4>Gestão de Usuários e Permissões</h4>
+                        <ul>
+                            <li><strong>Admin:</strong> Gestão total e configuração</li>
+                            <li><strong>Operador:</strong> Uploads e geração de diagnósticos</li>
+                            <li><strong>Visualizador:</strong> Acesso limitado aos dashboards</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <h3>2. Gestão de Clientes</h3>
+                <p>Cadastro completo de empresas e repositório de documentos fiscais</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🏭</div>
+                        <h4>Cadastro de Empresas</h4>
+                        <ul>
+                            <li>Dados básicos (CNPJ, CNAE, Inscrições)</li>
+                            <li>Configuração de Regime Atual</li>
+                            <li>Histórico de análises</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📁</div>
+                        <h4>Repositório de Documentos</h4>
+                        <ul>
+                            <li>Upload organizado por competência (Mês/Ano)</li>
+                            <li>Suporte: .txt (SPED/ECD), .xml (PGDAS), .pdf</li>
+                            <li>Validação automática de formatos</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <h3>3. Motor de Regras (Repositório de Editais)</h3>
+                <p>Configuração de critérios baseados em editais vigentes da PGFN/Receita Federal</p>
+                
+                <div class="card">
+                    <h4>Funcionalidades:</h4>
+                    <ul class="checklist">
+                        <li>Cadastro de parâmetros de editais (tempo de inscrição, faixas de desconto, prazos)</li>
+                        <li>Restrições por CNAE</li>
+                        <li>Vínculo legislativo automático</li>
+                        <li>Cruzamento automático com passivo do cliente</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2 id="funcionalidades">🧠 Funcionalidades de Inteligência (Core)</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card card-highlight">
+                    <div class="feature-icon">📊</div>
+                    <h3>Validador de Rating PGFN (CAPAG)</h3>
+                    <p><strong>Como funciona:</strong></p>
+                    <ul>
+                        <li>Leitura automática dos blocos de Balanço e DRE da ECD</li>
+                        <li>Aplicação das fórmulas da Portaria PGFN nº 6.757/2022:
+                            <ul>
+                                <li>Liquidez Corrente</li>
+                                <li>Liquidez Geral</li>
+                                <li>Solvência</li>
+                            </ul>
+                        </li>
+                        <li>Confronto: Rating Estimado (Governo) vs. Rating Real (Contabilidade)</li>
+                        <li>Identificação de erros de classificação para desconto em transações</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card card-highlight">
+                    <div class="feature-icon">💡</div>
+                    <h3>Simulador de Enquadramento Tributário</h3>
+                    <p><strong>Como funciona:</strong></p>
+                    <ul>
+                        <li>Análise de faturamento e margem de lucro via SPED e PGDAS</li>
+                        <li>Projeção comparativa entre regimes:
+                            <ul>
+                                <li>Lucro Presumido vs. Lucro Real</li>
+                                <li>Simples Nacional vs. Presumido</li>
+                            </ul>
+                        </li>
+                        <li>Cálculo do "Custo de Oportunidade" (economia potencial)</li>
+                        <li>Relatório com memória de cálculo</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card card-highlight">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Scanner de Editais</h3>
+                    <p><strong>Como funciona:</strong></p>
+                    <ul>
+                        <li>Cruzamento automático de dívidas com editais vigentes</li>
+                        <li>Identificação de clientes elegíveis</li>
+                        <li>Alertas de oportunidades em tempo real</li>
+                        <li>Filtros por CNAE, valor, prazo</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2 id="entregaveis">📊 Entregáveis e Saídas</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Dashboard de Oportunidades</h3>
+                    <ul class="checklist">
+                        <li>Painel visual com "faróis" de alerta</li>
+                        <li><span style="color: var(--brand); font-weight: 700;">🟢 Verde:</span> Oportunidade Identificada</li>
+                        <li><span style="color: #dc3545; font-weight: 700;">🔴 Vermelho:</span> Risco Fiscal</li>
+                        <li>Resumo do passivo tributário filtrado por editais</li>
+                        <li>Gráficos e métricas em tempo real</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📄</div>
+                    <h3>Gerador de Relatório PDF</h3>
+                    <ul class="checklist">
+                        <li>Documento gerado automaticamente</li>
+                        <li>Logomarca do escritório</li>
+                        <li>Diagnóstico completo do Rating</li>
+                        <li>Memória de cálculo do reenquadramento</li>
+                        <li>Sugestão de tese ou transação tributária</li>
+                        <li>Valor estimado de economia para o cliente</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2 id="fluxo">🔄 Fluxo de Operação (UX)</h2>
+
+            <div class="card">
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-number">1</div>
+                        <h4>Upload</h4>
+                        <p>Usuário faz upload do arquivo SPED/ECD/PGDAS</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">2</div>
+                        <h4>Extraction</h4>
+                        <p>Sistema faz parsing automático dos dados (sem digitação)</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">3</div>
+                        <h4>Análise</h4>
+                        <p>Motor de regras cruza dados com editais vigentes</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">4</div>
+                        <h4>Diagnóstico</h4>
+                        <p>Sistema gera diagnóstico de Rating e Enquadramento</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">5</div>
+                        <h4>Exportação</h4>
+                        <p>Advogado/contador exporta PDF e apresenta ao cliente</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-success">
+                <h3>🎯 Resultado Final</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 1rem;">
+                    <strong>De análise manual que levava dias/ semanas → Para diagnóstico automático em segundos</strong>
+                </p>
+                <ul class="checklist">
+                    <li>Identificação automática de oportunidades de Rating D (descontos de até 70%)</li>
+                    <li>Comparação instantânea de regimes tributários</li>
+                    <li>Alertas de novos editais aplicáveis</li>
+                    <li>Relatórios profissionais prontos para apresentação</li>
+                    <li>Potencial de recuperação de milhões em dívidas tributárias</li>
+                </ul>
+            </div>
+
+            <div style="background: var(--slate-100); border-left: 4px solid var(--brand); padding: 2rem; border-radius: 0.5rem; margin: 3rem 0;">
+                <h3 style="margin-top: 0;">💼 Caso de Uso Real</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 1rem;">
+                    <strong>Cenário:</strong> Cliente com dívida de R$ 2 milhões na PGFN, classificado como Rating B pelo governo.
+                </p>
+                <p>
+                    O sistema processa a ECD do cliente e identifica que o Rating real é <strong>Rating D</strong>. 
+                    Com isso, o escritório consegue negociar um desconto de 70% (R$ 1,4 milhão de economia). 
+                    O sistema gera automaticamente o relatório com toda a memória de cálculo, 
+                    e o advogado apresenta ao cliente em minutos, não semanas.
+                </p>
+            </div>
+
+            <hr style="border: none; border-top: 2px solid var(--slate-200); margin: 4rem 0;">
+
+            <h1 id="analise-custos">💰 Análise de Custos</h1>
+            <p style="font-size: 1.25rem; color: var(--slate-600); margin-bottom: 3rem;">Desenvolvimento Interno vs. Parceria Protec + OtiumIT</p>
+
+            <h2 id="equipe-necessaria">🏢 O que seria necessário para desenvolver "dentro de casa"</h2>
+
+            <div class="card">
+                <h3>1. Estrutura de Equipe Mínima Necessária</h3>
+
+                <h4>Desenvolvedor Full Stack Sênior</h4>
+                <ul>
+                    <li><strong>Salário:</strong> R$ 12.000 - R$ 18.000/mês</li>
+                    <li><strong>Responsabilidades:</strong>
+                        <ul>
+                            <li>Desenvolvimento do sistema completo (frontend + backend)</li>
+                            <li>Integração com APIs de processamento de arquivos fiscais</li>
+                            <li>Implementação do motor de regras tributárias</li>
+                            <li>Desenvolvimento do dashboard e relatórios</li>
+                            <li><strong>DevOps:</strong> Configuração de servidores, CI/CD, deploy, monitoramento e segurança</li>
+                        </ul>
+                    </li>
+                    <li><strong>Tempo de dedicação:</strong> 100% (dedicação exclusiva)</li>
+                </ul>
+
+                <h4>DBA / Especialista em Dados</h4>
+                <ul>
+                    <li><strong>Salário:</strong> R$ 10.000 - R$ 15.000/mês</li>
+                    <li><strong>Responsabilidades:</strong>
+                        <ul>
+                            <li>Modelagem de banco de dados multi-tenant</li>
+                            <li>Otimização de queries para processamento de grandes volumes</li>
+                            <li>Estruturação de repositório de documentos</li>
+                            <li>Backup e segurança de dados fiscais sensíveis</li>
+                        </ul>
+                    </li>
+                    <li><strong>Tempo de dedicação:</strong> 50-70% (meio período)</li>
+                </ul>
+
+                <h4>Especialista em Especificação / Business Analyst</h4>
+                <ul>
+                    <li><strong>Salário:</strong> R$ 8.000 - R$ 12.000/mês</li>
+                    <li><strong>Responsabilidades:</strong>
+                        <ul>
+                            <li>Levantamento detalhado de requisitos tributários</li>
+                            <li>Mapeamento de regras de negócio (Portaria 6.757/22, editais PGFN)</li>
+                            <li>Documentação técnica e funcional</li>
+                            <li>Validação de regras com contadores e advogados</li>
+                        </ul>
+                    </li>
+                    <li><strong>Tempo de dedicação:</strong> 30-50% (meio período)</li>
+                </ul>
+            </div>
+
+            <div class="card card-highlight">
+                <h3>2. Custos Adicionais Ocultos</h3>
+
+                <h4>Custos Trabalhistas (CLT)</h4>
+                <p><strong>Encargos sociais:</strong> ~40% sobre salários</p>
+                <ul>
+                    <li>INSS: 20%</li>
+                    <li>FGTS: 8%</li>
+                    <li>Férias + 1/3: 11,11%</li>
+                    <li>13º salário: 8,33%</li>
+                    <li>Outros (seguro, benefícios): ~3%</li>
+                </ul>
+
+                <p><strong>Exemplo com equipe mínima (2 desenvolvedores):</strong></p>
+                <ul>
+                    <li>Salários base: R$ 27.000/mês</li>
+                    <li>Encargos (40%): R$ 10.800/mês</li>
+                    <li><strong>Total mensal: R$ 37.800/mês</strong></li>
+                </ul>
+
+                <h4>Infraestrutura e Ferramentas</h4>
+                <ul>
+                    <li>Servidores cloud (AWS/Azure): R$ 1.500 - R$ 3.000/mês</li>
+                    <li>Licenças de software (IDEs, ferramentas): R$ 500 - R$ 1.000/mês</li>
+                    <li>Ferramentas de gestão (Jira, Slack, etc.): R$ 500 - R$ 1.000/mês</li>
+                    <li><strong>Total: R$ 2.500 - R$ 5.000/mês</strong></li>
+                </ul>
+
+                <h4>Tempo de Recrutamento e Onboarding</h4>
+                <ul>
+                    <li>Processo seletivo: 2-3 meses</li>
+                    <li>Onboarding e treinamento: 1-2 meses</li>
+                    <li><strong>Custo de oportunidade: 3-5 meses sem desenvolvimento</strong></li>
+                </ul>
+            </div>
+
+            <h2 id="tempo-desenvolvimento">⏱️ Tempo de Desenvolvimento</h2>
+
+            <div class="card">
+                <h3>Cenário com Equipe Interna (2 desenvolvedores)</h3>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <h4>Fase 1: Especificação e Planejamento</h4>
+                        <p><strong>Duração:</strong> 1-1,5 meses</p>
+                        <p><strong>Custo:</strong> R$ 37.800 - R$ 56.700 (salários + encargos)</p>
+                        <ul>
+                            <li>Levantamento completo de requisitos</li>
+                            <li>Mapeamento de regras tributárias</li>
+                            <li>Arquitetura do sistema</li>
+                            <li>Modelagem de banco de dados</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Fase 2: Desenvolvimento MVP</h4>
+                        <p><strong>Duração:</strong> 4-4,5 meses</p>
+                        <p><strong>Custo:</strong> R$ 151.200 - R$ 170.100 (salários + encargos)</p>
+                        <ul>
+                            <li>Sistema administrativo multi-tenant</li>
+                            <li>Processador de arquivos SPED/ECD/PGDAS</li>
+                            <li>Motor de regras de Rating (CAPAG)</li>
+                            <li>Simulador de enquadramento tributário</li>
+                            <li>Dashboard e relatórios</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Fase 3: Testes e Ajustes</h4>
+                        <p><strong>Duração:</strong> 0,5-1 mês</p>
+                        <p><strong>Custo:</strong> R$ 18.900 - R$ 37.800 (salários + encargos)</p>
+                        <ul>
+                            <li>Testes com dados reais</li>
+                            <li>Correções e ajustes</li>
+                            <li>Validação com usuários</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-highlight">
+                    <h4>Total de Desenvolvimento:</h4>
+                    <ul>
+                        <li><strong>Tempo:</strong> 6 meses</li>
+                        <li><strong>Custo total:</strong> R$ 207.900 - R$ 264.600</li>
+                        <li><strong>Custo mensal médio:</strong> R$ 34.650 - R$ 44.100/mês (durante desenvolvimento)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card card-success">
+                <h3>Cenário com Parceria Protec + OtiumIT</h3>
+                <ul class="checklist">
+                    <li><strong>Tempo para MVP funcional:</strong> 30-45 dias (Scanner de Rating)</li>
+                    <li><strong>Tempo para sistema completo:</strong> 2-3 meses</li>
+                    <li><strong>Custo fixo (Fase 1 - 6 meses):</strong> R$ 8.000/mês</li>
+                    <li><strong>Custo total Fase 1:</strong> R$ 48.000 (6 meses)</li>
+                    <li><strong>Fase 2 (após 6 meses):</strong> Apenas 15% success fee + custos de infraestrutura (repassados sem margem)</li>
+                    <li><strong>Observação:</strong> Custos extras de infraestrutura serão repassados proporcionalmente, sem margem adicional</li>
+                </ul>
+            </div>
+
+            <h2 id="comparacao-financeira">💵 Comparação Financeira Detalhada</h2>
+
+            <div class="comparison-grid">
+                <div class="comparison-card internal">
+                    <h3>Cenário 1: Equipe Interna Mínima</h3>
+                    <div class="price internal">R$ 40.300/mês</div>
+                    <ul style="text-align: left; margin-top: 1.5rem;">
+                        <li>2 Desenvolvedores</li>
+                        <li>Encargos trabalhistas</li>
+                        <li>Infraestrutura</li>
+                    </ul>
+                    <p style="margin-top: 1.5rem;"><strong>Custo Anual: R$ 483.600</strong></p>
+                </div>
+
+                <div class="comparison-card internal">
+                    <h3>Cenário 2: Equipe com Especialista</h3>
+                    <div class="price internal">R$ 54.800/mês</div>
+                    <ul style="text-align: left; margin-top: 1.5rem;">
+                        <li>3 Profissionais</li>
+                        <li>Encargos trabalhistas</li>
+                        <li>Infraestrutura</li>
+                    </ul>
+                    <p style="margin-top: 1.5rem;"><strong>Custo Anual: R$ 657.600</strong></p>
+                </div>
+
+                <div class="comparison-card external">
+                    <h3>Cenário 3: Parceria Protec + OtiumIT</h3>
+                    <div class="price external">R$ 8.000/mês</div>
+                    <div style="font-size: 0.875rem; color: var(--slate-600); margin-top: 0.5rem;">(Fase 1 - 6 meses)</div>
+                    <ul class="checklist" style="text-align: left; margin-top: 1.5rem;">
+                        <li>Time completo (6 meses)</li>
+                        <li>Infraestrutura base incluída</li>
+                        <li>Sem encargos</li>
+                        <li>Após 6 meses: apenas 15% success fee</li>
+                    </ul>
+                    <p style="margin-top: 1.5rem;"><strong>Custo Fase 1 (6 meses): R$ 48.000</strong></p>
+                    <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--slate-600);"><strong>Fase 2:</strong> Apenas 15% success fee</p>
+                </div>
+            </div>
+
+            <div class="savings">
+                <h3>💰 Economia com Parceria Protec + OtiumIT</h3>
+                <div class="amount">R$ 48.000 (Fase 1) vs. R$ 241.800 - R$ 328.800 (6 meses internamente)</div>
+                <p style="font-size: 1.2rem; margin-top: 1rem;">
+                    <strong>Economia na Fase 1 (6 meses):</strong> R$ 193.800 - R$ 280.800
+                </p>
+                <p style="font-size: 1.2rem; margin-top: 0.5rem;">
+                    <strong>Após 6 meses:</strong> Apenas 15% success fee (sem custo fixo mensal)
+                </p>
+                <p style="font-size: 1.2rem; margin-top: 1rem;">
+                    <span class="badge badge-success">80-85% de economia</span>
+                </p>
+            </div>
+
+            <h2 id="roi">📈 Análise de ROI (Retorno sobre Investimento)</h2>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Critério</th>
+                            <th>Equipe Interna</th>
+                            <th>Parceria Protec + OtiumIT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Investimento Fase 1 (6 meses)</strong></td>
+                            <td>R$ 241.800 - R$ 328.800</td>
+                            <td>R$ 48.000 (R$ 8k/mês por 6 meses)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Custo Fase 1 (Mensal)</strong></td>
+                            <td>R$ 40.300 - R$ 54.800</td>
+                            <td>R$ 8.000/mês (apenas 6 meses)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Custo Fase 2 (Após 6 meses)</strong></td>
+                            <td>R$ 40.300 - R$ 54.800/mês</td>
+                            <td>Apenas 15% success fee + infraestrutura (custo real)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tempo para MVP</strong></td>
+                            <td>6 meses</td>
+                            <td>30-45 dias</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Passivo Trabalhista</strong></td>
+                            <td>Sim (R$ 10k-15k/mês)</td>
+                            <td>Não</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Risco de Turnover</strong></td>
+                            <td>Alto</td>
+                            <td>Baixo</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Especialização</strong></td>
+                            <td>Precisa desenvolver</td>
+                            <td>Já possui</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Foco em Resultados</strong></td>
+                            <td>Salário fixo</td>
+                            <td>Success fee</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 id="vantagens">✅ Vantagens da Parceria Protec + OtiumIT</h2>
+
+            <div class="card card-success">
+                <h3>1. Economia Imediata</h3>
+                <ul class="checklist">
+                    <li><strong>R$ 32.300 - R$ 46.800/mês</strong> de economia em custos fixos</li>
+                    <li>Sem encargos trabalhistas</li>
+                    <li>Sem custos de recrutamento e onboarding</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>2. Time para Resultado</h3>
+                <ul class="checklist">
+                    <li>MVP funcional em <strong>30-45 dias</strong> vs. 6 meses</li>
+                    <li>Time experiente em sistemas tributários</li>
+                    <li>Metodologia ágil e comprovada</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>3. Flexibilidade</h3>
+                <ul class="checklist">
+                    <li>Sem passivo trabalhista</li>
+                    <li>Escala conforme necessidade</li>
+                    <li>Foco em resultados (success fee alinha interesses)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>4. Especialização</h3>
+                <ul class="checklist">
+                    <li>Conhecimento profundo em processamento de arquivos fiscais</li>
+                    <li>Experiência em sistemas multi-tenant</li>
+                    <li>Expertise em regras tributárias complexas</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>5. Escalabilidade Futura</h3>
+                <ul class="checklist">
+                    <li>Sistema white label pronto para revenda</li>
+                    <li>Infraestrutura escalável desde o início</li>
+                    <li>Roadmap de evolução contínua</li>
+                    <li><strong>Parceria futura:</strong> OtiumIT terá 30% e PROTEC terá 70% de equity quando o sistema virar empresa para o mercado</li>
+                </ul>
+            </div>
+
+            <h2 id="proposta-valor">🎯 Proposta de Valor</h2>
+
+            <div class="card card-highlight">
+                <h3>📅 Fase 1: Fase de Ataque (6 meses)</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 1rem; color: var(--slate-700);">
+                    <strong>Desenvolvimento intensivo para ter um sistema lucrativo</strong>
+                </p>
+                <ul class="checklist">
+                    <li><strong>R$ 8.000/mês fixo</strong> para desenvolvimento</li>
+                    <li><strong>Máximo de features possível</strong> - foco em entregar o máximo de funcionalidades</li>
+                    <li><strong>Objetivo:</strong> Sistema lucrativo e funcional ao final dos 6 meses</li>
+                    <li><strong>Time completo de desenvolvimento</strong> (equivalente a R$ 40k-55k/mês internamente)</li>
+                    <li><strong>Infraestrutura base incluída</strong> (servidores, ferramentas, segurança)</li>
+                    <li><strong>Desenvolvimento ágil</strong> (MVP em semanas, não meses)</li>
+                </ul>
+            </div>
+
+            <div class="card card-success">
+                <h3>🔄 Fase 2: Manutenção (após 6 meses)</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 1rem; color: var(--slate-700);">
+                    <strong>Fee mensal cessa - apenas success fee de 15%</strong>
+                </p>
+                <ul class="checklist">
+                    <li><strong>Fee mensal de R$ 8.000 cessa completamente</strong></li>
+                    <li><strong>Apenas 15% de success fee</strong> sobre a receita do projeto</li>
+                    <li><strong>Novos desenvolvimentos:</strong> Focados exclusivamente na NewCo (sociedade 70/30) para vender o sistema para outras empresas</li>
+                    <li><strong>Manutenção básica:</strong> Incluída no success fee</li>
+                </ul>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; margin-top: 1.5rem;">
+                    <h4>💰 Custos operacionais na Fase de Manutenção:</h4>
+                    <ul>
+                        <li><strong>Infraestrutura:</strong> Custo real de hospedagem e processamento (sem margem, repassado proporcionalmente)</li>
+                        <li><strong>Manutenção básica:</strong> Incluída no success fee</li>
+                        <li><strong>Evoluções/novas features:</strong> Orçamento separado quando solicitarem</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card card-success">
+                <h3>Modelo de Success Fee (15%):</h3>
+                <ul>
+                    <li><strong>Alinhamento de interesses:</strong> Só ganhamos se vocês ganharem</li>
+                    <li><strong>Foco em resultados:</strong> Nosso sucesso depende do sucesso de vocês</li>
+                    <li><strong>Sem risco para vocês:</strong> Pagam apenas sobre honorários efetivamente recebidos</li>
+                </ul>
+
+                <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; margin-top: 1.5rem;">
+                    <h4>Exemplo prático:</h4>
+                    <ul>
+                        <li>Sistema identifica oportunidade de R$ 2 milhões em recuperação</li>
+                        <li>Escritório recebe R$ 200.000 de honorários (10%)</li>
+                        <li>Nossa parte: R$ 30.000 (15% do honorário)</li>
+                        <li><strong>ROI para vocês: R$ 170.000 líquidos</strong></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card card-highlight">
+                <h3>🤝 Parceria Futura: Expansão para o Mercado</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 1rem;">
+                    <strong>Quando o sistema evoluir e virar uma empresa para captar outras contabilidades:</strong>
+                </p>
+                <ul class="checklist">
+                    <li><strong>OtiumIT terá 30% de equity</strong> na nova empresa (NewCo)</li>
+                    <li><strong>PROTEC terá 70% de equity</strong> na nova empresa (NewCo)</li>
+                    <li>Sistema white label validado na base da PROTEC</li>
+                    <li>Pronto para revenda para outros escritórios de contabilidade</li>
+                    <li>Parceria estratégica de longo prazo entre os dois sócios</li>
+                </ul>
+                
+                <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; margin-top: 1.5rem;">
+                    <h4>Como funciona:</h4>
+                    <ul>
+                        <li>Após validação do sistema na base da PROTEC, criamos uma <strong>nova empresa (NewCo)</strong></li>
+                        <li><strong>OtiumIT recebe 30% de participação</strong> e <strong>PROTEC recebe 70% de participação</strong> nesta empresa</li>
+                        <li>A NewCo será responsável por vender o software para outras contabilidades</li>
+                        <li>Ambos os sócios participam dos lucros e decisões estratégicas</li>
+                        <li><strong>Benefício:</strong> Além de usar o sistema internamente, a PROTEC se torna sócia majoritária de um produto escalável, e a OtiumIT participa como sócia minoritária</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>💡 Benefícios da Estrutura em Fases</h3>
+                <ul class="checklist">
+                    <li><strong>Previsibilidade:</strong> Vocês sabem exatamente quanto e por quanto tempo investir</li>
+                    <li><strong>Foco na lucratividade:</strong> Primeiros 6 meses totalmente focados em ter um sistema que gere receita</li>
+                    <li><strong>Alinhamento de interesses:</strong> Após 6 meses, só ganho se vocês ganharem (15% success fee)</li>
+                    <li><strong>Futuro garantido:</strong> Novos desenvolvimentos focados na NewCo para escalar o negócio</li>
+                    <li><strong>Transparência:</strong> Custos de infraestrutura repassados sem margem, apenas o custo real</li>
+                </ul>
+            </div>
+
+            <div class="savings">
+                <h3>💡 Conclusão</h3>
+                <p style="font-size: 1.3rem; margin: 1.5rem 0;">
+                    <strong>A parceria Protec + OtiumIT representa uma economia de 80-85% nos custos mensais</strong>, com entrega em <strong>fração do tempo</strong> e <strong>risco significativamente menor</strong>.
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">R$ 8.000</div>
+                        <div>Investimento mensal (6 meses)</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">15%</div>
+                        <div>Success fee (após 6 meses)</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">R$ 32k - R$ 47k</div>
+                        <div>Economia mensal vs. equipe interna</div>
+                    </div>
+                </div>
+                <p style="margin-top: 2rem; font-size: 1.1rem;">
+                    <strong>Estrutura em fases:</strong> 6 meses de desenvolvimento intensivo (R$ 8k/mês) para ter um sistema lucrativo, depois apenas 15% de success fee. Isso dá previsibilidade para vocês e garante um futuro para a parceria.
+                </p>
+            </div>
+
+            <div class="card card-highlight" style="margin-top: 3rem;">
+                <h3>📄 Documentos Complementares</h3>
+                <p style="margin-bottom: 1rem;">
+                    Para garantir transparência e proteção mútua, disponibilizamos o <strong>Termo de Confidencialidade e Não Divulgação</strong> revisado e equilibrado, que protege os interesses legítimos de ambas as partes.
+                </p>
+                <button onclick="openNDAModal()" style="display: inline-flex; align-items: center; gap: 0.5rem; color: white; font-weight: 600; text-decoration: none; padding: 0.75rem 1.5rem; background: var(--brand); border: none; border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; font-size: 1rem;">
+                    <svg fill="currentColor" viewBox="0 0 24 24" style="width: 1.25rem; height: 1.25rem;">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                    </svg>
+                    Ver Termo de Confidencialidade Revisado
+                </button>
+            </div>
+
+            <!-- Modal NDA -->
+            <div id="ndaModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>📄 TERMO DE CONFIDENCIALIDADE E NÃO DIVULGAÇÃO</h2>
+                        <button class="modal-close" onclick="closeNDAModal()">&times;</button>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-copy" onclick="copyNDAText()" id="copyBtn">
+                            <svg fill="currentColor" viewBox="0 0 24 24" style="width: 1rem; height: 1rem;">
+                                <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+                            </svg>
+                            Copiar Texto
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="nda-document-body">
+                <div class="parties">
+                    <div class="party">
+                        <div class="party-title">DE UM LADO:</div>
+                        <div class="party-details">
+                            <strong>PROTEC ASSESSORIA E CONSULTORIA S/S</strong>, pessoa jurídica de direito privado, 
+                            com sede na cidade de Londrina, Estado do Paraná, na Rua Brasil, 862, 
+                            inscrita no CNPJ sob n.º <strong>81.880.544/0001-97</strong>, 
+                            neste ato representada por seu administrador, 
+                            <strong>EDIVALDO SILVA VIEIRA</strong>, brasileiro, contador, 
+                            residente e domiciliado na cidade de Londrina, Estado do Paraná, 
+                            na Rua Doutor Elias César, n° 155, Apto 502, Jardim Caiçaras, CEP 86015-640, 
+                            inscrito no CRC/PR sob nº 022574-O/3 e no CPF nº 235.476.699-87, 
+                            doravante denominada simplesmente <strong>PROTEC</strong>.
+                        </div>
+                    </div>
+
+                    <div class="party">
+                        <div class="party-title">DE OUTRO LADO:</div>
+                        <div class="party-details">
+                            <strong>OTIUMIT TECNOLOGIA LTDA</strong>, pessoa jurídica de direito privado, 
+                            inscrita no CNPJ sob n.º <strong>18.511.810/0001-78</strong>, 
+                            com sede em Rua Estado do Amazonas, 99, Ap 87A, São Paulo, SP, CEP 03935-000, 
+                            neste ato representada por seu representante legal, 
+                            <strong>JOSÉ FRANCO CORRÊA NETO</strong>, 
+                            brasileiro, casado, Administrador, 
+                            portador do RG nº <strong>341.364.228</strong> e CPF nº <strong>413.087.898-07</strong>, 
+                            residente e domiciliado em Rua Estado do Amazonas, 99, Ap 87A, São Paulo, SP, CEP 03935-000, 
+                            doravante denominada simplesmente <strong>OTIUMIT</strong>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <p><strong>CONSIDERANDO QUE:</strong></p>
+                    <ul>
+                        <li>A <strong>PROTEC</strong> é um escritório de contabilidade que detém informações confidenciais e proprietárias de seus clientes, bem como informações estratégicas sobre seus produtos e métodos de trabalho;</li>
+                        <li>A <strong>OTIUMIT</strong> foi contratada para prestar serviços de programação e desenvolvimento de sistemas com base nos dados contábeis fornecidos pela PROTEC relativos a clientes desta última;</li>
+                        <li>Para a execução dos serviços, será necessária a troca de informações confidenciais, incluindo dados contábeis de clientes da PROTEC;</li>
+                        <li>A <strong>OTIUMIT</strong> detém conhecimento técnico, metodologias, algoritmos e expertise em desenvolvimento de software que são de sua propriedade intelectual;</li>
+                        <li>É de fundamental interesse de ambas as partes assegurar a proteção e o sigilo das informações confidenciais, respeitando os direitos de propriedade intelectual de cada parte.</li>
+                    </ul>
+                </div>
+
+                <p style="text-align: center; margin: 2rem 0; font-weight: 600;">
+                    Resolvem as partes firmar o presente Termo, nos seguintes termos:
+                </p>
+
+                <!-- CLÁUSULA PRIMEIRA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA PRIMEIRA</span>
+                        <span>– DO OBJETO E DA DEFINIÇÃO DE INFORMAÇÕES CONFIDENCIAIS</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>1.1.</strong> O presente Termo tem como objeto estabelecer as condições de sigilo e não divulgação das informações confidenciais a que ambas as partes terão acesso em decorrência da sua colaboração, garantindo proteção mútua e respeito aos direitos de propriedade intelectual de cada parte.</p>
+                        
+                        <p><strong>1.2.</strong> Para os fins deste Termo, <strong>"Informações Confidenciais da PROTEC"</strong> significam todas e quaisquer informações, de natureza técnica, operacional, comercial, financeira, jurídica, de mercado ou quaisquer outras, relativas aos clientes da PROTEC, aos seus produtos (existentes ou em desenvolvimento), processos, estratégias e ao próprio negócio da PROTEC, incluindo, mas não se limitando a:</p>
+                        
+                        <p><strong>a)</strong> Dados contábeis, financeiros, cadastrais, fiscais e quaisquer outras informações relacionadas aos clientes da PROTEC, incluindo dados pessoais protegidos pela LGPD (Lei Geral de Proteção de Dados Pessoais - Lei nº 13.709/2018);</p>
+                        
+                        <p><strong>b)</strong> Planos, projetos, especificações, métodos, técnicas, relatórios, estudos, documentos e todo e qualquer dado ou material relacionados aos produtos a serem desenvolvidos ou a produtos já existentes da PROTEC, desde que baseados em dados específicos de clientes ou informações proprietárias da PROTEC;</p>
+                        
+                        <p><strong>c)</strong> Informações sobre fornecedores, parceiros, estrutura organizacional e estratégias comerciais específicas da PROTEC;</p>
+                        
+                        <p><strong>d)</strong> Quaisquer outras informações que, por sua natureza, deveriam ser consideradas confidenciais, ou que assim forem expressamente indicadas pela PROTEC.</p>
+                        
+                        <p><strong>1.3.</strong> Para os fins deste Termo, <strong>"Informações Confidenciais da OTIUMIT"</strong> significam todas e quaisquer informações, de natureza técnica, operacional, comercial, financeira, jurídica, de mercado ou quaisquer outras, relativas à OTIUMIT, incluindo, mas não se limitando a:</p>
+                        
+                        <p><strong>a)</strong> Metodologias técnicas, algoritmos genéricos, frameworks, bibliotecas de código e conhecimento técnico geral que não dependem de dados específicos da PROTEC;</p>
+                        
+                        <p><strong>b)</strong> Estrutura organizacional, fornecedores, parceiros e estratégias comerciais da OTIUMIT;</p>
+                        
+                        <p><strong>c)</strong> Quaisquer outras informações que, por sua natureza, deveriam ser consideradas confidenciais, ou que assim forem expressamente indicadas pela OTIUMIT.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA SEGUNDA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA SEGUNDA</span>
+                        <span>– DA CONFIDENCIALIDADE DOS DADOS</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>2.1.</strong> Ambas as partes comprometem-se, por si e por seus prepostos ou colaboradores, a manter a mais estrita confidencialidade sobre todas as Informações Confidenciais às quais tiverem acesso em razão da sua colaboração.</p>
+                        
+                        <p><strong>2.2.</strong> Nenhuma das partes poderá, sob nenhuma hipótese, compartilhar, divulgar, reproduzir, copiar, tornar público, usar em benefício próprio ou de terceiros, ou permitir o acesso a terceiros a qualquer das Informações Confidenciais fornecidas pela outra parte, exceto na estrita medida necessária para o cumprimento de suas obrigações no âmbito da colaboração e sempre sob a supervisão e autorização da parte detentora das informações.</p>
+                        
+                        <p><strong>2.3.</strong> Ambas as partes deverão adotar todas as medidas de segurança razoáveis e necessárias para proteger as Informações Confidenciais contra acesso não autorizado, divulgação, cópia ou uso indevido, com o mesmo grau de cuidado que empregam para proteger suas próprias informações confidenciais de natureza similar, em conformidade com a LGPD e demais legislações aplicáveis.</p>
+                        
+                        <p><strong>2.4.</strong> A OTIUMIT compromete-se a não utilizar dados específicos de clientes da PROTEC para qualquer finalidade que não seja o desenvolvimento e manutenção do sistema contratado, incluindo a proibição de uso desses dados para treinamento de modelos de inteligência artificial, análise estatística para terceiros, ou qualquer outra finalidade não autorizada.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA TERCEIRA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA TERCEIRA</span>
+                        <span>– DA RESTRIÇÃO DE CONTATO DIRETO COM CLIENTES</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>3.1.</strong> Fica expressamente proibido à OTIUMIT entrar em contato direto com os clientes da PROTEC para quaisquer fins, incluindo, mas não se limitando a, coleta de dados, apresentação de soluções, oferta de serviços ou produtos, ou qualquer comunicação que possa ser interpretada como um desvio de clientes ou usurpação da relação comercial da PROTEC.</p>
+                        
+                        <p><strong>3.2.</strong> A única exceção a esta proibição ocorrerá mediante prévia, expressa e específica autorização por escrito da PROTEC, que deverá detalhar o propósito, o cliente envolvido e o escopo da comunicação permitida.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA QUARTA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA QUARTA</span>
+                        <span>– DO SIGILO SOBRE PRODUTOS</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>4.1.</strong> A OTIUMIT compromete-se a manter total sigilo sobre os produtos (softwares, sistemas, ferramentas, etc.) que forem desenvolvidos ou aprimorados com base nas Informações Confidenciais da PROTEC e nos dados contábeis fornecidos pela PROTEC relativos aos seus clientes.</p>
+                        
+                        <p><strong>4.2.</strong> A OTIUMIT não poderá divulgar informações sobre o desenvolvimento, as características técnicas, as funcionalidades, os resultados obtidos ou quaisquer outros detalhes relacionados a esses produtos que revelem dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC, antes, durante ou após a sua conclusão, sem a expressa autorização por escrito da PROTEC.</p>
+                        
+                        <p><strong>4.3.</strong> A PROTEC compromete-se a manter sigilo sobre metodologias técnicas genéricas, algoritmos e conhecimento técnico da OTIUMIT que não sejam específicos do produto desenvolvido para a PROTEC.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA QUINTA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA QUINTA</span>
+                        <span>– DA PROPRIEDADE INTELECTUAL E RESTRIÇÕES DE USO</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>5.1.</strong> <strong>Propriedade Intelectual Compartilhada:</strong> As partes reconhecem e concordam que os direitos de propriedade intelectual sobre o sistema desenvolvido serão compartilhados conforme segue:</p>
+                        
+                        <p><strong>a)</strong> <strong>Dados específicos de clientes da PROTEC:</strong> Todos os direitos de propriedade sobre dados específicos de clientes da PROTEC, incluindo dados contábeis, financeiros, cadastrais e fiscais, pertencem exclusivamente à PROTEC.</p>
+                        
+                        <p><strong>b)</strong> <strong>Metodologias técnicas genéricas e conhecimento técnico da OTIUMIT:</strong> Metodologias técnicas, algoritmos genéricos, frameworks, bibliotecas de código, conhecimento técnico (know-how) e expertise em desenvolvimento de software que não dependem de dados específicos da PROTEC permanecem como propriedade intelectual da OTIUMIT.</p>
+                        
+                        <p><strong>c)</strong> <strong>Sistema desenvolvido (código-fonte e funcionalidades):</strong> O código-fonte, funcionalidades, interface e demais componentes do sistema desenvolvido serão de propriedade compartilhada entre as partes, conforme acordado no contrato de prestação de serviços, com direito de uso para ambas as partes, incluindo o direito de white label conforme parceria futura acordada (30% OtiumIT / 70% PROTEC na NewCo).</p>
+                        
+                        <p><strong>5.2.</strong> <strong>Restrições de Uso:</strong></p>
+                        
+                        <p><strong>a)</strong> A OTIUMIT não poderá usar dados específicos de clientes da PROTEC para desenvolver produtos similares para terceiros, nem utilizar esses dados para qualquer finalidade que não seja o desenvolvimento e manutenção do sistema contratado.</p>
+                        
+                        <p><strong>b)</strong> A OTIUMIT poderá desenvolver produtos similares para terceiros utilizando seu conhecimento técnico genérico, metodologias e algoritmos próprios, desde que não utilize dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC.</p>
+                        
+                        <p><strong>c)</strong> A PROTEC não poderá replicar, copiar ou utilizar metodologias técnicas específicas e proprietárias da OTIUMIT para desenvolver sistemas similares com terceiros, sem autorização expressa da OTIUMIT.</p>
+                        
+                        <p><strong>5.3.</strong> <strong>Parceria Futura:</strong> As partes reconhecem que existe uma proposta de parceria futura para criação de uma nova empresa (NewCo) para comercialização do sistema desenvolvido no mercado, onde a OtiumIT terá 30% de participação e a PROTEC terá 70% de participação. Os termos específicos desta parceria serão objeto de contrato separado, e este Termo de Confidencialidade não se opõe a tal parceria, desde que respeitadas as restrições de uso de dados confidenciais estabelecidas neste Termo.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA SEXTA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA SEXTA</span>
+                        <span>– DA DURAÇÃO DA CONFIDENCIALIDADE</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>6.1.</strong> As obrigações de confidencialidade estabelecidas neste Termo terão vigência durante todo o período de colaboração entre as partes e por um período adicional de <strong>3 (três) anos</strong> após a conclusão, rescisão ou término, por qualquer motivo, dos trabalhos ou da relação contratual entre PROTEC e OTIUMIT.</p>
+                        
+                        <p><strong>6.2.</strong> Certas informações, como dados pessoais de clientes protegidos pela LGPD, segredos comerciais específicos e dados sensíveis, permanecerão confidenciais indefinidamente, mesmo após o término do período estipulado no item 6.1, conforme a natureza da informação e a legislação aplicável, especialmente a LGPD.</p>
+                        
+                        <p><strong>6.3.</strong> As obrigações de confidencialidade sobre metodologias técnicas genéricas da OTIUMIT que não dependem de dados específicos da PROTEC terão vigência de 3 (três) anos após o término da colaboração, após o que a OTIUMIT poderá livremente utilizar tais metodologias, desde que não revele dados específicos da PROTEC.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA SÉTIMA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA SÉTIMA</span>
+                        <span>– DAS OBRIGAÇÕES PÓS-RESCISÃO</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>7.1.</strong> Após a conclusão, rescisão ou término, por qualquer motivo, da relação de colaboração ou contrato de prestação de serviços, as partes comprometem-se a:</p>
+                        
+                        <p><strong>a)</strong> Devolver imediatamente à parte detentora todas as Informações Confidenciais, dados, documentos, materiais, mídias (físicas ou digitais) e quaisquer outros itens fornecidos pela outra parte ou produzidos em decorrência da colaboração, <strong>exceto</strong> o código-fonte e documentação técnica do sistema desenvolvido, que serão mantidos pela OTIUMIT para fins de manutenção, evolução e uso conforme parceria acordada;</p>
+                        
+                        <p><strong>b)</strong> Destruir ou apagar de forma segura e irrecuperável todas as cópias, registros, anotações, e quaisquer outras representações das Informações Confidenciais que estejam em seu poder ou sob seu controle, independentemente do formato ou meio, <strong>respeitando</strong> a necessidade de manter o código-fonte e documentação técnica do sistema desenvolvido para fins de manutenção e evolução;</p>
+                        
+                        <p><strong>c)</strong> Fornecer uma declaração por escrito à outra parte, atestando o cumprimento integral das obrigações desta Cláusula, com exceção dos itens expressamente permitidos neste Termo.</p>
+                        
+                        <p><strong>7.2.</strong> A OTIUMIT poderá manter cópias do código-fonte e documentação técnica do sistema desenvolvido para fins de manutenção, evolução e uso conforme parceria futura acordada, desde que não contenham dados específicos de clientes da PROTEC ou informações proprietárias da PROTEC que não sejam necessárias para o funcionamento do sistema.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA OITAVA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA OITAVA</span>
+                        <span>– DA NOTIFICAÇÃO DE VIOLAÇÃO</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>8.1.</strong> Ambas as partes comprometem-se a notificar a outra parte imediatamente, no prazo máximo de 24 (vinte e quatro) horas, caso tomem conhecimento ou suspeitem de qualquer violação ou potencial violação deste Termo, incluindo, mas não se limitando a, acesso não autorizado, divulgação indevida, perda, roubo ou uso impróprio das Informações Confidenciais.</p>
+                        
+                        <p><strong>8.2.</strong> A notificação deverá ser feita por escrito, para os e-mails e/ou telefones designados pelas partes, e deverá descrever, na medida do possível, a natureza da violação, as informações afetadas e as medidas que estão sendo tomadas para mitigar os danos.</p>
+                        
+                        <p><strong>8.3.</strong> Contatos para notificação:</p>
+                        <ul>
+                            <li><strong>PROTEC:</strong> E-mail: fabio@protec.cnt.br | Telefone: (43) 3374-6160</li>
+                            <li><strong>OTIUMIT:</strong> E-mail: jose.correa@otiumit.com | Telefone: (11) 96778-5598</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA NONA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA NONA</span>
+                        <span>– DAS CONSEQUÊNCIAS LEGAIS DO NÃO CUMPRIMENTO</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>9.1.</strong> Ambas as partes reconhecem que a violação de qualquer das cláusulas deste Termo causará danos à outra parte, incluindo, mas não se limitando a, perda de clientes, perda de reputação, vantagem indevida a concorrentes e prejuízos financeiros.</p>
+                        
+                        <p><strong>9.2.</strong> Sem prejuízo das medidas legais cabíveis, incluindo ações indenizatórias por perdas e danos (danos emergentes e lucros cessantes), a violação deste Termo poderá ensejar:</p>
+                        
+                        <p><strong>a)</strong> A imediata rescisão do contrato de prestação de serviços ou da relação de colaboração entre as partes, sem qualquer direito a indenização ou aviso prévio à parte violadora, salvo disposição em contrário no contrato de prestação de serviços;</p>
+                        
+                        <p><strong>b)</strong> A aplicação de multa contratual a ser definida em instrumento específico ou a ser arbitrada judicialmente, em valor compatível com o prejuízo causado, limitada a um valor máximo a ser definido ou 10% do valor total do contrato de prestação de serviços, o que for menor;</p>
+                        
+                        <p><strong>c)</strong> A responsabilidade civil da parte violadora por todos os prejuízos diretos e indiretos sofridos pela outra parte, incluindo, mas não se limitando a, custos com processos judiciais e honorários advocatícios, desde que comprovados e razoáveis;</p>
+                        
+                        <p><strong>d)</strong> A responsabilidade criminal da parte violadora, nos termos da legislação aplicável, especialmente no que tange à violação de segredo profissional (Art. 154 do Código Penal), concorrência desleal (Art. 195 da Lei nº 9.279/96) e uso indevido de dados pessoais (Lei Geral de Proteção de Dados – LGPD);</p>
+                        
+                        <p><strong>e)</strong> A parte prejudicada poderá buscar medidas judiciais coercitivas, como liminares e mandados de segurança, para impedir a continuidade da violação e exigir o cumprimento das obrigações de confidencialidade.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA DÉCIMA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA DÉCIMA</span>
+                        <span>– DA LEGISLAÇÃO APLICÁVEL E FORO</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>10.1.</strong> O presente Termo será regido e interpretado de acordo com a legislação da República Federativa do Brasil, em especial o Código Civil, a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018) e a Lei de Propriedade Intelectual (Lei nº 9.279/96).</p>
+                        
+                        <p><strong>10.2.</strong> As partes elegem o foro da Comarca de Londrina-PR para dirimir quaisquer dúvidas ou litígios decorrentes deste Termo, renunciando a qualquer outro, por mais privilegiado que seja.</p>
+                        
+                        <p><strong>10.3.</strong> As partes comprometem-se a tentar resolver eventuais controvérsias por meio de mediação ou arbitragem antes de recorrer ao Poder Judiciário, quando aplicável.</p>
+                    </div>
+                </div>
+
+                <!-- CLÁUSULA DÉCIMA PRIMEIRA -->
+                <div class="clause">
+                    <div class="clause-title">
+                        <span class="clause-number">CLÁUSULA DÉCIMA PRIMEIRA</span>
+                        <span>– DISPOSIÇÕES GERAIS</span>
+                    </div>
+                    <div class="clause-content">
+                        <p><strong>11.1.</strong> Este Termo não cria nenhuma relação de sociedade, joint venture, parceria ou associação entre as partes, salvo acordo expresso em contrato separado.</p>
+                        
+                        <p><strong>11.2.</strong> Nenhuma das partes poderá ceder, transferir ou subcontratar suas obrigações ou direitos decorrentes deste Termo sem o consentimento prévio e por escrito da outra parte.</p>
+                        
+                        <p><strong>11.3.</strong> Caso qualquer disposição deste Termo seja considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.</p>
+                        
+                        <p><strong>11.4.</strong> As modificações deste Termo somente serão válidas se feitas por escrito e assinadas por ambas as partes.</p>
+                        
+                        <p><strong>11.5.</strong> Este Termo não impede que a OTIUMIT preste serviços similares a terceiros, desde que não utilize Informações Confidenciais da PROTEC e respeite as restrições estabelecidas neste Termo.</p>
+                    </div>
+                </div>
+
+                <div class="signature-section">
+                    <p style="text-align: center; margin: 2rem 0; font-weight: 600;">
+                        E, por estarem assim justas e contratadas, as partes assinam o presente Termo em 2 (duas) vias de igual teor e forma, na presença das duas testemunhas abaixo.
+                    </p>
+                    
+                    <p style="text-align: center; margin: 2rem 0; color: var(--slate-600);">
+                        Londrina, _____ de _______________ de 2026
+                    </p>
+
+                    <div style="display: flex; justify-content: space-around; margin: 3rem 0; flex-wrap: wrap; gap: 2rem;">
+                        <div class="signature-block" style="flex: 1; min-width: 300px;">
+                            <div class="signature-line">
+                                <strong>PROTEC ASSESSORIA E CONSULTORIA S/S</strong>
+                                <small>EDIVALDO SILVA VIEIRA<br>Administrador</small>
+                            </div>
+                        </div>
+
+                        <div class="signature-block" style="flex: 1; min-width: 300px;">
+                            <div class="signature-line">
+                                <strong>OTIUMIT TECNOLOGIA LTDA</strong>
+                                <small>JOSÉ FRANCO CORRÊA NETO<br>Administrador</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 4rem;">
+                        <p style="font-weight: 600; margin-bottom: 1rem;">TESTEMUNHAS:</p>
+                        <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 2rem;">
+                            <div style="flex: 1; min-width: 250px;">
+                                <div class="signature-line" style="margin-top: 2rem;">
+                                    <strong>1. _______________________________</strong>
+                                    <small>Nome: _______________________<br>CPF: _______________________</small>
+                                </div>
+                            </div>
+                            <div style="flex: 1; min-width: 250px;">
+                                <div class="signature-line" style="margin-top: 2rem;">
+                                    <strong>2. _______________________________</strong>
+                                    <small>Nome: _______________________<br>CPF: _______________________</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </div>
+            </div>
+    </main>
+
+    <footer>
+        <div class="container-inner">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Contato</h3>
+                    <p style="font-size: 0.875rem; margin-bottom: 1rem;">Dúvidas sobre a proposta? Entre em contato.</p>
+                    <a href="https://wa.me/5511967785598" target="_blank" rel="noopener noreferrer">
+                        <svg fill="currentColor" viewBox="0 0 24 24" style="width: 1.25rem; height: 1.25rem;">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                        </svg>
+                        <div>
+                            <div style="font-weight: 600; color: var(--slate-900);">🇧🇷 Brasil</div>
+                            <div style="font-size: 0.875rem; color: var(--slate-600);">(11) 96778-5598</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>© 2026. Todos os direitos reservados.</p>
+            </div>
+
+            <div class="footer-quote">
+                "Não estamos vendendo software. Estamos vendendo eficiência operacional, economia de tempo e dinheiro, e a capacidade de identificar milhões em oportunidades que hoje vocês perdem por falta de automação."
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll and active section highlighting
+        document.addEventListener('DOMContentLoaded', function() {
+            const tocLinks = document.querySelectorAll('.toc a');
+            const sections = document.querySelectorAll('h1[id], h2[id]');
+
+            // Smooth scroll on click
+            tocLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        // Responsive offset based on screen size
+                        const isMobile = window.innerWidth <= 768;
+                        const headerOffset = isMobile ? 80 : 100;
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+
+            // Highlight active section on scroll
+            function updateActiveSection() {
+                let current = '';
+                const isMobile = window.innerWidth <= 768;
+                const threshold = isMobile ? 100 : 150;
+                
+                sections.forEach(section => {
+                    const sectionTop = section.getBoundingClientRect().top;
+                    if (sectionTop <= threshold) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === current) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+
+            window.addEventListener('scroll', updateActiveSection);
+            updateActiveSection(); // Initial call
+        });
+
+        // NDA Modal Functions
+        function openNDAModal() {
+            const modal = document.getElementById('ndaModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeNDAModal() {
+            const modal = document.getElementById('ndaModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function copyNDAText() {
+            const modalBody = document.querySelector('#ndaModal .nda-document-body');
+            const text = modalBody.innerText || modalBody.textContent;
+            
+            // Create temporary textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<svg fill="currentColor" viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg> Copiado!';
+                btn.classList.add('copied');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                alert('Erro ao copiar. Por favor, selecione o texto manualmente.');
+            }
+            
+            document.body.removeChild(textarea);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('ndaModal');
+            if (event.target === modal) {
+                closeNDAModal();
+            }
+        }
+
+        // Close modal with ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeNDAModal();
+            }
+        });
+    </script>
+</body>
+</html>

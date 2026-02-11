@@ -1,5 +1,4 @@
 import { BaseRepository } from '../../shared/repositories/base.repository';
-import { query } from '../../db/client';
 import type { Plan } from '@shared/core';
 
 export interface CreatePlanData {
@@ -8,6 +7,8 @@ export interface CreatePlanData {
   price: number;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
+  isCustom?: boolean;
+  isManaged?: boolean;
 }
 
 export interface UpdatePlanData {
@@ -16,6 +17,8 @@ export interface UpdatePlanData {
   price?: number;
   billingCycle?: 'monthly' | 'yearly';
   features?: string[];
+  isCustom?: boolean;
+  isManaged?: boolean;
   status?: 'active' | 'inactive';
 }
 
@@ -25,8 +28,8 @@ export class PlanRepository extends BaseRepository {
    * Nota: Planos não requerem filtro de company_id (são globais)
    */
   async findById(id: string): Promise<Plan | null> {
-    const result = await query<any>(
-      'SELECT id, name, max_users, price, billing_cycle, features, created_at, updated_at FROM plans WHERE id = $1',
+    const result = await this.query<any>(
+      'SELECT id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at FROM plans WHERE id = $1',
       [id],
       false // Planos não requerem filtro de tenant
     );
@@ -39,10 +42,14 @@ export class PlanRepository extends BaseRepository {
 
   /**
    * Listar todos os planos
+   * Usa DISTINCT ON para evitar duplicatas por nome (mantém o mais antigo)
    */
   async findAll(): Promise<Plan[]> {
-    const result = await query<any>(
-      'SELECT id, name, max_users, price, billing_cycle, features, created_at, updated_at FROM plans ORDER BY price',
+    const result = await this.query<any>(
+      `SELECT DISTINCT ON (name) 
+        id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at 
+       FROM plans 
+       ORDER BY name, created_at ASC`,
       [],
       false // Planos não requerem filtro de tenant
     );
@@ -63,11 +70,19 @@ export class PlanRepository extends BaseRepository {
       return acc;
     }, {} as Record<number, string>);
 
-    const result = await query<any>(
-      `INSERT INTO plans (name, max_users, price, billing_cycle, features) 
-       VALUES ($1, $2, $3, $4, $5::jsonb) 
-       RETURNING id, name, max_users, price, billing_cycle, features, created_at, updated_at`,
-      [data.name, data.maxUsers, data.price, data.billingCycle, JSON.stringify(featuresObj)],
+    const result = await this.query<any>(
+      `INSERT INTO plans (name, max_users, price, billing_cycle, features, is_custom, is_managed) 
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) 
+       RETURNING id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at`,
+      [
+        data.name, 
+        data.maxUsers, 
+        data.price, 
+        data.billingCycle, 
+        JSON.stringify(featuresObj),
+        (data as any).isCustom || false,
+        (data as any).isManaged || false,
+      ],
       false
     );
     const plan = result.rows[0];
@@ -108,17 +123,25 @@ export class PlanRepository extends BaseRepository {
       updates.push(`features = $${paramIndex++}::jsonb`);
       params.push(JSON.stringify(featuresObj));
     }
+    if (data.isCustom !== undefined) {
+      updates.push(`is_custom = $${paramIndex++}`);
+      params.push(data.isCustom);
+    }
+    if (data.isManaged !== undefined) {
+      updates.push(`is_managed = $${paramIndex++}`);
+      params.push(data.isManaged);
+    }
 
     if (updates.length === 0) {
       return this.findById(id) as Promise<Plan>;
     }
 
     params.push(id);
-    const result = await query<any>(
+    const result = await this.query<any>(
       `UPDATE plans 
        SET ${updates.join(', ')}, updated_at = NOW() 
        WHERE id = $${paramIndex++} 
-       RETURNING id, name, max_users, price, billing_cycle, features, created_at, updated_at`,
+       RETURNING id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at`,
       params,
       false
     );
@@ -132,7 +155,7 @@ export class PlanRepository extends BaseRepository {
    * Deletar plano
    */
   async delete(id: string): Promise<void> {
-    await query(
+    await this.query(
       'DELETE FROM plans WHERE id = $1',
       [id],
       false

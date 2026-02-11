@@ -56,4 +56,38 @@ export class FeatureToggleService {
 
     await this.repo.deactivateForTenant(companyId, moduleId);
   }
+
+  /**
+   * Buscar módulos associados a um plano
+   */
+  async getModulesByPlan(planId: string): Promise<(Module & { is_default: boolean })[]> {
+    return this.repo.findModulesByPlan(planId);
+  }
+
+  /**
+   * Associar módulo a um plano
+   */
+  async addModuleToPlan(planId: string, moduleId: string, isDefault: boolean = true): Promise<void> {
+    // Verificar se módulo existe
+    const module = await this.repo.findById(moduleId);
+    if (!module) {
+      throw new Error('Module not found');
+    }
+
+    await this.repo.addModuleToPlan(planId, moduleId, isDefault);
+  }
+
+  /**
+   * Remover módulo de um plano
+   */
+  async removeModuleFromPlan(planId: string, moduleId: string): Promise<void> {
+    await this.repo.removeModuleFromPlan(planId, moduleId);
+  }
+
+  /**
+   * Ativar módulos padrão de um plano para um tenant
+   */
+  async activatePlanModulesForTenant(tenantId: string, planId: string): Promise<void> {
+    await this.repo.activatePlanModulesForTenant(tenantId, planId);
+  }
 }

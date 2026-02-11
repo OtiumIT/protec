@@ -1,5 +1,5 @@
 import { Context, Next } from 'hono';
-import { verifyAccessToken, JWTPayload } from '../shared/utils/jwt';
+import { verifyAccessToken } from '../shared/utils/jwt';
 import { query } from '../db/client';
 import type { User } from '@shared/core';
 
@@ -7,7 +7,7 @@ import type { User } from '@shared/core';
  * Middleware de Autenticação
  * Verifica JWT token e adiciona usuário ao context
  */
-export async function authMiddleware(c: Context, next: Next) {
+export async function authMiddleware(c: Context, next: Next): Promise<Response | void> {
   const authHeader = c.req.header('Authorization');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -29,10 +29,19 @@ export async function authMiddleware(c: Context, next: Next) {
     const payload = verifyAccessToken(token);
 
     // Buscar usuário no banco
-    const result = await query<User>(
-      'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE id = $1 AND company_id = $2',
-      [payload.userId, payload.companyId]
-    );
+    // Se companyId for null (super_admin), buscar sem filtro de company_id
+    let result;
+    if (payload.companyId === null || payload.companyId === undefined) {
+      result = await query<User>(
+        'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE id = $1 AND company_id IS NULL',
+        [payload.userId]
+      );
+    } else {
+      result = await query<User>(
+        'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE id = $1 AND company_id = $2',
+        [payload.userId, payload.companyId]
+      );
+    }
 
     if (result.rows.length === 0) {
       return c.json(

@@ -1,11 +1,13 @@
 // Tipos compartilhados entre apps
+import type { LegalThesis } from '../schemas/judicial-process.schema.js';
 
 export type User = {
   id: string;
   email: string;
   name: string;
-  company_id: string;
+  company_id: string | null; // null para super_admin
   role: string;
+  status?: 'active' | 'inactive'; // Status do usuário
   created_at: Date;
   updated_at: Date;
 };
@@ -14,6 +16,26 @@ export type Company = {
   id: string;
   name: string;
   domain?: string;
+  cnpj?: string;
+  legal_name?: string;
+  trade_name?: string;
+  email?: string;
+  phone?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  tax_regime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'outros';
+  state_registration?: string;
+  municipal_registration?: string;
+  cnae?: string;
+  zip_code?: string;
+  address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
+  address_city?: string;
+  address_state?: string;
+  notes?: string;
   created_at: Date;
   updated_at: Date;
 };
@@ -41,6 +63,8 @@ export type Plan = {
   price: number;
   billing_cycle: 'monthly' | 'yearly';
   features: string[] | Record<string, any>;
+  is_custom?: boolean;
+  is_managed?: boolean;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -72,11 +96,122 @@ export type Client = {
   name: string;
   cnpj: string;
   email?: string;
-  company_id: string;
   status: 'active' | 'inactive';
+  tax_regime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'outros';
+  cnae?: string;
+  state_registration?: string;
+  municipal_registration?: string;
+  notes?: string;
   created_at: Date | string;
   updated_at: Date | string;
 };
+
+export type RatingValidation = {
+  id: string;
+  client_id: string;
+  competence: string; // YYYY-MM
+  fiscal_file_id?: string | null;
+  is_simulation: boolean;
+  input_data: Record<string, any>; // JSONB com dados granulares
+  calculated_values?: Record<string, any> | null; // JSONB com valores agregados
+  liquidez_corrente?: number | null;
+  liquidez_geral?: number | null;
+  solvencia?: number | null;
+  rating_estimado: 'A' | 'B' | 'C' | 'D';
+  rating_real?: 'A' | 'B' | 'C' | 'D' | null;
+  has_discrepancy: boolean;
+  discrepancy_details?: Record<string, any> | null;
+  created_by?: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type IN2306Simulation = {
+  id: string;
+  client_id: string | null;
+  competence: string;
+  input_data: Record<string, unknown>;
+  result_data: Record<string, unknown>;
+  title: string | null;
+  created_by: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+// Re-exportar LegalThesis para manter compatibilidade
+export type { LegalThesis };
+
+export type JudicialProcess = {
+  id: string;
+  client_id: string;
+  process_number: string;
+  court?: string;
+  legal_thesis: LegalThesis;
+  case_value?: number;
+  start_date?: string; // YYYY-MM-DD
+  status: 'active' | 'suspended' | 'closed';
+  notes?: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+// Interfaces para dados extraídos de ECD
+export interface ECDBalanceSheet {
+  // Balanço Patrimonial - valores agregados
+  ativo_circulante: number;
+  ativo_nao_circulante: number;
+  realizavel_longo_prazo: number;
+  passivo_circulante: number;
+  passivo_nao_circulante: number;
+  patrimonio_liquido: number;
+  ativo_total: number;
+  passivo_total: number;
+  
+  // Campos granulares (quando disponíveis)
+  ativo_circulante_detalhado?: {
+    caixa_equivalentes?: number;
+    aplicacoes_financeiras?: number;
+    contas_receber?: number;
+    estoques?: number;
+    tributos_recuperar?: number;
+    despesas_antecipadas?: number;
+    outros_ativos_circulantes?: number;
+  };
+  passivo_circulante_detalhado?: {
+    fornecedores?: number;
+    emprestimos_financiamentos?: number;
+    obrigacoes_trabalhistas?: number;
+    tributos_pagar?: number;
+    contas_pagar?: number;
+    provisoes?: number;
+    outros_passivos_circulantes?: number;
+  };
+  // Outros campos detalhados conforme necessário
+}
+
+export interface ECDDRE {
+  receita_bruta: number;
+  deducoes_vendas?: number;
+  receita_liquida: number;
+  custos_vendas?: number;
+  despesas_operacionais?: number;
+  resultado_financeiro?: number;
+  outros_resultados?: number;
+  lucro_liquido?: number;
+  // Outros campos conforme necessário
+}
+
+// Interface para dados extraídos completos
+export interface ExtractedECDData {
+  balance_sheet?: ECDBalanceSheet;
+  dre?: ECDDRE;
+  metadata?: {
+    fiscal_file_id?: string;
+    competence?: string;
+    extracted_at?: string;
+    [key: string]: any;
+  };
+}
 
 // Tipos de resposta da API
 export type ApiResponse<T = any> = {
