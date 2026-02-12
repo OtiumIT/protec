@@ -9,7 +9,6 @@ import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { requireModule } from '../../middleware/module.middleware';
 import {
   SimulateRatingSchema,
-  RatingSimulationResponseSchema,
   ListRatingValidationsQuerySchema,
   RatingValidationIdParamSchema,
   RatingValidatorFiscalFileIdParamSchema,

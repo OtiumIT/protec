@@ -302,8 +302,8 @@ export class RatingValidatorService {
    */
   async validateFromFiscalFile(
     fiscalFileId: string,
-    ratingReal?: Rating,
-    userId?: string
+    _ratingReal?: Rating,
+    _userId?: string
   ): Promise<{
     calculated_values: CalculatedValues;
     indicators: Indicators;
@@ -383,7 +383,7 @@ export class RatingValidatorService {
   /**
    * Deletar validação
    */
-  async delete(id: string, userId?: string) {
+  async delete(id: string, _userId?: string) {
     await this.getById(id); // Validar que existe
     await this.ratingValidatorRepo.delete(id);
   }

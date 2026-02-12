@@ -24,38 +24,57 @@ function formatMoney(value: number): string {
 }
 
 /**
- * Remove formatação e converte string monetária para número
- * Ex: "1.000.000,00" -> 1000000
+ * Parse monetário:
+ * - Sem vírgula: sequência de dígitos = valor em centavos (últimos 2 = centavos).
+ *   Ex.: "235360291" → 2.353.602,91
+ * - Com vírgula: parte inteira + até 2 decimais; excesso vira inteiro (9,000 → 90,00).
  */
 function parseMoney(value: string): number {
   if (!value) return 0;
-  
-  // Remove tudo exceto números, vírgula e ponto
+
   const cleaned = value.replace(/[^\d,.-]/g, '');
-  
-  // Se tem vírgula, assume formato brasileiro (1.000.000,00)
-  if (cleaned.includes(',')) {
-    // Remove pontos (separadores de milhar) e substitui vírgula por ponto
-    const normalized = cleaned.replace(/\./g, '').replace(',', '.');
-    return parseFloat(normalized) || 0;
+  const hasComma = cleaned.includes(',');
+
+  if (!hasComma) {
+    const digits = cleaned.replace(/\D/g, '');
+    if (!digits) return 0;
+    // Dígitos = valor em centavos (2 últimos = centavos)
+    const cents = parseInt(digits, 10);
+    return Math.round(cents) / 100;
   }
-  
-  // Se não tem vírgula, assume número simples
-  return parseFloat(cleaned) || 0;
+
+  const [intStr, decStr] = cleaned.split(',');
+  const intPart = parseInt((intStr || '0').replace(/\D/g, ''), 10) || 0;
+  const decDigits = (decStr || '').replace(/\D/g, '');
+
+  if (decDigits.length <= 2) {
+    const decPart = parseInt(decDigits.padEnd(2, '0').slice(0, 2), 10) || 0;
+    return intPart + decPart / 100;
+  }
+
+  // Mais de 2 decimais: excesso vira parte inteira
+  const excess = decDigits.length - 2;
+  const shift = Math.pow(10, excess);
+  const newInt = intPart * shift + parseInt(decDigits.slice(0, excess), 10);
+  const newDec = parseInt(decDigits.slice(-2), 10) || 0;
+  return newInt + newDec / 100;
 }
 
 export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
   ({ label, error, value, onChange, prefix = 'R$', className = '', ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState<string>('');
+    const [isFocused, setIsFocused] = useState(false);
 
-    // Atualizar display quando value mudar externamente
+    // Sincronizar display com value quando o campo não está focado (ex.: valor mudou externamente)
     useEffect(() => {
-      setDisplayValue(formatMoney(value));
-    }, [value]);
+      if (!isFocused) {
+        setDisplayValue(formatMoney(value));
+      }
+    }, [value, isFocused]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
-      
+
       // Se o campo está vazio, permitir limpar
       if (inputValue === '' || inputValue === prefix + ' ' || inputValue === prefix) {
         setDisplayValue('');
@@ -69,24 +88,20 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
         cleanedValue = cleanedValue.replace(prefix, '').trim();
       }
 
-      // Parse do valor
       const numericValue = parseMoney(cleanedValue);
-      
-      // Atualiza o display formatado (mas não atualiza o estado ainda para permitir digitação contínua)
-      const formatted = formatMoney(numericValue);
-      setDisplayValue(formatted);
-      
-      // Chama onChange com o valor numérico
-      onChange(numericValue);
+      const rounded = Math.round(numericValue * 100) / 100;
+      setDisplayValue(formatMoney(rounded));
+      onChange(rounded);
     };
 
     const handleBlur = () => {
-      // Garante formatação completa ao sair do campo
+      setIsFocused(false);
+      // Normaliza para 2 casas decimais ao sair do campo
       setDisplayValue(formatMoney(value));
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Seleciona todo o texto ao focar para facilitar substituição
+      setIsFocused(true);
       e.target.select();
     };
 

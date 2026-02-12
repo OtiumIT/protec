@@ -160,7 +160,6 @@ const adminMenuItems: MenuItem[] = [
   },
   {
     name: 'Simulador IN 2.306/2026',
-    moduleKey: 'SIMULADOR_IN_2306',
     path: '/simulador-in-2306',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,20 +370,14 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
     let filtered = items;
 
     // Filtrar por módulos ativos (apenas para admin de tenant, não super_admin)
-    // IMPORTANTE: Só aplicar filtro quando já carregou os módulos para evitar "flash" de itens aparecendo e sumindo
     if (!isSuperAdmin) {
-      // Se ainda está carregando, retornar array vazio para não mostrar nada até saber quais módulos estão ativos
-      if (isLoadingModules) {
-        return [];
-      }
-      
-      // Agora que já carregou, filtrar pelos módulos ativos
+      // Itens sem moduleKey (Dashboard, Clientes, Simulador, etc.) sempre aparecem, mesmo enquanto carrega
+      // Só itens com moduleKey dependem da resposta de /modules/active
       filtered = items.filter((item) => {
-        // Se o item tem moduleKey, verificar se o módulo está ativo
         if (item.moduleKey) {
+          if (isLoadingModules) return false; // enquanto carrega, esconder só itens que dependem de módulo
           return activeModules.has(item.moduleKey);
         }
-        // Itens sem moduleKey sempre aparecem (ex: Dashboard, Usuários)
         return true;
       });
     }
@@ -662,16 +655,8 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
 
         {/* Menu */}
         <nav className="flex-1 p-4 overflow-y-auto overscroll-contain">
-          {/* Loading state - mostrar enquanto carrega módulos */}
-          {isLoadingModules && (
-            <div className="px-4 py-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand"></div>
-              <p className="text-sm text-slate-500 mt-2">Carregando módulos...</p>
-            </div>
-          )}
-
-          {/* Seção Administrativo */}
-          {isAdmin && !isLoadingModules && administrativeItems.length > 0 && (
+          {/* Seção Administrativo - sempre visível quando há itens (não depende da carga de módulos) */}
+          {isAdmin && administrativeItems.length > 0 && (
             <div className="mb-6">
               <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {isSuperAdmin ? 'Administração Global' : 'Administrativo'}
@@ -682,10 +667,14 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
             </div>
           )}
 
-          {/* Seções de Módulos - uma seção para cada módulo ativo */}
+          {/* Seções de Módulos - uma seção para cada módulo ativo (depende de /modules/active) */}
+          {isLoadingModules && (
+            <div className="px-4 py-2 text-center">
+              <p className="text-xs text-slate-400">Carregando módulos...</p>
+            </div>
+          )}
           {!isLoadingModules && moduleSections.map(({ moduleKey, moduleName, items }) => {
             if (items.length === 0) return null;
-            
             return (
               <div key={moduleKey} className="mb-6">
                 <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">

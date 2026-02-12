@@ -10,6 +10,7 @@ import { clientService, type ClientWithCreatedAt } from '../../clients/services/
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
+import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
 import {
   BarChart,
@@ -34,6 +35,9 @@ const EMPTY_TRIMESTRE: ReceitasTrimestre = {
   servicos_hospitalares: 0,
   demais_receitas: 0,
 };
+
+const EMPTY_DEDUCOES = { pis_cofins_zero: 0, icms_destacado: 0 };
+const EMPTY_RETENCOES = { irrf: 0, orgaos_publicos: 0 };
 
 type Tab = 'tributario' | 'parcelamento';
 
@@ -60,6 +64,15 @@ export function SimuladorIN2306() {
   const [refNormativaExpanded, setRefNormativaExpanded] = useState(false);
   const [memoriaTab, setMemoriaTab] = useState<0 | 1 | 2>(0);
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
+
+  const [deducoesTrimestrais, setDeducoesTrimestrais] = useState<{ pis_cofins_zero: number; icms_destacado: number }[]>(() =>
+    Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES }))
+  );
+  const [retencoesTrimestrais, setRetencoesTrimestrais] = useState<{ irrf: number; orgaos_publicos: number }[]>(() =>
+    Array(4).fill(null).map(() => ({ ...EMPTY_RETENCOES }))
+  );
+  const [deducoesAnual, setDeducoesAnual] = useState(EMPTY_DEDUCOES);
+  const [retencoesAnual, setRetencoesAnual] = useState(EMPTY_RETENCOES);
 
   const [formParcel, setFormParcel] = useState<SimulateIN2306Input>({
     competence: '',
@@ -98,6 +111,22 @@ export function SimuladorIN2306() {
     });
   };
 
+  const updateDeducoes = (index: number, field: 'pis_cofins_zero' | 'icms_destacado', value: number) => {
+    setDeducoesTrimestrais((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index]!, [field]: value };
+      return next;
+    });
+  };
+
+  const updateRetencoes = (index: number, field: 'irrf' | 'orgaos_publicos', value: number) => {
+    setRetencoesTrimestrais((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index]!, [field]: value };
+      return next;
+    });
+  };
+
   const handleSimulateTributario = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -117,6 +146,12 @@ export function SimuladorIN2306() {
       const input: SimulateTributarioInput = {
         ano,
         trimestres: trimestresParaEnvio,
+        deducoes_trimestrais: modoAnual
+          ? Array(4).fill(null).map(() => ({ pis_cofins_zero: deducoesAnual.pis_cofins_zero / 4, icms_destacado: deducoesAnual.icms_destacado / 4 }))
+          : deducoesTrimestrais,
+        retencoes_trimestrais: modoAnual
+          ? Array(4).fill(null).map(() => ({ irrf: retencoesAnual.irrf / 4, orgaos_publicos: retencoesAnual.orgaos_publicos / 4 }))
+          : retencoesTrimestrais,
         aplicar_equiparacao_hospitalar: equiparacao,
         save_simulation: saveTrib,
         title: titleTrib || undefined,
@@ -281,21 +316,6 @@ export function SimuladorIN2306() {
 
       {tab === 'tributario' && (
         <>
-          <Card className="bg-amber-50/80 border-amber-200">
-            <p className="text-sm text-slate-700 mb-1">
-              <strong>Aviso:</strong> Este simulador tem finalidade apenas informativa e de planejamento. Não constitui parecer jurídico nem consultoria tributária. Para decisões que envolvam contestação judicial ou adesão a teses, consulte um advogado.
-            </p>
-            <p className="text-sm text-slate-600">
-              Simulação com base na IN RFB 2.306/2026 e legislação vigente. Não substitui a apuração oficial nem consultoria tributária.
-            </p>
-            <details className="mt-3" open={refNormativaExpanded} onToggle={() => setRefNormativaExpanded((v) => !v)}>
-              <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-800">Referência normativa</summary>
-              <p className="mt-1 text-xs text-slate-500">
-                IN RFB nº 2.306, de 22/01/2026; Lei Complementar nº 224/2025; Decreto nº 12.808/2025.
-              </p>
-            </details>
-          </Card>
-
           <Card>
             <h2 className="text-xl font-semibold text-slate-800 mb-2">Simulação tributária – Lucro Presumido</h2>
             <p className="text-sm text-slate-600 mb-2">
@@ -347,18 +367,32 @@ export function SimuladorIN2306() {
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comércio – 8% IRPJ / 12% CSLL</p>
-                      <Input label="Produtos / Mercadorias (ano)" type="number" step="0.01" min="0" value={receitaAnual.produtos_mercadorias ?? ''} onChange={(e) => setReceitaAnual((r) => ({ ...r, produtos_mercadorias: Number(e.target.value) || 0 }))} />
+                      <MoneyInput label="Produtos / Mercadorias (ano)" value={receitaAnual.produtos_mercadorias ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, produtos_mercadorias: v }))} />
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Serviços</p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <Input label="Serviços (geral) – ano" type="number" step="0.01" min="0" value={receitaAnual.servicos ?? ''} onChange={(e) => setReceitaAnual((r) => ({ ...r, servicos: Number(e.target.value) || 0 }))} />
-                        <Input label="Serv. favorecida – ano" type="number" step="0.01" min="0" value={receitaAnual.servicos_favorecida ?? ''} onChange={(e) => setReceitaAnual((r) => ({ ...r, servicos_favorecida: Number(e.target.value) || 0 }))} />
-                        <Input label="Serv. hospitalares – ano" type="number" step="0.01" min="0" value={receitaAnual.servicos_hospitalares ?? ''} onChange={(e) => setReceitaAnual((r) => ({ ...r, servicos_hospitalares: Number(e.target.value) || 0 }))} />
+                        <MoneyInput label="Serviços (geral) – ano" value={receitaAnual.servicos ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos: v }))} />
+                        <MoneyInput label="Serv. favorecida – ano" value={receitaAnual.servicos_favorecida ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_favorecida: v }))} />
+                        <MoneyInput label="Serv. hospitalares – ano" value={receitaAnual.servicos_hospitalares ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_hospitalares: v }))} />
                       </div>
                     </div>
                     <div>
-                      <Input label="Demais receitas (ano)" type="number" step="0.01" min="0" value={receitaAnual.demais_receitas ?? ''} onChange={(e) => setReceitaAnual((r) => ({ ...r, demais_receitas: Number(e.target.value) || 0 }))} />
+                      <MoneyInput label="Demais receitas (ano)" value={receitaAnual.demais_receitas ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, demais_receitas: v }))} />
+                    </div>
+                    <div className="border-t border-slate-200 pt-3 mt-3">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Deduções anuais (distribuídas nos 4 trimestres)</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <MoneyInput label="PIS/COFINS alíq. zero (ano)" value={deducoesAnual.pis_cofins_zero ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, pis_cofins_zero: v }))} />
+                        <MoneyInput label="ICMS destacado (ano)" value={deducoesAnual.icms_destacado ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, icms_destacado: v }))} />
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-200 pt-3 mt-3">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Retenções anuais (distribuídas nos 4 trimestres)</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <MoneyInput label="IRRF (ano)" value={retencoesAnual.irrf ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, irrf: v }))} />
+                        <MoneyInput label="Órgãos públicos 4,65% (ano)" value={retencoesAnual.orgaos_publicos ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, orgaos_publicos: v }))} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -371,55 +405,70 @@ export function SimuladorIN2306() {
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comércio (Prod./Merc.) – 8% IRPJ / 12% CSLL</p>
                       <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                        <Input
+                        <MoneyInput
                           label="Produtos / Mercadorias"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={trimestres[i]?.produtos_mercadorias ?? ''}
-                          onChange={(e) => updateTrimestre(i, 'produtos_mercadorias', Number(e.target.value) || 0)}
+                          value={trimestres[i]?.produtos_mercadorias ?? 0}
+                          onChange={(v) => updateTrimestre(i, 'produtos_mercadorias', v)}
                         />
                       </div>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Serviços – alíquotas diferentes</p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <Input
+                        <MoneyInput
                           label="Serviços (geral) – 32% IRPJ / 32% CSLL"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={trimestres[i]?.servicos ?? ''}
-                          onChange={(e) => updateTrimestre(i, 'servicos', Number(e.target.value) || 0)}
+                          value={trimestres[i]?.servicos ?? 0}
+                          onChange={(v) => updateTrimestre(i, 'servicos', v)}
                         />
-                        <Input
+                        <MoneyInput
                           label="Serviços alíquota favorecida – 16% IRPJ"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={trimestres[i]?.servicos_favorecida ?? ''}
-                          onChange={(e) => updateTrimestre(i, 'servicos_favorecida', Number(e.target.value) || 0)}
+                          value={trimestres[i]?.servicos_favorecida ?? 0}
+                          onChange={(v) => updateTrimestre(i, 'servicos_favorecida', v)}
                         />
-                        <Input
+                        <MoneyInput
                           label="Serviços hospitalares – 8% IRPJ / 12% CSLL"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={trimestres[i]?.servicos_hospitalares ?? ''}
-                          onChange={(e) => updateTrimestre(i, 'servicos_hospitalares', Number(e.target.value) || 0)}
+                          value={trimestres[i]?.servicos_hospitalares ?? 0}
+                          onChange={(v) => updateTrimestre(i, 'servicos_hospitalares', v)}
                         />
                       </div>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Demais receitas – 100% presunção</p>
                       <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                        <Input
+                        <MoneyInput
                           label="Demais receitas / Ganhos de capital"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={trimestres[i]?.demais_receitas ?? ''}
-                          onChange={(e) => updateTrimestre(i, 'demais_receitas', Number(e.target.value) || 0)}
+                          value={trimestres[i]?.demais_receitas ?? 0}
+                          onChange={(v) => updateTrimestre(i, 'demais_receitas', v)}
+                        />
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-200 pt-3 mt-3">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Deduções (reduzem base PIS/COFINS)</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <MoneyInput
+                          label="PIS/COFINS alíq. zero (R$)"
+                          value={deducoesTrimestrais[i]?.pis_cofins_zero ?? 0}
+                          onChange={(v) => updateDeducoes(i, 'pis_cofins_zero', v)}
+                        />
+                        <MoneyInput
+                          label="ICMS destacado / incluído no preço (R$)"
+                          value={deducoesTrimestrais[i]?.icms_destacado ?? 0}
+                          onChange={(v) => updateDeducoes(i, 'icms_destacado', v)}
+                        />
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-200 pt-3 mt-3">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Retenções (reduzem &quot;a rec.&quot;)</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <MoneyInput
+                          label="IRRF (R$)"
+                          value={retencoesTrimestrais[i]?.irrf ?? 0}
+                          onChange={(v) => updateRetencoes(i, 'irrf', v)}
+                        />
+                        <MoneyInput
+                          label="Órgãos públicos 4,65% (R$)"
+                          value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0}
+                          onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)}
                         />
                       </div>
                     </div>
@@ -430,7 +479,7 @@ export function SimuladorIN2306() {
               )}
 
               <p className="text-xs text-slate-500">
-                Valores &quot;a rec.&quot; consideram retenções (IRRF, 4,65% órgãos públicos). Se não informadas, preencha quando disponível nas opções futuras.
+                Deduções reduzem a base para PIS/COFINS. Retenções (IRRF, órgãos públicos 4,65%) reduzem o imposto &quot;a recolher&quot;.
               </p>
 
               <div className="flex flex-wrap gap-4 items-center">
@@ -712,8 +761,8 @@ export function SimuladorIN2306() {
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Simulação de parcelamento</h2>
             <form onSubmit={handleSimulateParcelamento} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label="Competência (YYYY-MM)" value={formParcel.competence} onChange={(e) => setFormParcel((f) => ({ ...f, competence: e.target.value }))} placeholder="2026-01" />
-              <Input label="Valor total (R$)" type="number" step="0.01" min="0" value={formParcel.valor_total || ''} onChange={(e) => setFormParcel((f) => ({ ...f, valor_total: Number(e.target.value) || 0 }))} />
-              <Input label="Valor entrada (R$)" type="number" step="0.01" min="0" value={formParcel.valor_entrada || ''} onChange={(e) => setFormParcel((f) => ({ ...f, valor_entrada: Number(e.target.value) || 0 }))} />
+              <MoneyInput label="Valor total (R$)" value={formParcel.valor_total ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_total: v }))} />
+              <MoneyInput label="Valor entrada (R$)" value={formParcel.valor_entrada ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_entrada: v }))} />
               <Input label="Número de parcelas" type="number" min="1" max="360" value={formParcel.numero_parcelas ?? ''} onChange={(e) => setFormParcel((f) => ({ ...f, numero_parcelas: Number(e.target.value) || 1 }))} />
               <div className="md:col-span-2">
                 <Button type="submit" disabled={loading}>{loading ? 'Calculando...' : 'Simular'}</Button>
@@ -750,6 +799,21 @@ export function SimuladorIN2306() {
         )}
       </Card>
       </div>
+
+      <Card className="mt-6 bg-amber-50/80 border-amber-200">
+        <p className="text-sm text-slate-700 mb-1">
+          <strong>Aviso:</strong> Este simulador tem finalidade apenas informativa e de planejamento. Não constitui parecer jurídico nem consultoria tributária. Para decisões que envolvam contestação judicial ou adesão a teses, consulte um advogado.
+        </p>
+        <p className="text-sm text-slate-600">
+          Simulação com base na IN RFB 2.306/2026 e legislação vigente. Não substitui a apuração oficial nem consultoria tributária.
+        </p>
+        <details className="mt-3" open={refNormativaExpanded} onToggle={() => setRefNormativaExpanded((v) => !v)}>
+          <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-800">Referência normativa</summary>
+          <p className="mt-1 text-xs text-slate-500">
+            IN RFB nº 2.306, de 22/01/2026; Lei Complementar nº 224/2025; Decreto nº 12.808/2025.
+          </p>
+        </details>
+      </Card>
     </Layout>
   );
 }

@@ -105,7 +105,7 @@ async function ensureBucketExists(): Promise<boolean> {
     // Bucket não existe, tentar criar
     console.log(`Bucket '${FISCAL_FILES_BUCKET}' não encontrado. Tentando criar...`);
     
-    const { data, error: createError } = await supabase.storage.createBucket(FISCAL_FILES_BUCKET, {
+    const { error: createError } = await supabase.storage.createBucket(FISCAL_FILES_BUCKET, {
       public: false, // Bucket privado (usa signed URLs)
       fileSizeLimit: 52428800, // 50MB
       allowedMimeTypes: ['text/plain', 'application/xml', 'text/xml', 'application/pdf'],
@@ -176,7 +176,7 @@ export async function uploadFile(
     // Garantir que o bucket existe (criar se necessário)
     await ensureBucketExists();
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(FISCAL_FILES_BUCKET)
       .upload(filePath, file, {
         contentType: mimeType,

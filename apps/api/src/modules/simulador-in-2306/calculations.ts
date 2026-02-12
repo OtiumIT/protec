@@ -274,11 +274,13 @@ export function calcularCenario2025(
   retencoesTrimestrais: (RetencoesTrimestre | undefined)[],
   equiparacao: boolean
 ): TrimestreResult[] {
+  const defaultDeducoes: DeducoesTrimestre = { pis_cofins_zero: 0, icms_destacado: 0 };
+  const defaultRetencoes: RetencoesTrimestre = { irrf: 0, orgaos_publicos: 0 };
   return trimestres.map((r, i) =>
     calcularTrimestre2025(
       r,
-      deducoesTrimestrais[i],
-      retencoesTrimestrais[i],
+      deducoesTrimestrais[i] ?? defaultDeducoes,
+      retencoesTrimestrais[i] ?? defaultRetencoes,
       equiparacao,
       i + 1
     )
