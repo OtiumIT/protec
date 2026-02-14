@@ -90,8 +90,11 @@ export const SimulateRatingSchema = z.object({
   dre: DRESchema,
   
   // Metadados
-  competencia: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
-  client_id: z.string().uuid().optional(), // Opcional para simulações sem salvar
+  competencia: z.string().regex(/^\d{4}-\d{2}$/, 'Competência deve ser no formato AAAA-MM (ex.: 2025-01)'),
+  client_id: z
+    .union([z.string().uuid(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? undefined : v)),
   rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
   save_simulation: z.boolean().optional().default(false),
 });
