@@ -125,38 +125,13 @@ export function Login() {
 
           {/* Logo and Header */}
           <div className="mb-8 text-center lg:text-left">
-            <div className="flex items-center justify-center lg:justify-start mb-6 gap-4">
-              {/* PROTEC Logo */}
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">P</span>
-                </div>
-                <div>
-                  <a
-                    href="https://protec.cnt.br"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xl font-bold text-slate-900 hover:text-slate-700 transition-colors"
-                  >
-                    PROTEC
-                  </a>
-                </div>
+            <div className="flex items-center justify-center lg:justify-start mb-6 gap-3">
+              <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">IA</span>
               </div>
-              
-              {/* Separator */}
-              <div className="text-slate-300">×</div>
-              
-              {/* OtiumIT Logo */}
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center">
-                  <span className="text-otium-black font-bold text-xl">O</span>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-slate-900">
-                    Otium<span className="text-brand">IT</span>
-                  </h1>
-                </div>
-              </div>
+              <h1 className="text-xl font-bold text-slate-900">
+                IATax Soluções Inteligentes
+              </h1>
             </div>
             <h2 className="text-3xl font-bold text-slate-900 mb-2">
               Inteligência Tributária
@@ -236,27 +211,10 @@ export function Login() {
           {/* Footer */}
           <div className="mt-8 text-center space-y-2">
             <p className="text-xs text-slate-500">
-              Desenvolvido em parceria por{' '}
-              <a
-                href="https://protec.cnt.br"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-700 hover:text-slate-900 font-semibold transition-colors"
-              >
-                PROTEC
-              </a>
-              {' '}e{' '}
-              <a
-                href="https://otiumit.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand hover:text-brand-dark font-semibold transition-colors"
-              >
-                OtiumIT
-              </a>
+              IATax Soluções Inteligentes
             </p>
             <p className="text-xs text-slate-400">
-              © {new Date().getFullYear()} PROTEC Assessoria e Consultoria S/S
+              © {new Date().getFullYear()} IATax Soluções Inteligentes
             </p>
           </div>
         </div>

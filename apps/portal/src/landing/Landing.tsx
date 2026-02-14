@@ -1,9 +1,7 @@
 import { LandingHeader } from './LandingHeader';
 import { Hero } from './Hero';
-import { WhoIsFor } from './WhoIsFor';
+import { ProblemaSolucao } from './ProblemaSolucao';
 import { Features } from './Features';
-import { ProductPreview } from './ProductPreview';
-import { HowYouUse } from './HowYouUse';
 import { Differentials } from './Differentials';
 import { CTA } from './CTA';
 import { Footer } from './Footer';
@@ -12,15 +10,15 @@ export function Landing() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <LandingHeader />
-      <main className="flex-1">
-        <Hero />
-        <WhoIsFor />
-        <Features />
-        <ProductPreview />
-        <HowYouUse />
-        <Differentials />
-        <CTA />
-      </main>
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8">
+        <main className="flex-1">
+          <Hero />
+          <ProblemaSolucao />
+          <Features />
+          <Differentials />
+          <CTA />
+        </main>
+      </div>
       <Footer />
     </div>
   );

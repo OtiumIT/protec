@@ -1,16 +1,19 @@
 const steps = [
   {
     step: 1,
+    icon: '/icon-step-1.png',
     title: 'Cadastre seus clientes',
     description: 'Um cadastro por cliente, com CNPJ e contato no mesmo lugar.',
   },
   {
     step: 2,
+    icon: '/icon-step-2.png',
     title: 'Organize arquivos fiscais por cliente e competência',
     description: 'SPED, ECD, PGDAS, XML e PDF organizados para achar rápido.',
   },
   {
     step: 3,
+    icon: '/icon-step-3.png',
     title: 'Simule rating e cenários tributários quando precisar',
     description: 'Validador CAPAG (Portaria 6.757/2022) e Simulador IN 2.306/2026.',
   },
@@ -31,9 +34,12 @@ export function HowYouUse() {
         <ol className="mx-auto mt-12 max-w-2xl space-y-8 sm:mt-16">
           {steps.map((item) => (
             <li key={item.step} className="flex gap-4">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand/20 text-brand font-semibold">
-                {item.step}
-              </span>
+              <img
+                src={item.icon}
+                alt=""
+                className="h-10 w-10 flex-shrink-0 object-contain"
+                aria-hidden
+              />
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
                 <p className="mt-1 text-sm text-slate-600">{item.description}</p>

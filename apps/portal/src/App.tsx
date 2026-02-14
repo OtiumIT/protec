@@ -1,7 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './shared/contexts/AuthContext';
 import { LandingOrRedirect } from './landing/LandingOrRedirect';
-import { LandingProtecOrRedirect } from './landing/LandingProtecOrRedirect';
+import { QuemSomos } from './landing/pages/QuemSomos';
+import { OProduto } from './landing/pages/OProduto';
+import { FaleConosco } from './landing/pages/FaleConosco';
+import { AvisoLegal } from './landing/pages/AvisoLegal';
+import { PoliticaPrivacidade } from './landing/pages/PoliticaPrivacidade';
 import { Login } from './modules/auth/pages/Login';
 import { Register } from './modules/auth/pages/Register';
 import { Dashboard } from './modules/system/pages/Dashboard';
@@ -129,8 +133,11 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="/procter" element={<Navigate to="/protec" replace />} />
-      <Route path="/protec" element={<LandingProtecOrRedirect />} />
+      <Route path="/quem-somos" element={<QuemSomos />} />
+      <Route path="/o-produto" element={<OProduto />} />
+      <Route path="/fale-conosco" element={<FaleConosco />} />
+      <Route path="/aviso-legal" element={<AvisoLegal />} />
+      <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
       <Route path="/" element={<LandingOrRedirect />} />
     </Routes>
   );

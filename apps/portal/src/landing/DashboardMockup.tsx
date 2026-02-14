@@ -1,12 +1,11 @@
 /**
  * Mockup visual do painel – sempre visível, sem depender de imagens.
- * Se existir /hero-dashboard.png, pode ser usado por Hero para substituir este mockup.
- * theme="protec" usa cores Protec; caso contrário usa brand (OtiumIT).
+ * Usa cores do tema neutro da landing (landing-accent).
  */
-export function DashboardMockup({ theme }: { theme?: 'protec' }) {
-  const accent = theme === 'protec' ? 'bg-[#1a4d3d]/20' : 'bg-brand/20';
-  const accent2 = theme === 'protec' ? 'bg-[#1a4d3d]/40' : 'bg-brand/40';
-  const accent3 = theme === 'protec' ? 'bg-[#1a4d3d]/30' : 'bg-brand/30';
+export function DashboardMockup() {
+  const accent = 'bg-landing-accent/20';
+  const accent2 = 'bg-landing-accent/40';
+  const accent3 = 'bg-landing-accent/30';
 
   return (
     <div className="flex h-full w-full bg-white text-left">

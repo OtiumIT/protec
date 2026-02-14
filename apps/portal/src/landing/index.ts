@@ -1,14 +1,12 @@
 export { Landing } from './Landing';
 export { LandingOrRedirect } from './LandingOrRedirect';
-export { LandingProtec } from './LandingProtec';
-export { LandingProtecOrRedirect } from './LandingProtecOrRedirect';
 export { LandingHeader } from './LandingHeader';
+export { LogoProvisorio } from './LogoProvisorio';
 export { Hero } from './Hero';
+export { ProblemaSolucao } from './ProblemaSolucao';
 export { WhoIsFor } from './WhoIsFor';
 export { DashboardMockup } from './DashboardMockup';
 export { Features } from './Features';
-export { ProductPreview } from './ProductPreview';
-export { HowYouUse } from './HowYouUse';
 export { Differentials } from './Differentials';
 export { CTA } from './CTA';
 export { Footer } from './Footer';

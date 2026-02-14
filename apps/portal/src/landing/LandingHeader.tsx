@@ -1,77 +1,74 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { LogoProvisorio } from './LogoProvisorio';
 
 export function LandingHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '#funcionalidades', label: 'Funcionalidades' },
-    { href: '#diferenciais', label: 'Diferenciais' },
-    { href: '#como-usar', label: 'Como usar' },
+    { to: '/', label: 'Home' },
+    { to: '/quem-somos', label: 'Quem Somos' },
+    { to: '/o-produto', label: 'O Produto' },
+    { to: '/fale-conosco', label: 'Fale Conosco' },
   ];
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full bg-white border-b border-slate-200 shadow-sm">
+      <header className="sticky top-0 z-50 w-full bg-slate-900 border-b border-white/10 shadow-lg">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link
-          to="/"
-          className="flex items-center gap-3 min-w-0"
-          aria-label="Ir para o início"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-dark shadow-sm">
-            <span className="text-white font-bold text-xl">O</span>
-          </div>
-          <span className="text-lg font-bold text-slate-900 truncate">
-            Otium<span className="text-brand">IT</span>
-          </span>
-        </Link>
+        <LogoProvisorio dark variant="iatax" onClick={() => setMobileMenuOpen(false)} />
 
-        {/* Desktop: Navegação + CTAs */}
+        {/* Desktop: 4 links + Criar conta + ícone Entrar */}
         <nav className="hidden sm:flex items-center gap-4 sm:gap-6" aria-label="Navegação principal">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-slate-600 hover:text-brand transition-colors"
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
           <Link
-            to="/login"
-            className="text-sm font-semibold text-slate-700 hover:text-brand transition-colors"
+            to="/register"
+            className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2 rounded-md transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            Entrar
+            Criar conta
           </Link>
           <Link
-            to="/register"
-            className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-semibold text-otium-black hover:bg-brand-dark transition-colors"
+            to="/login"
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Entrar"
           >
-            Começar
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
           </Link>
         </nav>
 
-        {/* Mobile: Hamburger + CTAs */}
+        {/* Mobile: Criar conta + ícone Entrar + Hamburger */}
         <div className="flex sm:hidden items-center gap-2">
           <Link
-            to="/login"
-            className="text-sm font-semibold text-slate-700 hover:text-brand transition-colors"
+            to="/register"
+            className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-3 py-2 rounded-md transition-colors"
           >
-            Entrar
+            Criar conta
           </Link>
           <Link
-            to="/register"
-            className="inline-flex items-center justify-center rounded-md bg-brand px-3 py-2 text-sm font-semibold text-otium-black hover:bg-brand-dark transition-colors"
+            to="/login"
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Entrar"
           >
-            Começar
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
           </Link>
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
           >
@@ -97,37 +94,37 @@ export function LandingHeader() {
             onClick={() => setMobileMenuOpen(false)}
           />
           <nav
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white shadow-xl sm:hidden flex flex-col pt-20 pb-6 px-4"
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-slate-900 shadow-xl sm:hidden flex flex-col pt-20 pb-6 px-4 border-l border-white/10"
             aria-label="Menu mobile"
           >
             <ul className="space-y-1">
               {navLinks.map((link) => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
+                <li key={link.to}>
+                  <Link
+                    to={link.to}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg px-4 py-3 text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-brand transition-colors"
+                    className="block rounded-lg px-4 py-3 text-base font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
-              <li className="border-t border-slate-200 pt-4 mt-4">
+              <li className="border-t border-white/10 pt-4 mt-4">
                 <Link
-                  to="/login"
+                  to="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block rounded-lg px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand transition-colors"
+                  className="block rounded-lg px-4 py-3 text-base font-semibold text-white bg-landing-cta hover:bg-orange-600 transition-colors text-center"
                 >
-                  Entrar
+                  Criar conta
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/register"
+                  to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block rounded-lg px-4 py-3 text-base font-semibold text-brand hover:bg-brand/10 transition-colors"
+                  className="block rounded-lg px-4 py-3 text-base font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
                 >
-                  Começar
+                  Entrar
                 </Link>
               </li>
             </ul>

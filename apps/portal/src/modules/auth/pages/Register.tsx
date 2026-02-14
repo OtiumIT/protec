@@ -27,7 +27,7 @@ export function Register() {
       });
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(err instanceof Error ? err.message : 'Falha ao criar conta. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +47,7 @@ export function Register() {
             Voltar ao início
           </Link>
         </div>
-        <h1 className="text-3xl font-bold text-otium-black mb-8">Register</h1>
+        <h1 className="text-3xl font-bold text-otium-black mb-8">Criar conta</h1>
         
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
@@ -57,21 +57,21 @@ export function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
-            label="Company Name"
+            label="Nome da empresa"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             required
           />
 
           <Input
-            label="Your Name"
+            label="Seu nome"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             required
           />
 
           <Input
-            label="Email"
+            label="E-mail"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -80,7 +80,7 @@ export function Register() {
           />
 
           <Input
-            label="Password"
+            label="Senha"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -90,15 +90,15 @@ export function Register() {
           />
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Registering...' : 'Register'}
+            {isLoading ? 'Criando conta...' : 'Criar conta'}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-600">
-          Already have an account?{' '}
-          <a href="/login" className="text-slate-700 hover:text-otium-black font-medium">
-            Login
-          </a>
+          Já tem uma conta?{' '}
+          <Link to="/login" className="text-slate-700 hover:text-otium-black font-medium">
+            Entrar
+          </Link>
         </p>
       </Card>
     </div>
