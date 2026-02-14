@@ -6,6 +6,7 @@ import { OProduto } from './landing/pages/OProduto';
 import { FaleConosco } from './landing/pages/FaleConosco';
 import { AvisoLegal } from './landing/pages/AvisoLegal';
 import { PoliticaPrivacidade } from './landing/pages/PoliticaPrivacidade';
+import { TermosDeUso } from './landing/pages/TermosDeUso';
 import { Login } from './modules/auth/pages/Login';
 import { Register } from './modules/auth/pages/Register';
 import { Dashboard } from './modules/system/pages/Dashboard';
@@ -138,6 +139,7 @@ function AppRoutes() {
       <Route path="/fale-conosco" element={<FaleConosco />} />
       <Route path="/aviso-legal" element={<AvisoLegal />} />
       <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
+      <Route path="/termos-de-uso" element={<TermosDeUso />} />
       <Route path="/" element={<LandingOrRedirect />} />
     </Routes>
   );
@@ -146,7 +148,7 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

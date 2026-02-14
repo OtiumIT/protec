@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { WhoMakesIATax } from './WhoMakesIATax';
+import type { VantagemItem } from './types';
 
-const vantagens = [
+const vantagens: VantagemItem[] = [
   {
     title: 'Dados limpos',
     description: 'Aproveite a base que você já tem.',
@@ -42,12 +43,16 @@ const vantagens = [
 
 export function Differentials({ showPartners = true }: { showPartners?: boolean }) {
   return (
-    <section id="diferenciais" className="py-12 sm:py-16 bg-slate-50 border-t border-slate-200">
+    <section id="diferenciais" className="py-12 sm:py-16 bg-slate-50 border-t border-slate-200" aria-labelledby="diferenciais-title">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h2 className="sr-only">Pilares de Confiança</h2>
+        <div className="mx-auto max-w-2xl text-center mb-10">
+          <h2 id="diferenciais-title" className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            Diferenciais
+          </h2>
+        </div>
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 lg:items-stretch">
           {/* Coluna esquerda: Por Que Escolher (Vantagens) – mini-cards */}
-          <div className="rounded-[12px] border border-slate-200/80 bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          <div className="flex min-h-full flex-col rounded-[12px] border border-slate-200/80 bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <h3 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Por Que Escolher
             </h3>
@@ -71,7 +76,7 @@ export function Differentials({ showPartners = true }: { showPartners?: boolean 
                 </div>
               ))}
             </div>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="mt-auto flex flex-shrink-0 flex-col gap-3 pt-8 sm:flex-row sm:flex-wrap">
               <Link
                 to="/fale-conosco"
                 className="min-h-[44px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
@@ -88,7 +93,7 @@ export function Differentials({ showPartners = true }: { showPartners?: boolean 
           </div>
 
           {/* Coluna direita: Expertise Comprovada + Selo LGPD */}
-          <div className="rounded-[12px] border border-slate-200/80 bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.06)] flex flex-col">
+          <div className="flex min-h-full flex-col rounded-[12px] border border-slate-200/80 bg-white px-10 py-8 shadow-[0_2px_8px_rgba(0,0,0,0.06)] sm:px-12">
             <div className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
               <span
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-white"
@@ -100,12 +105,9 @@ export function Differentials({ showPartners = true }: { showPartners?: boolean 
               </span>
               <span className="font-bold text-slate-900">Expertise Comprovada</span>
             </div>
-            <div className="mt-6 flex-1 space-y-4 text-slate-600 leading-relaxed text-base">
+            <div className="mt-6 flex-1 text-slate-600 leading-relaxed text-base">
               <p>
-                O IATax não é apenas um software, é o resultado de uma <strong className="text-slate-800">aliança estratégica</strong> entre tecnologia de ponta e o conhecimento de especialistas com <strong className="text-slate-800">mais de 30 anos de atuação sólida</strong> nos mercados contábil e consultivo.
-              </p>
-              <p>
-                Nossa inteligência algorítmica foi construída sob uma base rigorosa de <strong className="text-slate-800">regras fiscais, tributárias e editais vigentes</strong>, garantindo que cada oportunidade de recuperação identificada tenha <strong className="text-slate-800">respaldo normativo total</strong>. <strong className="text-slate-800">Diferente de soluções genéricas</strong>, entregamos uma ferramenta desenhada por <strong className="text-slate-800">quem entende as dores e a complexidade do dia a dia dos grandes escritórios</strong>.
+                O IATax une tecnologia de ponta à expertise de especialistas com mais de 30 anos de atuação sólida nos mercados contábil e consultivo. Nossa inteligência algorítmica garante que cada oportunidade identificada tenha respaldo normativo total, baseando-se rigorosamente em regras fiscais e editais vigentes.
               </p>
             </div>
             {/* Selo de Garantia / Segurança LGPD */}

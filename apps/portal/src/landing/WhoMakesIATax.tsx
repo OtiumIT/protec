@@ -1,8 +1,10 @@
+import type { Partner } from './types';
+
 /**
  * Faixa "Quem faz o IATax" – logos/nomes Protec e Otium.
  * Quando houver arquivos de logo em /public (ex.: logo-protec.png), adicionar logoSrc ao partner.
  */
-const partners = [
+const partners: Partner[] = [
   {
     name: 'Protec',
     description: 'Contabilidade, Assessoria e Consultoria',

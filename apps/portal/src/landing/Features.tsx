@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
+import type { ModuloItem } from './types';
 
-const modulosPrincipais = [
+const modulosPrincipais: ModuloItem[] = [
   {
     id: 'validador-rating',
     title: 'Validador de Rating (CAPAG)',

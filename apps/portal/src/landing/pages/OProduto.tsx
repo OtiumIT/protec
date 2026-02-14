@@ -34,7 +34,7 @@ export function OProduto() {
                     to="/register"
                     className="inline-flex items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                   >
-                    Começar agora
+                    Criar minha conta
                   </Link>
                 </div>
               </div>
@@ -51,8 +51,8 @@ export function OProduto() {
         <FAQ />
         <section className="py-14 sm:py-20 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="rounded-[12px] bg-gradient-to-br from-slate-50 to-white px-6 py-10 text-center sm:px-14 sm:py-14 border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            <div className="rounded-[12px] bg-gradient-to-br from-slate-50 to-white px-4 py-10 text-center sm:px-14 sm:py-14 border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
                 Pronto para transformar?
               </h2>
               <p className="mt-4 max-w-xl mx-auto text-slate-600 text-base">
@@ -72,7 +72,7 @@ export function OProduto() {
                   to="/register"
                   className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Começar agora
+                  Criar minha conta
                 </Link>
               </div>
             </div>

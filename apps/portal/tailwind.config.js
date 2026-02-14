@@ -17,6 +17,12 @@ export default {
         },
         'otium-black': '#000000',
         'otium-dark': '#2d2d2d',
+        /** Protec: verde de marca (ajustar se houver hex oficial) */
+        protec: {
+          DEFAULT: '#006b3f',
+          dark: '#004d2e',
+          light: '#e6f2ed',
+        },
         /** Landing: azul marinho profundo + laranja CTA (high contrast) */
         landing: {
           primary: '#1e293b',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import type { FaqItem } from './types';
 
-const faqs = [
+const faqs: FaqItem[] = [
   {
     question: 'Preciso instalar algo para usar o sistema?',
     answer:
@@ -57,12 +58,12 @@ export function FAQ() {
             return (
               <div
                 key={item.question}
-                className="overflow-hidden rounded-[12px] border border-slate-200/80 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-shadow duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                className="overflow-hidden rounded-[12px] border border-slate-200/80 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 hover:shadow-[0_6px_20px_rgba(0,0,0,0.1)] hover:border-slate-300"
               >
                 <button
                   type="button"
                   onClick={() => toggle(index)}
-                  className="flex w-full items-center justify-between gap-4 p-5 text-left"
+                  className="flex w-full items-center justify-between gap-4 py-6 px-5 text-left"
                   aria-expanded={isOpen}
                   aria-controls={`faq-answer-${index}`}
                   id={`faq-question-${index}`}
@@ -71,11 +72,12 @@ export function FAQ() {
                     {item.question}
                   </span>
                   <span
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-slate-500 transition-transform duration-200"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center text-slate-500 transition-transform duration-300 ease-in-out"
+                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                     aria-hidden
                   >
                     <svg
-                      className={`h-5 w-5 ${isOpen ? 'rotate-180' : ''}`}
+                      className="h-5 w-5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -96,8 +98,8 @@ export function FAQ() {
                   className="grid transition-[grid-template-rows] duration-200 ease-out"
                   style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
                 >
-                  <div className="min-h-0 overflow-hidden">
-                    <p className="border-t border-slate-100 px-5 pb-5 pt-3 text-sm leading-relaxed text-slate-600">
+                  <div className={`min-h-0 overflow-hidden transition-colors duration-200 ${isOpen ? 'bg-[#f9f9f9]' : 'bg-transparent'}`}>
+                    <p className="border-t border-slate-100 px-5 py-6 pt-4 text-sm leading-relaxed text-slate-600">
                       {item.answer}
                     </p>
                   </div>

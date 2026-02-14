@@ -40,7 +40,15 @@ export function Login() {
       await login({ email, password });
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login. Verifique suas credenciais.');
+      const isNetworkError =
+        err instanceof TypeError ||
+        (err instanceof Error && (err.message === 'Failed to fetch' || err.message.includes('NetworkError')));
+      const message = isNetworkError
+        ? 'Servidor indisponível. Verifique se a API está em execução (ex.: pnpm run dev em apps/api).'
+        : err instanceof Error
+          ? err.message
+          : 'Erro ao fazer login. Verifique suas credenciais.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

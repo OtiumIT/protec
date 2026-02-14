@@ -1,4 +1,6 @@
-const problemaItems = [
+import type { ProblemaItem, SolucaoCard } from './types';
+
+const problemaItems: ProblemaItem[] = [
   {
     label: 'Análise manual e lenta',
     icon: (
@@ -33,9 +35,9 @@ const problemaItems = [
   },
 ];
 
-const solucaoCards = [
+const solucaoCards: SolucaoCard[] = [
   {
-    title: 'Reenquadramento de Rating (CAPAG)',
+    title: 'Validador de Rating (CAPAG)',
     description: 'Reenquadramento e descontos conforme Portaria 6.757/2022.',
     icon: (
       <svg className="h-6 w-6 flex-shrink-0 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +46,7 @@ const solucaoCards = [
     ),
   },
   {
-    title: 'Simulador de Regime e IN 2.306/2026',
+    title: 'Simulador IN 2.306/2026',
     description: 'Compare regimes e projeções da nova instrução normativa.',
     icon: (
       <svg className="h-6 w-6 flex-shrink-0 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
