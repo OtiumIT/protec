@@ -1,9 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LogoProvisorio } from './LogoProvisorio';
 
 export function LandingHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   const navLinks = [
     { to: '/', label: 'Home' },
@@ -24,7 +30,10 @@ export function LandingHeader() {
             <Link
               key={link.to}
               to={link.to}
-              className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
+              className={`text-sm font-medium transition-colors ${
+                isActive(link.to) ? 'text-white underline underline-offset-4 decoration-2' : 'text-slate-400 hover:text-white'
+              }`}
+              aria-current={isActive(link.to) ? 'page' : undefined}
               onClick={() => setMobileMenuOpen(false)}
             >
               {link.label}
@@ -105,7 +114,10 @@ export function LandingHeader() {
                   <Link
                     to={link.to}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg px-4 py-3 text-base font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                    className={`block rounded-lg px-4 py-3 text-base font-medium transition-colors ${
+                      isActive(link.to) ? 'text-white bg-white/10' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                    aria-current={isActive(link.to) ? 'page' : undefined}
                   >
                     {link.label}
                   </Link>
