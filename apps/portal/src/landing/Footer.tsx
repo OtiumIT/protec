@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
 import { LogoProvisorio } from './LogoProvisorio';
 
+/** URL do perfil LinkedIn; use '#' ou vazio para ocultar o ícone no footer. */
 const LINKEDIN_URL = '#';
 
 export function Footer() {
-  const showLinkedIn = LINKEDIN_URL && LINKEDIN_URL !== '#';
+  const showLinkedIn = Boolean(LINKEDIN_URL && LINKEDIN_URL !== '#');
 
   return (
-    <footer className="border-t border-slate-200 bg-slate-900 py-8 text-slate-300">
+    <footer className="border-t border-slate-200 bg-[#0f172a] py-10 text-slate-300">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:justify-between">
           <LogoProvisorio dark variant="iatax" className="text-sm" />

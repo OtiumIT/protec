@@ -28,66 +28,68 @@ export function QuemSomos() {
   const [otiumOpen, setOtiumOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-white">
       <LandingHeader />
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8">
-        <main className="flex-1">
-          {/* Hero da página Quem Somos */}
-          <section className="relative overflow-hidden py-6 sm:py-8 lg:py-10 bg-gradient-to-r from-[#1A2E4C] via-[#1e3a5f] to-[#2563eb]">
-            <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="grid gap-8 lg:grid-cols-[1.4fr_0.6fr] lg:gap-10 lg:items-center">
-              <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left">
-                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
-                  Nossa Jornada: Inteligência e Parceria
-                </h1>
-                <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                  Construindo o futuro da inteligência tributária para o seu escritório.
-                </p>
-              </div>
-              <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] order-first lg:order-none">
-                <div className="relative aspect-square overflow-hidden">
-                  {showHeroPlaceholder ? (
-                    <HeroIllustrationPlaceholder />
-                  ) : (
-                    <img
-                      src={HERO_ILLUSTRATION_SRC}
-                      alt="Ilustração: inteligência tributária e parceria Protec e Otium"
-                      className="h-full w-full object-contain object-center"
-                      onError={() => setShowHeroPlaceholder(true)}
-                    />
-                  )}
-                </div>
+      {/* Hero full-width (igual à landing) */}
+      <section className="relative overflow-hidden w-full py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-[#0f172a] via-[#1A2E4C] to-[#1e3a5f]">
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:gap-12 lg:items-center">
+            <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left">
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                Nossa Jornada: Inteligência e Parceria
+              </h1>
+              <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
+                Construindo o futuro da inteligência tributária para o seu escritório.
+              </p>
+            </div>
+            <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[380px] order-first lg:order-none">
+              <div className="relative aspect-square overflow-hidden">
+                {showHeroPlaceholder ? (
+                  <HeroIllustrationPlaceholder />
+                ) : (
+                  <img
+                    src={HERO_ILLUSTRATION_SRC}
+                    alt="Ilustração: inteligência tributária e parceria Protec e Otium"
+                    className="h-full w-full object-contain object-center"
+                    onError={() => setShowHeroPlaceholder(true)}
+                  />
+                )}
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Quem Somos Nós – bloco curto */}
-        <section className="py-16 sm:py-24 bg-white">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Quem Somos Nós
-            </h2>
-            <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-              O IATax é o sistema que nasce da <strong>junção</strong> da Protec e da Otium: expertise contábil e consultiva de um lado, tecnologia e produto do outro. Juntos, criamos novas oportunidades reais para nossos clientes.
-            </p>
-          </div>
-        </section>
+      <main className="flex-1">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Quem Somos Nós – bloco curto */}
+          <section className="py-20 sm:py-28 bg-white">
+            <div className="mx-auto max-w-4xl">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-8 shadow-md">
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                  Quem Somos Nós
+                </h2>
+                <p className="mt-6 text-lg text-slate-600 leading-relaxed">
+                  O IATax é o sistema que nasce da <strong>junção</strong> da Protec e da Otium: expertise contábil e consultiva de um lado, tecnologia e produto do outro. Juntos, criamos novas oportunidades reais para nossos clientes.
+                </p>
+              </div>
+            </div>
+          </section>
 
-        {/* Cartões Protec e Otium com ícones e credenciais */}
-        <section className="py-16 sm:py-24 bg-slate-50 border-t border-slate-200">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-8 sm:grid-cols-2">
-              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow text-left">
-                <div className="flex-shrink-0">
-                  <IconBuilding />
-                </div>
-                <h3 className="mt-4 text-xl font-bold tracking-tight text-slate-900">
+          {/* Cartões Protec e Otium com ícones e credenciais */}
+          <section className="py-20 sm:py-28 bg-slate-50 border-t border-slate-200">
+            <div className="mx-auto max-w-5xl">
+              <div className="grid gap-8 sm:grid-cols-2">
+                <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-8 shadow-md hover:shadow-xl transition-shadow text-left">
+                  <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 p-3">
+                    <IconBuilding />
+                  </div>
+                <h3 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
                   <a href="https://protec.cnt.br/" target="_blank" rel="noopener noreferrer" className="text-landing-accent hover:text-landing-accent-hover underline underline-offset-2">
                     Protec – Contabilidade, Assessoria e Consultoria
                   </a>
                 </h3>
-                <p className="mt-3 text-slate-600 leading-relaxed">
+                <p className="mt-4 text-slate-600 leading-relaxed text-base">
                   Mais de 30 anos em consultoria empresarial, com compromisso com o sucesso dos clientes. Especialistas em assessoria trabalhista, societária, tributária e contábil e atuação em demandas Bacen. Essa experiência definiu o que o IATax entrega: ferramentas que agilizam rating (CAPAG), simulação IN 2.306/2026 e oportunidades em editais PGFN.
                 </p>
                 <button
@@ -108,16 +110,16 @@ export function QuemSomos() {
                   </div>
                 )}
               </div>
-              <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow text-left">
-                <div className="flex-shrink-0">
+              <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-8 shadow-md hover:shadow-xl transition-shadow text-left">
+                <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 p-3">
                   <IconRocket />
                 </div>
-                <h3 className="mt-4 text-xl font-bold tracking-tight text-slate-900">
+                <h3 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
                   <a href="https://otiumit.com" target="_blank" rel="noopener noreferrer" className="text-landing-accent hover:text-landing-accent-hover underline underline-offset-2">
                     Otium – Parceiro de Tecnologia e Inovação
                   </a>
                 </h3>
-                <p className="mt-3 text-slate-600 leading-relaxed">
+                <p className="mt-4 text-slate-600 leading-relaxed text-base">
                   Especialistas em desenvolvimento de software e inteligência artificial. Desenhamos e construímos o IATax: gestão por cliente e competência, módulos como Validador de Rating CAPAG, Simulador IN 2.306/2026 e Scanner de Editais PGFN. Soluções digitais intuitivas que amplificam a capacidade do consultor.
                 </p>
                 <button
@@ -142,103 +144,103 @@ export function QuemSomos() {
           </div>
         </section>
 
-        {/* Bloco visual: junção Protec + Otium = IATax */}
-        <section className="py-16 sm:py-24 bg-white border-t border-slate-200">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl text-center">
-              IATax: a junção de Protec e Otium
-            </h2>
-            <p className="mt-3 text-slate-600 text-center max-w-2xl mx-auto">
-              Quem faz o IATax — expertise e tecnologia em um único sistema.
-            </p>
-            <div className="mt-12 flex flex-col items-center gap-10">
-              <div className="flex flex-col rounded-xl border-2 border-landing-accent bg-white px-8 py-6 shadow-md text-center">
-                <span className="text-2xl font-semibold text-slate-900">IATax</span>
-                <span className="mt-2 text-sm text-slate-600">Soluções Inteligentes</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 w-full max-w-2xl">
-                <a
-                  href="https://protec.cnt.br/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm w-full sm:min-w-[200px] sm:max-w-[240px] text-center hover:shadow-md transition-shadow"
-                >
-                  <span className="text-xl font-semibold text-slate-900">Protec</span>
-                  <span className="mt-2 text-sm text-slate-600">Contabilidade, Assessoria e Consultoria</span>
-                </a>
-                <a
-                  href="https://otiumit.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm w-full sm:min-w-[200px] sm:max-w-[240px] text-center hover:shadow-md transition-shadow"
-                >
-                  <span className="text-xl font-semibold text-slate-900">Otium</span>
-                  <span className="mt-2 text-sm text-slate-600">Parceiro de tecnologia</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Prova social – quem confia / depoimentos */}
-        <section className="py-16 sm:py-24 bg-slate-50 border-t border-slate-200">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Quem já usa
+          {/* Bloco visual: junção Protec + Otium = IATax */}
+          <section className="py-20 sm:py-28 bg-white border-t border-slate-200">
+            <div className="mx-auto max-w-4xl">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl text-center">
+                IATax: a junção de Protec e Otium
               </h2>
-              <p className="mt-2 text-slate-600">
-                Ferramenta pensada para o dia a dia de times fiscais e jurídicos.
+              <p className="mt-3 text-slate-600 text-center max-w-2xl mx-auto text-base">
+                Quem faz o IATax — expertise e tecnologia em um único sistema.
               </p>
+              <div className="mt-14 flex flex-col items-center gap-10">
+                <div className="flex flex-col rounded-2xl border-2 border-landing-accent bg-white px-8 py-6 shadow-md text-center">
+                  <span className="text-2xl font-bold text-slate-900">IATax</span>
+                  <span className="mt-2 text-sm text-slate-600">Soluções Inteligentes</span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 w-full max-w-2xl">
+                  <a
+                    href="https://protec.cnt.br/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md w-full sm:min-w-[200px] sm:max-w-[240px] text-center hover:shadow-xl transition-shadow"
+                  >
+                    <span className="text-xl font-bold text-slate-900">Protec</span>
+                    <span className="mt-2 text-sm text-slate-600">Contabilidade, Assessoria e Consultoria</span>
+                  </a>
+                  <a
+                    href="https://otiumit.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md w-full sm:min-w-[200px] sm:max-w-[240px] text-center hover:shadow-xl transition-shadow"
+                  >
+                    <span className="text-xl font-bold text-slate-900">Otium</span>
+                    <span className="mt-2 text-sm text-slate-600">Parceiro de tecnologia</span>
+                  </a>
+                </div>
+              </div>
             </div>
-            <div className="mx-auto mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
-              <figure className="h-full rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm">
-                <blockquote className="text-sm text-slate-700 leading-relaxed">
-                  &ldquo;Conseguimos centralizar os arquivos fiscais por cliente e competência, o que reduziu muito o tempo gasto procurando SPED, ECD e PDFs em pastas soltas.&rdquo;
-                </blockquote>
-                <figcaption className="mt-4 text-xs font-medium text-slate-500">
-                  Coordenador Fiscal em escritório parceiro
-                </figcaption>
-              </figure>
-              <figure className="h-full rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm">
-                <blockquote className="text-sm text-slate-700 leading-relaxed">
-                  &ldquo;A simulação de rating e cenários da IN 2.306/2026 virou apoio rápido para reuniões com clientes – sem depender só de planilhas.&rdquo;
-                </blockquote>
-                <figcaption className="mt-4 text-xs font-medium text-slate-500">
-                  Advogado tributário
-                </figcaption>
-              </figure>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Próximos passos */}
-        <section className="py-16 sm:py-24 bg-white border-t border-slate-200">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Próximos passos
-            </h2>
-            <p className="mt-3 text-slate-600 max-w-xl mx-auto">
-              Faça parte dessa revolução. Conheça o IATax em detalhes ou converse com nossa equipe.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link
-                to="/o-produto"
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-landing-accent px-6 py-3 text-base font-semibold text-white hover:bg-landing-accent-hover transition-colors"
-              >
-                Conhecer a plataforma
-              </Link>
-              <Link
-                to="/fale-conosco"
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Fale com um consultor
-              </Link>
+          {/* Prova social – quem confia / depoimentos */}
+          <section className="py-20 sm:py-28 bg-slate-50 border-t border-slate-200">
+            <div className="mx-auto max-w-7xl">
+              <div className="mx-auto max-w-2xl text-center">
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                  Quem já usa
+                </h2>
+                <p className="mt-3 text-slate-600 text-base">
+                  Ferramenta pensada para o dia a dia de times fiscais e jurídicos.
+                </p>
+              </div>
+              <div className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
+                <figure className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 text-left shadow-md">
+                  <blockquote className="text-sm text-slate-700 leading-relaxed">
+                    &ldquo;Conseguimos centralizar os arquivos fiscais por cliente e competência, o que reduziu muito o tempo gasto procurando SPED, ECD e PDFs em pastas soltas.&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-4 text-xs font-medium text-slate-500">
+                    Coordenador Fiscal em escritório parceiro
+                  </figcaption>
+                </figure>
+                <figure className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 text-left shadow-md">
+                  <blockquote className="text-sm text-slate-700 leading-relaxed">
+                    &ldquo;A simulação de rating e cenários da IN 2.306/2026 virou apoio rápido para reuniões com clientes – sem depender só de planilhas.&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-4 text-xs font-medium text-slate-500">
+                    Advogado tributário
+                  </figcaption>
+                </figure>
+              </div>
             </div>
+          </section>
+
+          {/* Próximos passos */}
+          <section className="py-20 sm:py-28 bg-white border-t border-slate-200">
+            <div className="mx-auto max-w-4xl text-center">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                Próximos passos
+              </h2>
+              <p className="mt-4 text-slate-600 max-w-xl mx-auto text-base">
+                Faça parte dessa revolução. Conheça o IATax em detalhes ou converse com nossa equipe.
+              </p>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link
+                  to="/o-produto"
+                  className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-6 py-3 text-base font-semibold text-white hover:bg-orange-600 transition-colors"
+                >
+                  Conhecer a plataforma
+                </Link>
+                <Link
+                  to="/fale-conosco"
+                  className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Fale com um consultor
+                </Link>
+              </div>
+            </div>
+          </section>
           </div>
-        </section>
         </main>
-      </div>
       <Footer />
     </div>
   );

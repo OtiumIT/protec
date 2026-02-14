@@ -17,9 +17,11 @@ export default {
         },
         'otium-black': '#000000',
         'otium-dark': '#2d2d2d',
-        /** Landing neutra (sem nome de produto) */
+        /** Landing: azul marinho profundo + laranja CTA (high contrast) */
         landing: {
           primary: '#1e293b',
+          navy: '#0f172a',
+          'navy-light': '#1e3a5f',
           accent: '#4f46e5',
           'accent-hover': '#4338ca',
           'accent-light': '#818cf8',

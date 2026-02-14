@@ -14,39 +14,41 @@ export function LandingHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full bg-slate-900 border-b border-white/10 shadow-lg">
+      <header className="sticky top-0 z-50 w-full bg-[#0f172a] border-b border-white/10 shadow-lg">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <LogoProvisorio dark variant="iatax" onClick={() => setMobileMenuOpen(false)} />
+        <LogoProvisorio dark variant="iatax" onClick={() => setMobileMenuOpen(false)} className="flex-shrink-0" />
 
-        {/* Desktop: 4 links + Criar conta + ícone Entrar */}
-        <nav className="hidden sm:flex items-center gap-4 sm:gap-6" aria-label="Navegação principal">
+        {/* Desktop: menu centralizado + Criar conta em destaque à direita */}
+        <nav className="hidden sm:flex flex-1 justify-center items-center gap-6 lg:gap-8" aria-label="Navegação principal">
           {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+              className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               {link.label}
             </Link>
           ))}
+        </nav>
+        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
           <Link
             to="/register"
-            className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2 rounded-md transition-colors"
+            className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2.5 rounded-md transition-colors min-h-[44px] inline-flex items-center"
             onClick={() => setMobileMenuOpen(false)}
           >
             Criar conta
           </Link>
           <Link
             to="/login"
-            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-lg p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
             aria-label="Entrar"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </Link>
-        </nav>
+        </div>
 
         {/* Mobile: Criar conta + ícone Entrar + Hamburger */}
         <div className="flex sm:hidden items-center gap-2">
