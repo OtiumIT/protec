@@ -34,8 +34,14 @@ const faqs: FaqItem[] = [
   },
 ];
 
-export function FAQ() {
+export interface FAQProps {
+  /** Subset de perguntas (ex.: página O Produto). Se não informado, usa a lista completa. */
+  items?: FaqItem[];
+}
+
+export function FAQ({ items: customItems }: FAQProps = {}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const items = customItems ?? faqs;
 
   const toggle = (index: number) => {
     setOpenIndex((prev) => (prev === index ? null : index));
@@ -53,7 +59,7 @@ export function FAQ() {
           </p>
         </div>
         <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-2">
-          {faqs.map((item, index) => {
+          {items.map((item, index) => {
             const isOpen = openIndex === index;
             return (
               <div
