@@ -63,7 +63,7 @@ export function PricingSection() {
             <p className="mt-1.5 text-sm text-slate-600">
               Ideal para pequenas e médias empresas
             </p>
-            <p className="mt-3 text-xl font-bold text-slate-900">R$ 99,99/mês</p>
+            <p className="mt-3 text-xl font-bold text-slate-900">R$ X,XX/mês</p>
             <p className="mt-0.5 text-xs text-slate-500">Pagamento mensal</p>
             <ul className="mt-4 flex-1 space-y-2" aria-label="Benefícios incluídos">
               {mainPlanFeatures.map((feature) => (
