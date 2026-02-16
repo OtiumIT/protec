@@ -1,13 +1,11 @@
 import { query, getClient } from './client';
 import { readFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import type { PoolClient } from 'pg';
 import { TENANT_MIGRATION_FILES, getTenantMigrationVersion } from './tenant-migrations';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const MIGRATIONS_DIR = join(__dirname, './migrations');
+// Em CommonJS __dirname já existe; evita import.meta (incompatível com module: CommonJS)
+const MIGRATIONS_DIR = join(__dirname, 'migrations');
 
 /**
  * Schema Manager
