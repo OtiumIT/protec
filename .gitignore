@@ -15,6 +15,8 @@ out/
 .env.local
 .env.*.local
 .env.production
+# Exceção: portal .env.production contém apenas URL pública da API (Render)
+!apps/portal/.env.production
 
 # Logs
 logs/
