@@ -37,11 +37,51 @@ const items = [
   },
 ];
 
+const metrics = [
+  {
+    id: 'anos-experiencia',
+    label: '+30 anos',
+    description: 'de experiência consultiva da Protec em demandas fiscais e contábeis.',
+  },
+  {
+    id: 'modulos',
+    label: 'Módulos',
+    description: 'focados em oportunidades, simulações e validação de riscos.',
+  },
+  {
+    id: 'foco-lgpd',
+    label: 'LGPD em foco',
+    description: 'processos e infraestrutura pensados para proteger os dados dos clientes.',
+  },
+] as const;
+
 export function TrustBlock() {
   return (
-    <section className="py-10 sm:py-12 bg-slate-50 border-y border-slate-200/60" aria-label="Confiança e transparência">
+    <section className="py-10 sm:py-14 bg-slate-50 border-y border-slate-200/60" aria-label="Confiança e transparência">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+            Transparência e segurança para começar
+          </h2>
+          <p className="mt-3 text-slate-600">
+            Mesmo antes de contratar, você entende exatamente como o IATax funciona, quais normas respeita e como tratamos os dados dos
+            seus clientes, com suporte próximo ao time do escritório.
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-6 sm:grid-cols-3">
+          {metrics.map((metric) => (
+            <div
+              key={metric.id}
+              className="flex flex-col items-start sm:items-center text-left sm:text-center rounded-2xl bg-white/60 border border-slate-200/80 px-5 py-4"
+            >
+              <span className="text-lg font-extrabold tracking-tight text-landing-accent">{metric.label}</span>
+              <span className="mt-1 text-xs text-slate-600 leading-relaxed">{metric.description}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {items.map((item) => (
             <div
               key={item.label}

@@ -6,8 +6,31 @@ import { CTA } from '../CTA';
 import { WhoIsFor } from '../WhoIsFor';
 import { TrustBlock } from '../TrustBlock';
 import { HeroIllustrationPlaceholder } from '../HeroIllustrationPlaceholder';
+import { LandingSection } from '../LandingSection';
+import { SectionNav } from '../SectionNav';
 
 const HERO_IMAGE_SRC = '/hero-o-produto.png';
+
+const BENEFICIOS = [
+  {
+    id: 'rotina-organizada',
+    title: 'Rotina fiscal organizada',
+    description:
+      'Centralize SPED, ECD, PGDAS e balanços por cliente, com simulações e indicadores em um só lugar, sem depender de planilhas paralelas.',
+  },
+  {
+    id: 'decisoes-seguras',
+    title: 'Decisões mais seguras',
+    description:
+      'Simulações padronizadas e validações automáticas reduzem o risco de decisões baseadas apenas em feeling ou em contas manuais.',
+  },
+  {
+    id: 'oportunidades-visiveis',
+    title: 'Oportunidades visíveis na carteira',
+    description:
+      'Enxergue rapidamente editais, cenários tributários e ratings que podem virar novos projetos e honorários recorrentes.',
+  },
+] as const;
 
 const MODULOS = [
   {
@@ -128,86 +151,138 @@ export function OProduto() {
         </div>
       </section>
 
+      {/* Navegação entre seções da página */}
+      <SectionNav />
+
       <main className="flex-1 bg-white">
-        {/* Vídeo demonstrativo */}
-        <div className="mt-10 mb-[60px] mx-auto max-w-[800px] px-4 sm:px-6 lg:px-8">
-          <div
-            className="aspect-video w-full rounded-xl border border-slate-200/80 bg-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex flex-col items-center justify-center gap-3"
-            aria-label="Em breve, vídeo demonstrativo do produto"
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-sm">
-              <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path d="M8 5v14l11-7L8 5z" />
-              </svg>
+        {/* Vídeo demonstrativo com contexto */}
+        <LandingSection
+          id="video"
+          eyebrow="Demonstração"
+          title="Veja o fluxo completo em poucos minutos"
+          subtitle="Da leitura dos arquivos fiscais às simulações e validação de riscos, em uma demonstração guiada que conecta os três módulos."
+          tone="white"
+        >
+          <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="max-w-xl">
+              <ul className="mt-1 space-y-2 text-sm text-slate-700">
+                <li>• Como o scanner aponta editais aderentes à sua carteira.</li>
+                <li>• Como comparar cenários 2025 x 2026 na prática, com a IN 2.306.</li>
+                <li>• Como validar o rating CAPAG e reduzir surpresas em operações com o setor público.</li>
+              </ul>
             </div>
-            <p className="text-sm text-slate-600 text-center px-6">
-              Em breve, você poderá assistir a um caso real de uso do Otium em vídeo. Enquanto isso, na demonstração guiada mostramos, em poucos minutos, como os três módulos funcionam juntos na rotina do seu escritório.
-            </p>
-            <p className="text-xs text-slate-500 text-center px-8">
-              Na demo, percorremos o scanner de editais, o simulador IN 2.306 e o validador de rating com exemplos de clientes reais — focado em organização, agilidade e segurança nas decisões.
-            </p>
+            <div
+              className="aspect-video w-full rounded-xl border border-slate-200/80 bg-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex flex-col items-center justify-center gap-3"
+              aria-label="Em breve, vídeo demonstrativo do produto"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-sm">
+                <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M8 5v14l11-7L8 5z" />
+                </svg>
+              </div>
+              <p className="text-sm text-slate-600 text-center px-6">
+                Em breve, você poderá assistir a um caso real de uso do Otium em vídeo. Enquanto isso, na demonstração guiada mostramos, em
+                poucos minutos, como os três módulos funcionam na rotina do seu escritório.
+              </p>
+              <p className="text-xs text-slate-500 text-center px-8">
+                Na demo, percorremos o scanner de editais, o simulador IN 2.306 e o validador de rating com exemplos de clientes reais —
+                focado em organização, agilidade e segurança nas decisões.
+              </p>
+            </div>
           </div>
-        </div>
+        </LandingSection>
+
+        {/* Benefícios principais – mini seção inspirada nas Features */}
+        <LandingSection
+          id="beneficios"
+          eyebrow="Benefícios"
+          title="O que o IATax resolve na prática"
+          subtitle="Mais do que um sistema, o IATax organiza a base fiscal do escritório e traduz os dados em oportunidades concretas de atuação consultiva, com foco em segurança e recorrência."
+          tone="muted"
+        >
+          <div className="mt-2 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {BENEFICIOS.map((beneficio) => (
+              <div
+                key={beneficio.id}
+                className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+              >
+                <h3 className="text-base font-semibold text-slate-900">{beneficio.title}</h3>
+                <p className="mt-3 text-sm text-slate-600 leading-relaxed">{beneficio.description}</p>
+              </div>
+            ))}
+          </div>
+        </LandingSection>
 
         {/* Módulos com imagem e link */}
-        <section className="py-12 sm:py-16 bg-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {MODULOS.map((mod) => (
-                <div
-                  key={mod.id}
-                  className="flex flex-col rounded-2xl border border-[#f0f0f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-                >
-                  <ModuloImage
-                    src={mod.imageSrc}
-                    alt={mod.imageAlt}
-                    barColor={mod.barColor}
-                    fallbackIcon={
-                      <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                    }
-                  />
-                  <div className="flex flex-1 flex-col bg-white p-8 pt-6">
-                    <h3 className="text-xl font-bold tracking-wide text-slate-900">{mod.title}</h3>
-                    <p className="mt-4 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
-                    <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
-                      {mod.id === 'scanner-pgfn' && (
-                        <>
-                          <li>• Reduza o tempo gasto monitorando editais.</li>
-                          <li>• Evite perder oportunidades aderentes à carteira atual.</li>
-                        </>
-                      )}
-                      {mod.id === 'simulador-in2306' && (
-                        <>
-                          <li>• Compare cenários com clareza para o cliente.</li>
-                          <li>• Ganhe confiança para recomendar a melhor opção tributária.</li>
-                        </>
-                      )}
-                      {mod.id === 'validador-rating' && (
-                        <>
-                          <li>• Antecipe o rating provável e reduza surpresas.</li>
-                          <li>• Apoie decisões com base em cálculos padronizados.</li>
-                        </>
-                      )}
-                    </ul>
-                    <Link
-                      to="/fale-conosco"
-                      className="mt-5 inline-flex items-center text-sm font-semibold text-landing-accent transition-colors hover:text-landing-cta"
-                    >
-                      Ver em ação →
-                    </Link>
-                  </div>
+        <LandingSection
+          id="modulos"
+          eyebrow="Módulos"
+          title="Três módulos, uma rotina integrada"
+          subtitle="Cada módulo foi desenhado para resolver um ponto crítico da rotina: localizar oportunidades em editais, simular cenários tributários e validar riscos com base em normas vigentes."
+          tone="white"
+          className="border-y border-slate-200/70"
+        >
+          <div className="mt-2 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {MODULOS.map((mod) => (
+              <div
+                key={mod.id}
+                className="flex flex-col rounded-2xl border border-[#f0f0f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+              >
+                <ModuloImage
+                  src={mod.imageSrc}
+                  alt={mod.imageAlt}
+                  barColor={mod.barColor}
+                  fallbackIcon={
+                    <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  }
+                />
+                <div className="flex flex-1 flex-col bg-white p-8 pt-6">
+                  <h3 className="text-xl font-bold tracking-wide text-slate-900">{mod.title}</h3>
+                  <p className="mt-4 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
+                  <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
+                    {mod.id === 'scanner-pgfn' && (
+                      <>
+                        <li>• Reduza o tempo gasto monitorando editais.</li>
+                        <li>• Evite perder oportunidades aderentes à carteira atual.</li>
+                      </>
+                    )}
+                    {mod.id === 'simulador-in2306' && (
+                      <>
+                        <li>• Compare cenários com clareza para o cliente.</li>
+                        <li>• Ganhe confiança para recomendar a melhor opção tributária.</li>
+                      </>
+                    )}
+                    {mod.id === 'validador-rating' && (
+                      <>
+                        <li>• Antecipe o rating provável e reduza surpresas.</li>
+                        <li>• Apoie decisões com base em cálculos padronizados.</li>
+                      </>
+                    )}
+                  </ul>
+                  <Link
+                    to="/fale-conosco"
+                    className="mt-5 inline-flex items-center text-sm font-semibold text-landing-accent transition-colors hover:text-landing-cta"
+                  >
+                    Ver em ação →
+                  </Link>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </section>
+        </LandingSection>
 
-        <WhoIsFor />
-        <TrustBlock />
+        <div id="para-quem-e" className="bg-slate-50 border-b border-slate-200/70">
+          <WhoIsFor />
+        </div>
+        <div id="confianca">
+          <TrustBlock />
+        </div>
 
-        <CTA />
+        <div id="proximo-passo">
+          <CTA />
+        </div>
       </main>
       <Footer />
     </div>
