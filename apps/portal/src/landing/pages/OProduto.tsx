@@ -112,7 +112,7 @@ export function OProduto() {
             <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left flex flex-col h-full">
               <div className="flex-1 flex flex-col lg:justify-center">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                  Veja na prática como o Otium organiza arquivos fiscais e simulações para o seu escritório
+                  Veja na prática como o IATax organiza arquivos fiscais e simulações para o seu escritório
                 </h1>
                 <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
                   Página dedicada ao produto: três módulos pensados para escritórios que já têm os dados em mãos e querem transformar SPED, ECD, PGDAS e balanços em oportunidades concretas de recuperação e economia.
@@ -181,7 +181,7 @@ export function OProduto() {
                 </svg>
               </div>
               <p className="text-sm text-slate-600 text-center px-6">
-                Em breve, você poderá assistir a um caso real de uso do Otium em vídeo. Enquanto isso, na demonstração guiada mostramos, em
+                Em breve, você poderá assistir a um caso real de uso do IATax em vídeo. Enquanto isso, na demonstração guiada mostramos, em
                 poucos minutos, como os três módulos funcionam na rotina do seu escritório.
               </p>
               <p className="text-xs text-slate-500 text-center px-8">
