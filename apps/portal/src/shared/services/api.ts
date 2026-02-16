@@ -1,4 +1,5 @@
-const API_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001';
+// Em produção (Cloudflare): usa Render se VITE_API_URL não estiver definido
+const API_URL = (import.meta.env?.VITE_API_URL as string) || (import.meta.env.PROD ? 'https://protec-n05v.onrender.com' : 'http://localhost:3001');
 
 interface RequestOptions extends RequestInit {
   token?: string;
