@@ -3,8 +3,10 @@ import { resolve } from 'path';
 import { serve } from '@hono/node-server';
 import app from './modules/index.js';
 
-// Carregar .env da raiz do projeto
-config({ path: resolve(process.cwd(), '../../.env') });
+// Carregar .env apenas em dev (em produção o Render injeta variáveis pelo painel)
+if (!process.env.DATABASE_URL) {
+  config({ path: resolve(process.cwd(), '../../.env') });
+}
 
 const port = parseInt(process.env.PORT || '3001', 10);
 
