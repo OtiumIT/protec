@@ -14,7 +14,7 @@ const MODULOS = [
     id: 'scanner-pgfn',
     title: 'Scanner de Editais PGFN',
     description:
-      'Identifique oportunidades em editais do PGFN com agilidade. O módulo cruza dados do seu escritório com publicações oficiais para apoiar decisões de adesão e recuperação.',
+      'Encontre rapidamente oportunidades em editais do PGFN sem varrer diários e portais manualmente. O módulo cruza a base de clientes do seu escritório com publicações oficiais para apontar editais aderentes e apoiar decisões de adesão e recuperação com mais segurança.',
     barColor: 'bg-[#194f47]',
     imageSrc: '/modulo-scanner-pgfn.png',
     imageAlt: 'Tela do Scanner de Editais PGFN',
@@ -23,7 +23,7 @@ const MODULOS = [
     id: 'simulador-in2306',
     title: 'Simulador IN 2.306',
     description:
-      'Compare cenários em minutos: cálculo 2025, projeção 2026 (IN 2.306) e Equiparação Hospitalar. Planejamento para Lucro Presumido com ajuste anual e adicional de IRPJ – sem horas de planilha.',
+      'Simule, em minutos, cenários 2025 x 2026 (IN 2.306) e Equiparação Hospitalar para clientes no Lucro Presumido. Planeje impacto tributário com ajuste anual e adicional de IRPJ sem depender de planilhas complexas e versões paralelas.',
     barColor: 'bg-brand',
     imageSrc: '/modulo-simulador-in2306.png',
     imageAlt: 'Tela do Simulador IN 2.306',
@@ -32,7 +32,7 @@ const MODULOS = [
     id: 'validador-rating',
     title: 'Validador de Rating CAPAG',
     description:
-      'Informe os dados do balanço e da DRE; o sistema calcula Liquidez Corrente, Liquidez Geral e Solvência conforme Portaria 6.757/2022 e classifica o rating. Confronte estimado x real para decisões mais seguras.',
+      'Valide o rating CAPAG com base nos dados do balanço e da DRE, de forma alinhada à Portaria 6.757/2022. Compare o rating estimado pelo escritório com o cálculo automatizado do sistema para reduzir risco de surpresas em operações com o setor público.',
     barColor: 'bg-[#1e3a5f]',
     imageSrc: '/modulo-validador-rating.png',
     imageAlt: 'Tela do Validador de Rating CAPAG',
@@ -83,17 +83,19 @@ export function OProduto() {
       <LandingHeader />
 
       {/* Hero com CTAs e imagem */}
-      <section className="relative overflow-hidden w-full py-10 sm:py-12 lg:py-14 bg-gradient-to-br from-[#0f172a] via-[#1A2E4C] to-[#1e3a5f]">
+      <section className="relative overflow-hidden w-full py-10 sm:py-12 lg:py-14 lg:min-h-[420px] bg-gradient-to-br from-[#0f172a] via-[#1A2E4C] to-[#1e3a5f]">
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:gap-12 lg:items-center">
-            <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left">
-              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                A inteligência tributária que o seu escritório sempre quis
-              </h1>
-              <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
-                Soluções para organizar clientes, arquivos fiscais e simular rating e cenários tributários.
-              </p>
-              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
+            <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left flex flex-col h-full">
+              <div className="flex-1 flex flex-col lg:justify-center">
+                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                  Veja na prática como o Otium organiza arquivos fiscais e simulações para o seu escritório
+                </h1>
+                <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
+                  Página dedicada ao produto: três módulos pensados para escritórios que já têm os dados em mãos e querem transformar SPED, ECD, PGDAS e balanços em oportunidades concretas de recuperação e economia.
+                </p>
+              </div>
+              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start lg:mt-auto lg:mb-1">
                 <Link
                   to="/register"
                   className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-landing-cta focus:ring-offset-2 focus:ring-offset-[#0f172a]"
@@ -108,7 +110,7 @@ export function OProduto() {
                 </Link>
               </div>
             </div>
-            <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[380px] order-first lg:order-none">
+            <div className="relative mx-auto w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[420px] order-first lg:order-none">
               <div className="relative aspect-square overflow-hidden">
                 {heroPlaceholder ? (
                   <HeroIllustrationPlaceholder />
@@ -131,14 +133,19 @@ export function OProduto() {
         <div className="mt-10 mb-[60px] mx-auto max-w-[800px] px-4 sm:px-6 lg:px-8">
           <div
             className="aspect-video w-full rounded-xl border border-slate-200/80 bg-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex flex-col items-center justify-center gap-3"
-            aria-label="Placeholder para vídeo demonstrativo"
+            aria-label="Em breve, vídeo demonstrativo do produto"
           >
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-sm">
               <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path d="M8 5v14l11-7L8 5z" />
               </svg>
             </div>
-            <p className="text-sm text-slate-500">Vídeo demonstrativo em breve</p>
+            <p className="text-sm text-slate-600 text-center px-6">
+              Em breve, você poderá assistir a um caso real de uso do Otium em vídeo. Enquanto isso, na demonstração guiada mostramos, em poucos minutos, como os três módulos funcionam juntos na rotina do seu escritório.
+            </p>
+            <p className="text-xs text-slate-500 text-center px-8">
+              Na demo, percorremos o scanner de editais, o simulador IN 2.306 e o validador de rating com exemplos de clientes reais — focado em organização, agilidade e segurança nas decisões.
+            </p>
           </div>
         </div>
 
@@ -163,7 +170,27 @@ export function OProduto() {
                   />
                   <div className="flex flex-1 flex-col bg-white p-8 pt-6">
                     <h3 className="text-xl font-bold tracking-wide text-slate-900">{mod.title}</h3>
-                    <p className="mt-4 flex-1 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
+                    <p className="mt-4 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
+                    <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
+                      {mod.id === 'scanner-pgfn' && (
+                        <>
+                          <li>• Reduza o tempo gasto monitorando editais.</li>
+                          <li>• Evite perder oportunidades aderentes à carteira atual.</li>
+                        </>
+                      )}
+                      {mod.id === 'simulador-in2306' && (
+                        <>
+                          <li>• Compare cenários com clareza para o cliente.</li>
+                          <li>• Ganhe confiança para recomendar a melhor opção tributária.</li>
+                        </>
+                      )}
+                      {mod.id === 'validador-rating' && (
+                        <>
+                          <li>• Antecipe o rating provável e reduza surpresas.</li>
+                          <li>• Apoie decisões com base em cálculos padronizados.</li>
+                        </>
+                      )}
+                    </ul>
                     <Link
                       to="/fale-conosco"
                       className="mt-5 inline-flex items-center text-sm font-semibold text-landing-accent transition-colors hover:text-landing-cta"
@@ -179,26 +206,6 @@ export function OProduto() {
 
         <WhoIsFor />
         <TrustBlock />
-
-        {/* CTA intermediário */}
-        <section className="py-10 sm:py-12 bg-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link
-                to="/fale-conosco"
-                className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-6 py-3 text-base font-semibold text-white hover:bg-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-landing-cta focus:ring-offset-2"
-              >
-                Agendar demonstração
-              </Link>
-              <Link
-                to="/register"
-                className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-landing-accent focus:ring-offset-2"
-              >
-                Criar minha conta
-              </Link>
-            </div>
-          </div>
-        </section>
 
         <CTA />
       </main>

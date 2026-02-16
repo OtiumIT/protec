@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './shared/contexts/AuthContext';
 import { LandingOrRedirect } from './landing/LandingOrRedirect';
 import { QuemSomos } from './landing/pages/QuemSomos';
@@ -32,12 +33,26 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" />;
 }
 
+function ScrollToTop() {
+  const location = useLocation();
+
+  // Sempre que o pathname mudar, força o scroll para o topo
+  // para evitar que telas deslogadas e internas abram "no meio" da página anterior.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
+
+  return null;
+}
+
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<div className="min-h-screen flex items-center justify-center"><p className="text-slate-600">Página em desenvolvimento</p></div>} />
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<div className="min-h-screen flex items-center justify-center"><p className="text-slate-600">Página em desenvolvimento</p></div>} />
       <Route
         path="/dashboard"
         element={
@@ -134,14 +149,15 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="/quem-somos" element={<QuemSomos />} />
-      <Route path="/o-produto" element={<OProduto />} />
-      <Route path="/fale-conosco" element={<FaleConosco />} />
-      <Route path="/aviso-legal" element={<AvisoLegal />} />
-      <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
-      <Route path="/termos-de-uso" element={<TermosDeUso />} />
-      <Route path="/" element={<LandingOrRedirect />} />
-    </Routes>
+        <Route path="/quem-somos" element={<QuemSomos />} />
+        <Route path="/o-produto" element={<OProduto />} />
+        <Route path="/fale-conosco" element={<FaleConosco />} />
+        <Route path="/aviso-legal" element={<AvisoLegal />} />
+        <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
+        <Route path="/termos-de-uso" element={<TermosDeUso />} />
+        <Route path="/" element={<LandingOrRedirect />} />
+      </Routes>
+    </>
   );
 }
 

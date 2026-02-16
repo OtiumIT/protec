@@ -7,7 +7,7 @@ export function WhoIsFor() {
             Para quem é
           </h2>
           <p className="mt-3 text-slate-600">
-            Cansado de perder tempo procurando SPED, ECD e PDFs em pastas soltas? Para escritórios que precisam organizar a carteira de clientes, centralizar SPED/ECD/PGDAS por competência e simular indicadores de rating e cenários tributários sem depender só de planilhas – com tudo em um só lugar.
+            Para escritórios tributários, contábeis e de consultoria que já lidam com SPED, ECD, PGDAS e balanços todos os dias – e querem sair do caos de pastas soltas e planilhas paralelas para uma visão centralizada da carteira, com simulações e indicadores prontos para a tomada de decisão.
           </p>
         </div>
       </div>

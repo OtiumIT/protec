@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { LandingHeader } from '../LandingHeader';
 import { Footer } from '../Footer';
 import { CTA } from '../CTA';
@@ -35,19 +36,35 @@ export function QuemSomos() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <LandingHeader />
-      {/* Hero full-width – compacto para reduzir espaço morto */}
-      <section className="relative overflow-hidden w-full pt-6 pb-10 sm:pt-8 lg:pt-10 bg-gradient-to-br from-[#0f172a] via-[#1A2E4C] to-[#1e3a5f]">
+      {/* Hero full-width – alinhado em altura com os demais heros */}
+      <section className="relative overflow-hidden w-full py-10 sm:py-12 lg:py-14 lg:min-h-[420px] bg-gradient-to-br from-[#0f172a] via-[#1A2E4C] to-[#1e3a5f]">
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:gap-12 lg:items-center">
-            <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left">
-              <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Síntese entre Tradição e Inovação
-              </h1>
-              <p className="mt-5 text-base text-slate-300 sm:text-lg leading-loose">
-                O IATax nasce da união da expertise de 30 anos da Protec com a vanguarda digital da Otium, trazendo clareza e segurança tributária para o seu escritório.
-              </p>
+            <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left flex flex-col h-full">
+              <div className="flex-1 flex flex-col lg:justify-center">
+                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                  Síntese entre Tradição e Inovação
+                </h1>
+                <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
+                  O IATax nasce da união da expertise de 30 anos da Protec com a vanguarda digital da Otium, trazendo clareza e segurança tributária para o seu escritório.
+                </p>
+              </div>
+              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start lg:mt-auto lg:mb-1">
+                <Link
+                  to="/register"
+                  className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-landing-cta focus:ring-offset-2 focus:ring-offset-[#0f172a]"
+                >
+                  Quero transformar minhas oportunidades
+                </Link>
+                <Link
+                  to="/fale-conosco"
+                  className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg border-2 border-white bg-white/10 px-6 py-3 text-base font-semibold text-white hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#0f172a]"
+                >
+                  Agendar demonstração
+                </Link>
+              </div>
             </div>
-            <div className="relative mx-auto w-full max-w-[240px] sm:max-w-[272px] lg:max-w-[324px] order-first lg:order-none">
+            <div className="relative mx-auto w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[360px] order-first lg:order-none">
               <div className="relative aspect-square overflow-hidden">
                 {showHeroPlaceholder ? (
                   <HeroIllustrationPlaceholder />
@@ -87,9 +104,9 @@ export function QuemSomos() {
                         <IconBuilding className="text-white" />
                       ) : (
                         <img
-                        src={LOGO_PROTEC}
-                        alt="Logo Protec"
-                        className="h-12 w-auto max-h-[48px] object-contain brightness-0"
+                          src={LOGO_PROTEC}
+                          alt="Logo Protec"
+                          className="h-12 w-auto max-h-[48px] object-contain drop-shadow-sm"
                           onError={() => setProtecLogoError(true)}
                         />
                       )}
@@ -141,7 +158,7 @@ export function QuemSomos() {
                       />
                     )}
                   </div>
-                  <h3 className="mt-5 text-xl font-bold tracking-wide text-slate-900">
+                  <h3 className="mt-6 text-xl font-bold tracking-wide text-slate-900">
                     <a href="https://otiumit.com" target="_blank" rel="noopener noreferrer" className="text-otium-dark hover:text-otium-black underline underline-offset-2">
                       Fábrica de Software e Inteligência Artificial
                     </a>
