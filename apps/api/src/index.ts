@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { serve } from '@hono/node-server';
-import app from './modules/index';
+import app from './modules/index.js';
 
 // Carregar .env da raiz do projeto
 config({ path: resolve(process.cwd(), '../../.env') });
