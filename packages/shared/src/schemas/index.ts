@@ -12,3 +12,4 @@ export * from './rating-validator.schema.js';
 export * from './edital.schema.js';
 export * from './judicial-process.schema.js';
 export * from './simulador-in-2306.schema.js';
+export * from './irpf-alta-renda.schema.js';

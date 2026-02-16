@@ -16,8 +16,8 @@ export const Button = ({
   const baseClasses = 'font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variantClasses = {
-    primary: 'bg-brand hover:bg-brand-dark text-otium-black',
-    secondary: 'bg-brand hover:bg-brand-dark text-otium-black',
+    primary: 'bg-brand hover:bg-brand-dark text-white',
+    secondary: 'bg-brand hover:bg-brand-dark text-white',
     tertiary: 'bg-white text-brand hover:bg-brand/10 border border-brand',
   };
 

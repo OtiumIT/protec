@@ -1233,7 +1233,7 @@ export function RatingValidator() {
                             currentStep === step.number
                               ? 'bg-blue-600 text-white'
                               : currentStep > step.number
-                              ? 'bg-green-500 text-white'
+                              ? 'bg-brand text-white'
                               : 'bg-slate-200 text-slate-600'
                           }`}
                         >
@@ -1246,7 +1246,7 @@ export function RatingValidator() {
                       {index < STEPS.length - 1 && (
                         <div
                           className={`h-1 flex-1 mx-2 transition-all ${
-                            currentStep > step.number ? 'bg-green-500' : 'bg-slate-200'
+                            currentStep > step.number ? 'bg-brand' : 'bg-slate-200'
                           }`}
                         />
                       )}
@@ -1633,7 +1633,7 @@ export function RatingValidator() {
                               key={sim.modality}
                               className={`p-5 ${
                                 sim.isBest
-                                  ? 'border-2 border-green-500 bg-green-50'
+                                  ? 'border-2 border-brand bg-brand/5'
                                   : 'border border-slate-200'
                               }`}
                             >
@@ -1641,7 +1641,7 @@ export function RatingValidator() {
                                 <div className="flex items-center gap-2">
                                   <h3 className="font-semibold text-slate-700">{sim.name}</h3>
                                   {sim.isBest && (
-                                    <Badge className="bg-green-600 text-white text-xs">
+                                    <Badge className="bg-brand text-white text-xs">
                                       ⭐ Mais Vantajosa
                                     </Badge>
                                   )}
@@ -1726,7 +1726,7 @@ export function RatingValidator() {
                         </div>
 
                         {modalityComparison.bestModality && (
-                          <Card className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300">
+                          <Card className="p-6 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-brand">
                             <div className="flex items-start gap-4">
                               <div className="text-3xl">🎯</div>
                               <div className="flex-1">
@@ -1908,7 +1908,7 @@ export function RatingValidator() {
                             key={rating}
                             className={`p-5 ${
                               rating === 'C' || rating === 'D'
-                                ? 'border-2 border-green-300 bg-green-50'
+                                ? 'border-2 border-brand bg-brand/5'
                                 : 'border border-slate-200'
                             }`}
                           >
@@ -1917,7 +1917,7 @@ export function RatingValidator() {
                                 Rating {rating}
                               </Badge>
                               {(rating === 'C' || rating === 'D') && (
-                                <Badge className="bg-green-600 text-white text-xs">
+                                <Badge className="bg-brand text-white text-xs">
                                   Com Descontos
                                 </Badge>
                               )}
@@ -2051,14 +2051,14 @@ export function RatingValidator() {
                                   key={sim.modality}
                                   className={`p-3 rounded border ${
                                     sim.isBest
-                                      ? 'bg-green-50 border-green-300'
+                                      ? 'bg-brand/5 border-brand'
                                       : 'bg-slate-50 border-slate-200'
                                   }`}
                                 >
                                   <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-medium text-slate-700">{sim.name}</span>
                                     {sim.isBest && (
-                                      <Badge className="bg-green-600 text-white text-xs">⭐ Melhor</Badge>
+                                      <Badge className="bg-brand text-white text-xs">⭐ Melhor</Badge>
                                     )}
                                   </div>
                                   <div className="text-sm">

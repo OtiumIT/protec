@@ -38,7 +38,7 @@ const MODULOS = [
     title: 'Scanner de Editais PGFN',
     description:
       'Encontre rapidamente oportunidades em editais do PGFN sem varrer diários e portais manualmente. O módulo cruza a base de clientes do seu escritório com publicações oficiais para apontar editais aderentes e apoiar decisões de adesão e recuperação com mais segurança.',
-    barColor: 'bg-[#194f47]',
+    barColor: 'bg-protec',
     imageSrc: '/modulo-scanner-pgfn.png',
     imageAlt: 'Tela do Scanner de Editais PGFN',
   },

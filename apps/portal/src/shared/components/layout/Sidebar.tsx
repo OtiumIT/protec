@@ -3,6 +3,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { moduleService, type ActiveModule } from '../../../modules/modules/services/module.service';
 
+/** Forçar exibir todos os itens de módulo no menu (sem consultar /modules/active). Trocar para false quando religar verificação por banco. */
+const FORCE_SHOW_ALL_MODULES = true;
+
+/** Nomes de exibição quando módulo não vem da API (modo FORCE_SHOW_ALL_MODULES) */
+const MODULE_DISPLAY_NAMES: Record<string, string> = {
+  FISCAL_FILES: 'Arquivos Fiscais',
+  RATING_VALIDATOR: 'Validador de Rating',
+  SIMULADOR_IN_2306: 'Simulador IN 2.306/2026',
+  IRPF_ALTA_RENDA: 'IRPF Alta Renda',
+};
+
 interface MenuItem {
   name: string;
   path?: string;
@@ -160,10 +171,21 @@ const adminMenuItems: MenuItem[] = [
   },
   {
     name: 'Simulador IN 2.306/2026',
+    moduleKey: 'SIMULADOR_IN_2306',
     path: '/simulador-in-2306',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'IRPF Alta Renda',
+    moduleKey: 'IRPF_ALTA_RENDA',
+    path: '/irpf-alta-renda',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },
@@ -370,12 +392,12 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
     let filtered = items;
 
     // Filtrar por módulos ativos (apenas para admin de tenant, não super_admin)
-    if (!isSuperAdmin) {
-      // Itens sem moduleKey (Dashboard, Clientes, Simulador, etc.) sempre aparecem, mesmo enquanto carrega
+    if (!isSuperAdmin && !FORCE_SHOW_ALL_MODULES) {
+      // Itens sem moduleKey (Dashboard, Clientes, etc.) sempre aparecem
       // Só itens com moduleKey dependem da resposta de /modules/active
       filtered = items.filter((item) => {
         if (item.moduleKey) {
-          if (isLoadingModules) return false; // enquanto carrega, esconder só itens que dependem de módulo
+          if (isLoadingModules) return false;
           return activeModules.has(item.moduleKey);
         }
         return true;
@@ -556,15 +578,13 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
   // Criar seções de módulos ordenadas por nome do módulo
   const moduleSections = Array.from(moduleItemsMap.entries())
     .filter(([moduleKey]) => {
-      // Para super admin, mostrar todos os módulos que têm itens no menu
       if (isSuperAdmin) return true;
-      // Para admin de tenant, mostrar apenas módulos ativos
+      if (FORCE_SHOW_ALL_MODULES) return true; // forçar exibir todos; depois religar verificação por banco
       return activeModules.has(moduleKey);
     })
     .map(([moduleKey, items]) => {
       const module = activeModules.get(moduleKey);
-      // Se não encontrou o módulo mas é super admin, usar a key como nome
-      const moduleName = module?.name || moduleKey;
+      const moduleName = module?.name || MODULE_DISPLAY_NAMES[moduleKey] || moduleKey;
       return {
         moduleKey,
         moduleName,
@@ -668,12 +688,12 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
           )}
 
           {/* Seções de Módulos - uma seção para cada módulo ativo (depende de /modules/active) */}
-          {isLoadingModules && (
+          {isLoadingModules && !FORCE_SHOW_ALL_MODULES && (
             <div className="px-4 py-2 text-center">
               <p className="text-xs text-slate-400">Carregando módulos...</p>
             </div>
           )}
-          {!isLoadingModules && moduleSections.map(({ moduleKey, moduleName, items }) => {
+          {(FORCE_SHOW_ALL_MODULES || !isLoadingModules) && moduleSections.map(({ moduleKey, moduleName, items }) => {
             if (items.length === 0) return null;
             return (
               <div key={moduleKey} className="mb-6">

@@ -411,7 +411,7 @@ export function FiscalFilesUpload() {
                       </span>
                     )}
                     {successFiles.length > 0 && (
-                      <span className="text-xs text-green-600">
+                      <span className="text-xs text-indigo-600">
                         {successFiles.length} enviado(s)
                       </span>
                     )}

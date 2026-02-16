@@ -239,7 +239,7 @@ export function FaleConosco() {
                     </p>
                   )}
                   {submitSuccess && (
-                    <p className="text-sm text-green-600" role="status">
+                    <p className="text-sm text-indigo-600" role="status">
                       Recebemos sua mensagem e entraremos em contato em breve.
                     </p>
                   )}

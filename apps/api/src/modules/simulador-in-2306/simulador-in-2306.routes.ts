@@ -5,6 +5,7 @@ import { SimuladorIN2306Repository } from './simulador-in-2306.repository';
 import { ClientRepository } from '../clients/client.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import { requireModule } from '../../middleware/module.middleware';
 import {
   SimulateIN2306InputSchema,
   SimulateTributarioIN2306InputSchema,
@@ -17,7 +18,7 @@ const simuladorIN2306Routes = new Hono();
 
 simuladorIN2306Routes.use('/*', tenantMiddleware);
 simuladorIN2306Routes.use('/*', authMiddleware);
-// Simulador disponível para todos os tenants autenticados (sem checagem de módulo ativo)
+simuladorIN2306Routes.use('/*', requireModule('SIMULADOR_IN_2306'));
 
 const simuladorRepo = new SimuladorIN2306Repository();
 const clientRepo = new ClientRepository();

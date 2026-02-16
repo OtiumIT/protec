@@ -246,7 +246,7 @@ export function Administrators() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">Ativos:</span>
-                <span className="font-semibold text-green-600">{activeCount}</span>
+                <span className="font-semibold text-indigo-600">{activeCount}</span>
               </div>
             </div>
           </div>

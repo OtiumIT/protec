@@ -366,7 +366,7 @@ export function Modules() {
                                 <Badge
                                   className={
                                     isInPlan
-                                      ? 'bg-green-100 text-green-800 border border-green-300'
+                                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-300'
                                       : 'bg-slate-100 text-slate-600 border border-slate-300'
                                   }
                                 >
@@ -469,7 +469,7 @@ export function Modules() {
                                   <Badge
                                     className={
                                       isActive
-                                        ? 'bg-green-100 text-green-800 border border-green-300'
+                                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-300'
                                         : 'bg-slate-100 text-slate-600 border border-slate-300'
                                     }
                                   >
@@ -488,7 +488,7 @@ export function Modules() {
                                 )}
 
                                 {isActive && !activeModule?.enabled_until && (
-                                  <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                                  <div className="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700">
                                     <strong>Status:</strong> Ativo permanentemente
                                   </div>
                                 )}

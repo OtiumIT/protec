@@ -22,6 +22,7 @@ import { FiscalFilesUpload } from './modules/fiscal-files/pages/FiscalFilesUploa
 import { Modules } from './modules/modules/pages/Modules';
 import { RatingValidator } from './modules/rating-validator/pages/RatingValidator';
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
+import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -146,6 +147,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SimuladorIN2306 />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/irpf-alta-renda"
+        element={
+          <PrivateRoute>
+            <IrpfAltaRenda />
           </PrivateRoute>
         }
       />

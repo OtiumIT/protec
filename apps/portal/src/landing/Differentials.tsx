@@ -64,7 +64,7 @@ export function Differentials({ showPartners = true }: { showPartners?: boolean 
                   className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4"
                 >
                   <span
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600"
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600"
                     aria-hidden
                   >
                     {item.icon}

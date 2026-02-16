@@ -523,7 +523,7 @@ export function SimuladorIN2306() {
                 <p className="text-base font-semibold text-slate-800 mt-2">
                   Com a IN 2.306/2026 você pagaria <span className="text-red-700">{formatMoney(tributarioResult.comparativo.imposto_a_maior_2026_vs_2025)} a mais</span> em relação a 2025.
                   {tributarioResult.cenario_equiparacao && (
-                    <> No cenário de equiparação hospitalar, a economia em relação a 2026 seria de <span className="text-green-700">{formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}</span>.</>
+                    <> No cenário de equiparação hospitalar, a economia em relação a 2026 seria de <span className="text-indigo-600">{formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}</span>.</>
                   )}
                 </p>
               </Card>
@@ -565,7 +565,7 @@ export function SimuladorIN2306() {
                     )}
                   </p>
                 </Card>
-                <Card className="border-l-4 border-l-green-500">
+                <Card className="border-l-4 border-l-brand">
                   <h3 className="font-semibold text-slate-800 mb-2">Cenário Equiparação</h3>
                   <p className="text-xs text-slate-600 mb-2">O cenário &quot;Equiparação hospitalar&quot; reflete a aplicação de <strong>tese jurídica</strong>. Sua aceitação pela Receita depende de interpretação e de eventual decisão judicial (ex.: liminares/mandados de segurança em casos análogos). Cenário ilustrativo para discussão com advogado e contador.</p>
                   <p className="text-sm text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao!.receita_bruta_total)}</p>
@@ -654,7 +654,7 @@ export function SimuladorIN2306() {
                 <div className="flex flex-wrap gap-6">
                   <div>
                     <p className="text-sm text-slate-500">Imposto a maior (2026 vs 2025)</p>
-                    <p className={`text-lg font-bold ${tributarioResult.comparativo.imposto_a_maior_2026_vs_2025 >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                    <p className={`text-lg font-bold ${tributarioResult.comparativo.imposto_a_maior_2026_vs_2025 >= 0 ? 'text-red-700' : 'text-indigo-600'}`}>
                       {formatMoney(tributarioResult.comparativo.imposto_a_maior_2026_vs_2025)}
                     </p>
                     {(() => {
@@ -669,7 +669,7 @@ export function SimuladorIN2306() {
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">Economia com equiparação (vs 2026)</p>
-                    <p className="text-lg font-bold text-green-700">
+                    <p className="text-lg font-bold text-indigo-600">
                       {formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}
                     </p>
                   </div>

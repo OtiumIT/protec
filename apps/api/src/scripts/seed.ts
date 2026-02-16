@@ -41,6 +41,7 @@ async function seed() {
       { name: 'Fiscal Files', key: 'FISCAL_FILES', description: 'Gerenciamento de arquivos fiscais (SPED, ECD, PGDAS, etc)' },
       { name: 'Rating Validator', key: 'RATING_VALIDATOR', description: 'Validador de Rating PGFN (CAPAG) - Análise de capacidade de pagamento' },
       { name: 'Simulador IN 2.306/2026', key: 'SIMULADOR_IN_2306', description: 'Simulador da Nova IN RFB 2.306/2026 - Parcelamento e condições' },
+      { name: 'Caldo IRPF Alta Renda', key: 'IRPF_ALTA_RENDA', description: 'Simulação de tributação de alta renda - Lei 15.270/2025 (IRPF e dividendos)' },
       { name: 'Reports', key: 'REPORTS', description: 'Relatórios e análises' },
       { name: 'Analytics', key: 'ANALYTICS', description: 'Analytics avançado' },
     ];

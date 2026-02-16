@@ -1,0 +1,7 @@
+# Cloudflare Pages – frontend (portal)
+# Deploy via CLI: na raiz do monorepo: pnpm run build:portal && cd apps/portal && npx wrangler pages deploy dist --project-name=SEU_PROJETO
+# Ou conecte o repositório no dashboard (ver docs/CLOUDFLARE_PAGES.md).
+
+name = "portal"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"

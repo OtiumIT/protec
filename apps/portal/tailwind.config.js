@@ -10,18 +10,19 @@ export default {
         '5xl': '80rem',
       },
       colors: {
+        /** Cor principal do app (login + área logada): azul alinhado à landing */
         brand: {
-          DEFAULT: '#32CD32',
-          dark: '#28a428',
-          light: '#7CFC00',
+          DEFAULT: '#4f46e5',
+          dark: '#4338ca',
+          light: '#818cf8',
         },
         'otium-black': '#000000',
         'otium-dark': '#2d2d2d',
-        /** Protec: verde de marca (ajustar se houver hex oficial) */
+        /** Protec: azul navy (consistente com landing) */
         protec: {
-          DEFAULT: '#006b3f',
-          dark: '#004d2e',
-          light: '#e6f2ed',
+          DEFAULT: '#1e3a5f',
+          dark: '#0f172a',
+          light: '#e0e7ff',
         },
         /** Landing: azul marinho profundo + laranja CTA (high contrast) */
         landing: {

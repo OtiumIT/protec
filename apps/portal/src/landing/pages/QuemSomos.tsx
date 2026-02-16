@@ -96,7 +96,7 @@ export function QuemSomos() {
               <div className="grid gap-8 sm:grid-cols-2 items-stretch">
                 {/* Card Protec */}
                 <div className="flex flex-col h-full rounded-2xl border border-[#f0f0f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow text-left">
-                  <div className="h-3 w-full bg-[#194f47] shrink-0 rounded-t-2xl" aria-hidden />
+                  <div className="h-3 w-full bg-protec shrink-0 rounded-t-2xl" aria-hidden />
                   <div className="flex flex-col flex-1 flex-grow bg-[#ffffff] p-8 pt-6">
                     <div className="min-h-[8.5rem] flex flex-col">
                     <div className="flex flex-shrink-0 items-center justify-center rounded-xl bg-protec p-3 min-h-12 min-w-12 w-fit">
@@ -124,7 +124,7 @@ export function QuemSomos() {
                     <button
                       type="button"
                       onClick={() => setProtecOpen((o) => !o)}
-                      className="inline-flex items-center rounded-lg border-2 border-[#194f47] bg-transparent px-4 py-2 text-sm font-medium text-[#194f47] transition-colors hover:bg-[#194f47]/10 text-left"
+                      className="inline-flex items-center rounded-lg border-2 border-protec bg-transparent px-4 py-2 text-sm font-medium text-protec transition-colors hover:bg-protec/10 text-left"
                     >
                       {protecOpen ? 'Ocultar detalhes' : 'Saiba mais'}
                     </button>

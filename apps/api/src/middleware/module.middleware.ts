@@ -3,9 +3,9 @@ import { query } from '../db/client';
 
 /**
  * Middleware para verificar se módulo está ativo
- * Retorna 402 Payment Required se módulo não estiver ativo
- * 
- * Nota: Será atualizado quando FeatureToggleService for criado
+ * Retorna 402 Payment Required se módulo não estiver ativo.
+ *
+ * Com FORCE_ALL_MODULES_ACTIVE=true no .env, a verificação é ignorada (útil para demo/apresentação).
  */
 export function requireModule(moduleKey: string) {
   return async (c: Context, next: Next): Promise<Response | void> => {
@@ -21,6 +21,11 @@ export function requireModule(moduleKey: string) {
         },
         400
       );
+    }
+
+    if (process.env.FORCE_ALL_MODULES_ACTIVE === 'true' || process.env.FORCE_ALL_MODULES_ACTIVE === '1') {
+      await next();
+      return;
     }
 
     // Verificar se módulo está ativo
