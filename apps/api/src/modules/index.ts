@@ -15,6 +15,7 @@ import { editalRoutes } from './editais/edital.routes';
 import { judicialProcessRoutes } from './judicial-processes/judicial-process.routes';
 import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.routes';
 import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
+import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 
 const app = new Hono();
@@ -57,6 +58,7 @@ app.route('/api/v1/editais', editalRoutes);
 app.route('/api/v1/judicial-processes', judicialProcessRoutes);
 app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
+app.route('/api/v1/debug', debugRoutes);
 
 // Health check
 app.get('/health', (c) => {

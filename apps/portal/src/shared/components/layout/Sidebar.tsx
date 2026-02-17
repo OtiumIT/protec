@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { moduleService, type ActiveModule } from '../../../modules/modules/services/module.service';
 
 /** Forçar exibir todos os itens de módulo no menu (sem consultar /modules/active). Trocar para false quando religar verificação por banco. */
-const FORCE_SHOW_ALL_MODULES = true;
+const FORCE_SHOW_ALL_MODULES = false;
 
 /** Nomes de exibição quando módulo não vem da API (modo FORCE_SHOW_ALL_MODULES) */
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
   FISCAL_FILES: 'Arquivos Fiscais',
   RATING_VALIDATOR: 'Validador de Rating',
   SIMULADOR_IN_2306: 'Simulador IN 2.306/2026',
-  IRPF_ALTA_RENDA: 'IRPF Alta Renda',
+  IRPF_ALTA_RENDA: 'Cálculo de IRPF de Alta Renda',
 };
 
 interface MenuItem {
@@ -180,7 +180,7 @@ const adminMenuItems: MenuItem[] = [
     ),
   },
   {
-    name: 'IRPF Alta Renda',
+    name: 'Cálculo de IRPF de Alta Renda',
     moduleKey: 'IRPF_ALTA_RENDA',
     path: '/irpf-alta-renda',
     icon: (
@@ -245,10 +245,16 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
     try {
       const modules = await moduleService.listActive();
       const moduleMap = new Map<string, ActiveModule>(modules.map((m: ActiveModule) => [m.key, m]));
+      const keys = modules.map((m: ActiveModule) => m.key);
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Sidebar.tsx:loadActiveModules',message:'listActive result',data:{keys,hasSimulador:moduleMap.has('SIMULADOR_IN_2306')},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       setActiveModules(moduleMap);
     } catch (error) {
       console.error('Error loading active modules:', error);
-      // Em caso de erro, não mostrar módulos (mais seguro)
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Sidebar.tsx:loadActiveModules',message:'listActive error',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       setActiveModules(new Map());
     } finally {
       setIsLoadingModules(false);

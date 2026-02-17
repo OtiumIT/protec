@@ -3,8 +3,10 @@ import { Layout } from '../../../shared/components/layout/Layout';
 import {
   irpfAltaRendaService,
   type IrpfAltaRendaRecord,
+  type ExtractFromPdfResult,
 } from '../services/irpf-alta-renda.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { companyService } from '../../companies/services/company.service';
+import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -36,7 +38,8 @@ function formatCurrency(value: number): string {
 
 export function IrpfAltaRenda() {
   const { success, error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { user } = useAuth();
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [items, setItems] = useState<IrpfAltaRendaRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IrpfAltaRendaSimulacaoResponse | null>(null);
@@ -47,16 +50,14 @@ export function IrpfAltaRenda() {
   const [rendimentosTributaveis, setRendimentosTributaveis] = useState(0);
   const [dividendos, setDividendos] = useState<RendimentoIsentoDividendo[]>([{ ...emptyDividendo }]);
 
-  const [saveClientId, setSaveClientId] = useState('');
+  const [saveCompanyId, setSaveCompanyId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [clientsRes, listRes] = await Promise.all([
-        clientService.list(),
-        irpfAltaRendaService.list({ page: 1, limit: 50 }),
-      ]);
-      setClients(Array.isArray(clientsRes) ? clientsRes : []);
+      const listRes = await irpfAltaRendaService.list({ page: 1, limit: 50 });
       setItems(listRes.items);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -66,6 +67,17 @@ export function IrpfAltaRenda() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'super_admin') {
+      companyService.list().then((list) => setCompanies(list.map((c) => ({ id: c.id, name: c.name })))).catch(() => setCompanies([]));
+    } else if (user.company_id) {
+      setCompanies([{ id: user.company_id, name: 'Sua empresa' }]);
+    } else {
+      setCompanies([]);
+    }
+  }, [user]);
 
   const bccCalculado =
     rendimentosTributaveis +
@@ -129,21 +141,22 @@ export function IrpfAltaRenda() {
       showError('Preencha nome e CPF do contribuinte.');
       return;
     }
-    if (!saveClientId) {
-      showError('Selecione um cliente para salvar.');
+    if (!saveCompanyId) {
+      showError('Selecione uma empresa para salvar.');
       return;
     }
     setLoading(true);
     try {
       const input: SimulateAndSaveIrpfAltaRendaInput = {
         ...buildInput(),
-        client_id: saveClientId,
+        company_id: saveCompanyId,
         title: saveTitle.trim() || undefined,
       };
       await irpfAltaRendaService.simulateAndSave(input);
       success('Simulação salva.');
       setResult(null);
       setSaveTitle('');
+      setSaveCompanyId('');
       loadData();
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao salvar');
@@ -163,16 +176,71 @@ export function IrpfAltaRenda() {
     }
   };
 
+  const applyExtractedData = (res: ExtractFromPdfResult) => {
+    setAno(res.ano);
+    setContribuinteNome(res.dados.contribuinte.nome);
+    setContribuinteCpf(res.dados.contribuinte.cpf);
+    setRendimentosTributaveis(res.dados.rendimentos_tributaveis);
+    const divs = res.dados.rendimentos_isentos_dividendos?.length
+      ? res.dados.rendimentos_isentos_dividendos.map((d) => ({
+          nome_fonte: d.nome_fonte ?? '',
+          cnpj_fonte: d.cnpj_fonte,
+          valor: d.valor ?? 0,
+          codigo: (d.codigo as '09' | '13') || '09',
+        }))
+      : [{ ...emptyDividendo }];
+    setDividendos(divs);
+  };
+
+  const handlePdfUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pdfFile) {
+      showError('Selecione um arquivo PDF.');
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      const result = await irpfAltaRendaService.extractFromPdf(pdfFile);
+      applyExtractedData(result);
+      success('Dados extraídos do PDF. Revise e clique em Simular.');
+      setPdfFile(null);
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Erro ao extrair dados do PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <ToastContainer />
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-slate-800">IRPF Alta Renda (Lei 15.270/2025)</h1>
+      <div className="w-full max-w-full space-y-6">
+        <h1 className="text-2xl font-semibold text-slate-800">Cálculo de IRPF de Alta Renda (Lei 15.270/2025)</h1>
         <p className="text-slate-600">
           Simule o impacto tributário com base nos rendimentos tributáveis e nos lucros/dividendos (códigos 09 e 13).
         </p>
 
-        <Card title="Dados do IRPF" className="max-w-3xl">
+        <Card title="Importar dados de um PDF (DAA / declaração IRPF)" className="w-full">
+          <p className="text-sm text-slate-600 mb-4">
+            Envie um PDF da declaração ou do DAA para preencher automaticamente nome, CPF, ano, rendimentos tributáveis e dividendos (extração via OpenAI). Revise os dados antes de simular.
+          </p>
+          <form onSubmit={handlePdfUpload} className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Arquivo PDF</label>
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand file:text-white file:font-medium"
+              />
+            </div>
+            <Button type="submit" disabled={pdfLoading || !pdfFile}>
+              {pdfLoading ? 'Extraindo...' : 'Extrair dados do PDF'}
+            </Button>
+          </form>
+        </Card>
+
+        <Card title="Dados do IRPF" className="w-full">
           <form onSubmit={handleSimulate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -268,7 +336,7 @@ export function IrpfAltaRenda() {
         </Card>
 
         {result && (
-          <Card title="Resultado da simulação" className="max-w-3xl">
+          <Card title="Resultado da simulação" className="w-full">
             <div className="space-y-3">
               <p><strong>Faixa:</strong> {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}</p>
               <p><strong>Alíquota:</strong> {result.aliquota_percentual}%</p>
@@ -343,14 +411,14 @@ export function IrpfAltaRenda() {
               <h4 className="text-sm font-medium text-slate-700 mb-2">Salvar simulação</h4>
               <form onSubmit={handleSave} className="flex flex-wrap items-end gap-2">
                 <div className="min-w-[200px]">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
                   <select
-                    value={saveClientId}
-                    onChange={(e) => setSaveClientId(e.target.value)}
+                    value={saveCompanyId}
+                    onChange={(e) => setSaveCompanyId(e.target.value)}
                     className="w-full border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:border-brand"
                   >
                     <option value="">Selecione...</option>
-                    {clients.map((c) => (
+                    {companies.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
@@ -369,7 +437,7 @@ export function IrpfAltaRenda() {
           </Card>
         )}
 
-        <Card title="Simulações salvas" className="max-w-4xl">
+        <Card title="Simulações salvas" className="w-full">
           {items.length === 0 ? (
             <p className="text-slate-500">Nenhuma simulação salva.</p>
           ) : (

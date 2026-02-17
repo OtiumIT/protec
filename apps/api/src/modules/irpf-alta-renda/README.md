@@ -2,7 +2,7 @@
 
 ## Descrição
 
-Simulação de impacto tributário da alta renda com base em dados da declaração de IRPF (DAA). Entrada por **formulário manual** e, futuramente, opção por upload de PDF com extração. Regras conforme **Lei 15.270/2025**.
+Simulação de impacto tributário da alta renda com base em dados da declaração de IRPF (DAA). Entrada por **formulário manual** e por **upload de PDF** com extração via OpenAI (nome, CPF, ano, rendimentos tributáveis e dividendos). Regras conforme **Lei 15.270/2025**.
 
 Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regras_tributacao.md).
 
@@ -15,10 +15,17 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 ## Dependências
 
 - **Módulo**: Feature toggle `IRPF_ALTA_RENDA`.
-- **Repositories**: `ClientRepository` (validação de cliente ao salvar com `client_id`).
-- **Tabela tenant**: `irpf_alta_renda`.
+- **Repositories**: `CompanyRepository` (validação de empresa ao salvar com `company_id`).
+- **Tabela tenant**: `irpf_alta_renda` (coluna `company_id` referencia `public.companies(id)`).
 
 ## Fluxos e Endpoints
+
+### POST /irpf-alta-renda/extract-from-pdf
+
+- **Descrição**: Extrai dados de IRPF de um PDF (ex.: DAA, resumo da declaração) usando OpenAI e retorna `{ ano, dados }` para preencher o formulário.
+- **Body**: `multipart/form-data` com campo **file** (arquivo PDF).
+- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda } }`.
+- **Requisito**: Variável de ambiente **OPENAI_API_KEY** configurada na API.
 
 ### POST /irpf-alta-renda/simulate
 

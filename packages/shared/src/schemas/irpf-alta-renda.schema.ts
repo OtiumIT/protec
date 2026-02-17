@@ -31,7 +31,7 @@ export const SimulateIrpfAltaRendaInputSchema = z.object({
 
 /** Input para simulação e salvamento */
 export const SimulateAndSaveIrpfAltaRendaInputSchema = SimulateIrpfAltaRendaInputSchema.extend({
-  client_id: z.string().uuid().optional(),
+  company_id: z.string().uuid().optional(),
   title: z.string().max(255).optional(),
 });
 
@@ -52,7 +52,7 @@ export const IrpfAltaRendaSimulacaoResponseSchema = z.object({
 
 /** Query para listagem */
 export const ListIrpfAltaRendaQuerySchema = z.object({
-  client_id: z.string().uuid().optional(),
+  company_id: z.string().uuid().optional(),
   ano: z.coerce.number().int().min(2020).max(2035).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),

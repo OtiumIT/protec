@@ -2,6 +2,12 @@
 
 Somente o app **portal** (frontend React/Vite) é publicado no Cloudflare Pages.
 
+**Resumo do envio:**
+- **Pelo Git:** Conecte o repo no dashboard do Cloudflare Pages, configure build (`pnpm install && pnpm run build:portal`), output `apps/portal/dist`, root em branco, e defina **VITE_API_URL** nas variáveis de ambiente. Cada push na branch conectada gera um deploy.
+- **Pelo CLI:** Na raiz do repo: `pnpm run build:portal`, depois `cd apps/portal && npx wrangler pages deploy dist --project-name=SEU_PROJETO`.
+
+---
+
 ## Opção 1: Conectar o repositório no dashboard (recomendado)
 
 1. Acesse [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
@@ -16,10 +22,15 @@ Somente o app **portal** (frontend React/Vite) é publicado no Cloudflare Pages.
 | **Build output directory** | `apps/portal/dist` |
 | **Root directory** | *(deixe em branco – raiz do repo)* |
 
-### Variáveis de ambiente (opcional)
+### Variáveis de ambiente
 
-- **NODE_VERSION**: `20` (ou `18`)
-- **PNPM_VERSION**: `8` (se necessário para o Cloudflare usar pnpm)
+| Variável | Valor | Obrigatório |
+|----------|--------|-------------|
+| **NODE_VERSION** | `20` (ou `18`) | Recomendado |
+| **PNPM_VERSION** | `8` | Se usar pnpm |
+| **VITE_API_URL** | `https://protec-n05v.onrender.com` | **Sim** – para o login e as chamadas de API apontarem para o backend no Render em vez de localhost |
+
+Configure **VITE_API_URL** em **Settings → Environment variables** do projeto Pages (variáveis de produção).
 
 Salve e faça o deploy. O Cloudflare vai instalar dependências, rodar `build:portal` e publicar o conteúdo de `apps/portal/dist`.
 

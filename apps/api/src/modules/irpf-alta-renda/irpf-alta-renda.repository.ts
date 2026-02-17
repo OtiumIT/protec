@@ -3,7 +3,7 @@ import type { RendimentoIsentoDividendo } from '@shared/core';
 
 export interface IrpfAltaRendaRecord {
   id: string;
-  client_id: string | null;
+  company_id: string | null;
   ano: number;
   contribuinte_nome: string;
   contribuinte_cpf: string;
@@ -18,7 +18,7 @@ export interface IrpfAltaRendaRecord {
 }
 
 export interface CreateIrpfAltaRendaData {
-  client_id: string | null;
+  company_id: string | null;
   ano: number;
   contribuinte_nome: string;
   contribuinte_cpf: string;
@@ -33,7 +33,7 @@ export interface CreateIrpfAltaRendaData {
 export class IrpfAltaRendaRepository extends BaseRepository {
   async findById(id: string): Promise<IrpfAltaRendaRecord | null> {
     const result = await this.query<IrpfAltaRendaRecord>(
-      `SELECT id, client_id, ano, contribuinte_nome, contribuinte_cpf,
+      `SELECT id, company_id, ano, contribuinte_nome, contribuinte_cpf,
               rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
               resultado_simulacao, title, created_by, created_at, updated_at
        FROM irpf_alta_renda WHERE id = $1`,
@@ -48,15 +48,15 @@ export class IrpfAltaRendaRepository extends BaseRepository {
   async create(data: CreateIrpfAltaRendaData): Promise<IrpfAltaRendaRecord> {
     const result = await this.query<IrpfAltaRendaRecord>(
       `INSERT INTO irpf_alta_renda (
-         client_id, ano, contribuinte_nome, contribuinte_cpf,
+         company_id, ano, contribuinte_nome, contribuinte_cpf,
          rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
          resultado_simulacao, title, created_by
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, client_id, ano, contribuinte_nome, contribuinte_cpf,
+       RETURNING id, company_id, ano, contribuinte_nome, contribuinte_cpf,
                  rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
                  resultado_simulacao, title, created_by, created_at, updated_at`,
       [
-        data.client_id,
+        data.company_id,
         data.ano,
         data.contribuinte_nome,
         data.contribuinte_cpf,
@@ -77,7 +77,7 @@ export class IrpfAltaRendaRepository extends BaseRepository {
   }
 
   async list(options: {
-    client_id?: string;
+    company_id?: string;
     ano?: number;
     page?: number;
     limit?: number;
@@ -89,9 +89,9 @@ export class IrpfAltaRendaRepository extends BaseRepository {
     const params: unknown[] = [];
     const conditions: string[] = [];
 
-    if (options.client_id) {
-      conditions.push(`client_id = $${params.length + 1}`);
-      params.push(options.client_id);
+    if (options.company_id) {
+      conditions.push(`company_id = $${params.length + 1}`);
+      params.push(options.company_id);
     }
     if (options.ano != null) {
       conditions.push(`ano = $${params.length + 1}`);
@@ -108,7 +108,7 @@ export class IrpfAltaRendaRepository extends BaseRepository {
     const total = parseInt(countResult.rows[0].count, 10);
 
     const listResult = await this.query<IrpfAltaRendaRecord>(
-      `SELECT id, client_id, ano, contribuinte_nome, contribuinte_cpf,
+      `SELECT id, company_id, ano, contribuinte_nome, contribuinte_cpf,
               rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
               resultado_simulacao, title, created_by, created_at, updated_at
        FROM irpf_alta_renda ${whereClause}

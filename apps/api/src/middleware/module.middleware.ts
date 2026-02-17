@@ -28,15 +28,19 @@ export function requireModule(moduleKey: string) {
       return;
     }
 
-    // Verificar se módulo está ativo
+    // Verificar se módulo está ativo (public.* para não depender do search_path após setTenantSchema)
     const result = await query<{ id: string }>(
       `SELECT tm.id 
-       FROM tenant_modules tm
-       JOIN modules m ON m.id = tm.module_id
+       FROM public.tenant_modules tm
+       JOIN public.modules m ON m.id = tm.module_id
        WHERE tm.tenant_id = $1 AND m.key = $2 
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
       [companyId, moduleKey]
     );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'module.middleware.ts:requireModule',message:'module check',data:{companyId,moduleKey,found:result.rows.length>0},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     if (result.rows.length === 0) {
       return c.json(

@@ -3,7 +3,7 @@
 
 INSERT INTO modules (name, key, description)
 VALUES (
-  'Caldo IRPF Alta Renda',
+  'Calculadora IRPF Alta Renda',
   'IRPF_ALTA_RENDA',
   'Simulação de tributação de alta renda - Lei 15.270/2025 (IRPF e dividendos)'
 )

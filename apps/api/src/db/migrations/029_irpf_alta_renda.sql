@@ -1,10 +1,11 @@
 -- Migration: 029_irpf_alta_renda
 -- Tabela de simulações IRPF Alta Renda (Lei 15.270/2025)
 -- Esta migration roda em schemas de tenant (tenant_{company_id})
+-- company_id referencia public.companies (tenant/empresa a que a simulação pertence).
 
 CREATE TABLE IF NOT EXISTS irpf_alta_renda (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+  company_id UUID REFERENCES public.companies(id) ON DELETE SET NULL,
 
   ano INTEGER NOT NULL,
   contribuinte_nome VARCHAR(255) NOT NULL,
@@ -22,7 +23,7 @@ CREATE TABLE IF NOT EXISTS irpf_alta_renda (
   CONSTRAINT check_irpf_alta_renda_ano CHECK (ano >= 2020 AND ano <= 2035)
 );
 
-CREATE INDEX IF NOT EXISTS idx_irpf_alta_renda_client_id ON irpf_alta_renda(client_id);
+CREATE INDEX IF NOT EXISTS idx_irpf_alta_renda_company_id ON irpf_alta_renda(company_id);
 CREATE INDEX IF NOT EXISTS idx_irpf_alta_renda_ano ON irpf_alta_renda(ano);
 CREATE INDEX IF NOT EXISTS idx_irpf_alta_renda_created_at ON irpf_alta_renda(created_at DESC);
 

@@ -1,7 +1,13 @@
 import apiRequest from '../../../shared/services/api';
 
-// Em produção: usa Render se VITE_API_URL não estiver definido
-const API_URL = (import.meta.env?.VITE_API_URL as string) || (import.meta.env.PROD ? 'https://protec-n05v.onrender.com' : 'http://localhost:3001');
+function getFiscalFileApiUrl(): string {
+  const fromEnv = (import.meta.env?.VITE_API_URL as string)?.trim();
+  if (fromEnv && fromEnv !== 'http://localhost:3001') return fromEnv;
+  if (import.meta.env.PROD) return 'https://protec-n05v.onrender.com';
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) return 'https://protec-n05v.onrender.com';
+  return 'http://localhost:3001';
+}
+const API_URL = getFiscalFileApiUrl();
 
 export interface FiscalFile {
   id: string;

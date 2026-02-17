@@ -1,5 +1,14 @@
-// Em produção (Cloudflare): usa Render se VITE_API_URL não estiver definido
-const API_URL = (import.meta.env?.VITE_API_URL as string) || (import.meta.env.PROD ? 'https://protec-n05v.onrender.com' : 'http://localhost:3001');
+const PRODUCTION_API_URL = 'https://protec-n05v.onrender.com';
+const DEV_API_URL = 'http://localhost:3001';
+
+/** Base URL da API. Avaliada em tempo de requisição para garantir uso correto em produção (Cloudflare, etc.). */
+export function getApiUrl(): string {
+  const fromEnv = (import.meta.env?.VITE_API_URL as string)?.trim();
+  if (fromEnv && !fromEnv.includes('localhost')) return fromEnv;
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) return PRODUCTION_API_URL;
+  if (import.meta.env.PROD) return PRODUCTION_API_URL;
+  return DEV_API_URL;
+}
 
 interface RequestOptions extends RequestInit {
   token?: string;
@@ -22,7 +31,7 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
 
-      const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+      const baseUrl = getApiUrl().replace(/\/$/, '');
       const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -88,12 +97,10 @@ export async function apiRequest<T>(
     headers['X-Tenant-ID'] = tenantId;
   }
 
-  // Garantir que a URL está corretamente formatada
-  if (!API_URL || typeof API_URL !== 'string') {
-    throw new Error('API_URL is not configured. Please set VITE_API_URL environment variable.');
+  const baseUrl = getApiUrl().replace(/\/$/, '');
+  if (!baseUrl || typeof baseUrl !== 'string') {
+    throw new Error('API base URL is not configured. Set VITE_API_URL or deploy to production.');
   }
-  
-  const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${baseUrl}${path}`;
   

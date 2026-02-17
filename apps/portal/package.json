@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "predev": "node -e \"try{require('fs').rmSync('node_modules/.vite',{recursive:true,force:true})}catch(e){}\"",
-    "build": "tsc && vite build",
+    "build": "tsc && VITE_API_URL=https://protec-n05v.onrender.com vite build",
     "preview": "vite preview",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",

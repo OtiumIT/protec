@@ -8,7 +8,7 @@ export class FeatureToggleRepository extends BaseRepository {
   async findAll(): Promise<Module[]> {
     console.log('[FeatureToggleRepository.findAll] Executando query...');
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM modules ORDER BY name',
+      'SELECT id, name, key, description, created_at FROM public.modules ORDER BY name',
       [],
       false // modules não requerem filtro de tenant
     );
@@ -21,7 +21,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async findByKey(key: string): Promise<Module | null> {
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM modules WHERE key = $1',
+      'SELECT id, name, key, description, created_at FROM public.modules WHERE key = $1',
       [key],
       false
     );
@@ -33,7 +33,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async findById(id: string): Promise<Module | null> {
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM modules WHERE id = $1',
+      'SELECT id, name, key, description, created_at FROM public.modules WHERE id = $1',
       [id],
       false
     );
@@ -46,8 +46,8 @@ export class FeatureToggleRepository extends BaseRepository {
   async findActiveByTenant(tenantId: string): Promise<(Module & { enabled_until?: Date })[]> {
     const result = await this.query<Module & { enabled_until?: Date }>(
       `SELECT m.id, m.name, m.key, m.description, m.created_at, tm.enabled_until
-       FROM modules m
-       INNER JOIN tenant_modules tm ON tm.module_id = m.id
+       FROM public.modules m
+       INNER JOIN public.tenant_modules tm ON tm.module_id = m.id
        WHERE tm.tenant_id = $1 
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())
        ORDER BY m.name`,
@@ -63,8 +63,8 @@ export class FeatureToggleRepository extends BaseRepository {
   async isActive(tenantId: string, moduleKey: string): Promise<boolean> {
     const result = await this.query<{ id: string }>(
       `SELECT tm.id 
-       FROM tenant_modules tm
-       JOIN modules m ON m.id = tm.module_id
+       FROM public.tenant_modules tm
+       JOIN public.modules m ON m.id = tm.module_id
        WHERE tm.tenant_id = $1 AND m.key = $2 
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
       [tenantId, moduleKey],
@@ -83,7 +83,7 @@ export class FeatureToggleRepository extends BaseRepository {
   ): Promise<TenantModule> {
     // Usar UPSERT para atualizar se já existir
     const result = await this.query<TenantModule>(
-      `INSERT INTO tenant_modules (tenant_id, module_id, enabled_until)
+      `INSERT INTO public.tenant_modules (tenant_id, module_id, enabled_until)
        VALUES ($1, $2, $3)
        ON CONFLICT (tenant_id, module_id) 
        DO UPDATE SET enabled_until = $3
@@ -99,7 +99,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async deactivateForTenant(tenantId: string, moduleId: string): Promise<void> {
     await this.query(
-      'DELETE FROM tenant_modules WHERE tenant_id = $1 AND module_id = $2',
+      'DELETE FROM public.tenant_modules WHERE tenant_id = $1 AND module_id = $2',
       [tenantId, moduleId],
       false
     );
@@ -111,8 +111,8 @@ export class FeatureToggleRepository extends BaseRepository {
   async findModulesByPlan(planId: string): Promise<(Module & { is_default: boolean })[]> {
     const result = await this.query<Module & { is_default: boolean }>(
       `SELECT m.id, m.name, m.key, m.description, m.created_at, pm.is_default
-       FROM modules m
-       INNER JOIN plan_modules pm ON pm.module_id = m.id
+       FROM public.modules m
+       INNER JOIN public.plan_modules pm ON pm.module_id = m.id
        WHERE pm.plan_id = $1
        ORDER BY m.name`,
       [planId],
@@ -126,7 +126,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async addModuleToPlan(planId: string, moduleId: string, isDefault: boolean = true): Promise<void> {
     await this.query(
-      `INSERT INTO plan_modules (plan_id, module_id, is_default)
+      `INSERT INTO public.plan_modules (plan_id, module_id, is_default)
        VALUES ($1, $2, $3)
        ON CONFLICT (plan_id, module_id)
        DO UPDATE SET is_default = $3`,
@@ -140,7 +140,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async removeModuleFromPlan(planId: string, moduleId: string): Promise<void> {
     await this.query(
-      'DELETE FROM plan_modules WHERE plan_id = $1 AND module_id = $2',
+      'DELETE FROM public.plan_modules WHERE plan_id = $1 AND module_id = $2',
       [planId, moduleId],
       false
     );

@@ -56,10 +56,18 @@ tenantRoutes.get('/active', async (c) => {
       return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
     }
     const modules = await service.listActive(companyId);
+    const keys = modules.map((m: { key?: string }) => m.key);
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feature-toggle.routes.ts:GET/active',message:'modules/active result',data:{companyId,keys,count:modules.length,hasSimulador:keys.includes('SIMULADOR_IN_2306')},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[GET /modules/active] companyId=', companyId, 'count=', modules.length, 'keys=', keys);
+    }
 
     return c.json({
       data: {
         modules,
+        _debug: process.env.NODE_ENV !== 'production' ? { companyId, count: modules.length, keys } : undefined,
       },
     });
   } catch (error) {

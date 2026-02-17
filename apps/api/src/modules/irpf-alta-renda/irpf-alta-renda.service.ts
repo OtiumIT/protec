@@ -1,5 +1,5 @@
 import { IrpfAltaRendaRepository, type CreateIrpfAltaRendaData, type IrpfAltaRendaRecord } from './irpf-alta-renda.repository';
-import { ClientRepository } from '../clients/client.repository';
+import { CompanyRepository } from '../companies/company.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import { calcularBCC, aplicarFaixas, avaliarRiscoRetencao, CONFIG_LEI_15270_2025 } from './calculations';
 import type {
@@ -39,7 +39,7 @@ function buildMemoriaCalculo(
 export class IrpfAltaRendaService {
   constructor(
     private repo: IrpfAltaRendaRepository,
-    private clientRepo: ClientRepository
+    private companyRepo: CompanyRepository
   ) {}
 
   /**
@@ -64,23 +64,23 @@ export class IrpfAltaRendaService {
   }
 
   /**
-   * Simula e persiste no tenant. Valida client_id se informado.
+   * Simula e persiste no tenant. Valida company_id se informado.
    */
   async simulateAndSave(
     input: SimulateAndSaveIrpfAltaRendaInput,
     userId?: string
   ): Promise<{ registro: IrpfAltaRendaRecord; resultado: IrpfAltaRendaSimulacaoResponse }> {
-    if (input.client_id) {
-      const client = await this.clientRepo.findById(input.client_id);
-      if (!client) {
-        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+    if (input.company_id) {
+      const company = await this.companyRepo.findById(input.company_id);
+      if (!company) {
+        throw new AppError('Empresa não encontrada', 'COMPANY_NOT_FOUND', 404);
       }
     }
 
     const resultado = await this.simulate({ ano: input.ano, dados: input.dados });
 
     const createData: CreateIrpfAltaRendaData = {
-      client_id: input.client_id ?? null,
+      company_id: input.company_id ?? null,
       ano: input.ano,
       contribuinte_nome: input.dados.contribuinte.nome,
       contribuinte_cpf: input.dados.contribuinte.cpf,
@@ -105,7 +105,7 @@ export class IrpfAltaRendaService {
     return record;
   }
 
-  async list(options: { client_id?: string; ano?: number; page?: number; limit?: number }) {
+  async list(options: { company_id?: string; ano?: number; page?: number; limit?: number }) {
     return this.repo.list(options);
   }
 

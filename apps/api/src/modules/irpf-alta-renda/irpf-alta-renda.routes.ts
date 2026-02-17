@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { IrpfAltaRendaService } from './irpf-alta-renda.service';
 import { IrpfAltaRendaRepository } from './irpf-alta-renda.repository';
-import { ClientRepository } from '../clients/client.repository';
+import { CompanyRepository } from '../companies/company.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { requireModule } from '../../middleware/module.middleware';
@@ -13,6 +13,7 @@ import {
   IrpfAltaRendaIdParamSchema,
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
+import { extractIrpfFromPdf } from './extract-from-pdf';
 
 const irpfAltaRendaRoutes = new Hono();
 
@@ -21,8 +22,32 @@ irpfAltaRendaRoutes.use('/*', authMiddleware);
 irpfAltaRendaRoutes.use('/*', requireModule('IRPF_ALTA_RENDA'));
 
 const repo = new IrpfAltaRendaRepository();
-const clientRepo = new ClientRepository();
-const service = new IrpfAltaRendaService(repo, clientRepo);
+const companyRepo = new CompanyRepository();
+const service = new IrpfAltaRendaService(repo, companyRepo);
+
+/**
+ * POST /irpf-alta-renda/extract-from-pdf
+ * Extrai dados de IRPF de um PDF (ex.: DAA) via OpenAI e retorna ano + dados para preencher o formulário.
+ * Body: multipart/form-data com campo "file" (arquivo PDF).
+ */
+irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
+    }
+    if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
+      return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const result = await extractIrpfFromPdf(buffer);
+    return c.json({ data: result }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
 
 /**
  * POST /irpf-alta-renda/simulate
@@ -72,7 +97,7 @@ irpfAltaRendaRoutes.get(
     try {
       const query = c.req.valid('query');
       const { items, total } = await service.list({
-        client_id: query.client_id,
+        company_id: query.company_id,
         ano: query.ano,
         page: query.page,
         limit: query.limit,
