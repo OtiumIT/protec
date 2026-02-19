@@ -1,3 +1,4 @@
+import './dns-ipv4.js';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { serve } from '@hono/node-server';
