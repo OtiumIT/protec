@@ -8,7 +8,7 @@ export class AuthRepository extends BaseRepository {
    */
   async findByEmail(email: string, companyId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE email = $1 AND company_id = $2',
+      'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE email = $1 AND company_id = $2',
       [email, companyId]
     );
     return result.rows[0] || null;
@@ -19,7 +19,7 @@ export class AuthRepository extends BaseRepository {
    */
   async findByEmailOnly(email: string): Promise<User | null> {
     const result = await query<User>(
-      'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE email = $1',
+      'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE email = $1',
       [email]
     );
     return result.rows[0] || null;
@@ -32,14 +32,14 @@ export class AuthRepository extends BaseRepository {
     // Se companyId for null (super_admin), buscar sem filtro de company_id
     if (companyId === null) {
       const result = await query<{ password_hash: string }>(
-        'SELECT password_hash FROM users WHERE id = $1 AND company_id IS NULL',
+        'SELECT password_hash FROM public.users WHERE id = $1 AND company_id IS NULL',
         [userId]
       );
       return result.rows[0]?.password_hash || null;
     }
     
     const result = await this.query<{ password_hash: string }>(
-      'SELECT password_hash FROM users WHERE id = $1 AND company_id = $2',
+      'SELECT password_hash FROM public.users WHERE id = $1 AND company_id = $2',
       [userId, companyId]
     );
     return result.rows[0]?.password_hash || null;

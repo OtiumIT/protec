@@ -77,6 +77,20 @@ export interface SimulateRatingInput {
   save_simulation?: boolean;
 }
 
+export interface IndicatorAnalysisItem {
+  id: string;
+  name: string;
+  formula: string;
+  value: number;
+  value_formatted: string;
+  score: number;
+  max_score: number;
+  level: 'A' | 'B' | 'C' | 'D';
+  /** Limiares por nível para colunas dinâmicas (conforme rating informado vs calculado) */
+  thresholds_by_level: { D: string; C: string; B: string; A: string };
+  gap_message: string;
+}
+
 export interface RatingSimulationResult {
   calculated_values: {
     ativo_circulante_total: number;
@@ -92,6 +106,7 @@ export interface RatingSimulationResult {
     liquidez_geral: number;
     solvencia: number;
   };
+  indicator_analysis?: IndicatorAnalysisItem[];
   rating_estimado: 'A' | 'B' | 'C' | 'D';
   rating_real?: 'A' | 'B' | 'C' | 'D';
   has_discrepancy: boolean;

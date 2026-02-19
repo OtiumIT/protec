@@ -1,12 +1,19 @@
 /**
  * Motor de Cálculo Tributário IN 2.306/2026 - Lucro Presumido
  * Regras: Art. 14 e 15 da IN RFB nº 2.306/2026, ajuste anual § 5º, equiparação hospitalar, adicional IRPJ 10%
+ *
+ * Receita Federal - Perguntas e Respostas (Redução Incentivos V2):
+ * - Pergunta 12: IRPJ acréscimo a partir do 1º trim/2026; CSLL a partir do 2º trim/2026.
+ * - Pergunta 13: CSLL limite anual 2026 = R$ 3.750.000 (¾ do limite pleno).
+ * - Pergunta 14: Proporção por atividade no trimestre — já implementado.
  */
 
 import type { ReceitasTrimestre, DeducoesTrimestre, RetencoesTrimestre } from '@shared/core';
 
 const LIMITE_TRIMESTRAL = 1_250_000;
 const LIMITE_ANUAL = 5_000_000;
+/** Pergunta 13 RF: CSLL 2026 — acréscimo só a partir do 2º trim → limite anual = ¾ × 5M = R$ 3.750.000 */
+const LIMITE_ANUAL_CSLL_2026 = 3_750_000;
 const LIMITE_LUCRO_PRESUMIDO_ADICIONAL = 60_000; // R$ 60.000/trimestre (adicional 10% sobre o que exceder)
 const ALIQ_IRPJ = 0.15;
 const ALIQ_IRPJ_ADICIONAL = 0.1;
@@ -59,17 +66,23 @@ function basesTrimestreSemAcrescimo(
 
 /**
  * Base de cálculo com acréscimo 10% sobre a parcela que excede R$ 1.250.000/trimestre (§ 2º e § 3º).
- * Proporcional por atividade (§ 6º).
+ * Proporcional por atividade (Pergunta 14 / § 6º).
+ *
+ * Pergunta 12 RF: IRPJ acréscimo a partir do 1º trim/2026; CSLL a partir do 2º trim/2026.
  */
 function basesTrimestreComAcrescimo(
   r: ReceitasTrimestre,
-  equiparacaoHospitalar: boolean
+  equiparacaoHospitalar: boolean,
+  trimestre: number,
+  ano: number
 ): { baseIrpj: number; baseCsll: number; receitaExcedente: number } {
   const total = receitaBrutaTrimestre(r);
   if (total <= LIMITE_TRIMESTRAL) {
     const { baseIrpj, baseCsll } = basesTrimestreSemAcrescimo(r, equiparacaoHospitalar);
     return { baseIrpj, baseCsll, receitaExcedente: 0 };
   }
+  const aplicarAcrescimoIrpj = ano >= 2026;
+  const aplicarAcrescimoCsll = ano >= 2026 && trimestre >= 2; // Pergunta 12: CSLL só a partir do 2º trim
   const excedente = total - LIMITE_TRIMESTRAL;
   const presServicos = equiparacaoHospitalar
     ? { irpj: PRESUMICAO.servicos_hospitalares.irpj, csll: PRESUMICAO.servicos_hospitalares.csll }
@@ -97,8 +110,10 @@ function basesTrimestreComAcrescimo(
     const limiteAtividade = LIMITE_TRIMESTRAL * prop;
     const excedenteAtividade = Math.max(0, val - limiteAtividade);
     const pres = presMap[key];
-    baseIrpj += limiteAtividade * pres.irpj + excedenteAtividade * (pres.irpj * 1.1);
-    baseCsll += limiteAtividade * pres.csll + excedenteAtividade * (pres.csll * 1.1);
+    const fatorIrpj = aplicarAcrescimoIrpj ? 1.1 : 1;
+    const fatorCsll = aplicarAcrescimoCsll ? 1.1 : 1;
+    baseIrpj += limiteAtividade * pres.irpj + excedenteAtividade * (pres.irpj * fatorIrpj);
+    baseCsll += limiteAtividade * pres.csll + excedenteAtividade * (pres.csll * fatorCsll);
   }
   return {
     baseIrpj: round2(baseIrpj),
@@ -186,7 +201,7 @@ export function calcularAno2026(
       servicos_hospitalares: 0,
       demais_receitas: 0,
     };
-    const { baseIrpj, baseCsll, receitaExcedente } = basesTrimestreComAcrescimo(r, equiparacao);
+    const { baseIrpj, baseCsll, receitaExcedente } = basesTrimestreComAcrescimo(r, equiparacao, t + 1, 2026);
     receitaAcumuladaAno += receitaBrutaTrimestre(r);
     parcelasExcedentesTrimestres.push(receitaExcedente);
 
@@ -220,45 +235,62 @@ export function calcularAno2026(
   const receitaAnual = receitaAcumuladaAno;
   const somaExcedentesAntesDoUltimo =
     parcelasExcedentesTrimestres[0] + parcelasExcedentesTrimestres[1] + parcelasExcedentesTrimestres[2];
-  const excedenteAnual = Math.max(0, receitaAnual - LIMITE_ANUAL);
+  const excedenteAnualIrpj = Math.max(0, receitaAnual - LIMITE_ANUAL);
+  const excedenteAnualCsll = Math.max(0, receitaAnual - LIMITE_ANUAL_CSLL_2026); // Pergunta 13: CSLL 2026 = ¾ × 5M
   const resultadoT4 = resultados[3]!;
 
+  const valoresComAcrescimo = resultados.slice(0, 3).reduce(
+    (acc, x) => ({
+      irpj: acc.irpj + x.irpj + (x.irpj_adicional ?? 0),
+      csll: acc.csll + x.csll,
+    }),
+    { irpj: 0, csll: 0 }
+  );
+  const valoresSemAcrescimoT1T3 = [0, 1, 2].reduce(
+    (acc, i) => {
+      const { baseIrpj, baseCsll } = basesTrimestreSemAcrescimo(trimestres[i]!, equiparacao);
+      return {
+        irpj: acc.irpj + round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj),
+        csll: acc.csll + round2(baseCsll * ALIQ_CSLL),
+      };
+    },
+    { irpj: 0, csll: 0 }
+  );
+
   if (receitaAnual <= LIMITE_ANUAL) {
-    // § 5º I: receita anual < 5M → não incide acréscimo no 4º tri; recalcular T1-T3 sem acréscimo e deduzir do T4
-    const valoresComAcrescimo = resultados.slice(0, 3).reduce(
-      (acc, x) => ({
-        irpj: acc.irpj + x.irpj + (x.irpj_adicional ?? 0),
-        csll: acc.csll + x.csll,
-      }),
-      { irpj: 0, csll: 0 }
-    );
-    const valoresSemAcrescimoT1T3 = [0, 1, 2].reduce(
-      (acc, i) => {
-        const { baseIrpj, baseCsll } = basesTrimestreSemAcrescimo(trimestres[i]!, equiparacao);
-        return {
-          irpj: acc.irpj + round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj),
-          csll: acc.csll + round2(baseCsll * ALIQ_CSLL),
-        };
-      },
-      { irpj: 0, csll: 0 }
-    );
+    // § 5º I IRPJ: receita anual ≤ 5M → não incide acréscimo; deduzir diferença do T4
     const diferencaIrpj = round2(valoresComAcrescimo.irpj - valoresSemAcrescimoT1T3.irpj);
-    const diferencaCsll = round2(valoresComAcrescimo.csll - valoresSemAcrescimoT1T3.csll);
     resultadoT4.irpj_a_rec = Math.max(0, resultadoT4.irpj_a_rec - diferencaIrpj);
+  }
+  if (receitaAnual <= LIMITE_ANUAL_CSLL_2026) {
+    // § 5º I CSLL (Pergunta 13): receita anual ≤ 3,75M → não incide acréscimo; deduzir diferença do T4
+    const diferencaCsll = round2(valoresComAcrescimo.csll - valoresSemAcrescimoT1T3.csll);
     resultadoT4.csll_a_rec = Math.max(0, resultadoT4.csll_a_rec - diferencaCsll);
-  } else if (excedenteAnual < somaExcedentesAntesDoUltimo) {
-    // § 5º II: parcela excedente anual < soma dos excedentes T1-T3 → recálculo proporcional e dedução no T4
+  }
+
+  if (receitaAnual > LIMITE_ANUAL && excedenteAnualIrpj < somaExcedentesAntesDoUltimo) {
+    // § 5º II IRPJ: parcela excedente anual < soma excedentes T1-T3 → recálculo proporcional
     const excedenteT4 = parcelasExcedentesTrimestres[3] ?? 0;
     if (excedenteT4 < somaExcedentesAntesDoUltimo) {
-      const razao = somaExcedentesAntesDoUltimo > 0 ? excedenteAnual / somaExcedentesAntesDoUltimo : 0;
+      const razao = somaExcedentesAntesDoUltimo > 0 ? excedenteAnualIrpj / somaExcedentesAntesDoUltimo : 0;
       const novoExcedenteT4 = round2(excedenteT4 * razao);
-      // Simplificação: ajuste no valor a rec do T4 proporcional à base
-      const fator = excedenteAnual > 0 && (parcelasExcedentesTrimestres[3] ?? 0) > 0
+      const fator = excedenteAnualIrpj > 0 && (parcelasExcedentesTrimestres[3] ?? 0) > 0
         ? Math.min(1, novoExcedenteT4 / (parcelasExcedentesTrimestres[3] ?? 1))
         : 0;
       const reducaoIrpj = round2(resultadoT4.irpj * (1 - fator) * 0.1 / 0.32);
-      const reducaoCsll = round2(resultadoT4.csll * (1 - fator) * 0.1 / 0.32);
       resultadoT4.irpj_a_rec = Math.max(0, resultadoT4.irpj_a_rec - reducaoIrpj);
+    }
+  }
+  if (receitaAnual > LIMITE_ANUAL_CSLL_2026 && excedenteAnualCsll < somaExcedentesAntesDoUltimo) {
+    // § 5º II CSLL: mesma lógica com limite 3,75M
+    const excedenteT4 = parcelasExcedentesTrimestres[3] ?? 0;
+    if (excedenteT4 < somaExcedentesAntesDoUltimo) {
+      const razao = somaExcedentesAntesDoUltimo > 0 ? excedenteAnualCsll / somaExcedentesAntesDoUltimo : 0;
+      const novoExcedenteT4 = round2(excedenteT4 * razao);
+      const fator = excedenteAnualCsll > 0 && (parcelasExcedentesTrimestres[3] ?? 0) > 0
+        ? Math.min(1, novoExcedenteT4 / (parcelasExcedentesTrimestres[3] ?? 1))
+        : 0;
+      const reducaoCsll = round2(resultadoT4.csll * (1 - fator) * 0.1 / 0.32);
       resultadoT4.csll_a_rec = Math.max(0, resultadoT4.csll_a_rec - reducaoCsll);
     }
   }

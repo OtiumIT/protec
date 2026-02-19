@@ -13,8 +13,9 @@ function PlanIcon({ className = 'h-6 w-6' }: { className?: string }) {
 
 const PLANO_PADRAO_FEATURES = [
   'Até 5 clientes cadastrados',
-  'Validador de Rating (CAPAG)',
-  'Simulador IN 2.306/2026',
+  'Transação Tributária - Análise da capacidade de pagamento',
+  'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
+  'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
   'Suporte por e-mail',
   'Relatórios básicos',
 ];

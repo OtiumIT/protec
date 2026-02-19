@@ -41,6 +41,23 @@ export class PlanRepository extends BaseRepository {
   }
 
   /**
+   * Buscar plano por nome (ex.: 'Free' para plano padrão de novos tenants)
+   * Nota: Planos não requerem filtro de company_id (são globais)
+   */
+  async findByName(name: string): Promise<Plan | null> {
+    const result = await this.query<any>(
+      `SELECT id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at 
+       FROM plans WHERE name = $1 LIMIT 1`,
+      [name],
+      false
+    );
+    if (result.rows.length === 0) return null;
+    const plan = result.rows[0];
+    plan.features = Array.isArray(plan.features) ? plan.features : (plan.features ? Object.values(plan.features) : []);
+    return plan as Plan;
+  }
+
+  /**
    * Listar todos os planos
    * Usa DISTINCT ON para evitar duplicatas por nome (mantém o mais antigo)
    */

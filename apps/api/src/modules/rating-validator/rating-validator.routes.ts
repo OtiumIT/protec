@@ -52,6 +52,7 @@ ratingValidatorRoutes.post(
           data: {
             calculated_values: result.calculated_values,
             indicators: result.indicators,
+            indicator_analysis: result.indicator_analysis,
             rating_estimado: result.rating_estimado,
             rating_real: result.rating_real,
             has_discrepancy: result.has_discrepancy,

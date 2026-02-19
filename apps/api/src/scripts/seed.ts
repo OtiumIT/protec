@@ -39,9 +39,9 @@ async function seed() {
     const modules = [
       { name: 'Billing', key: 'BILLING', description: 'Sistema de cobrança e assinaturas' },
       { name: 'Fiscal Files', key: 'FISCAL_FILES', description: 'Gerenciamento de arquivos fiscais (SPED, ECD, PGDAS, etc)' },
-      { name: 'Rating Validator', key: 'RATING_VALIDATOR', description: 'Validador de Rating PGFN (CAPAG) - Análise de capacidade de pagamento' },
-      { name: 'Simulador IN 2.306/2026', key: 'SIMULADOR_IN_2306', description: 'Simulador da Nova IN RFB 2.306/2026 - Parcelamento e condições' },
-      { name: 'Caldo IRPF Alta Renda', key: 'IRPF_ALTA_RENDA', description: 'Simulação de tributação de alta renda - Lei 15.270/2025 (IRPF e dividendos)' },
+      { name: 'Transação Tributária - Análise da capacidade de pagamento', key: 'RATING_VALIDATOR', description: 'Avaliação se a classificação da capacidade de pagamento feita pela Receita Federal está correta, possibilitando a revisão do enquadramento com os dados contábeis analisados pelo sistema, com a emissão de relatório para fundamentação.' },
+      { name: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025', key: 'SIMULADOR_IN_2306', description: 'Possibilita fazer a comparação da tributação do lucro presumido antes e depois da alteração trazida pela LC 224/2025, identificando quanto será o aumento para o contribuinte.' },
+      { name: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025', key: 'IRPF_ALTA_RENDA', description: 'Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com a indicação da alíquota aplicável e o valor a ser pago, comparando os cenários antes e depois da nova legislação, apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).' },
       { name: 'Reports', key: 'REPORTS', description: 'Relatórios e análises' },
       { name: 'Analytics', key: 'ANALYTICS', description: 'Analytics avançado' },
     ];

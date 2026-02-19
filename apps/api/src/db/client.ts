@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { AsyncLocalStorage } from 'async_hooks';
 import { Pool } from 'pg';
 
 // Carregar .env da raiz do projeto (se não estiver carregado)
@@ -34,11 +35,12 @@ if (!connectionString.startsWith('postgresql://') && !connectionString.startsWit
 
 // Supabase exige SSL; conexão direta sem SSL causa timeout
 const isSupabase = connectionString.includes('supabase.co');
+// Supabase free tier suporta ~60 conexões; manter pool pequeno para não esgotar
 const pool = new Pool({
   connectionString,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
+  max: 5,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 30000,
   ...(isSupabase && {
     ssl: { rejectUnauthorized: false },
   }),
@@ -63,11 +65,31 @@ pool.on('error', (err: any) => {
 });
 
 /**
- * Setar search_path dinâmico para multitenancy (schema-level)
+ * AsyncLocalStorage que guarda apenas o NOME do schema do tenant (não uma conexão).
+ * Cada query individualmente adquire, usa e devolve a conexão ao pool imediatamente.
+ * Isso evita manter conexões abertas durante chamadas externas longas (ex.: OpenAI).
+ */
+const tenantSchemaStorage = new AsyncLocalStorage<string>();
+
+/**
+ * Executa o callback com o schema do tenant ativo.
+ * Cada query feita via query() dentro do callback usa automaticamente o schema correto.
+ * A conexão NÃO é mantida aberta entre queries.
  * @param companyId - ID da empresa/tenant
+ * @param fn - callback (ex.: next() do middleware)
+ */
+export async function runWithTenantClient<T>(
+  companyId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const schemaName = `tenant_${companyId.replace(/-/g, '_')}`;
+  return tenantSchemaStorage.run(schemaName, fn);
+}
+
+/**
+ * Setar search_path dinâmico (legado; mantido para compatibilidade).
  */
 export async function setTenantSchema(companyId: string): Promise<void> {
-  // Substituir hífens por underscores (PostgreSQL não aceita hífens em nomes de schema)
   const schemaName = `tenant_${companyId.replace(/-/g, '_')}`;
   await pool.query(`SET search_path TO "${schemaName}", public`);
 }
@@ -81,26 +103,42 @@ export interface QueryResult<T = any> {
 }
 
 /**
- * Executar query com retorno de resultado
+ * Executar query com retorno de resultado.
+ * Se houver schema de tenant no contexto (runWithTenantClient), executa SET LOCAL search_path
+ * dentro de uma transação e devolve a conexão imediatamente — sem manter conexões presas.
  */
 export async function query<T = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
   const start = Date.now();
+  const schemaName = tenantSchemaStorage.getStore();
+
+  if (schemaName) {
+    // Tenant context: adquire conexão, seta search_path, executa query, reseta e devolve
+    const client = await pool.connect();
+    try {
+      await client.query(`SET search_path TO "${schemaName}", public`);
+      const result = await client.query(text, params);
+      const duration = Date.now() - start;
+      if (process.env.NODE_ENV === 'development' && duration > 1000) {
+        console.log('Slow query:', { text, duration, rows: result.rowCount });
+      }
+      return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+    } finally {
+      // Reseta search_path antes de devolver ao pool para evitar vazamento de contexto
+      await client.query('RESET search_path').catch(() => {});
+      client.release();
+    }
+  }
+
   try {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    
-    // Log queries lentas (opcional, apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development' && duration > 1000) {
       console.log('Slow query:', { text, duration, rows: result.rowCount });
     }
-    
-    return {
-      rows: result.rows,
-      rowCount: result.rowCount ?? 0,
-    };
+    return { rows: result.rows, rowCount: result.rowCount ?? 0 };
   } catch (error: any) {
     // Melhorar mensagens de erro de conexão
     if (error.code === 'EHOSTUNREACH' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {

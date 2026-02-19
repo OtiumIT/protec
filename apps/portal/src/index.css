@@ -21,4 +21,46 @@
   .container-custom {
     @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
   }
+
+  /* Evita quebra de página no meio de blocos ao exportar PDF (html2pdf) */
+  .pdf-keep-together,
+  .keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* Impressão: apenas o resultado do simulador tributário (Exportar PDF) */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #simulador-tributario-resultado-print,
+  #simulador-tributario-resultado-print * {
+    visibility: visible;
+  }
+  #simulador-tributario-resultado-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    background: white;
+  }
+
+  /* Impressão: resultado do Rating Validator (Transação Tributária) */
+  #rating-validator-resultado-print,
+  #rating-validator-resultado-print * {
+    visibility: visible;
+  }
+  #rating-validator-resultado-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 1.5rem 2rem;
+    background: white;
+  }
 }

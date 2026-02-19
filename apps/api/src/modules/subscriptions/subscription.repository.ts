@@ -67,7 +67,8 @@ export class SubscriptionRepository extends BaseRepository {
         'active',
         data.stripeSubscriptionId || null,
         data.stripeCustomerId || null,
-      ]
+      ],
+      false // INSERT define company_id nos VALUES; validação de filtro é para SELECT/UPDATE
     );
     return result.rows[0];
   }

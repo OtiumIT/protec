@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   ratingValidatorService,
@@ -27,7 +28,79 @@ const STEPS: { number: Step; title: string; description: string }[] = [
   { number: 7, title: 'Revisão', description: 'Revise os dados e confirme' },
 ];
 
+const DEMO_KEY_WINDOW_MS = 1500;
+
+/** Fallback quando API não retorna thresholds_by_level (para tabela sempre visível) */
+const FALLBACK_THRESHOLDS: Record<string, { D: string; C: string; B: string; A: string }> = {
+  liquidez_corrente: { D: '≥ 0', C: '≥ 1,00', B: '≥ 1,50', A: '≥ 2,00' },
+  liquidez_geral: { D: '≥ 0', C: '≥ 1,00', B: '≥ 1,20', A: '≥ 1,50' },
+  solvencia: { D: '≥ 0', C: '≥ 10%', B: '≥ 30%', A: '≥ 50%' },
+};
+
+/** Limiares numéricos para calcular "atende" no frontend (independente da API) */
+const THRESHOLD_MINS: Record<string, { D: number; C: number; B: number; A: number }> = {
+  liquidez_corrente: { D: 0, C: 1, B: 1.5, A: 2 },
+  liquidez_geral: { D: 0, C: 1, B: 1.2, A: 1.5 },
+  solvencia: { D: 0, C: 0.1, B: 0.3, A: 0.5 },
+};
+const EPS = 1e-9;
+
+/** Demo Ctrl+D+1: Queda de rating B → C. Valores que geram rating estimado C (liquidez/solvência regular). */
+function getDemoBToC(clientId: string): SimulateRatingInput {
+  return {
+    ativo_circulante: {
+      caixa_equivalentes: 400_000,
+      aplicacoes_financeiras: 200_000,
+      contas_receber: 300_000,
+      estoques: 100_000,
+      tributos_recuperar: 0,
+      despesas_antecipadas: 0,
+      outros_ativos_circulantes: 0,
+    },
+    ativo_nao_circulante: {
+      realizavel_longo_prazo: {
+        contas_receber_lp: 200_000,
+        emprestimos_concedidos: 0,
+        outros_creditos_lp: 0,
+      },
+      investimentos: 0,
+      imobilizado: 800_000,
+      intangivel: 0,
+      outros_ativos_nao_circulantes: 0,
+    },
+    passivo_circulante: {
+      fornecedores: 400_000,
+      emprestimos_financiamentos: 300_000,
+      obrigacoes_trabalhistas: 150_000,
+      tributos_pagar: 80_000,
+      contas_pagar: 50_000,
+      provisoes: 0,
+      outros_passivos_circulantes: 20_000,
+    },
+    passivo_nao_circulante: {
+      emprestimos_financiamentos_lp: 150_000,
+      obrigacoes_trabalhistas_lp: 0,
+      tributos_pagar_lp: 0,
+      provisoes_lp: 30_000,
+      outros_passivos_nao_circulantes: 20_000,
+    },
+    patrimonio_liquido: {
+      capital_social: 500_000,
+      reservas_capital: 0,
+      reservas_lucros: 200_000,
+      lucros_prejuizos_acumulados: 100_000,
+      outros_ajustes: 0,
+    },
+    competencia: '2024-12',
+    client_id: clientId,
+    rating_real: 'C',
+    save_simulation: false,
+  };
+}
+
 export function RatingValidator() {
+  const navigate = useNavigate();
+  const { state: locationState } = useLocation();
   const { success, error: showError, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('simulation');
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -35,14 +108,26 @@ export function RatingValidator() {
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<RatingSimulationResult | null>(null);
-  
+
   // Simulador de parcelamento
   const [debtAmount, setDebtAmount] = useState<number>(0);
   const [showDebtSimulator, setShowDebtSimulator] = useState(false);
+
+  // Restaurar resultado ao voltar da página de impressão
+  useEffect(() => {
+    const s = locationState as { simulationResult?: RatingSimulationResult; debtAmount?: number } | null;
+    if (s?.simulationResult) {
+      setSimulationResult(s.simulationResult);
+      if (s.debtAmount != null) setDebtAmount(s.debtAmount);
+    }
+  }, [locationState]);
   
   // Processos judiciais elegíveis (para validação de CONTENCIOSO)
   const [eligibleTheses, setEligibleTheses] = useState<string[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  const waitingDemoDigitRef = useRef<number>(0);
+  const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Estado para controlar modo granular vs total em cada seção
   const [useTotalMode, setUseTotalMode] = useState<{
@@ -194,6 +279,44 @@ export function RatingValidator() {
     }
   };
 
+  const fillDemoBToC = useCallback(() => {
+    const clientId = clients.length > 0 ? clients[0].id : '';
+    setFormData(getDemoBToC(clientId));
+    setCurrentStep(7);
+    setActiveTab('simulation');
+    setSimulationResult(null);
+    success('Demo carregada: queda de rating B → C (Ctrl+D+1)');
+  }, [clients, success]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (waitingDemoDigitRef.current && e.key === '1') {
+        e.preventDefault();
+        waitingDemoDigitRef.current = 0;
+        if (demoKeyTimeoutRef.current) {
+          clearTimeout(demoKeyTimeoutRef.current);
+          demoKeyTimeoutRef.current = null;
+        }
+        fillDemoBToC();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+        waitingDemoDigitRef.current = Date.now();
+        demoKeyTimeoutRef.current = setTimeout(() => {
+          waitingDemoDigitRef.current = 0;
+          demoKeyTimeoutRef.current = null;
+        }, DEMO_KEY_WINDOW_MS);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+    };
+  }, [fillDemoBToC]);
+
   const handleSimulate = async () => {
     if (!formData.competencia) {
       showError('Competência é obrigatória');
@@ -232,17 +355,30 @@ export function RatingValidator() {
     }).format(value);
   };
 
+  /** Número em pt-BR (vírgula para decimais). Ex: 1,00 ou 1,5. Não usar ponto como decimal (1.000 = mil no Brasil). */
+  const formatNumber = (value: number, decimals = 2) => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(value);
+  };
+
+  /** Percentual em pt-BR. Ex: 40,00% */
+  const formatPercent = (value: number, decimals = 2) => {
+    return `${formatNumber(value * 100, decimals)}%`;
+  };
+
 
   const getRatingColor = (rating: 'A' | 'B' | 'C' | 'D') => {
     switch (rating) {
       case 'A':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'B':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-sky-100 text-sky-800 border-sky-300';
       case 'C':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-amber-100 text-amber-800 border-amber-300';
       case 'D':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-rose-100 text-rose-800 border-rose-300';
     }
   };
 
@@ -1138,7 +1274,7 @@ export function RatingValidator() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Rating Real (Opcional - para comparação)
+                Enquadramento Receita Federal (opcional)
               </label>
               <select
                 value={formData.rating_real || ''}
@@ -1166,9 +1302,9 @@ export function RatingValidator() {
     <Layout>
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Validador de Rating PGFN (CAPAG)</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Transação Tributária - Análise da capacidade de pagamento</h1>
           <p className="text-slate-600 mt-2">
-            Calcule e valide o Rating PGFN através de indicadores financeiros conforme Portaria PGFN 6.757/2022
+            Avalie se a classificação da capacidade de pagamento feita pela Receita Federal está correta, possibilitando a revisão do enquadramento com os dados contábeis analisados pelo sistema, com emissão de relatório para fundamentação.
           </p>
         </div>
 
@@ -1273,7 +1409,7 @@ export function RatingValidator() {
                     <Button onClick={handleNext}>Próximo</Button>
                   ) : (
                     <Button onClick={handleSimulate} disabled={isSimulating}>
-                      {isSimulating ? 'Calculando...' : 'Calcular Rating'}
+                      {isSimulating ? 'Calculando...' : 'Calcular classificação'}
                     </Button>
                   )}
                 </div>
@@ -1282,9 +1418,257 @@ export function RatingValidator() {
 
             {/* Resultado */}
             {simulationResult && (
-              <div id="result-section" className="space-y-6">
+              <>
+              {/* Conteúdo dedicado para PDF — off-screen, layout de documento para advogados */}
+              <div
+                id="rating-validator-pdf-content"
+                className="fixed left-[-9999px] top-0 w-[210mm] bg-white text-black p-8 space-y-6"
+                aria-hidden="true"
+              >
+                <div className="pdf-keep-together">
+                  <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-bold text-slate-900">IATax Soluções Inteligentes</h1>
+                      <p className="text-sm text-slate-600">Transação Tributária · Análise da capacidade de pagamento</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Relatório para fundamentação — {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pdf-keep-together grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Liquidez Corrente</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{formatNumber(simulationResult.indicators.liquidez_corrente, 2)}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">AC ÷ PC</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Liquidez Geral</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{formatNumber(simulationResult.indicators.liquidez_geral, 2)}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">(AC+RLP) ÷ (PC+PNC)</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Solvência</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">{formatPercent(simulationResult.indicators.solvencia)}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">PL ÷ Ativo Total</p>
+                  </div>
+                </div>
+
+                <div className="pdf-keep-together flex flex-wrap items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-lg border-2 px-5 py-3 ${getRatingColor(simulationResult.rating_estimado)}`}>
+                      <span className="block text-2xl font-bold">{simulationResult.rating_estimado}</span>
+                      <span className="block text-xs">Enquadramento Revisado</span>
+                    </div>
+                  </div>
+                  {simulationResult.rating_real && (
+                    <>
+                      <span className="text-slate-400">vs</span>
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-lg border-2 px-5 py-3 ${getRatingColor(simulationResult.rating_real)} ${simulationResult.has_discrepancy ? 'ring-2 ring-rose-400' : ''}`}>
+                          <span className="block text-2xl font-bold">{simulationResult.rating_real}</span>
+                          <span className="block text-xs">Enquadramento Receita Federal</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {simulationResult.has_discrepancy && simulationResult.rating_real && (
+                  <div className="pdf-keep-together py-3 px-4 rounded-lg bg-rose-50 border border-rose-200">
+                    <p className="text-sm text-rose-800 font-medium">
+                      Discrepância identificada: os indicadores sustentam o Enquadramento Revisado ({simulationResult.rating_estimado}), distinto do Enquadramento Receita Federal ({simulationResult.rating_real}). Fundamenta pedido de revisão conforme arts. 30 e ss. da Portaria PGFN 6.757/2022.
+                    </p>
+                  </div>
+                )}
+
+                {/* Comparativo focado: Revisado vs RF */}
+                {simulationResult.indicator_analysis && simulationResult.indicator_analysis.length > 0 && (() => {
+                  const real = simulationResult.rating_real;
+                  const estimado = simulationResult.rating_estimado;
+                  const atendeNivel = (item: { id: string; value: number }, lvl: 'D' | 'C' | 'B' | 'A') => {
+                    const mins = THRESHOLD_MINS[item.id];
+                    if (!mins) return lvl === 'D';
+                    return item.value >= mins[lvl] - EPS;
+                  };
+                  const getThreshold = (item: { id: string; thresholds_by_level?: { D?: string; C?: string; B?: string; A?: string } }, lvl: 'D' | 'C' | 'B' | 'A') =>
+                    item.thresholds_by_level?.[lvl] ?? FALLBACK_THRESHOLDS[item.id]?.[lvl] ?? '-';
+                  const colsToShow = real && real !== estimado
+                    ? [
+                        { key: 'revisado' as const, label: `Enquadramento Revisado (${estimado})`, level: estimado },
+                        { key: 'rf' as const, label: `Enquadramento RF (${real})`, level: real },
+                      ]
+                    : [{ key: 'revisado' as const, label: `Enquadramento Revisado (${estimado})`, level: estimado }];
+                  return (
+                    <div className="pdf-keep-together">
+                      <h3 className="text-base font-semibold text-slate-800 mb-2">Comparativo Revisado vs Receita Federal</h3>
+                      <table className="w-full text-sm border border-slate-200">
+                        <thead>
+                          <tr className="bg-slate-50">
+                            <th className="text-left p-3 font-semibold text-slate-700 border-b border-r border-slate-200">Indicador</th>
+                            <th className="text-center p-3 font-semibold text-slate-700 border-b border-r border-slate-200">Valor</th>
+                            {colsToShow.map((c) => (
+                              <th key={c.key} className="text-center p-3 font-semibold text-slate-700 border-b border-slate-200">
+                                {c.label}
+                              </th>
+                            ))}
+                            <th className="text-left p-3 font-semibold text-slate-700 border-b border-slate-200">Observação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {simulationResult.indicator_analysis.map((item) => {
+                            const atendeRevisado = atendeNivel(item, estimado);
+                            const atendeRF = real ? atendeNivel(item, real) : true;
+                            const discrepante = real && real !== estimado && !atendeRF;
+                            const obs = discrepante
+                              ? 'Não atende RF — evidência para revisão'
+                              : real && real !== estimado
+                                ? 'Atende ambos'
+                                : 'Atende';
+                            return (
+                              <tr key={item.id} className="border-b border-slate-100 last:border-b-0">
+                                <td className="p-3 border-r border-slate-100">
+                                  <div className="font-medium">{item.name}</div>
+                                  <div className="text-xs text-slate-500">{item.formula}</div>
+                                </td>
+                                <td className="p-3 text-center font-mono font-bold border-r border-slate-100">
+                                  {item.id === 'solvencia' ? formatPercent(item.value) : formatNumber(item.value, 2)}
+                                </td>
+                                {colsToShow.map((c) => {
+                                  const atende = c.key === 'revisado' ? atendeRevisado : atendeRF;
+                                  const thr = getThreshold(item, c.level);
+                                  return (
+                                    <td key={c.key} className={`p-3 text-center border-r border-slate-100 ${discrepante && c.key === 'rf' ? 'bg-rose-50' : ''}`}>
+                                      <div className="font-medium">{thr}</div>
+                                      <div className={`text-xs mt-0.5 ${atende ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {atende ? '✓ Atende' : 'Não atende'}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                                <td className={`p-3 text-sm ${discrepante ? 'text-rose-700 font-medium' : 'text-slate-600'}`}>
+                                  {obs}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      <p className="mt-3 text-sm text-slate-600">
+                        Uso jurídico: a análise resulta no Enquadramento Revisado ({estimado}).
+                        {real && real !== estimado && (
+                          <> A divergência com o Enquadramento RF ({real}) fundamenta pedido de revisão junto à Receita Federal (art. 30, Portaria PGFN 6.757/2022).</>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                <div className="pdf-keep-together space-y-4">
+                  <h3 className="text-base font-semibold text-slate-800">Memória de Cálculo</h3>
+                  <p className="text-sm text-slate-600">
+                    Metodologia: Portaria PGFN nº 6.757, de 29 de julho de 2022. Indicadores conforme arts. 30 e ss. (Capag Efetiva).
+                  </p>
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded border border-slate-200 bg-slate-50/50 p-3">
+                      <p className="font-medium">Liquidez Corrente</p>
+                      <p className="text-slate-600">{formatCurrency(simulationResult.calculated_values.ativo_circulante_total)} ÷ {formatCurrency(simulationResult.calculated_values.passivo_circulante_total)} = <strong>{formatNumber(simulationResult.indicators.liquidez_corrente, 2)}</strong></p>
+                    </div>
+                    <div className="rounded border border-slate-200 bg-slate-50/50 p-3">
+                      <p className="font-medium">Liquidez Geral</p>
+                      <p className="text-slate-600">({formatCurrency(simulationResult.calculated_values.ativo_circulante_total)} + {formatCurrency(simulationResult.calculated_values.realizavel_longo_prazo_total)}) ÷ ({formatCurrency(simulationResult.calculated_values.passivo_circulante_total)} + {formatCurrency(simulationResult.calculated_values.passivo_nao_circulante_total)}) = <strong>{formatNumber(simulationResult.indicators.liquidez_geral, 2)}</strong></p>
+                    </div>
+                    <div className="rounded border border-slate-200 bg-slate-50/50 p-3">
+                      <p className="font-medium">Solvência</p>
+                      <p className="text-slate-600">{formatCurrency(simulationResult.calculated_values.patrimonio_liquido_total)} ÷ {formatCurrency(simulationResult.calculated_values.ativo_total)} = <strong>{formatPercent(simulationResult.indicators.solvencia)}</strong></p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Regras: LC ≥2(3pts), ≥1,5(2pts), ≥1(1pt); LG ≥1,5(3pts), ≥1,2(2pts), ≥1(1pt); Solvência ≥0,5(3pts), ≥0,3(2pts), ≥0,1(1pt). Classificação: A≥7pts, B 5–6, C 3–4, D &lt;3.
+                  </p>
+                </div>
+
+                <div className="pdf-keep-together space-y-3">
+                  <h3 className="text-base font-semibold text-slate-800">Embasamento Legal</h3>
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    Portaria PGFN nº 6.757/2022 regula a transação na cobrança de créditos da União e FGTS. O contribuinte pode requerer revisão de capacidade de pagamento (arts. 30 e ss.), no prazo de 30 dias, com documentação (Balanço, DRE, DFC, extratos etc.). Classificações A/B: capacidade de cumprir; C/D: possibilidade de descontos e prazo ampliado. Base: Lei 13.988/2020, Portaria PGFN 6.757/2022 e 1.241/2023.
+                  </p>
+                </div>
+
+                {/* Simulador no PDF: só se há valor de dívida e discrepância para destacar o impacto */}
+                {debtAmount > 0 && debtSimulations && simulationResult.rating_real && simulationResult.rating_real !== simulationResult.rating_estimado && (
+                  <div className="pdf-keep-together">
+                    <h3 className="text-base font-semibold text-slate-800 mb-2">Impacto no Parcelamento (dívida informada)</h3>
+                    <p className="text-sm text-slate-600 mb-3">Dívida: {formatCurrency(debtAmount)} — Comparação entre Enquadramento Revisado e Enquadramento RF.</p>
+                    <table className="w-full text-sm border border-slate-200">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="text-left p-3 font-semibold text-slate-700 border-b border-r border-slate-200">Condição</th>
+                          <th className="text-center p-3 font-semibold text-slate-700 border-b border-r border-slate-200">
+                            Revisado ({simulationResult.rating_estimado})
+                          </th>
+                          <th className="text-center p-3 font-semibold text-slate-700 border-b border-slate-200">
+                            RF ({simulationResult.rating_real})
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-100">
+                          <td className="p-3 border-r border-slate-100">Entrada (1%)</td>
+                          <td className="p-3 text-center border-r border-slate-100 font-mono">{formatCurrency(debtSimulations[simulationResult.rating_estimado].entryAmount)}</td>
+                          <td className="p-3 text-center font-mono">{formatCurrency(debtSimulations[simulationResult.rating_real].entryAmount)}</td>
+                        </tr>
+                        <tr className="border-b border-slate-100">
+                          <td className="p-3 border-r border-slate-100">Parcela mensal</td>
+                          <td className="p-3 text-center border-r border-slate-100 font-mono">{formatCurrency(debtSimulations[simulationResult.rating_estimado].monthlyPayment)}</td>
+                          <td className="p-3 text-center font-mono">{formatCurrency(debtSimulations[simulationResult.rating_real].monthlyPayment)}</td>
+                        </tr>
+                        <tr className="border-b border-slate-100">
+                          <td className="p-3 border-r border-slate-100">Economia (descontos)</td>
+                          <td className="p-3 text-center border-r border-slate-100 font-mono text-emerald-600">{formatCurrency(debtSimulations[simulationResult.rating_estimado].savings)}</td>
+                          <td className="p-3 text-center font-mono text-emerald-600">{formatCurrency(debtSimulations[simulationResult.rating_real].savings)}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-3 border-r border-slate-100">Prazo máximo</td>
+                          <td className="p-3 text-center border-r border-slate-100">{debtSimulations[simulationResult.rating_estimado].maxMonths} meses</td>
+                          <td className="p-3 text-center">{debtSimulations[simulationResult.rating_real].maxMonths} meses</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div id="rating-validator-resultado-print" className="space-y-6 pdf-export-root">
+                {/* Cabeçalho profissional para tela e impressão */}
+                <div id="pdf-header" className="pdf-keep-together flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">IATax Soluções Inteligentes</h2>
+                      <p className="text-sm text-slate-600">Transação Tributária · Análise da capacidade de pagamento</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Relatório gerado em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="result-section" className="space-y-6">
                 {/* Cards de Indicadores */}
-                <div className="grid grid-cols-3 gap-6">
+                <div id="pdf-indicators-grid" className="pdf-keep-together grid grid-cols-3 gap-6">
                   <Card className="p-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-medium text-slate-600">Liquidez Corrente</h3>
@@ -1299,7 +1683,7 @@ export function RatingValidator() {
                       </Badge>
                     </div>
                     <p className="text-3xl font-bold text-slate-900">
-                      {simulationResult.indicators.liquidez_corrente.toFixed(4)}
+                      {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       Ativo Circulante / Passivo Circulante
@@ -1320,7 +1704,7 @@ export function RatingValidator() {
                       </Badge>
                     </div>
                     <p className="text-3xl font-bold text-slate-900">
-                      {simulationResult.indicators.liquidez_geral.toFixed(4)}
+                      {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       (AC + RLP) / (PC + PNC)
@@ -1341,7 +1725,7 @@ export function RatingValidator() {
                       </Badge>
                     </div>
                     <p className="text-3xl font-bold text-slate-900">
-                      {(simulationResult.indicators.solvencia * 100).toFixed(2)}%
+                      {formatPercent(simulationResult.indicators.solvencia)}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       Patrimônio Líquido / Ativo Total
@@ -1349,59 +1733,265 @@ export function RatingValidator() {
                   </Card>
                 </div>
 
-                {/* Rating Card */}
-                <Card className="p-6">
-                  <h2 className="text-xl font-semibold mb-6">Classificação de Rating</h2>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 bg-slate-50 rounded-lg border-2 border-slate-200">
-                      <p className="text-sm text-slate-600 mb-2">Rating Estimado</p>
-                      <div className="flex items-center gap-4">
-                        <Badge className={`${getRatingColor(simulationResult.rating_estimado)} text-2xl px-6 py-3 border-2`}>
-                          {simulationResult.rating_estimado}
-                        </Badge>
-                        <div>
-                          <p className="font-semibold text-lg">{getRatingLabel(simulationResult.rating_estimado)}</p>
-                          <p className="text-sm text-slate-500">Capacidade de Pagamento</p>
-                        </div>
+                {/* Rating Card — layout comparativo de planos */}
+                <Card className="pdf-keep-together p-6 overflow-hidden">
+                  {/* Resumo visual: Enquadramento Revisado vs Enquadramento RF */}
+                  <div className="flex flex-wrap items-center gap-6 mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className={`rounded-xl border-2 px-6 py-4 ${getRatingColor(simulationResult.rating_estimado)}`}>
+                        <span className="block text-3xl font-bold">{simulationResult.rating_estimado}</span>
+                        <span className="text-sm opacity-90">{getRatingLabel(simulationResult.rating_estimado)}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Revisado</p>
+                        <p className="text-slate-700">Enquadramento Revisado</p>
                       </div>
                     </div>
-
                     {simulationResult.rating_real && (
-                      <div className="p-6 bg-slate-50 rounded-lg border-2 border-slate-200">
-                        <p className="text-sm text-slate-600 mb-2">Rating Real</p>
+                      <>
+                        <span className="text-slate-400 text-2xl font-light">×</span>
                         <div className="flex items-center gap-4">
-                          <Badge className={`${getRatingColor(simulationResult.rating_real)} text-2xl px-6 py-3 border-2`}>
-                            {simulationResult.rating_real}
-                          </Badge>
+                          <div className={`rounded-xl border-2 px-6 py-4 ${getRatingColor(simulationResult.rating_real)} ${
+                            simulationResult.has_discrepancy ? 'ring-2 ring-rose-300' : ''
+                          }`}>
+                            <span className="block text-3xl font-bold">{simulationResult.rating_real}</span>
+                            <span className="text-sm opacity-90">{getRatingLabel(simulationResult.rating_real)}</span>
+                          </div>
                           <div>
-                            <p className="font-semibold text-lg">{getRatingLabel(simulationResult.rating_real)}</p>
-                            <p className="text-sm text-slate-500">Informado pelo usuário</p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Receita Federal</p>
+                            <p className="text-slate-700">Enquadramento Receita Federal</p>
                           </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
 
                   {simulationResult.has_discrepancy && (
-                    <div className="mt-6 p-4 bg-red-50 rounded-lg border-2 border-red-200">
-                      <div className="flex items-start gap-3">
-                        <div className="text-red-600 text-xl">⚠️</div>
-                        <div>
-                          <p className="font-semibold text-red-800 mb-1">Discrepância Detectada!</p>
-                          <p className="text-sm text-red-700">
-                            {simulationResult.discrepancy_details?.message}
-                          </p>
-                          <p className="text-xs text-red-600 mt-2">
-                            Esta discrepância pode indicar erro de classificação que pode resultar em desconto em transações.
-                          </p>
-                        </div>
-                      </div>
+                    <div className="mb-6 py-3 px-4 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-3">
+                      <span className="text-rose-500 text-xl" aria-hidden>!</span>
+                      <p className="text-sm text-rose-800">
+                        <strong>Discrepância:</strong> os indicadores levam ao <strong>Enquadramento Revisado</strong> ({simulationResult.rating_estimado}), diferente do Enquadramento Receita Federal ({simulationResult.rating_real}). Veja abaixo onde cada indicador se enquadra.
+                      </p>
                     </div>
+                  )}
+
+                  {/* Tabela comparativa — sempre visível */}
+                  {simulationResult.indicator_analysis && simulationResult.indicator_analysis.length > 0 && (() => {
+                    const levels: ('D' | 'C' | 'B' | 'A')[] = ['D', 'C', 'B', 'A'];
+                    const real = simulationResult.rating_real;
+                    const estimado = simulationResult.rating_estimado;
+                    const hasDiscrepancy = simulationResult.has_discrepancy && real && real !== estimado;
+                    /** Calcula "atende" pelo valor numérico do indicador (independente da API) */
+                    const atendeNivel = (item: { id: string; value: number }, colLevel: 'D' | 'C' | 'B' | 'A') => {
+                      const mins = THRESHOLD_MINS[item.id];
+                      if (!mins) return colLevel === 'D';
+                      return item.value >= mins[colLevel] - EPS;
+                    };
+                    const getThreshold = (item: { id: string; thresholds_by_level?: { D?: string; C?: string; B?: string; A?: string } }, lvl: 'D' | 'C' | 'B' | 'A') =>
+                      item.thresholds_by_level?.[lvl] ?? FALLBACK_THRESHOLDS[item.id]?.[lvl] ?? '-';
+                    return (
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-3">Comparativo de indicadores por Rating</h3>
+                        <p className="text-sm text-slate-600 mb-4">
+                          Uma coluna por classificação (D, C, B, A). Seu valor vs. o que cada nível exige. Verde = atende; vermelho = discrepância (Enquadramento RF exige um nível que este indicador não atinge).
+                        </p>
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                          <table className="w-full text-sm min-w-[36rem]">
+                            <thead>
+                              <tr>
+                                <th className="text-left p-4 font-semibold text-slate-700 bg-slate-50 rounded-tl-2xl border-b border-slate-200">Indicador</th>
+                                <th className="text-center p-4 font-semibold text-slate-700 bg-white border-b border-l border-slate-200">Seu valor</th>
+                                {levels.map((lvl) => {
+                                  const isCalculado = lvl === estimado;
+                                  const isInformado = lvl === real;
+                                  const isRedHeader = isInformado && hasDiscrepancy;
+                                  return (
+                                    <th
+                                      key={lvl}
+                                      className={`p-4 font-semibold text-center min-w-[8rem] border-b border-l border-slate-200 ${
+                                        isRedHeader
+                                          ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                          : isCalculado
+                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                            : 'bg-slate-50 text-slate-700'
+                                      } ${lvl === 'A' ? 'rounded-tr-2xl' : ''}`}
+                                    >
+                                      <span className="block text-xl font-bold">{lvl}</span>
+                                      <span className="block text-xs font-normal mt-1 opacity-90">
+                                        {isCalculado && '✓ Enquadramento Revisado'}
+                                        {isInformado && !isCalculado && 'Enquadramento RF'}
+                                        {!isCalculado && !isInformado && getRatingLabel(lvl)}
+                                      </span>
+                                    </th>
+                                  );
+                                })}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {simulationResult.indicator_analysis.map((item) => {
+                                const atendeCol = (lvl: 'D' | 'C' | 'B' | 'A') => atendeNivel(item, lvl);
+                                return (
+                                  <tr key={item.id} className="border-b border-slate-100 last:border-b-0">
+                                    <td className="p-4 bg-slate-50/70 border-r border-slate-100">
+                                      <div className="font-medium text-slate-800">{item.name}</div>
+                                      <div className="text-xs text-slate-500 mt-0.5">{item.formula}</div>
+                                    </td>
+                                    <td className="p-4 text-center font-mono font-bold text-slate-900 bg-white border-r border-slate-100">
+                                      {item.id === 'solvencia' ? formatPercent(item.value) : formatNumber(item.value, 2)}
+                                    </td>
+                                    {levels.map((lvl) => {
+                                      const atende = atendeCol(lvl);
+                                      const isCalculado = lvl === estimado;
+                                      const isRed = hasDiscrepancy && lvl === real && !atende;
+                                      const isGreen = lvl === estimado && atende;
+                                      return (
+                                        <td
+                                          key={lvl}
+                                          className={`p-4 text-center border-l border-slate-100 ${
+                                            isRed
+                                              ? 'bg-rose-50 text-rose-700'
+                                              : isGreen
+                                                ? 'bg-emerald-50 text-emerald-700'
+                                                : isCalculado
+                                                  ? 'bg-emerald-50/40 text-slate-700'
+                                                  : 'bg-white text-slate-600'
+                                          }`}
+                                        >
+                                          <div className="font-semibold">{getThreshold(item, lvl)}</div>
+                                          <div className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                            atende
+                                              ? 'bg-emerald-100 text-emerald-700'
+                                              : 'bg-slate-100 text-slate-500'
+                                          }`}>
+                                            {atende ? '✓ Atende' : 'Não atende'}
+                                          </div>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="mt-4 text-sm text-slate-600">
+                          <strong>Uso jurídico:</strong> a análise resulta no <strong>Enquadramento Revisado</strong> ({simulationResult.rating_estimado}).
+                          {real && real !== estimado && (
+                            <> A divergência com o Enquadramento Receita Federal ({real}) pode fundamentar pedido de revisão junto à Receita Federal.</>
+                          )}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {(!simulationResult.indicator_analysis || simulationResult.indicator_analysis.length === 0) && (
+                    <p className="text-sm text-slate-500 italic">Indicadores detalhados não disponíveis para este resultado.</p>
                   )}
                 </Card>
 
+                {/* Memória de Cálculo */}
+                <Card className="pdf-keep-together p-6">
+                  <h2 className="text-lg font-semibold text-slate-800 mb-1">Memória de Cálculo</h2>
+                  <p className="text-sm text-slate-600 mb-2">
+                    Metodologia baseada na <strong>Portaria PGFN nº 6.757, de 29 de julho de 2022</strong>, que regulamenta a transação na cobrança de créditos da União e do FGTS e dispõe sobre a aferição da capacidade de pagamento para fins de negociação.
+                  </p>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Indicadores calculados a partir dos demonstrativos contábeis (Balanço Patrimonial) conforme critérios utilizados na análise de Capag Efetiva (arts. 30 e seguintes da Portaria 6.757/2022).
+                  </p>
+                  <div className="space-y-6">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <h3 className="font-medium text-slate-800 mb-2">Liquidez Corrente</h3>
+                      <p className="text-sm text-slate-600 mb-2">
+                        <strong>Fórmula:</strong> Ativo Circulante ÷ Passivo Circulante — mede a capacidade de pagar obrigações de curto prazo. Valores ≥ 1,0 indicam capacidade adequada.
+                      </p>
+                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
+                        {formatCurrency(simulationResult.calculated_values.ativo_circulante_total)}
+                        <span className="text-slate-400 mx-2">÷</span>
+                        {formatCurrency(simulationResult.calculated_values.passivo_circulante_total)}
+                        <span className="text-slate-400 mx-2">=</span>
+                        <strong className="text-emerald-700">
+                          {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <h3 className="font-medium text-slate-800 mb-2">Liquidez Geral</h3>
+                      <p className="text-sm text-slate-600 mb-2">
+                        <strong>Fórmula:</strong> (Ativo Circulante + Realizável a LP) ÷ (Passivo Circulante + Passivo Não Circulante) — mede a capacidade de pagar todas as obrigações (curto e longo prazo). Considera ativos e passivos circulantes e não circulantes.
+                      </p>
+                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
+                        <span className="text-slate-500">(</span>
+                        {formatCurrency(simulationResult.calculated_values.ativo_circulante_total)}
+                        <span className="text-slate-400 mx-1">+</span>
+                        {formatCurrency(simulationResult.calculated_values.realizavel_longo_prazo_total)}
+                        <span className="text-slate-500">)</span>
+                        <span className="text-slate-400 mx-2">÷</span>
+                        <span className="text-slate-500">(</span>
+                        {formatCurrency(simulationResult.calculated_values.passivo_circulante_total)}
+                        <span className="text-slate-400 mx-1">+</span>
+                        {formatCurrency(simulationResult.calculated_values.passivo_nao_circulante_total)}
+                        <span className="text-slate-500">)</span>
+                        <span className="text-slate-400 mx-2">=</span>
+                        <strong className="text-emerald-700">
+                          {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <h3 className="font-medium text-slate-800 mb-2">Solvência</h3>
+                      <p className="text-sm text-slate-600 mb-2">
+                        <strong>Fórmula:</strong> Patrimônio Líquido ÷ Ativo Total — mede a participação do capital próprio no ativo total. Valores mais altos indicam menor dependência de capital de terceiros.
+                      </p>
+                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
+                        {formatCurrency(simulationResult.calculated_values.patrimonio_liquido_total)}
+                        <span className="text-slate-400 mx-2">÷</span>
+                        {formatCurrency(simulationResult.calculated_values.ativo_total)}
+                        <span className="text-slate-400 mx-2">=</span>
+                        <strong className="text-emerald-700">
+                          {formatPercent(simulationResult.indicators.solvencia)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Regras de classificação conforme Portaria 6.757/2022 */}
+                  <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                    <h3 className="font-medium text-slate-800 mb-2">Regras de enquadramento (classificação A, B, C, D)</h3>
+                    <p className="text-sm text-slate-600 mb-3">
+                      A classificação para transação segue critérios baseados na pontuação dos três indicadores (Portaria PGFN 6.757/2022). Cada indicador atribui pontos conforme o valor obtido:
+                    </p>
+                    <ul className="text-sm text-slate-700 space-y-1.5 list-disc list-inside">
+                      <li><strong>Liquidez Corrente:</strong> ≥ 2,0 (3 pts), ≥ 1,5 (2 pts), ≥ 1,0 (1 pt)</li>
+                      <li><strong>Liquidez Geral:</strong> ≥ 1,5 (3 pts), ≥ 1,2 (2 pts), ≥ 1,0 (1 pt)</li>
+                      <li><strong>Solvência:</strong> ≥ 0,5 (3 pts), ≥ 0,3 (2 pts), ≥ 0,1 (1 pt)</li>
+                    </ul>
+                    <p className="text-sm text-slate-600 mt-3">
+                      <strong>Classificação final:</strong> A (≥ 7 pts), B (5–6 pts), C (3–4 pts), D (&lt; 3 pts). As classificações A e B indicam capacidade de cumprir obrigações; C e D indicam dificuldade de quitação do passivo, com possibilidade de descontos e parcelamento ampliado.
+                    </p>
+                  </div>
+                </Card>
+
+                {/* Embasamento Legal - para advogados e contadores */}
+                <Card className="pdf-keep-together p-6 bg-slate-50/80 border-slate-200">
+                  <h2 className="text-lg font-semibold text-slate-800 mb-2">Embasamento legal</h2>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">Fundamentação normativa para uso em peças e pareceres</p>
+                  <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
+                    <p>
+                      O presente relatório utiliza metodologia alinhada à <strong>Portaria PGFN nº 6.757, de 29 de julho de 2022</strong>, que regulamenta a transação na cobrança de créditos da União e do FGTS. A capacidade de pagamento é o critério previsto em lei e utilizado pela Procuradoria-Geral da Fazenda Nacional (PGFN) e Receita Federal para conceder benefícios em negociações — como descontos e prazo alongado para pagamento (consultar: gov.br/pgfn — Serviços de orientação ao contribuinte).
+                    </p>
+                    <p>
+                      O contribuinte que discorda da classificação atribuída pela Receita Federal pode apresentar <strong>pedido de revisão de capacidade de pagamento</strong>, nos termos dos arts. 30 e seguintes da Portaria PGFN nº 6.757/2022, no prazo de 30 dias contados da ciência da classificação. O requerimento deve indicar o valor que entende correto, a metodologia de cálculo e comprovar com documentação (Balanço Patrimonial, DRE, DFC, relação de bens e direitos, extratos bancários e demais exigências do art. 30).
+                    </p>
+                    <p>
+                      As classificações <strong>A e B</strong> são atribuídas aos devedores que têm condições de cumprir as obrigações (negociação em até 60 meses, sem descontos). As classificações <strong>C e D</strong> aplicam-se quando a capacidade de pagamento não é suficiente para liquidar todo o passivo fiscal; nesses casos, a Fazenda Nacional pode conceder descontos e prazo ampliado, pois a dívida é considerada de difícil recuperação ou irrecuperável.
+                    </p>
+                    <p>
+                      Base legal: <strong>Lei nº 13.988/2020</strong> (transação tributária); <strong>Portaria PGFN nº 6.757/2022</strong> (regulamentação da transação e critérios de capacidade de pagamento); <strong>Portaria PGFN nº 1.241/2023</strong> (alterações); normas disponíveis em normas.receita.fazenda.gov.br.
+                    </p>
+                  </div>
+                </Card>
+
                 {/* Simulador de Parcelamento */}
-                <Card className="p-6">
+                <Card className="pdf-keep-together p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold">Simulador de Parcelamento de Dívida</h2>
@@ -1412,6 +2002,7 @@ export function RatingValidator() {
                     <Button
                       variant="tertiary"
                       onClick={() => setShowDebtSimulator(!showDebtSimulator)}
+                      className="print:hidden pdf-exclude"
                     >
                       {showDebtSimulator ? 'Ocultar' : 'Mostrar Simulador'}
                     </Button>
@@ -1854,7 +2445,26 @@ export function RatingValidator() {
                     </div>
                   </div>
                 </Card>
+                </div>
               </div>
+
+              {/* Botão flutuante — abre layout de impressão em página dedicada */}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/rating-validator/print-preview', {
+                    state: { simulationResult, debtAmount, debtSimulations },
+                  })
+                }
+                aria-label="Abrir layout de impressão"
+                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand/40"
+                title="Abrir layout de impressão"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+              </>
             )}
           </div>
         )}
@@ -1863,10 +2473,9 @@ export function RatingValidator() {
           <div className="space-y-6">
             <Card className="p-6">
               <div className="mb-6">
-                <h2 className="text-2xl font-semibold mb-2">Simulação de Cenários por Rating</h2>
+                <h2 className="text-2xl font-semibold mb-2">Simulação de Cenários por classificação (Rating)</h2>
                 <p className="text-slate-600">
-                  Teste diferentes valores de dívida e compare as condições oferecidas para cada Rating (A, B, C, D)
-                  nos Editais PGFN 2025. Identifique qual rating seria mais vantajoso para seu cliente.
+                  A classificação da capacidade de pagamento (rating A, B, C ou D) define as condições em transações com a Fazenda. Teste diferentes valores de dívida e compare as condições oferecidas para cada classificação nos editais PGFN. Identifique qual enquadramento seria mais vantajoso para seu cliente.
                 </p>
                 <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                   <p className="text-sm text-yellow-800">
@@ -1943,7 +2552,7 @@ export function RatingValidator() {
                                     <span className="font-bold">{formatCurrency(capagSim.savings)}</span>
                                   </div>
                                   <div className="text-xs text-slate-500 mt-1">
-                                    Desconto Real: {((capagSim.savings / capagSim.totalWithInterest) * 100).toFixed(1)}%
+                                    Desconto Real: {formatPercent(capagSim.savings / capagSim.totalWithInterest, 1)}
                                   </div>
                                   <div className="text-xs text-slate-500">
                                     {rating === 'D' ? '70%' : rating === 'C' ? '65-70%' : '0%'} do valor total
@@ -2073,7 +2682,7 @@ export function RatingValidator() {
                                           <span className="font-bold">{formatCurrency(sim.savings)}</span>
                                         </div>
                                         <div className="text-xs text-slate-500 mt-1">
-                                          Desconto: {((sim.savings / sim.totalWithInterest) * 100).toFixed(1)}%
+                                          Desconto: {formatPercent(sim.savings / sim.totalWithInterest, 1)}
                                         </div>
                                       </>
                                     )}

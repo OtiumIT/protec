@@ -20,6 +20,13 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 
 ## Fluxos e Endpoints
 
+### POST /irpf-alta-renda/import-declaration
+
+- **Descrição**: Importa arquivo .dec ou .dbk (Programa IRPF / e-CAC) e retorna `{ ano, dados, declaracao_completa }` para preencher o formulário.
+- **Body**: `multipart/form-data` com campo **file** (arquivo .dec ou .dbk).
+- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda, declaracao_completa } }`.
+- **Validação**: Extensão .dec ou .dbk, tamanho máx 5MB.
+
 ### POST /irpf-alta-renda/extract-from-pdf
 
 - **Descrição**: Extrai dados de IRPF de um PDF (ex.: DAA, resumo da declaração) usando OpenAI e retorna `{ ano, dados }` para preencher o formulário.

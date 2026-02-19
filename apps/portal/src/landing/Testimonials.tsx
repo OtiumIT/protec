@@ -9,7 +9,7 @@ const testimonials = [
     id: 2,
     name: 'Advogado tributário',
     quote:
-      'A simulação de rating e cenários da IN 2.306/2026 virou apoio rápido para reuniões com clientes – sem depender só de planilhas.',
+      'A simulação de cenários tributários (capacidade de pagamento, LC 224/2025 e alta renda) virou apoio rápido para reuniões com clientes – sem depender só de planilhas.',
   },
 ];
 

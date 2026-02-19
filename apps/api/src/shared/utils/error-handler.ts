@@ -45,17 +45,25 @@ export function errorHandler(error: unknown, c: Context): Response {
     }
   }
 
-  // Erro de tabela não encontrada
+  // Erro de tabela/relação não encontrada (PostgreSQL: "relation \"nome\" does not exist")
   if (error instanceof Error && (
     error.message.includes('does not exist') ||
-    error.message.includes('relation') && error.message.includes('not found')
+    (error.message.includes('relation') && error.message.includes('not found'))
   )) {
+    const tableHint =
+      error.message.match(/relation "([^"]+)"/)?.[1] ??
+      error.message.match(/relation '([^']+)'/)?.[1] ??
+      error.message.match(/"([^"]+)" does not exist/)?.[1] ??
+      error.message.match(/'([^']+)' does not exist/)?.[1];
+    const message = tableHint
+      ? `Tabela "${tableHint}" não encontrada. Execute: pnpm run migrate (em apps/api).`
+      : 'Tabela não encontrada no banco de dados. Execute: pnpm run migrate (em apps/api).';
     return c.json<ApiError>(
       {
         error: {
-          message: 'Tabela não encontrada no banco de dados. Execute as migrations: npm run migrate',
+          message,
           code: 'TABLE_NOT_FOUND',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+          details: { tableOrRelation: tableHint ?? undefined, raw: error.message },
         },
       },
       500

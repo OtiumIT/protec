@@ -21,6 +21,7 @@ import { FiscalFiles } from './modules/fiscal-files/pages/FiscalFiles';
 import { FiscalFilesUpload } from './modules/fiscal-files/pages/FiscalFilesUpload';
 import { Modules } from './modules/modules/pages/Modules';
 import { RatingValidator } from './modules/rating-validator/pages/RatingValidator';
+import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/RatingValidatorPrintPreview';
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
 
@@ -139,6 +140,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <RatingValidator />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/rating-validator/print-preview"
+        element={
+          <PrivateRoute>
+            <RatingValidatorPrintPreview />
           </PrivateRoute>
         }
       />

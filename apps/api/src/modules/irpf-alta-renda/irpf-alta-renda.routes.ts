@@ -14,6 +14,7 @@ import {
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 import { extractIrpfFromPdf } from './extract-from-pdf';
+import { parseDecDbk } from './parse-dec-dbk';
 
 const irpfAltaRendaRoutes = new Hono();
 
@@ -43,6 +44,38 @@ irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const result = await extractIrpfFromPdf(buffer);
+    return c.json({ data: result }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/**
+ * GET /irpf-alta-renda/import-declaration → 405 (evita que GET caia em /:id)
+ */
+irpfAltaRendaRoutes.get('/import-declaration', (c) =>
+  c.json({ error: { message: 'Use POST para importar arquivo .dec/.dbk.', code: 'METHOD_NOT_ALLOWED' } }, 405)
+);
+
+/**
+ * POST /irpf-alta-renda/import-declaration
+ * Importa arquivo .dec ou .dbk (PGD IRPF / e-CAC) e retorna ano + dados para preencher o formulário.
+ * Body: multipart/form-data com campo "file" (arquivo .dec ou .dbk).
+ */
+irpfAltaRendaRoutes.post('/import-declaration', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: { message: 'Envie um arquivo .dec ou .dbk (campo file).', code: 'FILE_REQUIRED' } }, 400);
+    }
+    const name = (file.name ?? '').toLowerCase();
+    if (!name.endsWith('.dec') && !name.endsWith('.dbk')) {
+      return c.json({ error: { message: 'O arquivo deve ser .dec ou .dbk.', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const result = parseDecDbk(buffer, file.name);
     return c.json({ data: result }, 200);
   } catch (err) {
     return errorHandler(err, c);

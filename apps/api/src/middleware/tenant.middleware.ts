@@ -1,5 +1,6 @@
 import { Context, Next } from 'hono';
-import { query, setTenantSchema } from '../db/client';
+import { query, runWithTenantClient } from '../db/client';
+import { verifyAccessToken } from '../shared/utils/jwt';
 
 /**
  * Middleware de Tenant
@@ -29,7 +30,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     if (subdomain) {
       // Buscar company por domain
       const result = await query<{ id: string }>(
-        'SELECT id FROM companies WHERE domain = $1',
+        'SELECT id FROM public.companies WHERE domain = $1',
         [subdomain]
       );
       if (result.rows.length > 0) {
@@ -39,12 +40,19 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     }
   }
 
-  // 4. Tentar extrair do JWT (se já autenticado)
+  // 4. Tentar extrair do JWT (decodifica diretamente — tenantMiddleware roda antes do authMiddleware)
   if (!companyId) {
-    const jwt = c.get('jwt');
-    if (jwt?.companyId) {
-      companyId = jwt.companyId;
-      console.log('[tenantMiddleware] 4. CompanyId from JWT:', companyId);
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const payload = verifyAccessToken(authHeader.substring(7));
+        if (payload?.companyId) {
+          companyId = payload.companyId;
+          console.log('[tenantMiddleware] 4. CompanyId from JWT decode:', companyId);
+        }
+      } catch {
+        // Token inválido ou expirado — authMiddleware tratará depois
+      }
     }
   }
 
@@ -84,7 +92,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
 
   // Validar que tenant existe no banco
   const company = await query<{ id: string }>(
-    'SELECT id FROM companies WHERE id = $1',
+    'SELECT id FROM public.companies WHERE id = $1',
     [companyId]
   );
 
@@ -103,10 +111,9 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
   // Setar companyId no context
   c.set('companyId', companyId);
 
-  // Setar search_path para o schema do tenant (schema-per-tenant)
-  // Super admin não precisa setar schema (usa public)
+  // Usar uma conexão por requisição com search_path do tenant (evita "tabela não encontrada")
   if (user?.role !== 'super_admin') {
-    await setTenantSchema(companyId);
+    return runWithTenantClient(companyId, () => next());
   }
 
   await next();

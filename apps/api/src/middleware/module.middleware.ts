@@ -38,10 +38,6 @@ export function requireModule(moduleKey: string) {
       [companyId, moduleKey]
     );
 
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'module.middleware.ts:requireModule',message:'module check',data:{companyId,moduleKey,found:result.rows.length>0},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-
     if (result.rows.length === 0) {
       return c.json(
         {

@@ -3,18 +3,29 @@ import { zValidator } from '@hono/zod-validator';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
 import { CompanyRepository } from '../companies/company.repository';
+import { CompanyService } from '../companies/company.service';
 import { UserRepository } from '../users/user.repository';
+import { SubscriptionRepository } from '../subscriptions/subscription.repository';
+import { PlanRepository } from '../plans/plan.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const authRoutes = new Hono();
 
-// Instanciar services
 const authRepo = new AuthRepository();
 const companyRepo = new CompanyRepository();
+const companyService = new CompanyService(companyRepo);
 const userRepo = new UserRepository();
-const authService = new AuthService(authRepo, companyRepo, userRepo);
+const subscriptionRepo = new SubscriptionRepository();
+const planRepo = new PlanRepository();
+const authService = new AuthService(
+  authRepo,
+  companyService,
+  userRepo,
+  subscriptionRepo,
+  planRepo
+);
 
 /**
  * POST /auth/register

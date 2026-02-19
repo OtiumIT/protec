@@ -34,31 +34,31 @@ const BENEFICIOS = [
 
 const MODULOS = [
   {
-    id: 'scanner-pgfn',
-    title: 'Scanner de Editais PGFN',
+    id: 'transacao-tributaria',
+    title: 'Transação Tributária - Análise da capacidade de pagamento',
     description:
-      'Encontre rapidamente oportunidades em editais do PGFN sem varrer diários e portais manualmente. O módulo cruza a base de clientes do seu escritório com publicações oficiais para apontar editais aderentes e apoiar decisões de adesão e recuperação com mais segurança.',
-    barColor: 'bg-protec',
-    imageSrc: '/modulo-scanner-pgfn.png',
-    imageAlt: 'Tela do Scanner de Editais PGFN',
+      'Avaliação se a classificação da capacidade de pagamento feita pela Receita Federal está correta, possibilitando a revisão do enquadramento com os dados contábeis analisados pelo sistema, com a emissão de relatório para fundamentação.',
+    barColor: 'bg-[#1e3a5f]',
+    imageSrc: '/modulo-validador-rating.png',
+    imageAlt: 'Transação Tributária - Análise da capacidade de pagamento',
   },
   {
     id: 'simulador-in2306',
-    title: 'Simulador IN 2.306',
+    title: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
     description:
-      'Simule, em minutos, cenários 2025 x 2026 (IN 2.306) e Equiparação Hospitalar para clientes no Lucro Presumido. Planeje impacto tributário com ajuste anual e adicional de IRPJ sem depender de planilhas complexas e versões paralelas.',
+      'Possibilita fazer a comparação da tributação do lucro presumido antes e depois da alteração trazida pela LC 224/2025, identificando quanto será o aumento para o contribuinte.',
     barColor: 'bg-brand',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Tela do Simulador IN 2.306',
+    imageAlt: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
   },
   {
-    id: 'validador-rating',
-    title: 'Validador de Rating CAPAG',
+    id: 'irpf-alta-renda',
+    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
     description:
-      'Valide o rating CAPAG com base nos dados do balanço e da DRE, de forma alinhada à Portaria 6.757/2022. Compare o rating estimado pelo escritório com o cálculo automatizado do sistema para reduzir risco de surpresas em operações com o setor público.',
-    barColor: 'bg-[#1e3a5f]',
-    imageSrc: '/modulo-validador-rating.png',
-    imageAlt: 'Tela do Validador de Rating CAPAG',
+      'Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com a indicação da alíquota aplicável e o valor a ser pago, comparando os cenários antes e depois da nova legislação, apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).',
+    barColor: 'bg-protec',
+    imageSrc: '/modulo-simulador-in2306.png',
+    imageAlt: 'Tributação da alta renda/dividendos - IRPFM',
   },
 ] as const;
 
@@ -166,9 +166,9 @@ export function OProduto() {
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="max-w-xl">
               <ul className="mt-1 space-y-2 text-sm text-slate-700">
-                <li>• Como o scanner aponta editais aderentes à sua carteira.</li>
-                <li>• Como comparar cenários 2025 x 2026 na prática, com a IN 2.306.</li>
-                <li>• Como validar o rating CAPAG e reduzir surpresas em operações com o setor público.</li>
+                <li>• Como revisar a classificação de capacidade de pagamento com dados contábeis.</li>
+                <li>• Como comparar a tributação do lucro presumido antes e depois da LC 224/2025.</li>
+                <li>• Como simular a tributação da alta renda e identificar soluções para redução.</li>
               </ul>
             </div>
             <div
@@ -185,7 +185,7 @@ export function OProduto() {
                 poucos minutos, como os três módulos funcionam na rotina do seu escritório.
               </p>
               <p className="text-xs text-slate-500 text-center px-8">
-                Na demo, percorremos o scanner de editais, o simulador IN 2.306 e o validador de rating com exemplos de clientes reais —
+                Na demo, percorremos a análise da capacidade de pagamento, a simulação LC 224/2025 e a tributação da alta renda com exemplos de clientes reais —
                 focado em organização, agilidade e segurança nas decisões.
               </p>
             </div>
@@ -218,7 +218,7 @@ export function OProduto() {
           id="modulos"
           eyebrow="Módulos"
           title="Três módulos, uma rotina integrada"
-          subtitle="Cada módulo foi desenhado para resolver um ponto crítico da rotina: localizar oportunidades em editais, simular cenários tributários e validar riscos com base em normas vigentes."
+          subtitle="Cada ferramenta foi desenhada para um ponto crítico: análise da capacidade de pagamento com fundamentação, comparação da tributação do lucro presumido (LC 224/2025) e simulação da tributação da alta renda com possíveis soluções para redução."
           tone="white"
           className="border-y border-slate-200/70"
         >
@@ -242,22 +242,22 @@ export function OProduto() {
                   <h3 className="text-xl font-bold tracking-wide text-slate-900">{mod.title}</h3>
                   <p className="mt-4 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
                   <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
-                    {mod.id === 'scanner-pgfn' && (
+                    {mod.id === 'transacao-tributaria' && (
                       <>
-                        <li>• Reduza o tempo gasto monitorando editais.</li>
-                        <li>• Evite perder oportunidades aderentes à carteira atual.</li>
+                        <li>• Revise o enquadramento com dados contábeis analisados pelo sistema.</li>
+                        <li>• Emissão de relatório para fundamentação da classificação.</li>
                       </>
                     )}
                     {mod.id === 'simulador-in2306' && (
                       <>
-                        <li>• Compare cenários com clareza para o cliente.</li>
-                        <li>• Ganhe confiança para recomendar a melhor opção tributária.</li>
+                        <li>• Compare cenários antes e depois da LC 224/2025.</li>
+                        <li>• Identifique o aumento tributário para o contribuinte.</li>
                       </>
                     )}
-                    {mod.id === 'validador-rating' && (
+                    {mod.id === 'irpf-alta-renda' && (
                       <>
-                        <li>• Antecipe o rating provável e reduza surpresas.</li>
-                        <li>• Apoie decisões com base em cálculos padronizados.</li>
+                        <li>• Compare cenários antes e depois da nova legislação.</li>
+                        <li>• Possíveis soluções para redução (holding, segregação de renda).</li>
                       </>
                     )}
                   </ul>

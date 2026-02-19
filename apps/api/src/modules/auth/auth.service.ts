@@ -1,9 +1,12 @@
 import { AuthRepository } from './auth.repository';
-import { CompanyRepository } from '../companies/company.repository';
+import { CompanyService } from '../companies/company.service';
 import { UserRepository } from '../users/user.repository';
+import { SubscriptionRepository } from '../subscriptions/subscription.repository';
+import { PlanRepository } from '../plans/plan.repository';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
+import { AppError } from '../../shared/utils/error-handler';
 import type { User, Company } from '@shared/core';
 
 export interface AuthTokens {
@@ -11,10 +14,13 @@ export interface AuthTokens {
   refresh: string;
 }
 
+/** Dados para cadastro de escritório de contabilidade (tenant) + usuário responsável */
 export interface RegisterData {
   company: {
-    name: string;
-    domain?: string;
+    legal_name: string;
+    trade_name?: string;
+    cnpj: string;
+    phone?: string;
   };
   user: {
     name: string;
@@ -28,27 +34,52 @@ export interface LoginData {
   password: string;
 }
 
+const DEFAULT_PLAN_NAME = 'Free';
+
 export class AuthService {
   constructor(
     private authRepo: AuthRepository,
-    private companyRepo: CompanyRepository,
-    private userRepo: UserRepository
+    private companyService: CompanyService,
+    private userRepo: UserRepository,
+    private subscriptionRepo: SubscriptionRepository,
+    private planRepo: PlanRepository
   ) {}
 
   /**
-   * Registrar empresa e primeiro usuário
+   * Cadastrar escritório de contabilidade (tenant) e usuário responsável (admin).
+   * Cria: company (com schema tenant), assinatura no plano Free, primeiro usuário admin.
    */
   async register(data: RegisterData): Promise<{ user: User; company: Company; tokens: AuthTokens }> {
-    // Criar empresa
-    const company = await this.companyRepo.create({
-      name: data.company.name,
-      domain: data.company.domain,
+    // Plano padrão para novos escritórios
+    const freePlan = await this.planRepo.findByName(DEFAULT_PLAN_NAME);
+    if (!freePlan) {
+      throw new AppError(
+        `Plano padrão "${DEFAULT_PLAN_NAME}" não encontrado. Execute o seed do banco.`,
+        'DEFAULT_PLAN_NOT_FOUND',
+        500
+      );
+    }
+
+    // Nome de exibição: nome fantasia ou razão social
+    const name = (data.company.trade_name?.trim() || data.company.legal_name.trim()).slice(0, 255);
+    const cnpjNormalized = data.company.cnpj.replace(/\D/g, '');
+
+    // Criar tenant (empresa + schema tenant + migrations)
+    const company = await this.companyService.create({
+      name,
+      legal_name: data.company.legal_name,
+      trade_name: data.company.trade_name || undefined,
+      cnpj: cnpjNormalized,
+      phone: data.company.phone || undefined,
+      contact_email: data.user.email,
+      contact_name: data.user.name,
     });
 
-    // Hash da senha
-    const passwordHash = await hashPassword(data.user.password);
+    // Assinatura no plano Free para permitir uso e criação de usuários
+    await this.subscriptionRepo.create(company.id, { planId: freePlan.id });
 
-    // Criar primeiro usuário como admin
+    // Hash da senha e criar usuário admin do tenant
+    const passwordHash = await hashPassword(data.user.password);
     const user = await this.userRepo.create(company.id, {
       name: data.user.name,
       email: data.user.email,
@@ -56,7 +87,6 @@ export class AuthService {
       role: 'admin',
     });
 
-    // Gerar tokens
     const tokens = this.generateTokens({
       userId: user.id,
       companyId: company.id,
@@ -64,15 +94,11 @@ export class AuthService {
       role: user.role,
     });
 
-    // Armazenar refresh token
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias
+    expiresAt.setDate(expiresAt.getDate() + 7);
     await this.authRepo.createRefreshToken(user.id, tokens.refresh, expiresAt);
 
-    // Log da operação
-    logSensitiveOperation('user_registered', user.id, company.id, {
-      email: user.email,
-    });
+    logSensitiveOperation('user_registered', user.id, company.id, { email: user.email });
 
     return { user, company, tokens };
   }

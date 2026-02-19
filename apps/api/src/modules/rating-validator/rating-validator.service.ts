@@ -219,6 +219,184 @@ export class RatingValidatorService {
     };
   }
 
+  /** Limiares por indicador (pontos: 0, 1, 2, 3) para uso no demonstrativo */
+  private static readonly THRESHOLDS = {
+    liquidez_corrente: [
+      { min: 2.0, points: 3, level: 'A' as const },
+      { min: 1.5, points: 2, level: 'B' as const },
+      { min: 1.0, points: 1, level: 'C' as const },
+      { min: 0, points: 0, level: 'D' as const },
+    ],
+    liquidez_geral: [
+      { min: 1.5, points: 3, level: 'A' as const },
+      { min: 1.2, points: 2, level: 'B' as const },
+      { min: 1.0, points: 1, level: 'C' as const },
+      { min: 0, points: 0, level: 'D' as const },
+    ],
+    solvencia: [
+      { min: 0.5, points: 3, level: 'A' as const },
+      { min: 0.3, points: 2, level: 'B' as const },
+      { min: 0.1, points: 1, level: 'C' as const },
+      { min: 0, points: 0, level: 'D' as const },
+    ],
+  };
+
+  private static readonly EPSILON = 1e-9;
+
+  /** Formata limite do indicador (número ou %) */
+  private static formatThreshold(min: number, isPercent: boolean): string {
+    if (isPercent) return `≥ ${(min * 100).toFixed(0)}%`;
+    return `≥ ${min.toFixed(2).replace('.', ',')}`;
+  }
+
+  /**
+   * Gera análise por indicador para demonstrativo da discrepância (uso jurídico).
+   * Retorna limiares por nível (D, C, B, A) para o frontend montar colunas dinâmicas.
+   */
+  private getIndicatorAnalysis(
+    indicators: Indicators,
+    ratingReal?: Rating,
+    _ratingEstimado?: Rating
+  ): Array<{
+    id: string;
+    name: string;
+    formula: string;
+    value: number;
+    value_formatted: string;
+    score: number;
+    max_score: number;
+    level: 'A' | 'B' | 'C' | 'D';
+    thresholds_by_level: { D: string; C: string; B: string; A: string };
+    gap_message: string;
+  }> {
+    const items: Array<{
+      id: string;
+      name: string;
+      formula: string;
+      value: number;
+      value_formatted: string;
+      score: number;
+      max_score: number;
+      level: 'A' | 'B' | 'C' | 'D';
+      thresholds_by_level: { D: string; C: string; B: string; A: string };
+      gap_message: string;
+    }> = [];
+
+    const configs: Array<{
+      id: keyof Indicators;
+      name: string;
+      formula: string;
+      value: number;
+      thresholds: typeof RatingValidatorService.THRESHOLDS.liquidez_corrente;
+      isPercent: boolean;
+    }> = [
+      {
+        id: 'liquidez_corrente',
+        name: 'Liquidez Corrente',
+        formula: 'Ativo Circulante ÷ Passivo Circulante',
+        value: indicators.liquidez_corrente,
+        thresholds: RatingValidatorService.THRESHOLDS.liquidez_corrente,
+        isPercent: false,
+      },
+      {
+        id: 'liquidez_geral',
+        name: 'Liquidez Geral',
+        formula: '(AC + Realizável LP) ÷ (PC + PNC)',
+        value: indicators.liquidez_geral,
+        thresholds: RatingValidatorService.THRESHOLDS.liquidez_geral,
+        isPercent: false,
+      },
+      {
+        id: 'solvencia',
+        name: 'Solvência',
+        formula: 'Patrimônio Líquido ÷ Ativo Total',
+        value: indicators.solvencia,
+        thresholds: RatingValidatorService.THRESHOLDS.solvencia,
+        isPercent: true,
+      },
+    ];
+
+    for (const c of configs) {
+      const eps = RatingValidatorService.EPSILON;
+      let score = 0;
+      let level: 'A' | 'B' | 'C' | 'D' = 'D';
+      for (const t of c.thresholds) {
+        const meets = c.value >= t.min - eps;
+        if (meets) {
+          score = t.points;
+          level = t.level;
+        }
+      }
+      const valueFormatted = c.isPercent
+        ? `${(c.value * 100).toFixed(2).replace('.', ',')}%`
+        : c.value.toFixed(2).replace('.', ',');
+      const fmt = (m: number) => RatingValidatorService.formatThreshold(m, c.isPercent);
+      const threshD = c.thresholds.find((t) => t.level === 'D');
+      const threshC = c.thresholds.find((t) => t.level === 'C');
+      const threshB = c.thresholds.find((t) => t.level === 'B');
+      const threshA = c.thresholds.find((t) => t.level === 'A');
+      const thresholds_by_level = {
+        D: threshD ? fmt(threshD.min) : '-',
+        C: threshC ? fmt(threshC.min) : '-',
+        B: threshB ? fmt(threshB.min) : '-',
+        A: threshA ? fmt(threshA.min) : '-',
+      };
+
+      const minC = threshC?.min ?? 0;
+      const belowC = c.value < minC - eps;
+
+      // Mensagem sempre em relação ao rating informado (selecionado), quando existir
+      let gapMessage: string;
+      if (ratingReal != null) {
+        const nivelInformado = ratingReal;
+        const limiteC = thresholds_by_level.C;
+        // D = abaixo de C; C/B/A = têm mínimo definido
+        const textoVsInformado =
+          nivelInformado === 'D'
+            ? `O rating informado (D) corresponde a valores abaixo do mínimo para C (${limiteC}).`
+            : `O rating informado (${nivelInformado}) exige neste indicador pelo menos ${thresholds_by_level[nivelInformado]}.`;
+        if (level === 'D') {
+          gapMessage = belowC
+            ? `Valor ${valueFormatted} está abaixo do mínimo para C. ${textoVsInformado} Para atingir C: ${limiteC}.`
+            : `Valor ${valueFormatted} no limite para C. ${textoVsInformado} Para B: ${thresholds_by_level.B}.`;
+        } else if (level === 'C') {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para C (calculado). ${textoVsInformado} Para atingir B: ${thresholds_by_level.B}.`;
+        } else if (level === 'B') {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para B. ${textoVsInformado} Para A: ${thresholds_by_level.A}.`;
+        } else {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para A. ${textoVsInformado}`;
+        }
+      } else {
+        // Sem rating informado: mensagem genérica por nível do indicador
+        if (level === 'D') {
+          gapMessage = belowC
+            ? `Valor ${valueFormatted} está abaixo do mínimo para C (${thresholds_by_level.C}). Para atingir C: ${thresholds_by_level.C}; B: ${thresholds_by_level.B}.`
+            : `Valor ${valueFormatted} no limite para C. Para B: ${thresholds_by_level.B}.`;
+        } else if (level === 'C') {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para C (1 ponto). Para atingir B: ${thresholds_by_level.B}; A: ${thresholds_by_level.A}.`;
+        } else if (level === 'B') {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para B (${score} pontos). Para atingir A: ${thresholds_by_level.A}.`;
+        } else {
+          gapMessage = `Valor ${valueFormatted} atende ao mínimo para A (máximo para este indicador).`;
+        }
+      }
+
+      items.push({
+        id: c.id,
+        name: c.name,
+        formula: c.formula,
+        value: c.value,
+        value_formatted: valueFormatted,
+        score,
+        max_score: 3,
+        level,
+        thresholds_by_level,
+        gap_message: gapMessage,
+      });
+    }
+    return items;
+  }
+
   /**
    * Simular validação de rating com dados inputados
    */
@@ -228,6 +406,18 @@ export class RatingValidatorService {
   ): Promise<{
     calculated_values: CalculatedValues;
     indicators: Indicators;
+    indicator_analysis: Array<{
+      id: string;
+      name: string;
+      formula: string;
+      value: number;
+      value_formatted: string;
+      score: number;
+      max_score: number;
+      level: 'A' | 'B' | 'C' | 'D';
+      thresholds_by_level: { D: string; C: string; B: string; A: string };
+      gap_message: string;
+    }>;
     rating_estimado: Rating;
     rating_real?: Rating;
     has_discrepancy: boolean;
@@ -256,6 +446,13 @@ export class RatingValidatorService {
 
     // Comparar com rating real (se fornecido)
     const comparison = this.compareRatings(ratingEstimado, input.rating_real);
+
+    // Análise por indicador para demonstrativo da discrepância (uso jurídico)
+    const indicator_analysis = this.getIndicatorAnalysis(
+      indicators,
+      input.rating_real,
+      ratingEstimado
+    );
 
     // Salvar simulação se solicitado (requer client_id)
     let validationId: string | undefined;
@@ -288,6 +485,7 @@ export class RatingValidatorService {
     return {
       calculated_values: calculatedValues,
       indicators,
+      indicator_analysis,
       rating_estimado: ratingEstimado,
       rating_real: input.rating_real,
       has_discrepancy: comparison.has_discrepancy,

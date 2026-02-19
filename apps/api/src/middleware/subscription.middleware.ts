@@ -36,7 +36,7 @@ export async function requireActiveSubscription(c: Context, next: Next): Promise
       `SELECT id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
        canceled_at, created_at, updated_at
-       FROM subscriptions 
+       FROM public.subscriptions 
        WHERE company_id = $1 
        ORDER BY created_at DESC 
        LIMIT 1`,

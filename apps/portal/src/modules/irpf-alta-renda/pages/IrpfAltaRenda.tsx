@@ -5,6 +5,7 @@ import {
   type IrpfAltaRendaRecord,
   type ExtractFromPdfResult,
 } from '../services/irpf-alta-renda.service';
+import type { DeclaracaoIrpfCompleta } from '@shared/core';
 import { companyService } from '../../companies/services/company.service';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Card } from '../../../shared/components/ui/Card';
@@ -49,11 +50,21 @@ export function IrpfAltaRenda() {
   const [contribuinteCpf, setContribuinteCpf] = useState('');
   const [rendimentosTributaveis, setRendimentosTributaveis] = useState(0);
   const [dividendos, setDividendos] = useState<RendimentoIsentoDividendo[]>([{ ...emptyDividendo }]);
+  const [lucrosAprovadosAte31dez2025, setLucrosAprovadosAte31dez2025] = useState(0);
+  const [impostoJaPagoRetencao, setImpostoJaPagoRetencao] = useState(0);
+  const [impostoJaPagoCarneLeao, setImpostoJaPagoCarneLeao] = useState(0);
+  const [impostoJaPagoAplicacoes, setImpostoJaPagoAplicacoes] = useState(0);
+  const [impostoAntecipadoDividendos, setImpostoAntecipadoDividendos] = useState(0);
+  const [ganhoCapitalExcluido, setGanhoCapitalExcluido] = useState(0);
+  const [rendimentosFiisExcluidos, setRendimentosFiisExcluidos] = useState(0);
 
   const [saveCompanyId, setSaveCompanyId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [decDbkLoading, setDecDbkLoading] = useState(false);
+  const [decDbkFile, setDecDbkFile] = useState<File | null>(null);
+  const [declaracaoExtraida, setDeclaracaoExtraida] = useState<DeclaracaoIrpfCompleta | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -81,7 +92,10 @@ export function IrpfAltaRenda() {
 
   const bccCalculado =
     rendimentosTributaveis +
-    dividendos.reduce((s, d) => s + (d.valor ?? 0), 0);
+    dividendos.reduce((s, d) => s + (d.valor ?? 0), 0) -
+    lucrosAprovadosAte31dez2025 -
+    ganhoCapitalExcluido -
+    rendimentosFiisExcluidos;
 
   const updateDividendo = (index: number, field: keyof RendimentoIsentoDividendo, value: string | number) => {
     setDividendos((prev) => {
@@ -113,6 +127,13 @@ export function IrpfAltaRenda() {
           valor: d.valor,
           codigo: (d.codigo as '09' | '13') || '09',
         })),
+      lucros_aprovados_ate_31dez2025: lucrosAprovadosAte31dez2025,
+      imposto_ja_pago_retencao_fonte: impostoJaPagoRetencao,
+      imposto_ja_pago_carne_leao: impostoJaPagoCarneLeao,
+      imposto_ja_pago_aplicacoes: impostoJaPagoAplicacoes,
+      imposto_antecipado_dividendos: impostoAntecipadoDividendos,
+      ganho_capital_excluido: ganhoCapitalExcluido,
+      rendimentos_fiis_excluidos: rendimentosFiisExcluidos,
     },
   });
 
@@ -177,19 +198,35 @@ export function IrpfAltaRenda() {
   };
 
   const applyExtractedData = (res: ExtractFromPdfResult) => {
+    const d = res.dados;
     setAno(res.ano);
-    setContribuinteNome(res.dados.contribuinte.nome);
-    setContribuinteCpf(res.dados.contribuinte.cpf);
-    setRendimentosTributaveis(res.dados.rendimentos_tributaveis);
-    const divs = res.dados.rendimentos_isentos_dividendos?.length
-      ? res.dados.rendimentos_isentos_dividendos.map((d) => ({
-          nome_fonte: d.nome_fonte ?? '',
-          cnpj_fonte: d.cnpj_fonte,
-          valor: d.valor ?? 0,
-          codigo: (d.codigo as '09' | '13') || '09',
-        }))
-      : [{ ...emptyDividendo }];
-    setDividendos(divs);
+    setContribuinteNome(d.contribuinte.nome);
+    setContribuinteCpf(d.contribuinte.cpf.replace(/\D/g, ''));
+    setRendimentosTributaveis(d.rendimentos_tributaveis);
+
+    const isentos09 = d.isentos_lucros_dividendos ?? [];
+    const isentos13 = d.isentos_simples_nacional ?? [];
+    const isentosLegado = d.rendimentos_isentos_dividendos ?? [];
+    const fmt = (x: { nome_fonte?: string; fonte?: string; cnpj_fonte?: string; cnpj?: string; valor: number }, cod: '09' | '13') => {
+      const nome = x.nome_fonte ?? x.fonte ?? '';
+      const cnpj = x.cnpj_fonte ?? x.cnpj ?? '';
+      const nomeFonte = nome && cnpj ? `${nome} (${cnpj})` : nome || cnpj;
+      return { nome_fonte: nomeFonte, cnpj_fonte: cnpj || undefined, valor: x.valor ?? 0, codigo: cod };
+    };
+    const combined = isentos09.length > 0 || isentos13.length > 0
+      ? [...isentos09.map((x) => fmt(x, '09')), ...isentos13.map((x) => fmt(x, '13'))]
+      : isentosLegado.map((x) => ({ nome_fonte: x.nome_fonte ?? '', cnpj_fonte: x.cnpj_fonte, valor: x.valor ?? 0, codigo: (x.codigo as '09' | '13') || '09' }));
+    setDividendos(combined.length > 0 ? combined : [{ ...emptyDividendo }]);
+    setLucrosAprovadosAte31dez2025((d as { lucros_aprovados_ate_31dez2025?: number }).lucros_aprovados_ate_31dez2025 ?? 0);
+    const dd = d as { imposto_ja_pago_retencao_fonte?: number; imposto_ja_pago_carne_leao?: number; imposto_ja_pago_aplicacoes?: number; imposto_antecipado_dividendos?: number; ganho_capital_excluido?: number; rendimentos_fiis_excluidos?: number };
+    setImpostoJaPagoRetencao(dd.imposto_ja_pago_retencao_fonte ?? 0);
+    setImpostoJaPagoCarneLeao(dd.imposto_ja_pago_carne_leao ?? 0);
+    setImpostoJaPagoAplicacoes(dd.imposto_ja_pago_aplicacoes ?? 0);
+    setImpostoAntecipadoDividendos(dd.imposto_antecipado_dividendos ?? 0);
+    setGanhoCapitalExcluido(dd.ganho_capital_excluido ?? 0);
+    setRendimentosFiisExcluidos(dd.rendimentos_fiis_excluidos ?? 0);
+
+    setDeclaracaoExtraida(res.declaracao_completa ?? null);
   };
 
   const handlePdfUpload = async (e: React.FormEvent) => {
@@ -211,13 +248,32 @@ export function IrpfAltaRenda() {
     }
   };
 
+  const handleDecDbkUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!decDbkFile) {
+      showError('Selecione um arquivo .dec ou .dbk.');
+      return;
+    }
+    setDecDbkLoading(true);
+    try {
+      const result = await irpfAltaRendaService.importDeclaration(decDbkFile);
+      applyExtractedData(result);
+      success('Dados importados do arquivo .dec/.dbk. Revise e clique em Simular.');
+      setDecDbkFile(null);
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Erro ao importar arquivo .dec/.dbk');
+    } finally {
+      setDecDbkLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <ToastContainer />
       <div className="w-full max-w-full space-y-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Cálculo de IRPF de Alta Renda (Lei 15.270/2025)</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025</h1>
         <p className="text-slate-600">
-          Simule o impacto tributário com base nos rendimentos tributáveis e nos lucros/dividendos (códigos 09 e 13).
+          Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com indicação da alíquota aplicável e do valor a ser pago, comparando cenários antes e depois da nova legislação e apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).
         </p>
 
         <Card title="Importar dados de um PDF (DAA / declaração IRPF)" className="w-full">
@@ -240,7 +296,67 @@ export function IrpfAltaRenda() {
           </form>
         </Card>
 
+        <Card title="Importar .dec ou .dbk (Programa IRPF / e-CAC)" className="w-full">
+          <p className="text-sm text-slate-600 mb-4">
+            Envie o arquivo .dec (após transmitir) ou .dbk (backup em edição) obtido no Programa IRPF ou no e-CAC (Documentos e Arquivos → Cópia da Declaração).
+          </p>
+          <form onSubmit={handleDecDbkUpload} className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Arquivo .dec ou .dbk</label>
+              <input
+                type="file"
+                accept=".dec,.dbk"
+                onChange={(e) => setDecDbkFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand file:text-white file:font-medium"
+              />
+            </div>
+            <Button type="submit" disabled={decDbkLoading || !decDbkFile}>
+              {decDbkLoading ? 'Importando...' : 'Importar .dec/.dbk'}
+            </Button>
+          </form>
+        </Card>
+
         <Card title="Dados do IRPF" className="w-full">
+          {declaracaoExtraida && (
+            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3 max-h-80 overflow-y-auto">
+              <p className="font-medium text-emerald-800">Declaração extraída (100% dos dados)</p>
+              {declaracaoExtraida.rendimentos_tributaveis_pj?.itens?.length > 0 && (
+                <div>
+                  <span className="text-emerald-700">Rendimentos PJ:</span>
+                  <ul className="list-disc list-inside ml-2">
+                    {declaracaoExtraida.rendimentos_tributaveis_pj.itens.map((p, i) => (
+                      <li key={i}>{p.nome_fonte || p.cnpj || 'Fonte'}: {formatCurrency(p.valor)}</li>
+                    ))}
+                  </ul>
+                  <p className="text-emerald-700 mt-1">Total: {formatCurrency(declaracaoExtraida.rendimentos_tributaveis_pj.total ?? 0)}</p>
+                </div>
+              )}
+              {declaracaoExtraida.rendimentos_tributaveis_pf?.itens?.length > 0 && (
+                <div>
+                  <span className="text-emerald-700">Rendimentos PF (aluguéis, carnê-leão):</span>
+                  <p className="ml-2">Total: {formatCurrency(declaracaoExtraida.rendimentos_tributaveis_pf.total ?? 0)}</p>
+                </div>
+              )}
+              {declaracaoExtraida.rendimentos_isentos_nao_tributaveis?.itens?.length > 0 && (
+                <div>
+                  <span className="text-emerald-700">Isentos (códigos 09, 13, etc.):</span>
+                  <p className="ml-2">Total: {formatCurrency(declaracaoExtraida.rendimentos_isentos_nao_tributaveis.total ?? 0)}</p>
+                </div>
+              )}
+              {declaracaoExtraida.bens_direitos?.itens?.length > 0 && (
+                <div>
+                  <span className="text-emerald-700">Bens e direitos:</span>
+                  <p className="ml-2">Total: {formatCurrency(declaracaoExtraida.bens_direitos.total ?? 0)}</p>
+                </div>
+              )}
+              {declaracaoExtraida.resumo?.base_calculo_ir != null && declaracaoExtraida.resumo.base_calculo_ir > 0 && (
+                <div className="pt-2 border-t border-emerald-200">
+                  <span className="text-emerald-700 font-medium">Resumo:</span>
+                  <p className="ml-2">Base IR: {formatCurrency(declaracaoExtraida.resumo.base_calculo_ir)} | Imposto: {formatCurrency(declaracaoExtraida.resumo.imposto_devido ?? 0)}</p>
+                </div>
+              )}
+            </div>
+          )}
           <form onSubmit={handleSimulate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -321,9 +437,37 @@ export function IrpfAltaRenda() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <MoneyInput
+                label="Lucros aprovados até 31/12/2025 (excluídos – Art. 16-A § 1º XII)"
+                value={lucrosAprovadosAte31dez2025}
+                onChange={setLucrosAprovadosAte31dez2025}
+              />
+              <MoneyInput
+                label="Ganho de capital excluído (Art. 16-A § 1º I)"
+                value={ganhoCapitalExcluido}
+                onChange={setGanhoCapitalExcluido}
+              />
+              <MoneyInput
+                label="Rendimentos FIIs excluídos (Art. 16-A § 1º V-j)"
+                value={rendimentosFiisExcluidos}
+                onChange={setRendimentosFiisExcluidos}
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">IR já pago (deduções do imposto mínimo – Art. 16-A § 3º)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <MoneyInput label="Retenção na fonte (pró-labore, salários)" value={impostoJaPagoRetencao} onChange={setImpostoJaPagoRetencao} />
+                <MoneyInput label="Carnê-leão" value={impostoJaPagoCarneLeao} onChange={setImpostoJaPagoCarneLeao} />
+                <MoneyInput label="Aplicações financeiras (tributação exclusiva)" value={impostoJaPagoAplicacoes} onChange={setImpostoJaPagoAplicacoes} />
+                <MoneyInput label="Antecipado dividendos (10% retido – Art. 6º-A)" value={impostoAntecipadoDividendos} onChange={setImpostoAntecipadoDividendos} />
+              </div>
+            </div>
+
             <div className="pt-2 border-t border-slate-200">
               <p className="text-sm font-medium text-slate-700">
-                Base de cálculo combinada (BCC) = RT + dividendos: {formatCurrency(bccCalculado)}
+                Base de cálculo (BCC) = RT + dividendos − exclusões: {formatCurrency(bccCalculado)}
               </p>
             </div>
 
@@ -339,14 +483,38 @@ export function IrpfAltaRenda() {
           <Card title="Resultado da simulação" className="w-full">
             <div className="space-y-3">
               <p><strong>Faixa:</strong> {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}</p>
-              <p><strong>Alíquota:</strong> {result.aliquota_percentual}%</p>
-              <p><strong>Imposto estimado:</strong> {formatCurrency(result.imposto_estimado)}</p>
+              <p><strong>Alíquota aplicável:</strong> {result.aliquota_percentual}%</p>
+              {result.imposto_minimo != null && result.imposto_minimo > 0 && (
+                <p><strong>Imposto mínimo:</strong> {formatCurrency(result.imposto_minimo)}{result.deducoes_imposto_ja_pago != null && result.deducoes_imposto_ja_pago > 0 && (
+                  <> − Deduções (IR já pago): {formatCurrency(result.deducoes_imposto_ja_pago)}</>
+                )}</p>
+              )}
+              <p><strong>Valor a complementar:</strong> {formatCurrency(result.imposto_estimado)}</p>
               {result.risco_retencao_mensal && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-sm font-medium text-amber-800">Risco de retenção mensal (10% na fonte)</p>
                   <p className="text-sm text-amber-700">{result.risco_retencao_detalhe}</p>
                 </div>
               )}
+
+              <div className="mt-4 pt-4 border-t border-slate-200 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">Possíveis soluções para redução da tributação</h4>
+                <p className="text-sm text-slate-700 mb-2">
+                  Sugestões de planejamento com base nos dados da simulação:
+                </p>
+                <ul className="text-sm text-slate-700 list-disc list-inside space-y-1">
+                  {(result.sugestoes_planejamento?.length ? result.sugestoes_planejamento : [
+                    'Constituição de holding para reorganização da estrutura e da distribuição de dividendos',
+                    'Segregação da renda com cônjuge ou filhos (dentro dos limites legais)',
+                    'Revisão do momento e da forma de recebimento dos rendimentos',
+                  ]).map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-slate-600 mt-2">
+                  Consulte seu consultor tributário para simulações específicas e enquadramento à Lei 15.270/2025.
+                </p>
+              </div>
             </div>
 
             {result.memoria_calculo && (

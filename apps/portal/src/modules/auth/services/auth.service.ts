@@ -5,10 +5,13 @@ export interface LoginData {
   password: string;
 }
 
+/** Dados para cadastro de escritório de contabilidade (tenant) + usuário responsável */
 export interface RegisterData {
   company: {
-    name: string;
-    domain?: string;
+    legal_name: string;
+    trade_name?: string;
+    cnpj: string;
+    phone?: string;
   };
   user: {
     name: string;

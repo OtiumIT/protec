@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   simuladorIN2306Service,
@@ -39,6 +39,46 @@ const EMPTY_TRIMESTRE: ReceitasTrimestre = {
 const EMPTY_DEDUCOES = { pis_cofins_zero: 0, icms_destacado: 0 };
 const EMPTY_RETENCOES = { irrf: 0, orgaos_publicos: 0 };
 
+/** Exemplo 1: Serviços + O.Rec. por trimestre (planilha 2025) — Ctrl+D+1 */
+const DEMO_1_TRIMESTRES: ReceitasTrimestre[] = [
+  { produtos_mercadorias: 0, servicos: 1_706_814.36, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 2_872.02 },
+  { produtos_mercadorias: 0, servicos: 2_026_790.17, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 8_499.24 },
+  { produtos_mercadorias: 0, servicos: 1_123_393.84, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 34_678.22 },
+  { produtos_mercadorias: 0, servicos: 1_690_008.22, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 43_038.42 },
+];
+/** Retenções ano 2025 (planilha Ex.1): IRRF 114.651,37 e 4,65% 304.435,81 — distribuídas por trimestre */
+const DEMO_1_RETENCOES = [
+  { irrf: 114_651.37 / 4, orgaos_publicos: 304_435.81 / 4 },
+  { irrf: 114_651.37 / 4, orgaos_publicos: 304_435.81 / 4 },
+  { irrf: 114_651.37 / 4, orgaos_publicos: 304_435.81 / 4 },
+  { irrf: 114_651.37 / 4, orgaos_publicos: 304_435.81 / 4 },
+];
+
+/** Exemplo 2: Mesmos totais anuais distribuídos uniformemente nos 4 trimestres — Ctrl+D+2 */
+const DEMO_2_TRIMESTRES: ReceitasTrimestre[] = [
+  { produtos_mercadorias: 0, servicos: 6_547_006.59 / 4, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 89_087.9 / 4 },
+  { produtos_mercadorias: 0, servicos: 6_547_006.59 / 4, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 89_087.9 / 4 },
+  { produtos_mercadorias: 0, servicos: 6_547_006.59 / 4, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 89_087.9 / 4 },
+  { produtos_mercadorias: 0, servicos: 6_547_006.59 / 4, servicos_favorecida: 0, servicos_hospitalares: 0, demais_receitas: 89_087.9 / 4 },
+];
+const DEMO_2_RETENCOES = DEMO_1_RETENCOES;
+
+/** Exemplo 3: Serviços hospitalares + O.Rec. no 4º trim (planilha Serv.Hospit. 2025) — Ctrl+D+3 */
+const DEMO_3_TRIMESTRES: ReceitasTrimestre[] = [
+  { produtos_mercadorias: 0, servicos: 0, servicos_favorecida: 0, servicos_hospitalares: 910_515, demais_receitas: 0 },
+  { produtos_mercadorias: 0, servicos: 0, servicos_favorecida: 0, servicos_hospitalares: 2_044_593.1, demais_receitas: 0 },
+  { produtos_mercadorias: 0, servicos: 0, servicos_favorecida: 0, servicos_hospitalares: 1_740_642.2, demais_receitas: 0 },
+  { produtos_mercadorias: 0, servicos: 0, servicos_favorecida: 0, servicos_hospitalares: 1_616_806.7, demais_receitas: 121_426.37 },
+];
+const DEMO_3_RETENCOES = DEMO_1_RETENCOES;
+
+const DEMO_KEY_WINDOW_MS = 1500;
+
+/** Arredonda para 2 decimais (API exige .multipleOf(0.01)) */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 type Tab = 'tributario' | 'parcelamento';
 
 export function SimuladorIN2306() {
@@ -63,7 +103,10 @@ export function SimuladorIN2306() {
   const [modoAnual, setModoAnual] = useState(false);
   const [refNormativaExpanded, setRefNormativaExpanded] = useState(false);
   const [memoriaTab, setMemoriaTab] = useState<0 | 1 | 2>(0);
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false);
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
+  const waitingDemoDigitRef = useRef<number>(0);
+  const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [deducoesTrimestrais, setDeducoesTrimestrais] = useState<{ pis_cofins_zero: number; icms_destacado: number }[]>(() =>
     Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES }))
@@ -103,6 +146,74 @@ export function SimuladorIN2306() {
     return () => { cancelled = true; };
   }, [showError]);
 
+  const fillDemo1 = useCallback(() => {
+    setTrimestres(DEMO_1_TRIMESTRES.map((t) => ({ ...t })));
+    setRetencoesTrimestrais(DEMO_1_RETENCOES.map((r) => ({ ...r })));
+    setDeducoesTrimestrais(() => Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES })));
+    setModoAnual(false);
+    setAno(2025);
+    setEquiparacao(false);
+    setTributarioResult(null);
+    setDetalhesAbertos(true);
+    success('Exemplo 1: Serviços + O.Rec. + retenções. Clique em "Comparar cenários".');
+  }, [success]);
+
+  const fillDemo2 = useCallback(() => {
+    setTrimestres(DEMO_2_TRIMESTRES.map((t) => ({ ...t })));
+    setRetencoesTrimestrais(DEMO_2_RETENCOES.map((r) => ({ ...r })));
+    setDeducoesTrimestrais(() => Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES })));
+    setModoAnual(false);
+    setAno(2025);
+    setEquiparacao(false);
+    setTributarioResult(null);
+    setDetalhesAbertos(true);
+    success('Exemplo 2: Totais distribuídos + retenções. Clique em "Comparar cenários".');
+  }, [success]);
+
+  const fillDemo3 = useCallback(() => {
+    setTrimestres(DEMO_3_TRIMESTRES.map((t) => ({ ...t })));
+    setRetencoesTrimestrais(DEMO_3_RETENCOES.map((r) => ({ ...r })));
+    setDeducoesTrimestrais(() => Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES })));
+    setModoAnual(false);
+    setAno(2025);
+    setEquiparacao(false);
+    setTributarioResult(null);
+    setDetalhesAbertos(true);
+    success('Exemplo 3: Serviços hospitalares + O.Rec. 4º trim + retenções. Clique em "Comparar cenários".');
+  }, [success]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (waitingDemoDigitRef.current && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        e.preventDefault();
+        const which = e.key === '1' ? 1 : e.key === '2' ? 2 : 3;
+        waitingDemoDigitRef.current = 0;
+        if (demoKeyTimeoutRef.current) {
+          clearTimeout(demoKeyTimeoutRef.current);
+          demoKeyTimeoutRef.current = null;
+        }
+        if (which === 1) fillDemo1();
+        else if (which === 2) fillDemo2();
+        else fillDemo3();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+        waitingDemoDigitRef.current = Date.now();
+        demoKeyTimeoutRef.current = setTimeout(() => {
+          waitingDemoDigitRef.current = 0;
+          demoKeyTimeoutRef.current = null;
+        }, DEMO_KEY_WINDOW_MS);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+    };
+  }, [fillDemo1, fillDemo2, fillDemo3]);
+
   const updateTrimestre = (index: number, field: keyof ReceitasTrimestre, value: number) => {
     setTrimestres((prev) => {
       const next = [...prev];
@@ -132,26 +243,49 @@ export function SimuladorIN2306() {
     setLoading(true);
     setTributarioResult(null);
     try {
-      const trimestresParaEnvio = modoAnual
+      const trimestresParaEnvio = (modoAnual
         ? Array(4)
             .fill(null)
             .map(() => ({
-              produtos_mercadorias: (receitaAnual.produtos_mercadorias ?? 0) / 4,
-              servicos: (receitaAnual.servicos ?? 0) / 4,
-              servicos_favorecida: (receitaAnual.servicos_favorecida ?? 0) / 4,
-              servicos_hospitalares: (receitaAnual.servicos_hospitalares ?? 0) / 4,
-              demais_receitas: (receitaAnual.demais_receitas ?? 0) / 4,
+              produtos_mercadorias: round2((receitaAnual.produtos_mercadorias ?? 0) / 4),
+              servicos: round2((receitaAnual.servicos ?? 0) / 4),
+              servicos_favorecida: round2((receitaAnual.servicos_favorecida ?? 0) / 4),
+              servicos_hospitalares: round2((receitaAnual.servicos_hospitalares ?? 0) / 4),
+              demais_receitas: round2((receitaAnual.demais_receitas ?? 0) / 4),
             }))
-        : trimestres;
+        : trimestres
+      ).map((t) => ({
+        produtos_mercadorias: round2(t?.produtos_mercadorias ?? 0),
+        servicos: round2(t?.servicos ?? 0),
+        servicos_favorecida: round2(t?.servicos_favorecida ?? 0),
+        servicos_hospitalares: round2(t?.servicos_hospitalares ?? 0),
+        demais_receitas: round2(t?.demais_receitas ?? 0),
+      }));
+      const deducoes = (modoAnual
+        ? Array(4).fill(null).map(() => ({
+            pis_cofins_zero: round2(deducoesAnual.pis_cofins_zero / 4),
+            icms_destacado: round2(deducoesAnual.icms_destacado / 4),
+          }))
+        : deducoesTrimestrais
+      ).map((d) => ({
+        pis_cofins_zero: round2(d?.pis_cofins_zero ?? 0),
+        icms_destacado: round2(d?.icms_destacado ?? 0),
+      }));
+      const retencoes = (modoAnual
+        ? Array(4).fill(null).map(() => ({
+            irrf: round2(retencoesAnual.irrf / 4),
+            orgaos_publicos: round2(retencoesAnual.orgaos_publicos / 4),
+          }))
+        : retencoesTrimestrais
+      ).map((r) => ({
+        irrf: round2(r?.irrf ?? 0),
+        orgaos_publicos: round2(r?.orgaos_publicos ?? 0),
+      }));
       const input: SimulateTributarioInput = {
         ano,
         trimestres: trimestresParaEnvio,
-        deducoes_trimestrais: modoAnual
-          ? Array(4).fill(null).map(() => ({ pis_cofins_zero: deducoesAnual.pis_cofins_zero / 4, icms_destacado: deducoesAnual.icms_destacado / 4 }))
-          : deducoesTrimestrais,
-        retencoes_trimestrais: modoAnual
-          ? Array(4).fill(null).map(() => ({ irrf: retencoesAnual.irrf / 4, orgaos_publicos: retencoesAnual.orgaos_publicos / 4 }))
-          : retencoesTrimestrais,
+        deducoes_trimestrais: deducoes,
+        retencoes_trimestrais: retencoes,
         aplicar_equiparacao_hospitalar: equiparacao,
         save_simulation: saveTrib,
         title: titleTrib || undefined,
@@ -205,6 +339,50 @@ export function SimuladorIN2306() {
 
   const formatMoney = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  const renderMemoriaTabela = (cenario: { trimestres?: unknown; receita_bruta_total: number; irpj_total: number; irpj_adicional_total?: number; csll_total: number; irpj_a_rec_total: number; csll_a_rec_total: number }) => (
+    <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+      <thead className="bg-slate-100 text-slate-700">
+        <tr>
+          <th className="px-3 py-2 text-left">Trim.</th>
+          <th className="px-3 py-2 text-right">Receita bruta</th>
+          <th className="px-3 py-2 text-right">B.C. IRPJ</th>
+          <th className="px-3 py-2 text-right">B.C. CSLL</th>
+          <th className="px-3 py-2 text-right">IRPJ</th>
+          <th className="px-3 py-2 text-right">Adic. IRPJ</th>
+          <th className="px-3 py-2 text-right">CSLL</th>
+          <th className="px-3 py-2 text-right">IRPJ a rec.</th>
+          <th className="px-3 py-2 text-right">CSLL a rec.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(cenario.trimestres as TrimestreCenario[])?.map((t) => (
+          <tr key={t.trimestre} className="border-t border-slate-200">
+            <td className="px-3 py-2">{t.trimestre}º</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.receita_bruta)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.base_calculo_irpj)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.base_calculo_csll)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.irpj)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.irpj_adicional ?? 0)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.csll)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.irpj_a_rec)}</td>
+            <td className="px-3 py-2 text-right">{formatMoney(t.csll_a_rec)}</td>
+          </tr>
+        ))}
+        <tr className="border-t-2 border-slate-300 bg-slate-50 font-medium">
+          <td className="px-3 py-2">ANUAL</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.receita_bruta_total)}</td>
+          <td className="px-3 py-2 text-right">–</td>
+          <td className="px-3 py-2 text-right">–</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_total)}</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_adicional_total ?? 0)}</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.csll_total)}</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_a_rec_total)}</td>
+          <td className="px-3 py-2 text-right">{formatMoney(cenario.csll_a_rec_total)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
 
   const scrollToSimulacoesSalvas = () => {
     simulacoesSalvasRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -287,7 +465,12 @@ export function SimuladorIN2306() {
   return (
     <Layout>
       <ToastContainer />
-      <h1 className="text-2xl font-bold text-slate-900 mb-2">Simulador Nova IN 2.306/2026</h1>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-slate-900">Simulação LC 224/2025 – Lucro Presumido</h1>
+        <p className="text-sm text-slate-600 mt-1">
+          Compare a tributação antes e depois da alteração e veja o aumento para o contribuinte.
+        </p>
+      </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2 border-b border-slate-200">
           <button
@@ -316,277 +499,286 @@ export function SimuladorIN2306() {
 
       {tab === 'tributario' && (
         <>
-          <Card>
-            <h2 className="text-xl font-semibold text-slate-800 mb-2">Simulação tributária – Lucro Presumido</h2>
-            <p className="text-sm text-slate-600 mb-2">
-              Receitas por trimestre (R$). Limite isento: R$ 1.250.000/trimestre (R$ 5 MM/ano). Acréscimo de 10% na presunção sobre o excedente (IN 2.306/2026).
-            </p>
-            <p className="text-sm text-slate-500 mb-2">
-              Comércio e Serviços possuem alíquotas de presunção diferentes (8%/12% vs 32% IRPJ/CSLL).
-            </p>
-            {!tributarioResult && (
-              <p className="text-sm text-slate-600 mb-4 p-3 bg-slate-100 rounded-lg">
-                Preencha as receitas por trimestre (Comércio e Serviços) e clique em <strong>Comparar cenários</strong> para ver o impacto da IN 2.306/2026.
-              </p>
-            )}
-            <form onSubmit={handleSimulateTributario} className="space-y-6">
-              <div className="flex flex-wrap gap-4 items-end">
-                <Input
-                  label="Ano"
-                  type="number"
-                  min={2020}
-                  max={2030}
-                  value={ano}
-                  onChange={(e) => setAno(Number(e.target.value))}
-                />
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={equiparacao}
-                    onChange={(e) => setEquiparacao(e.target.checked)}
-                    className="rounded border-slate-300"
+          <Card className="overflow-hidden">
+            <form onSubmit={handleSimulateTributario} className="space-y-5">
+              {/* Opções em linha única */}
+              <div className="flex flex-wrap items-center gap-4 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500">Ano</span>
+                  <Input
+                    type="number"
+                    min={2020}
+                    max={2030}
+                    value={ano}
+                    onChange={(e) => setAno(Number(e.target.value))}
+                    className="w-28 min-w-[7rem] h-9 text-center"
                   />
-                  <span className="text-sm text-slate-700">Equiparação hospitalar (8% IRPJ / 12% CSLL em serviços)</span>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={modoAnual} onChange={(e) => setModoAnual(e.target.checked)} className="rounded border-slate-300" />
+                  Receita anual (distribuição uniforme)
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={modoAnual}
-                    onChange={(e) => setModoAnual(e.target.checked)}
-                    className="rounded border-slate-300"
-                  />
-                  <span className="text-sm text-slate-700">Receita anual única (distribuição uniforme)</span>
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={equiparacao} onChange={(e) => setEquiparacao(e.target.checked)} className="rounded border-slate-300" />
+                  Equiparação hospitalar
                 </label>
               </div>
 
               {modoAnual ? (
-                <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-                  <p className="text-sm text-amber-700 mb-3">
-                    Distribuição uniforme entre trimestres. Para perfil com receita concentrada em alguns trimestres, use o preenchimento por trimestre.
-                  </p>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comércio – 8% IRPJ / 12% CSLL</p>
-                      <MoneyInput label="Produtos / Mercadorias (ano)" value={receitaAnual.produtos_mercadorias ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, produtos_mercadorias: v }))} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Serviços</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <MoneyInput label="Serviços (geral) – ano" value={receitaAnual.servicos ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos: v }))} />
-                        <MoneyInput label="Serv. favorecida – ano" value={receitaAnual.servicos_favorecida ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_favorecida: v }))} />
-                        <MoneyInput label="Serv. hospitalares – ano" value={receitaAnual.servicos_hospitalares ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_hospitalares: v }))} />
-                      </div>
-                    </div>
-                    <div>
-                      <MoneyInput label="Demais receitas (ano)" value={receitaAnual.demais_receitas ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, demais_receitas: v }))} />
-                    </div>
-                    <div className="border-t border-slate-200 pt-3 mt-3">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Deduções anuais (distribuídas nos 4 trimestres)</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <MoneyInput label="PIS/COFINS alíq. zero (ano)" value={deducoesAnual.pis_cofins_zero ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, pis_cofins_zero: v }))} />
-                        <MoneyInput label="ICMS destacado (ano)" value={deducoesAnual.icms_destacado ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, icms_destacado: v }))} />
-                      </div>
-                    </div>
-                    <div className="border-t border-slate-200 pt-3 mt-3">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Retenções anuais (distribuídas nos 4 trimestres)</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <MoneyInput label="IRRF (ano)" value={retencoesAnual.irrf ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, irrf: v }))} />
-                        <MoneyInput label="Órgãos públicos 4,65% (ano)" value={retencoesAnual.orgaos_publicos ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, orgaos_publicos: v }))} />
-                      </div>
-                    </div>
+                <div className="rounded-lg border border-slate-200 p-4 bg-slate-50/50 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <MoneyInput label="Produtos / Mercadorias" value={receitaAnual.produtos_mercadorias ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, produtos_mercadorias: v }))} />
+                    <MoneyInput label="Serviços (geral)" value={receitaAnual.servicos ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos: v }))} />
+                    <MoneyInput label="Serv. favorecida" value={receitaAnual.servicos_favorecida ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_favorecida: v }))} />
+                    <MoneyInput label="Serv. hospitalares" value={receitaAnual.servicos_hospitalares ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, servicos_hospitalares: v }))} />
+                    <MoneyInput label="Demais receitas" value={receitaAnual.demais_receitas ?? 0} onChange={(v) => setReceitaAnual((r) => ({ ...r, demais_receitas: v }))} className="sm:col-span-2" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                    <MoneyInput label="PIS/COFINS alíq. zero" value={deducoesAnual.pis_cofins_zero ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, pis_cofins_zero: v }))} />
+                    <MoneyInput label="ICMS destacado" value={deducoesAnual.icms_destacado ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, icms_destacado: v }))} />
+                    <MoneyInput label="IRRF" value={retencoesAnual.irrf ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, irrf: v }))} />
+                    <MoneyInput label="Órgãos públicos 4,65%" value={retencoesAnual.orgaos_publicos ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, orgaos_publicos: v }))} />
                   </div>
                 </div>
               ) : (
               <>
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-                  <h3 className="font-medium text-slate-800 mb-3">{i + 1}º Trimestre</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comércio (Prod./Merc.) – 8% IRPJ / 12% CSLL</p>
-                      <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                        <MoneyInput
-                          label="Produtos / Mercadorias"
-                          value={trimestres[i]?.produtos_mercadorias ?? 0}
-                          onChange={(v) => updateTrimestre(i, 'produtos_mercadorias', v)}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Serviços – alíquotas diferentes</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <MoneyInput
-                          label="Serviços (geral) – 32% IRPJ / 32% CSLL"
-                          value={trimestres[i]?.servicos ?? 0}
-                          onChange={(v) => updateTrimestre(i, 'servicos', v)}
-                        />
-                        <MoneyInput
-                          label="Serviços alíquota favorecida – 16% IRPJ"
-                          value={trimestres[i]?.servicos_favorecida ?? 0}
-                          onChange={(v) => updateTrimestre(i, 'servicos_favorecida', v)}
-                        />
-                        <MoneyInput
-                          label="Serviços hospitalares – 8% IRPJ / 12% CSLL"
-                          value={trimestres[i]?.servicos_hospitalares ?? 0}
-                          onChange={(v) => updateTrimestre(i, 'servicos_hospitalares', v)}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Demais receitas – 100% presunção</p>
-                      <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                        <MoneyInput
-                          label="Demais receitas / Ganhos de capital"
-                          value={trimestres[i]?.demais_receitas ?? 0}
-                          onChange={(v) => updateTrimestre(i, 'demais_receitas', v)}
-                        />
-                      </div>
-                    </div>
-                    <div className="border-t border-slate-200 pt-3 mt-3">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Deduções (reduzem base PIS/COFINS)</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <MoneyInput
-                          label="PIS/COFINS alíq. zero (R$)"
-                          value={deducoesTrimestrais[i]?.pis_cofins_zero ?? 0}
-                          onChange={(v) => updateDeducoes(i, 'pis_cofins_zero', v)}
-                        />
-                        <MoneyInput
-                          label="ICMS destacado / incluído no preço (R$)"
-                          value={deducoesTrimestrais[i]?.icms_destacado ?? 0}
-                          onChange={(v) => updateDeducoes(i, 'icms_destacado', v)}
-                        />
-                      </div>
-                    </div>
-                    <div className="border-t border-slate-200 pt-3 mt-3">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Retenções (reduzem &quot;a rec.&quot;)</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <MoneyInput
-                          label="IRRF (R$)"
-                          value={retencoesTrimestrais[i]?.irrf ?? 0}
-                          onChange={(v) => updateRetencoes(i, 'irrf', v)}
-                        />
-                        <MoneyInput
-                          label="Órgãos públicos 4,65% (R$)"
-                          value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0}
-                          onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                {/* Tabela: uma linha por tipo de receita, colunas = T1..T4 */}
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                        <th className="text-left py-2.5 px-3 font-medium w-48">Receita</th>
+                        <th className="text-right py-2.5 px-2 font-medium">1º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium">2º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium">3º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium">4º Trim</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr>
+                        <td className="py-2 px-3 text-slate-600">Produtos / Mercadorias</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2">
+                            <MoneyInput value={trimestres[i]?.produtos_mercadorias ?? 0} onChange={(v) => updateTrimestre(i, 'produtos_mercadorias', v)} className="text-right text-sm" />
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 text-slate-600">Serviços (geral)</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2">
+                            <MoneyInput value={trimestres[i]?.servicos ?? 0} onChange={(v) => updateTrimestre(i, 'servicos', v)} className="text-right text-sm" />
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 text-slate-600">Serv. favorecida</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2">
+                            <MoneyInput value={trimestres[i]?.servicos_favorecida ?? 0} onChange={(v) => updateTrimestre(i, 'servicos_favorecida', v)} className="text-right text-sm" />
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 text-slate-600">Serv. hospitalares</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2">
+                            <MoneyInput value={trimestres[i]?.servicos_hospitalares ?? 0} onChange={(v) => updateTrimestre(i, 'servicos_hospitalares', v)} className="text-right text-sm" />
+                          </td>
+                        ))}
+                      </tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 px-3 text-slate-600">Demais receitas</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2">
+                            <MoneyInput value={trimestres[i]?.demais_receitas ?? 0} onChange={(v) => updateTrimestre(i, 'demais_receitas', v)} className="text-right text-sm" />
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-slate-400 px-3 py-2 bg-slate-50/80 border-t border-slate-100">Limite isento: R$ 1.250.000/trim (R$ 5 MM/ano). Acréscimo 10% sobre o excedente (LC 224/2025).</p>
                 </div>
-              ))}
+
+                {/* Deduções e retenções: recolhível */}
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setDetalhesAbertos((b) => !b)}
+                    className="w-full flex items-center justify-between py-2.5 px-3 bg-slate-50 hover:bg-slate-100 text-sm font-medium text-slate-700"
+                  >
+                    <span>Deduções e retenções (opcional)</span>
+                    <span className="text-slate-400">{detalhesAbertos ? '▲' : '▼'}</span>
+                  </button>
+                  {detalhesAbertos && (
+                    <div className="p-3 bg-white border-t border-slate-100">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-slate-500 text-left">
+                            <th className="py-1.5 px-3 font-normal w-44"></th>
+                            <th className="text-right py-1.5 px-2 font-normal">1º</th>
+                            <th className="text-right py-1.5 px-2 font-normal">2º</th>
+                            <th className="text-right py-1.5 px-2 font-normal">3º</th>
+                            <th className="text-right py-1.5 px-2 font-normal">4º</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          <tr>
+                            <td className="py-1 px-3 text-slate-600">PIS/COFINS alíq. zero</td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1 px-2">
+                                <MoneyInput value={deducoesTrimestrais[i]?.pis_cofins_zero ?? 0} onChange={(v) => updateDeducoes(i, 'pis_cofins_zero', v)} className="text-right text-sm" />
+                              </td>
+                            ))}
+                          </tr>
+                          <tr>
+                            <td className="py-1 px-3 text-slate-600">ICMS destacado</td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1 px-2">
+                                <MoneyInput value={deducoesTrimestrais[i]?.icms_destacado ?? 0} onChange={(v) => updateDeducoes(i, 'icms_destacado', v)} className="text-right text-sm" />
+                              </td>
+                            ))}
+                          </tr>
+                          <tr>
+                            <td className="py-1 px-3 text-slate-600">IRRF</td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1 px-2">
+                                <MoneyInput value={retencoesTrimestrais[i]?.irrf ?? 0} onChange={(v) => updateRetencoes(i, 'irrf', v)} className="text-right text-sm" />
+                              </td>
+                            ))}
+                          </tr>
+                          <tr>
+                            <td className="py-1 px-3 text-slate-600">Órgãos públicos 4,65%</td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1 px-2">
+                                <MoneyInput value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0} onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)} className="text-right text-sm" />
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </>
               )}
 
-              <p className="text-xs text-slate-500">
-                Deduções reduzem a base para PIS/COFINS. Retenções (IRRF, órgãos públicos 4,65%) reduzem o imposto &quot;a recolher&quot;.
-              </p>
-
-              <div className="flex flex-wrap gap-4 items-center">
-                <label className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-100">
+                <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90 text-white font-medium">
+                  {loading ? 'Calculando...' : 'Comparar cenários'}
+                </Button>
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={saveTrib} onChange={(e) => setSaveTrib(e.target.checked)} className="rounded border-slate-300" />
-                  <span className="text-sm">Salvar simulação</span>
+                  Salvar simulação
                 </label>
                 {saveTrib && (
                   <>
-                    <Input
-                      label="Título"
-                      value={titleTrib}
-                      onChange={(e) => setTitleTrib(e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <div className="min-w-[200px]">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
-                      <select
-                        className="w-full border border-slate-200 rounded-md px-4 py-2"
-                        value={clientIdTrib}
-                        onChange={(e) => setClientIdTrib(e.target.value)}
-                        required={saveTrib}
-                      >
-                        <option value="">Selecione</option>
-                        {clients.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name} – {c.cnpj}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <Input placeholder="Título" value={titleTrib} onChange={(e) => setTitleTrib(e.target.value)} className="w-40 h-9 text-sm" />
+                    <select
+                      className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
+                      value={clientIdTrib}
+                      onChange={(e) => setClientIdTrib(e.target.value)}
+                      required={saveTrib}
+                    >
+                      <option value="">Cliente</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                   </>
                 )}
-                <Button type="submit" disabled={loading}>{loading ? 'Calculando...' : 'Comparar cenários'}</Button>
               </div>
             </form>
           </Card>
 
           {tributarioResult && (
             <>
-              <Card className="bg-slate-50 border-slate-200">
-                <p className="text-sm text-slate-600 mb-1">Simulação calculada para ano <strong>{tributarioResult.ano}</strong>. Receita total informada: <strong>{formatMoney(receitaTotalInformada)}</strong>.</p>
-                <p className="text-base font-semibold text-slate-800 mt-2">
-                  Com a IN 2.306/2026 você pagaria <span className="text-red-700">{formatMoney(tributarioResult.comparativo.imposto_a_maior_2026_vs_2025)} a mais</span> em relação a 2025.
-                  {tributarioResult.cenario_equiparacao && (
-                    <> No cenário de equiparação hospitalar, a economia em relação a 2026 seria de <span className="text-indigo-600">{formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}</span>.</>
-                  )}
-                </p>
-              </Card>
+              <div id="simulador-tributario-resultado-print" className="space-y-6">
+                {/* Cabeçalho do resultado: título + resumo + botão PDF */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-1">Resultado da simulação</h2>
+                    <p className="text-sm text-slate-600">
+                      Ano <strong>{tributarioResult.ano}</strong> · Receita total informada: <strong>{formatMoney(receitaTotalInformada)}</strong>
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                      <span>
+                        Aumento (2026 vs 2025): <strong className="text-red-700">{formatMoney(tributarioResult.comparativo.imposto_a_maior_2026_vs_2025)}</strong>
+                      </span>
+                      {tributarioResult.cenario_equiparacao && (
+                        <span>
+                          Economia equiparação: <strong className="text-violet-700">{formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => window.print()}
+                    className="print:hidden shrink-0 inline-flex items-center gap-2"
+                    aria-label="Exportar resultado para PDF"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Exportar para PDF
+                  </Button>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="border-l-4 border-l-slate-400">
-                  <h3 className="font-semibold text-slate-800 mb-2">Cálculo 2025 (sem aumento)</h3>
-                  <p className="text-sm text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_2025.receita_bruta_total)}</p>
-                  <p className="text-slate-700">IRPJ a rec.: <strong>{formatMoney(tributarioResult.cenario_2025.irpj_a_rec_total)}</strong></p>
-                  <p className="text-slate-700">CSLL a rec.: <strong>{formatMoney(tributarioResult.cenario_2025.csll_a_rec_total)}</strong></p>
-                  {includePisCofins && (
-                    <>
-                      <p className="text-slate-600 text-sm">PIS a rec.: {formatMoney(tributarioResult.cenario_2025.pis_a_rec_total ?? 0)}</p>
-                      <p className="text-slate-600 text-sm">COFINS a rec.: {formatMoney(tributarioResult.cenario_2025.cofins_a_rec_total ?? 0)}</p>
-                    </>
-                  )}
-                  <p className="text-slate-600 text-sm mt-2">
-                    Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
-                      tributarioResult.cenario_2025.irpj_a_rec_total + tributarioResult.cenario_2025.csll_a_rec_total +
-                      (includePisCofins ? (tributarioResult.cenario_2025.pis_a_rec_total ?? 0) + (tributarioResult.cenario_2025.cofins_a_rec_total ?? 0) : 0)
+                {/* Cards dos 3 cenários — cores alinhadas ao gráfico */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <Card className="border-l-4 border-l-slate-500 bg-slate-50/50 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">Cálculo 2025 (sem aumento)</h3>
+                    <p className="text-xs text-slate-500 mb-3">Receita bruta: {formatMoney(tributarioResult.cenario_2025.receita_bruta_total)}</p>
+                    <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2025.irpj_a_rec_total)}</strong></p>
+                    <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2025.csll_a_rec_total)}</strong></p>
+                    {includePisCofins && (
+                      <>
+                        <p className="text-slate-600 text-xs">PIS: {formatMoney(tributarioResult.cenario_2025.pis_a_rec_total ?? 0)} · COFINS: {formatMoney(tributarioResult.cenario_2025.cofins_a_rec_total ?? 0)}</p>
+                      </>
                     )}
-                  </p>
-                </Card>
-                <Card className="border-l-4 border-l-amber-500">
-                  <h3 className="font-semibold text-slate-800 mb-2">Projeção 2026 (IN 2.306)</h3>
-                  <p className="text-sm text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_2026.receita_bruta_total)}</p>
-                  <p className="text-slate-700">IRPJ a rec.: <strong>{formatMoney(tributarioResult.cenario_2026.irpj_a_rec_total)}</strong></p>
-                  <p className="text-slate-700">CSLL a rec.: <strong>{formatMoney(tributarioResult.cenario_2026.csll_a_rec_total)}</strong></p>
-                  {includePisCofins && (
-                    <>
-                      <p className="text-slate-600 text-sm">PIS a rec.: {formatMoney(tributarioResult.cenario_2026.pis_a_rec_total ?? 0)}</p>
-                      <p className="text-slate-600 text-sm">COFINS a rec.: {formatMoney(tributarioResult.cenario_2026.cofins_a_rec_total ?? 0)}</p>
-                    </>
-                  )}
-                  <p className="text-slate-600 text-sm mt-2">
-                    Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
-                      tributarioResult.cenario_2026.irpj_a_rec_total + tributarioResult.cenario_2026.csll_a_rec_total +
-                      (includePisCofins ? (tributarioResult.cenario_2026.pis_a_rec_total ?? 0) + (tributarioResult.cenario_2026.cofins_a_rec_total ?? 0) : 0)
+                    <p className="mt-3 pt-3 border-t border-slate-200 text-base font-bold text-slate-800">
+                      Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
+                        tributarioResult.cenario_2025.irpj_a_rec_total + tributarioResult.cenario_2025.csll_a_rec_total +
+                        (includePisCofins ? (tributarioResult.cenario_2025.pis_a_rec_total ?? 0) + (tributarioResult.cenario_2025.cofins_a_rec_total ?? 0) : 0)
+                      )}
+                    </p>
+                  </Card>
+                  <Card className="border-l-4 border-l-amber-500 bg-amber-50/30 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-3">Projeção 2026 (LC 224/2025)</h3>
+                    <p className="text-xs text-slate-500 mb-3">Receita bruta: {formatMoney(tributarioResult.cenario_2026.receita_bruta_total)}</p>
+                    <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2026.irpj_a_rec_total)}</strong></p>
+                    <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2026.csll_a_rec_total)}</strong></p>
+                    {includePisCofins && (
+                      <p className="text-slate-600 text-xs">PIS: {formatMoney(tributarioResult.cenario_2026.pis_a_rec_total ?? 0)} · COFINS: {formatMoney(tributarioResult.cenario_2026.cofins_a_rec_total ?? 0)}</p>
                     )}
-                  </p>
-                </Card>
-                <Card className="border-l-4 border-l-brand">
-                  <h3 className="font-semibold text-slate-800 mb-2">Cenário Equiparação</h3>
-                  <p className="text-xs text-slate-600 mb-2">O cenário &quot;Equiparação hospitalar&quot; reflete a aplicação de <strong>tese jurídica</strong>. Sua aceitação pela Receita depende de interpretação e de eventual decisão judicial (ex.: liminares/mandados de segurança em casos análogos). Cenário ilustrativo para discussão com advogado e contador.</p>
-                  <p className="text-sm text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao!.receita_bruta_total)}</p>
-                  <p className="text-slate-700">IRPJ a rec.: <strong>{formatMoney(tributarioResult.cenario_equiparacao!.irpj_a_rec_total)}</strong></p>
-                  <p className="text-slate-700">CSLL a rec.: <strong>{formatMoney(tributarioResult.cenario_equiparacao!.csll_a_rec_total)}</strong></p>
-                  {includePisCofins && (
-                    <>
-                      <p className="text-slate-600 text-sm">PIS a rec.: {formatMoney(tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0)}</p>
-                      <p className="text-slate-600 text-sm">COFINS a rec.: {formatMoney(tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0)}</p>
-                    </>
-                  )}
-                  <p className="text-slate-600 text-sm mt-2">
-                    Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
-                      tributarioResult.cenario_equiparacao!.irpj_a_rec_total + tributarioResult.cenario_equiparacao!.csll_a_rec_total +
-                      (includePisCofins ? (tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0) + (tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0) : 0)
+                    <p className="mt-3 pt-3 border-t border-amber-200 text-base font-bold text-slate-800">
+                      Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
+                        tributarioResult.cenario_2026.irpj_a_rec_total + tributarioResult.cenario_2026.csll_a_rec_total +
+                        (includePisCofins ? (tributarioResult.cenario_2026.pis_a_rec_total ?? 0) + (tributarioResult.cenario_2026.cofins_a_rec_total ?? 0) : 0)
+                      )}
+                    </p>
+                  </Card>
+                  <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-violet-800 uppercase tracking-wider mb-3">Cenário Equiparação</h3>
+                    <p className="text-xs text-slate-600 mb-3">Tese jurídica. Aceitação pela Receita depende de interpretação e eventual decisão judicial. Ilustrativo para discussão com advogado e contador.</p>
+                    <p className="text-xs text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao!.receita_bruta_total)}</p>
+                    <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao!.irpj_a_rec_total)}</strong></p>
+                    <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao!.csll_a_rec_total)}</strong></p>
+                    {includePisCofins && (
+                      <p className="text-slate-600 text-xs">PIS: {formatMoney(tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0)} · COFINS: {formatMoney(tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0)}</p>
                     )}
-                  </p>
-                </Card>
-              </div>
+                    <p className="mt-3 pt-3 border-t border-violet-200 text-base font-bold text-slate-800">
+                      Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
+                        tributarioResult.cenario_equiparacao!.irpj_a_rec_total + tributarioResult.cenario_equiparacao!.csll_a_rec_total +
+                        (includePisCofins ? (tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0) + (tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0) : 0)
+                      )}
+                    </p>
+                  </Card>
+                </div>
 
-              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 print:hidden">
                 <label className="flex items-center gap-2 text-sm text-slate-600">
                   <input type="checkbox" checked={includePisCofins} onChange={(e) => setIncludePisCofins(e.target.checked)} className="rounded border-slate-300" />
                   Incluir PIS e COFINS no total de tributos
@@ -594,22 +786,22 @@ export function SimuladorIN2306() {
               </div>
 
               {barChartData.length > 0 && (
-                <Card>
+                <Card className="p-5">
                   <h3 className="font-semibold text-slate-800 mb-3">
-                    {includePisCofins ? 'Total de tributos por cenário (IRPJ + CSLL + PIS + COFINS)' : 'Imposto total por cenário (IRPJ + CSLL a rec.)'}
+                    {includePisCofins ? 'Total de tributos por cenário' : 'Imposto total por cenário (IRPJ + CSLL a rec.)'}
                   </h3>
-                  <div className="h-72 w-full" role="img" aria-label="Gráfico de barras comparando impostos por cenário: 2025, 2026 e Equiparação">
+                  <div className="h-64 w-full" role="img" aria-label="Gráfico comparando total de impostos: 2025, 2026 e Equiparação">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={barChartData} margin={{ top: 12, right: 24, left: 24, bottom: 12 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 11 }} />
                         <Tooltip formatter={(v: number) => formatMoney(v)} />
-                        <Legend />
-                        <Bar dataKey="irpj" name="IRPJ a rec." fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="csll" name="CSLL a rec." fill="#6366f1" radius={[4, 4, 0, 0]} />
-                        {includePisCofins && <Bar dataKey="pis" name="PIS a rec." fill="#14b8a6" radius={[4, 4, 0, 0]} />}
-                        {includePisCofins && <Bar dataKey="cofins" name="COFINS a rec." fill="#a855f7" radius={[4, 4, 0, 0]} />}
+                        <Bar dataKey="total" name="Total" radius={[4, 4, 0, 0]}>
+                          {barChartData.map((_, index) => (
+                            <Cell key={index} fill={['#64748b', '#f59e0b', '#7c3aed'][index]} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -679,77 +871,56 @@ export function SimuladorIN2306() {
               <Card>
                 <h3 className="font-semibold text-slate-800 mb-2">Memória de Cálculo</h3>
                 <p className="text-sm text-slate-600 mb-2">
-                  Limite isento: R$ 1.250.000/trimestre (R$ 5 MM/ano). O acréscimo de 10% na presunção incide apenas sobre a parcela da receita que exceder o limite (IN 2.306/2026). No 4º trimestre aplica-se o ajuste anual (§ 5º).
+                  Limite isento: R$ 1.250.000/trimestre (R$ 5 MM/ano). O acréscimo de 10% na presunção incide apenas sobre a parcela da receita que exceder o limite (LC 224/2025 – IN 2.306/2026). No 4º trimestre aplica-se o ajuste anual (§ 5º).
                 </p>
                 <p className="text-xs text-slate-500 mb-4">
                   Valores &quot;a rec.&quot; consideram retenções (IRRF, 4,65% órgãos públicos). Se não informadas, os valores podem ser superiores ao efetivamente devido.
                 </p>
-                <div className="flex gap-2 border-b border-slate-200 mb-4">
-                  {(['Cálculo 2025', 'Projeção 2026', 'Cenário Equiparação'] as const).map((label, idx) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => setMemoriaTab(idx as 0 | 1 | 2)}
-                      className={`px-3 py-2 text-sm font-medium rounded-t-lg ${memoriaTab === idx ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+
+                {/* Tela: abas + uma tabela por vez */}
+                <div className="print:hidden">
+                  <div className="flex gap-2 border-b border-slate-200 mb-4">
+                    {(['Cálculo 2025', 'Projeção 2026', 'Cenário Equiparação'] as const).map((label, idx) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setMemoriaTab(idx as 0 | 1 | 2)}
+                        className={`px-3 py-2 text-sm font-medium rounded-t-lg ${memoriaTab === idx ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="overflow-x-auto">
+                    {(() => {
+                      const cenarios = [
+                        { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
+                        { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
+                        { label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao },
+                      ].filter((x) => x.cenario) as { label: string; cenario: typeof tributarioResult.cenario_2025 }[];
+                      const { cenario } = cenarios[memoriaTab] ?? cenarios[0]!;
+                      return renderMemoriaTabela(cenario);
+                    })()}
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
-                  {(() => {
-                    const cenarios = [
-                      { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
-                      { label: 'Projeção 2026 (IN 2.306)', cenario: tributarioResult.cenario_2026 },
-                      { label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao },
-                    ].filter((x) => x.cenario) as { label: string; cenario: typeof tributarioResult.cenario_2025 }[];
-                    const { cenario } = cenarios[memoriaTab] ?? cenarios[0]!;
-                    return (
-                      <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
-                        <thead className="bg-slate-100 text-slate-700">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Trim.</th>
-                            <th className="px-3 py-2 text-right">Receita bruta</th>
-                            <th className="px-3 py-2 text-right">B.C. IRPJ</th>
-                            <th className="px-3 py-2 text-right">B.C. CSLL</th>
-                            <th className="px-3 py-2 text-right">IRPJ</th>
-                            <th className="px-3 py-2 text-right">Adic. IRPJ</th>
-                            <th className="px-3 py-2 text-right">CSLL</th>
-                            <th className="px-3 py-2 text-right">IRPJ a rec.</th>
-                            <th className="px-3 py-2 text-right">CSLL a rec.</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(cenario.trimestres as TrimestreCenario[])?.map((t) => (
-                            <tr key={t.trimestre} className="border-t border-slate-200">
-                              <td className="px-3 py-2">{t.trimestre}º</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.receita_bruta)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.base_calculo_irpj)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.base_calculo_csll)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.irpj)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.irpj_adicional ?? 0)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.csll)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.irpj_a_rec)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(t.csll_a_rec)}</td>
-                            </tr>
-                          ))}
-                          <tr className="border-t-2 border-slate-300 bg-slate-50 font-medium">
-                            <td className="px-3 py-2">ANUAL</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.receita_bruta_total)}</td>
-                            <td className="px-3 py-2 text-right">–</td>
-                            <td className="px-3 py-2 text-right">–</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_total)}</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_adicional_total ?? 0)}</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.csll_total)}</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.irpj_a_rec_total)}</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(cenario.csll_a_rec_total)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    );
-                  })()}
+
+                {/* Impressão: as 3 tabelas exibidas em sequência */}
+                <div className="hidden print:block space-y-6">
+                  {[
+                    { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
+                    { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
+                    { label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao },
+                  ]
+                    .filter((x): x is { label: string; cenario: NonNullable<typeof x.cenario> } => !!x.cenario)
+                    .map(({ label, cenario }) => (
+                      <div key={label}>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2">{label}</h4>
+                        {renderMemoriaTabela(cenario)}
+                      </div>
+                    ))}
                 </div>
               </Card>
+              </div>
             </>
           )}
         </>
@@ -805,7 +976,7 @@ export function SimuladorIN2306() {
           <strong>Aviso:</strong> Este simulador tem finalidade apenas informativa e de planejamento. Não constitui parecer jurídico nem consultoria tributária. Para decisões que envolvam contestação judicial ou adesão a teses, consulte um advogado.
         </p>
         <p className="text-sm text-slate-600">
-          Simulação com base na IN RFB 2.306/2026 e legislação vigente. Não substitui a apuração oficial nem consultoria tributária.
+          Simulação com base na LC 224/2025 e IN RFB 2.306/2026. Compare a tributação antes e depois da alteração. Não substitui a apuração oficial nem consultoria tributária.
         </p>
         <details className="mt-3" open={refNormativaExpanded} onToggle={() => setRefNormativaExpanded((v) => !v)}>
           <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-800">Referência normativa</summary>

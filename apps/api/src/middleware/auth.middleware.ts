@@ -28,17 +28,16 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
     // Verificar e decodificar token
     const payload = verifyAccessToken(token);
 
-    // Buscar usuário no banco
-    // Se companyId for null (super_admin), buscar sem filtro de company_id
+    // Buscar usuário no banco (sempre public.users; com search_path do tenant evita resolver para tabela do tenant)
     let result;
     if (payload.companyId === null || payload.companyId === undefined) {
       result = await query<User>(
-        'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE id = $1 AND company_id IS NULL',
+        'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND company_id IS NULL',
         [payload.userId]
       );
     } else {
       result = await query<User>(
-        'SELECT id, email, name, company_id, role, created_at, updated_at FROM users WHERE id = $1 AND company_id = $2',
+        'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND company_id = $2',
         [payload.userId, payload.companyId]
       );
     }

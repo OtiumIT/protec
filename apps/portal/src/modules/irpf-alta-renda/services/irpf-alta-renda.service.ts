@@ -4,9 +4,11 @@ import type {
   SimulateAndSaveIrpfAltaRendaInput,
   IrpfAltaRendaSimulacaoResponse,
   DadosIrpfAltaRenda,
+  DeclaracaoIrpfCompleta,
 } from '@shared/core';
 
 export interface ExtractFromPdfResult {
+  declaracao_completa: DeclaracaoIrpfCompleta;
   ano: number;
   dados: DadosIrpfAltaRenda;
 }
@@ -94,6 +96,30 @@ export const irpfAltaRendaService = {
       token,
       tenantId,
     });
+  },
+
+  /**
+   * Importa arquivo .dec ou .dbk (PGD IRPF / e-CAC) e retorna ano + dados para preencher o formulário.
+   */
+  async importDeclaration(file: File): Promise<ExtractFromPdfResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/v1/irpf-alta-renda/import-declaration`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': tenantId ?? '',
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: { message: 'Falha na importação' } }));
+      throw new Error(err.error?.message || 'Falha na importação do arquivo .dec/.dbk');
+    }
+    const result = await response.json();
+    return result.data;
   },
 
   /**

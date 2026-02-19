@@ -1,12 +1,11 @@
 /**
  * Motor de cálculo IRPF Alta Renda - Lei 15.270/2025
  *
- * Parâmetros centralizados em CONFIG_LEI_15270_2025 para facilitar ajuste quando
- * a Receita Federal publicar regulamentação (tabela ou fórmula da faixa progressiva).
- * Até lá, a faixa 600k–1,2M usa interpolação linear (0% em 600k até 10% em 1,2M).
+ * Fórmula legal (Art. 16-A § 2º II): Alíquota % = (REND/60.000) − 10
+ * Para rendimentos entre 600k e 1,2M. Acima de 1,2M: 10% fixo.
  */
 
-import type { RendimentoIsentoDividendo } from '@shared/core';
+import type { RendimentoIsentoDividendo, DadosIrpfAltaRenda } from '@shared/core';
 
 /** Parâmetros da Lei 15.270/2025 – alterar aqui quando houver regulamentação ou nova lei */
 export const CONFIG_LEI_15270_2025 = {
@@ -16,7 +15,7 @@ export const CONFIG_LEI_15270_2025 = {
   limite_retencao_mensal: 50_000,
   fonte_normativa: 'Lei 15.270/2025',
   observacao_progressiva:
-    'Faixa progressiva 600k–1,2M: interpolação linear até 10%. Sujeita a tabela ou fórmula da Receita Federal quando regulamentado.',
+    'Alíquota % = (REND/60.000) − 10 (Art. 16-A § 2º II). Faixa 600k–1,2M.',
 } as const;
 
 const LIMITE_ISENTO = CONFIG_LEI_15270_2025.limite_isento;
@@ -38,14 +37,24 @@ export interface ResultadoSimulacao {
 }
 
 /**
- * Calcula BCC = RT + soma dos rendimentos isentos (códigos 09 e 13).
+ * Calcula BCC = RT + soma isentos (09, 13) − lucros aprovados até 31/12/2025 − ganho capital − FIIs.
+ * Art. 16-A § 1º: exclui ganho de capital (I), FIIs qualificados (V-j), lucros aprovados até 31/12/2025 (XII).
  */
 export function calcularBCC(
   rendimentosTributaveis: number,
-  rendimentosIsentosDividendos: RendimentoIsentoDividendo[]
+  rendimentosIsentosDividendos: RendimentoIsentoDividendo[],
+  lucrosAprovadosAte31dez2025 = 0,
+  ganhoCapitalExcluido = 0,
+  rendimentosFiisExcluidos = 0
 ): number {
   const somaDividendos = rendimentosIsentosDividendos.reduce((s, d) => s + d.valor, 0);
-  return round2(rendimentosTributaveis + somaDividendos);
+  const bruto =
+    rendimentosTributaveis +
+    somaDividendos -
+    lucrosAprovadosAte31dez2025 -
+    ganhoCapitalExcluido -
+    rendimentosFiisExcluidos;
+  return round2(Math.max(0, bruto));
 }
 
 /**
@@ -65,8 +74,9 @@ export function aplicarFaixas(bcc: number): Omit<ResultadoSimulacao, 'risco_rete
   } else if (bcc <= LIMITE_PROGRESSIVA) {
     faixa = 'progressiva';
     excedenteSobre600k = round2(bcc - LIMITE_ISENTO);
-    const faixaProgressiva = LIMITE_PROGRESSIVA - LIMITE_ISENTO;
-    aliquotaPercentual = (excedenteSobre600k / faixaProgressiva) * CONFIG_LEI_15270_2025.aliquota_fixa_percentual;
+    // Art. 16-A § 2º II: Alíquota % = (REND/60.000) − 10
+    aliquotaPercentual = bcc / 60_000 - 10;
+    if (aliquotaPercentual < 0) aliquotaPercentual = 0;
     if (aliquotaPercentual > 10) aliquotaPercentual = 10;
     imposto = round2(bcc * (aliquotaPercentual / 100));
   } else {
@@ -109,6 +119,72 @@ export function avaliarRiscoRetencao(rendimentosIsentosDividendos: RendimentoIse
     risco_retencao_mensal: true,
     risco_retencao_detalhe: `Possível retenção de 10% na fonte: valor mensal superior a R$ 50.000 em uma ou mais fontes (${nomes}).`,
   };
+}
+
+/**
+ * Gera sugestões de planejamento tributário com base nos dados e no resultado da simulação.
+ * Lei 15.270/2025 – estratégias para holding, segregação e redução do impacto.
+ */
+export function gerarSugestoesPlanejamento(
+  dados: DadosIrpfAltaRenda,
+  resultado: {
+    base_calculo_combinada: number;
+    faixa: string;
+    imposto_estimado: number;
+    risco_retencao_mensal: boolean;
+    risco_retencao_detalhe?: string;
+  }
+): string[] {
+  const sugestoes: string[] = [];
+  const bcc = resultado.base_calculo_combinada;
+  const dividendos = dados.rendimentos_isentos_dividendos ?? [];
+
+  // Retenção 10%: fontes com valor mensal > R$ 50k → holding/fracionamento
+  const fontesAcima = dividendos.filter((d) => (d.valor ?? 0) / 12 > LIMITE_RETENCAO_MENSAL);
+  if (fontesAcima.length > 0) {
+    fontesAcima.forEach((f) => {
+      const nome = f.nome_fonte ?? f.cnpj_fonte ?? 'Fonte';
+      sugestoes.push(
+        `Retenção 10% na fonte: "${nome}" com valor anual ${formatBRL(f.valor ?? 0)} (média mensal > R$ 50k). Considere holding ou fracionamento de recebimentos.`
+      );
+    });
+  }
+
+  // Aluguéis gerando carnê-leão → holding imobiliária
+  const carneLeao = dados.imposto_ja_pago_carne_leao ?? 0;
+  const rt = dados.rendimentos_tributaveis ?? 0;
+  if (carneLeao > 0 && rt > 0) {
+    sugestoes.push(
+      `Aluguéis/receitas PF gerando carnê-leão (IR pago: ${formatBRL(carneLeao)}). Avalie constituição de holding imobiliária para reorganização tributária.`
+    );
+  }
+
+  // Base acima de R$ 1,2M → segregação com cônjuge/filhos
+  if (bcc > LIMITE_PROGRESSIVA) {
+    sugestoes.push(
+      `Base de cálculo (${formatBRL(bcc)}) acima de R$ 1,2M. Considere segregação da renda com cônjuge ou filhos (dentro dos limites legais) para reduzir a alíquota efetiva.`
+    );
+  }
+
+  // Base entre 600k e 1,2M – alíquota progressiva
+  if (bcc > LIMITE_ISENTO && bcc <= LIMITE_PROGRESSIVA) {
+    sugestoes.push(
+      `Base na faixa progressiva. Revisão do momento e da forma de recebimento dos rendimentos pode auxiliar no planejamento.`
+    );
+  }
+
+  // Fallback genérico se não houver sugestões específicas
+  if (sugestoes.length === 0) {
+    sugestoes.push(
+      'Revisão do momento e da forma de recebimento dos rendimentos pode auxiliar no planejamento. Consulte seu consultor tributário para simulações específicas à Lei 15.270/2025.'
+    );
+  }
+
+  return sugestoes;
+}
+
+function formatBRL(n: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(n);
 }
 
 function round2(n: number): number {

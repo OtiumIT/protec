@@ -3,9 +3,9 @@ import type { ModuloItem } from './types';
 
 const modulosPrincipais: ModuloItem[] = [
   {
-    id: 'validador-rating',
-    title: 'Validador de Rating (CAPAG)',
-    description: 'Informe os dados do balanço e da DRE; o sistema calcula Liquidez Corrente, Liquidez Geral e Solvência conforme Portaria 6.757/2022 e classifica o rating. Confronte estimado x real para decisões mais seguras.',
+    id: 'transacao-tributaria',
+    title: 'Transação Tributária - Análise da capacidade de pagamento',
+    description: 'Avalie se a classificação da capacidade de pagamento feita pela Receita Federal está correta, com revisão do enquadramento a partir dos dados contábeis analisados pelo sistema e emissão de relatório para fundamentação.',
     icon: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -14,8 +14,8 @@ const modulosPrincipais: ModuloItem[] = [
   },
   {
     id: 'simulador-in2306',
-    title: 'Simulador IN 2.306/2026',
-    description: 'Compare cenários em minutos: cálculo 2025, projeção 2026 (IN 2.306) e Equiparação Hospitalar. Planejamento para Lucro Presumido com ajuste anual e adicional de IRPJ – sem horas de planilha.',
+    title: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
+    description: 'Compare a tributação do lucro presumido antes e depois da alteração trazida pela LC 224/2025 e identifique quanto será o aumento para o contribuinte.',
     icon: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -23,12 +23,12 @@ const modulosPrincipais: ModuloItem[] = [
     ),
   },
   {
-    id: 'editais-escritorios',
-    title: 'Ideal para escritórios de contabilidade e advocacia',
-    description: 'Cadastro de clientes, processos e teses tributárias. Organize arquivos fiscais por cliente e competência e use as simulações de rating e IN 2.306 para apoiar decisões no dia a dia.',
+    id: 'irpf-alta-renda',
+    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
+    description: 'Análise da declaração do IR e simulação da nova tributação da alta renda, com alíquota aplicável e valor a pagar, comparando cenários antes e depois da nova legislação e apontando possíveis soluções para redução.',
     icon: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 009 9" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },

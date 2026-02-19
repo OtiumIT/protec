@@ -15,6 +15,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '024_judicial_processes.sql',
   '025_in_2306_simulations.sql',
   '029_irpf_alta_renda.sql',
+  '034_irpf_alta_renda_add_company_id.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {
