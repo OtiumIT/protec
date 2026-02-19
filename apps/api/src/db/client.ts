@@ -1,7 +1,11 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { AsyncLocalStorage } from 'async_hooks';
+import dns from 'node:dns';
 import { Pool } from 'pg';
+
+// Evita ENETUNREACH quando a rede não tem IPv6: força resolução DNS a preferir IPv4
+dns.setDefaultResultOrder('ipv4first');
 
 // Carregar .env da raiz do projeto (se não estiver carregado)
 if (!process.env.DATABASE_URL) {
