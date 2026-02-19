@@ -51,10 +51,14 @@ function extractAnoFromFilename(name: string): number | null {
   return match ? parseInt(match[1], 10) : null;
 }
 
+/** Versão do parser (2 = leiaute corrigido: 13 dígitos, tipo 20 totais, tipo 26 não em rendimentos) */
+export const DEC_DBK_PARSER_VERSION = 2;
+
 export type ParseDecDbkResult = {
   ano: number;
   dados: import('@shared/core').DadosIrpfAltaRenda;
   declaracao_completa: DeclaracaoIrpfCompleta;
+  parser_version?: number;
 };
 
 /**
@@ -271,6 +275,7 @@ function buildResult(
     ano,
     dados: dadosValidados,
     declaracao_completa: declaracaoValidada,
+    parser_version: DEC_DBK_PARSER_VERSION,
   };
 }
 

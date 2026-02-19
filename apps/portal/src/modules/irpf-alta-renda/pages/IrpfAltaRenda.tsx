@@ -65,6 +65,7 @@ export function IrpfAltaRenda() {
   const [decDbkLoading, setDecDbkLoading] = useState(false);
   const [decDbkFile, setDecDbkFile] = useState<File | null>(null);
   const [declaracaoExtraida, setDeclaracaoExtraida] = useState<DeclaracaoIrpfCompleta | null>(null);
+  const [decDbkParserVersion, setDecDbkParserVersion] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -197,7 +198,7 @@ export function IrpfAltaRenda() {
     }
   };
 
-  const applyExtractedData = (res: ExtractFromPdfResult) => {
+  const applyExtractedData = (res: ExtractFromPdfResult & { parser_version?: number }) => {
     const d = res.dados;
     setAno(res.ano);
     setContribuinteNome(d.contribuinte.nome);
@@ -227,6 +228,8 @@ export function IrpfAltaRenda() {
     setRendimentosFiisExcluidos(dd.rendimentos_fiis_excluidos ?? 0);
 
     setDeclaracaoExtraida(res.declaracao_completa ?? null);
+    const pv = (res as { parser_version?: number }).parser_version;
+    setDecDbkParserVersion(typeof pv === 'number' ? pv : null);
   };
 
   const handlePdfUpload = async (e: React.FormEvent) => {
@@ -319,7 +322,14 @@ export function IrpfAltaRenda() {
         <Card title="Dados do IRPF" className="w-full">
           {declaracaoExtraida && (
             <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3 max-h-80 overflow-y-auto">
-              <p className="font-medium text-emerald-800">Declaração extraída (100% dos dados)</p>
+              <p className="font-medium text-emerald-800">
+                Declaração extraída (100% dos dados)
+                {declaracaoExtraida.fonte === 'dec_dbk' && (
+                  decDbkParserVersion === 2
+                    ? ' — Parser .dbk corrigido (v2)'
+                    : ' — Se os valores estiverem errados, reinicie a API (porta 3001) e reimporte o .dbk'
+                )}
+              </p>
               {declaracaoExtraida.rendimentos_tributaveis_pj?.itens?.length > 0 && (
                 <div>
                   <span className="text-emerald-700">Rendimentos PJ:</span>
