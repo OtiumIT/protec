@@ -1,4 +1,4 @@
-import apiRequest from '../../../shared/services/api';
+import apiRequest, { getApiUrl } from '../../../shared/services/api';
 import type { RatingValidation } from '@shared/core';
 
 // Helper para obter token e tenantId do localStorage
@@ -9,6 +9,16 @@ function getAuthHeaders() {
     throw new Error('Not authenticated');
   }
   return { token, tenantId };
+}
+
+/** Resultado da extração do PDF da ECD (SPED Contábil) */
+export interface ExtractEcdPdfResult {
+  ecd: {
+    documento_info?: { periodo_escrituracao?: { inicio?: string; fim?: string }; [key: string]: unknown };
+    entidade?: { nome?: string; cnpj?: string; [key: string]: unknown };
+    demonstrativo_contabil?: unknown;
+  };
+  simulação_prefill: Omit<SimulateRatingInput, 'client_id' | 'rating_real' | 'save_simulation'>;
 }
 
 // Tipos para simulação
@@ -200,6 +210,30 @@ export const ratingValidatorService = {
       token,
       tenantId,
     });
+  },
+
+  /**
+   * Extrai dados do PDF da ECD (SPED Contábil) via OCR e retorna dados para preencher a simulação.
+   */
+  async extractFromEcdPdf(file: File): Promise<ExtractEcdPdfResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/v1/rating-validator/extract-from-ecd-pdf`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': tenantId ?? '',
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: { message: 'Falha na extração do PDF da ECD' } }));
+      throw new Error(err.error?.message ?? 'Falha na extração do PDF da ECD');
+    }
+    const result = await response.json();
+    return result.data;
   },
 
   /**

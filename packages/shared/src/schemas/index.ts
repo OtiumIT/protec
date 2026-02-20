@@ -9,6 +9,7 @@ export * from './client.schema.js';
 export * from './fiscal-file.schema.js';
 export * from './billing.schema.js';
 export * from './rating-validator.schema.js';
+export * from './ecd-extracted.schema.js';
 export * from './edital.schema.js';
 export * from './judicial-process.schema.js';
 export * from './simulador-in-2306.schema.js';

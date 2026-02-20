@@ -1,7 +1,30 @@
 import { z } from 'zod';
 
+/** Arredonda para 2 decimais (evita resíduos de float que falham em multipleOf(0.01)) */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Recursivamente arredonda todos os números de um valor (objetos/arrays). */
+function deepRoundNumbers(value: unknown): unknown {
+  if (value === null) return null;
+  if (typeof value === 'number') return round2(value);
+  if (typeof value === 'boolean' || typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(deepRoundNumbers);
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      out[key] = deepRoundNumbers((value as Record<string, unknown>)[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
+// Número arredondado para 2 decimais antes de validar (evita falha por resíduos de float)
+const numberRounded = z.number().transform(round2);
 // Schema para valores monetários (números não negativos com até 2 casas decimais)
-const monetaryValue = z.number().nonnegative().multipleOf(0.01).or(z.literal(0));
+const monetaryValue = numberRounded.pipe(z.number().nonnegative().multipleOf(0.01)).or(z.literal(0));
 
 // Schema para Ativo Circulante (campos granulares)
 export const AtivoCirculanteSchema = z.object({
@@ -55,7 +78,7 @@ export const PatrimonioLiquidoSchema = z.object({
   capital_social: monetaryValue.default(0),
   reservas_capital: monetaryValue.default(0),
   reservas_lucros: monetaryValue.default(0),
-  lucros_prejuizos_acumulados: z.number().multipleOf(0.01), // Pode ser negativo
+  lucros_prejuizos_acumulados: numberRounded.pipe(z.number().multipleOf(0.01)), // Pode ser negativo
   outros_ajustes: monetaryValue.default(0),
 });
 
@@ -66,29 +89,29 @@ export const DRESchema = z.object({
   receita_liquida: monetaryValue.optional(), // Calculado automaticamente se não fornecido
   custos_vendas: monetaryValue.default(0),
   despesas_operacionais: monetaryValue.default(0),
-  resultado_financeiro: z.number().multipleOf(0.01), // Pode ser negativo
-  outros_resultados: z.number().multipleOf(0.01), // Pode ser negativo
+  resultado_financeiro: numberRounded.pipe(z.number().multipleOf(0.01)), // Pode ser negativo
+  outros_resultados: numberRounded.pipe(z.number().multipleOf(0.01)), // Pode ser negativo
 }).optional();
 
-// Schema principal para simulação
-export const SimulateRatingSchema = z.object({
+// Schema principal para simulação (com pré-processamento que arredonda todos os números)
+const SimulateRatingSchemaRaw = z.object({
   // Balanço Patrimonial (campos granulares)
   ativo_circulante: AtivoCirculanteSchema,
   ativo_nao_circulante: AtivoNaoCirculanteSchema,
   passivo_circulante: PassivoCirculanteSchema,
   passivo_nao_circulante: PassivoNaoCirculanteSchema,
   patrimonio_liquido: PatrimonioLiquidoSchema,
-  
+
   // Totais diretos (opcionais - quando o sistema já possui o valor calculado)
   ativo_circulante_total: monetaryValue.optional(),
   realizavel_longo_prazo_total: monetaryValue.optional(),
   passivo_circulante_total: monetaryValue.optional(),
   passivo_nao_circulante_total: monetaryValue.optional(),
   patrimonio_liquido_total: monetaryValue.optional(),
-  
+
   // DRE (opcional)
   dre: DRESchema,
-  
+
   // Metadados
   competencia: z.string().regex(/^\d{4}-\d{2}$/, 'Competência deve ser no formato AAAA-MM (ex.: 2025-01)'),
   client_id: z
@@ -98,6 +121,12 @@ export const SimulateRatingSchema = z.object({
   rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
   save_simulation: z.boolean().optional().default(false),
 });
+
+/** Schema com pré-processamento: arredonda todos os números do body antes de validar (evita 400 por resíduos de float). */
+export const SimulateRatingSchema = z.preprocess(
+  (data) => (data != null && typeof data === 'object' ? deepRoundNumbers(data) : data),
+  SimulateRatingSchemaRaw
+);
 
 // Schema para resposta de simulação
 export const RatingSimulationResponseSchema = z.object({

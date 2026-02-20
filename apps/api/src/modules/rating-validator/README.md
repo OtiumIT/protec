@@ -109,6 +109,14 @@ A classificação é baseada nos três indicadores calculados:
 - **Autenticação**: Requerida
 - **Módulo**: Requer módulo `RATING_VALIDATOR` ativo
 
+### POST /rating-validator/extract-from-ecd-pdf
+- **Descrição**: Extrai dados do PDF da ECD (SPED Contábil — Recibo de Entrega + Balanço + DRE) via OCR (OpenAI) e retorna JSON estruturado + dados para preencher a simulação.
+- **Body**: `multipart/form-data` com campo `file` (arquivo PDF).
+- **Resposta**: `{ data: { ecd: EcdExtracted, simulação_prefill: Omit<SimulateRatingInput, client_id|rating_real|save_simulation> } }`
+- **Autenticação**: Requerida
+- **Módulo**: Requer módulo `RATING_VALIDATOR` ativo
+- **Requisito**: `OPENAI_API_KEY` configurada no ambiente
+
 ### GET /rating-validator
 - **Descrição**: Listar validações com filtros e paginação
 - **Query params**: 
@@ -209,7 +217,7 @@ O sistema calcula automaticamente:
 
 ## Fluxos Importantes
 
-### Fluxo de Simulação
+### Fluxo de Simulação (manual)
 1. Usuário preenche campos granulares no frontend
 2. Frontend envia dados para `POST /rating-validator/simulate`
 3. Backend valida dados (Zod)
@@ -219,6 +227,13 @@ O sistema calcula automaticamente:
 7. Backend compara com Rating Real (se fornecido)
 8. Backend salva simulação (se solicitado)
 9. Backend retorna resultado completo
+
+### Fluxo de Simulação com PDF da ECD
+1. Usuário envia o PDF do Recibo de Entrega da ECD (SPED) em `POST /rating-validator/extract-from-ecd-pdf`
+2. Backend extrai texto do PDF (pdf-parse) ou usa visão (Files API) se for PDF escaneado
+3. OpenAI retorna JSON estruturado (documento_info, entidade, demonstrativo_contabil)
+4. Backend valida com `EcdExtractedSchema` e mapeia para entrada da simulação via `ecdExtractedToSimulateRatingInput`
+5. Frontend recebe `ecd` e `simulação_prefill`, preenche o formulário; usuário revisa/ajusta e segue o fluxo de simulação (calcular classificação)
 
 ### Fluxo de Validação Real (quando implementado)
 1. Worker processa arquivo ECD e salva em `extracted_fiscal_data`

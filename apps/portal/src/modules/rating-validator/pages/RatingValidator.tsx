@@ -5,6 +5,7 @@ import {
   ratingValidatorService,
   type SimulateRatingInput,
   type RatingSimulationResult,
+  type ExtractEcdPdfResult,
 } from '../services/rating-validator.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { judicialProcessService } from '../../judicial-processes/services/judicial-process.service';
@@ -128,6 +129,8 @@ export function RatingValidator() {
 
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ecdPdfInputRef = useRef<HTMLInputElement>(null);
+  const [isExtractingEcdPdf, setIsExtractingEcdPdf] = useState(false);
 
   // Estado para controlar modo granular vs total em cada seção
   const [useTotalMode, setUseTotalMode] = useState<{
@@ -242,6 +245,42 @@ export function RatingValidator() {
   useEffect(() => {
     loadClients();
   }, []);
+
+  const handleEcdPdfUpload = useCallback(
+    async (file: File) => {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showError('Selecione um arquivo PDF.');
+        return;
+      }
+      setIsExtractingEcdPdf(true);
+      try {
+        const result: ExtractEcdPdfResult = await ratingValidatorService.extractFromEcdPdf(file);
+        const prefill = result.simulação_prefill;
+        setFormData((prev) => ({
+          ...prev,
+          ativo_circulante: prefill.ativo_circulante,
+          ativo_nao_circulante: prefill.ativo_nao_circulante,
+          passivo_circulante: prefill.passivo_circulante,
+          passivo_nao_circulante: prefill.passivo_nao_circulante,
+          patrimonio_liquido: prefill.patrimonio_liquido,
+          competencia: prefill.competencia || prev.competencia,
+          dre: prefill.dre ?? prev.dre,
+        }));
+        setCurrentStep(1);
+        success(
+          result.ecd.entidade?.nome
+            ? `Dados da ECD de ${result.ecd.entidade.nome} importados. Revise os valores e prossiga.`
+            : 'Dados do PDF da ECD importados. Revise os valores e prossiga.'
+        );
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Falha ao extrair dados do PDF da ECD.');
+      } finally {
+        setIsExtractingEcdPdf(false);
+        if (ecdPdfInputRef.current) ecdPdfInputRef.current.value = '';
+      }
+    },
+    [success, showError]
+  );
 
   // Carregar teses elegíveis quando cliente for selecionado
   useEffect(() => {
@@ -1357,6 +1396,33 @@ export function RatingValidator() {
         {/* Tab Content */}
         {activeTab === 'simulation' && (
           <div className="space-y-6">
+            {/* Importar PDF da ECD */}
+            <Card className="border-dashed border-slate-300 bg-slate-50/50">
+              <div className="flex flex-wrap items-center gap-4">
+                <input
+                  ref={ecdPdfInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleEcdPdfUpload(f);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isExtractingEcdPdf}
+                  onClick={() => ecdPdfInputRef.current?.click()}
+                >
+                  {isExtractingEcdPdf ? 'Extraindo dados do PDF...' : 'Importar PDF da ECD (SPED)'}
+                </Button>
+                <p className="text-sm text-slate-600">
+                  Envie o PDF oficial do Recibo de Entrega da ECD (Balanço e DRE) para preencher automaticamente os dados da simulação.
+                </p>
+              </div>
+            </Card>
+
             {/* Progress Steps */}
             <Card>
               <div className="mb-6">
