@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-// 30m reduz chamadas de refresh; múltiplas sessões (mesmo usuário em vários dispositivos) são permitidas
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30m';
+// 24h: token de acesso válido por 1 dia; múltiplas sessões (mesmo usuário em vários dispositivos) são permitidas
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 

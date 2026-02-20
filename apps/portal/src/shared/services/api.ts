@@ -156,8 +156,8 @@ export async function apiRequest<T>(
       errorMessage = `HTTP ${response.status}: ${statusText}`;
     }
 
-    // Só redirecionar para login se: 401 e (não temos refresh token OU já tentamos refresh e ainda deu 401)
-    if (response.status === 401 && (didRetryWithNewToken || !localStorage.getItem('refreshToken'))) {
+    // 401 = token inválido/expirado: redirecionar para login sempre (evita toast sem redirect)
+    if (response.status === 401) {
       clearSessionAndRedirectToLogin();
     }
     throw new Error(errorMessage);
