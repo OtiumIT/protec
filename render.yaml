@@ -6,9 +6,18 @@ services:
     runtime: node
     region: oregon
 
-    # Monorepo: build na raiz, start no app da API
-    buildCommand: pnpm install && pnpm run build:api
+    # Monorepo: build APENAS API (shared + api), evita portal/workers = build mais rápido
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build:api
     startCommand: cd apps/api && node dist/index.js
+
+    # Só dispara deploy quando API ou shared mudam (não em mudanças só no portal)
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - turbo.json
 
     healthCheckPath: /health
 
