@@ -18,6 +18,17 @@ interface RequestOptions extends RequestInit {
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
 
+/** Limpa sessão e redireciona para login apenas quando o refresh token é inválido/expirado (não em erro de rede). */
+function clearSessionAndRedirectToLogin(): void {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('tenantId');
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   if (isRefreshing && refreshPromise) {
     return refreshPromise;
@@ -40,19 +51,25 @@ async function refreshAccessToken(): Promise<string | null> {
         body: JSON.stringify({ token: refreshToken }),
       });
 
+      if (response.status === 401) {
+        // Token inválido ou expirado: sessão acabou, redirecionar
+        const body = await response.json().catch(() => ({}));
+        const code = body?.error?.code;
+        if (code === 'INVALID_REFRESH_TOKEN' || body?.error?.message?.toLowerCase().includes('refresh')) {
+          clearSessionAndRedirectToLogin();
+        }
+        return null;
+      }
+
       if (!response.ok) {
-        // Refresh token inválido, fazer logout
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        localStorage.removeItem('tenantId');
-        window.location.href = '/login';
+        // 5xx ou outro erro: não deslogar (pode ser instabilidade), só falhar o refresh
+        console.warn('Refresh retornou status', response.status, '- mantendo sessão');
         return null;
       }
 
       const data = await response.json();
       const newAccessToken = data.data?.accessToken || data.data?.access;
-      
+
       if (newAccessToken) {
         localStorage.setItem('accessToken', newAccessToken);
         return newAccessToken;
@@ -60,12 +77,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
       return null;
     } catch (error) {
-      console.error('Error refreshing token:', error);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('tenantId');
-      window.location.href = '/login';
+      // Erro de rede/timeout: NÃO deslogar, só falhar o refresh (usuário pode tentar de novo)
+      console.error('Error refreshing token (network or server):', error);
       return null;
     } finally {
       isRefreshing = false;
@@ -113,23 +126,22 @@ export async function apiRequest<T>(
     headers,
   });
 
-  // Se receber 401 e tiver refresh token, tentar fazer refresh
+  // Se receber 401 e tiver refresh token, tentar fazer refresh (sem deslogar em erro de rede)
+  let didRetryWithNewToken = false;
   if (response.status === 401 && !options.token && localStorage.getItem('refreshToken')) {
     const newToken = await refreshAccessToken();
-    
     if (newToken) {
-      // Tentar novamente com o novo token
       headers['Authorization'] = `Bearer ${newToken}`;
       response = await fetch(url, {
         ...fetchOptions,
         headers,
       });
+      didRetryWithNewToken = true;
     }
   }
 
   if (!response.ok) {
     let errorMessage = 'Request failed';
-    
     try {
       const error = await response.json();
       const errorMsg = error?.error?.message || error?.message;
@@ -140,22 +152,14 @@ export async function apiRequest<T>(
         errorMessage = `HTTP ${response.status}: ${statusText}`;
       }
     } catch (jsonError) {
-      // Se não conseguir parsear JSON, usar status text
       const statusText = response.statusText || 'Unknown error';
       errorMessage = `HTTP ${response.status}: ${statusText}`;
     }
-    
-    // Se ainda for 401 após refresh, redirecionar para login
-    if (response.status === 401) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('tenantId');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+
+    // Só redirecionar para login se: 401 e (não temos refresh token OU já tentamos refresh e ainda deu 401)
+    if (response.status === 401 && (didRetryWithNewToken || !localStorage.getItem('refreshToken'))) {
+      clearSessionAndRedirectToLogin();
     }
-    
     throw new Error(errorMessage);
   }
 

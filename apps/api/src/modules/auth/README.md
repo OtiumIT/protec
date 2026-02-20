@@ -28,8 +28,9 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
   1. Buscar usuário por email e company_id
   2. Verificar senha com BCrypt
   3. Gerar novos tokens (access + refresh)
-  4. Armazenar refresh token no banco
+  4. Armazenar refresh token no banco (não invalida tokens anteriores)
   5. Retornar tokens e dados do usuário
+- **Múltiplas sessões**: Um mesmo usuário pode estar logado em vários dispositivos ao mesmo tempo; cada login adiciona um novo refresh token, sem invalidar os demais.
 - **Erro**: Retorna 401 se credenciais inválidas
 
 ### Regra 3: Refresh Token
