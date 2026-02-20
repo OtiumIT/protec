@@ -127,7 +127,6 @@ export async function apiRequest<T>(
   });
 
   // Se receber 401 e tiver refresh token, tentar fazer refresh (sem deslogar em erro de rede)
-  let didRetryWithNewToken = false;
   if (response.status === 401 && !options.token && localStorage.getItem('refreshToken')) {
     const newToken = await refreshAccessToken();
     if (newToken) {
@@ -136,7 +135,6 @@ export async function apiRequest<T>(
         ...fetchOptions,
         headers,
       });
-      didRetryWithNewToken = true;
     }
   }
 
