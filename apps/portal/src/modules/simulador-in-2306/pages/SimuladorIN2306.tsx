@@ -414,10 +414,10 @@ export function SimuladorIN2306() {
     if (!tributarioResult) return [];
     const c25 = tributarioResult.cenario_2025;
     const c26 = tributarioResult.cenario_2026;
-    const cEq = tributarioResult.cenario_equiparacao;
+    const cEq = equiparacao ? tributarioResult.cenario_equiparacao : undefined;
     const pis = (c: typeof c25) => c.pis_a_rec_total ?? 0;
     const cof = (c: typeof c25) => c.cofins_a_rec_total ?? 0;
-    return [
+    const base = [
       {
         name: 'Cálculo 2025',
         total: c25.irpj_a_rec_total + c25.csll_a_rec_total + pis(c25) + cof(c25),
@@ -434,16 +434,19 @@ export function SimuladorIN2306() {
         pis: pis(c26),
         cofins: cof(c26),
       },
-      {
-        name: 'Cenário Equiparação',
-        total: cEq ? cEq.irpj_a_rec_total + cEq.csll_a_rec_total + pis(cEq) + cof(cEq) : 0,
-        irpj: cEq?.irpj_a_rec_total ?? 0,
-        csll: cEq?.csll_a_rec_total ?? 0,
-        pis: cEq ? pis(cEq) : 0,
-        cofins: cEq ? cof(cEq) : 0,
-      },
     ];
-  }, [tributarioResult]);
+    if (cEq) {
+      base.push({
+        name: 'Cenário Equiparação',
+        total: cEq.irpj_a_rec_total + cEq.csll_a_rec_total + pis(cEq) + cof(cEq),
+        irpj: cEq.irpj_a_rec_total,
+        csll: cEq.csll_a_rec_total,
+        pis: pis(cEq),
+        cofins: cof(cEq),
+      });
+    }
+    return base;
+  }, [tributarioResult, equiparacao]);
 
   const composicaoReceitaData = useMemo(() => {
     const comercio = modoAnual
@@ -478,7 +481,7 @@ export function SimuladorIN2306() {
             onClick={() => setTab('tributario')}
             className={`px-4 py-2 font-medium rounded-t-lg ${tab === 'tributario' ? 'bg-slate-100 text-brand border-b-2 border-brand' : 'text-slate-600 hover:bg-slate-50'}`}
           >
-            Comparativo tributário (2025 x 2026)
+            Comparativo com a nova norma
           </button>
           <button
             type="button"
@@ -705,7 +708,7 @@ export function SimuladorIN2306() {
                       <span>
                         Aumento (2026 vs 2025): <strong className="text-red-700">{formatMoney(tributarioResult.comparativo.imposto_a_maior_2026_vs_2025)}</strong>
                       </span>
-                      {tributarioResult.cenario_equiparacao && (
+                      {equiparacao && tributarioResult.cenario_equiparacao && (
                         <span>
                           Economia equiparação: <strong className="text-violet-700">{formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}</strong>
                         </span>
@@ -726,8 +729,8 @@ export function SimuladorIN2306() {
                   </Button>
                 </div>
 
-                {/* Cards dos 3 cenários — cores alinhadas ao gráfico */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Cards dos cenários — 3 se equiparação ativa, senão 2 */}
+                <div className={`grid grid-cols-1 gap-5 ${equiparacao && tributarioResult.cenario_equiparacao ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                   <Card className="border-l-4 border-l-slate-500 bg-slate-50/50 p-5 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider mb-3">Cálculo 2025 (sem aumento)</h3>
                     <p className="text-xs text-slate-500 mb-3">Receita bruta: {formatMoney(tributarioResult.cenario_2025.receita_bruta_total)}</p>
@@ -760,22 +763,24 @@ export function SimuladorIN2306() {
                       )}
                     </p>
                   </Card>
-                  <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-violet-800 uppercase tracking-wider mb-3">Cenário Equiparação</h3>
-                    <p className="text-xs text-slate-600 mb-3">Tese jurídica. Aceitação pela Receita depende de interpretação e eventual decisão judicial. Ilustrativo para discussão com advogado e contador.</p>
-                    <p className="text-xs text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao!.receita_bruta_total)}</p>
-                    <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao!.irpj_a_rec_total)}</strong></p>
-                    <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao!.csll_a_rec_total)}</strong></p>
-                    {includePisCofins && (
-                      <p className="text-slate-600 text-xs">PIS: {formatMoney(tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0)} · COFINS: {formatMoney(tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0)}</p>
-                    )}
-                    <p className="mt-3 pt-3 border-t border-violet-200 text-base font-bold text-slate-800">
-                      Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
-                        tributarioResult.cenario_equiparacao!.irpj_a_rec_total + tributarioResult.cenario_equiparacao!.csll_a_rec_total +
-                        (includePisCofins ? (tributarioResult.cenario_equiparacao!.pis_a_rec_total ?? 0) + (tributarioResult.cenario_equiparacao!.cofins_a_rec_total ?? 0) : 0)
+                  {equiparacao && tributarioResult.cenario_equiparacao && (
+                    <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 p-5 shadow-sm">
+                      <h3 className="text-sm font-bold text-violet-800 uppercase tracking-wider mb-3">Cenário Equiparação</h3>
+                      <p className="text-xs text-slate-600 mb-3">Tese jurídica. Aceitação pela Receita depende de interpretação e eventual decisão judicial. Ilustrativo para discussão com advogado e contador.</p>
+                      <p className="text-xs text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao.receita_bruta_total)}</p>
+                      <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao.irpj_a_rec_total)}</strong></p>
+                      <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao.csll_a_rec_total)}</strong></p>
+                      {includePisCofins && (
+                        <p className="text-slate-600 text-xs">PIS: {formatMoney(tributarioResult.cenario_equiparacao.pis_a_rec_total ?? 0)} · COFINS: {formatMoney(tributarioResult.cenario_equiparacao.cofins_a_rec_total ?? 0)}</p>
                       )}
-                    </p>
-                  </Card>
+                      <p className="mt-3 pt-3 border-t border-violet-200 text-base font-bold text-slate-800">
+                        Total {includePisCofins ? 'tributos' : 'IRPJ+CSLL'}: {formatMoney(
+                          tributarioResult.cenario_equiparacao.irpj_a_rec_total + tributarioResult.cenario_equiparacao.csll_a_rec_total +
+                          (includePisCofins ? (tributarioResult.cenario_equiparacao.pis_a_rec_total ?? 0) + (tributarioResult.cenario_equiparacao.cofins_a_rec_total ?? 0) : 0)
+                        )}
+                      </p>
+                    </Card>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 print:hidden">
@@ -790,7 +795,7 @@ export function SimuladorIN2306() {
                   <h3 className="font-semibold text-slate-800 mb-3">
                     {includePisCofins ? 'Total de tributos por cenário' : 'Imposto total por cenário (IRPJ + CSLL a rec.)'}
                   </h3>
-                  <div className="h-64 w-full" role="img" aria-label="Gráfico comparando total de impostos: 2025, 2026 e Equiparação">
+                  <div className="h-64 w-full" role="img" aria-label={equiparacao && tributarioResult.cenario_equiparacao ? 'Gráfico comparando total de impostos: 2025, 2026 e Equiparação' : 'Gráfico comparando total de impostos: 2025 e 2026'}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={barChartData} margin={{ top: 12, right: 24, left: 24, bottom: 12 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -859,12 +864,14 @@ export function SimuladorIN2306() {
                       return null;
                     })()}
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Economia com equiparação (vs 2026)</p>
-                    <p className="text-lg font-bold text-indigo-600">
-                      {formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}
-                    </p>
-                  </div>
+                  {equiparacao && tributarioResult.cenario_equiparacao && (
+                    <div>
+                      <p className="text-sm text-slate-500">Economia com equiparação (vs 2026)</p>
+                      <p className="text-lg font-bold text-indigo-600">
+                        {formatMoney(tributarioResult.comparativo.economia_equiparacao_vs_2026 ?? 0)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -879,37 +886,46 @@ export function SimuladorIN2306() {
 
                 {/* Tela: abas + uma tabela por vez */}
                 <div className="print:hidden">
-                  <div className="flex gap-2 border-b border-slate-200 mb-4">
-                    {(['Cálculo 2025', 'Projeção 2026', 'Cenário Equiparação'] as const).map((label, idx) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => setMemoriaTab(idx as 0 | 1 | 2)}
-                        className={`px-3 py-2 text-sm font-medium rounded-t-lg ${memoriaTab === idx ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="overflow-x-auto">
-                    {(() => {
-                      const cenarios = [
-                        { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
-                        { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
-                        { label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao },
-                      ].filter((x) => x.cenario) as { label: string; cenario: typeof tributarioResult.cenario_2025 }[];
-                      const { cenario } = cenarios[memoriaTab] ?? cenarios[0]!;
-                      return renderMemoriaTabela(cenario);
-                    })()}
-                  </div>
+                  {(() => {
+                    const cenariosMemoria = [
+                      { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
+                      { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
+                      ...(equiparacao && tributarioResult.cenario_equiparacao
+                        ? [{ label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao }]
+                        : []),
+                    ].filter((x) => x.cenario) as { label: string; cenario: typeof tributarioResult.cenario_2025 }[];
+                    const tabIndex = Math.min(memoriaTab, cenariosMemoria.length - 1);
+                    const activeTab = tabIndex >= 0 ? tabIndex : 0;
+                    return (
+                      <>
+                        <div className="flex gap-2 border-b border-slate-200 mb-4">
+                          {cenariosMemoria.map(({ label }, idx) => (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() => setMemoriaTab(idx as 0 | 1 | 2)}
+                              className={`px-3 py-2 text-sm font-medium rounded-t-lg ${activeTab === idx ? 'bg-slate-200 text-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="overflow-x-auto">
+                          {renderMemoriaTabela(cenariosMemoria[activeTab]!.cenario)}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
-                {/* Impressão: as 3 tabelas exibidas em sequência */}
+                {/* Impressão: tabelas exibidas em sequência (sem equiparação se checkbox desmarcado) */}
                 <div className="hidden print:block space-y-6">
                   {[
                     { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
                     { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
-                    { label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao },
+                    ...(equiparacao && tributarioResult.cenario_equiparacao
+                      ? [{ label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao }]
+                      : []),
                   ]
                     .filter((x): x is { label: string; cenario: NonNullable<typeof x.cenario> } => !!x.cenario)
                     .map(({ label, cenario }) => (
