@@ -11,6 +11,7 @@ import {
   SimulateAndSaveIrpfAltaRendaInputSchema,
   ListIrpfAltaRendaQuerySchema,
   IrpfAltaRendaIdParamSchema,
+  ReportSummaryIrpfAltaRendaInputSchema,
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 import { extractIrpfFromPdf } from './extract-from-pdf';
@@ -113,6 +114,24 @@ irpfAltaRendaRoutes.post(
       const userId = c.get('user')?.id;
       const { registro, resultado } = await service.simulateAndSave(input, userId);
       return c.json({ data: { registro, resultado } }, 201);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/**
+ * POST /irpf-alta-renda/report-summary
+ * Retorna resumo estruturado para renderização de relatório (futuro PDF).
+ */
+irpfAltaRendaRoutes.post(
+  '/report-summary',
+  zValidator('json', ReportSummaryIrpfAltaRendaInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const summary = await service.buildReportSummary(input);
+      return c.json({ data: summary }, 200);
     } catch (err) {
       return errorHandler(err, c);
     }

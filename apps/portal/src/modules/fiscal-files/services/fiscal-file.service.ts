@@ -1,13 +1,4 @@
-import apiRequest from '../../../shared/services/api';
-
-function getFiscalFileApiUrl(): string {
-  const fromEnv = (import.meta.env?.VITE_API_URL as string)?.trim();
-  if (fromEnv && fromEnv !== 'http://localhost:3001') return fromEnv;
-  if (import.meta.env.PROD) return 'https://protec-n05v.onrender.com';
-  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) return 'https://protec-n05v.onrender.com';
-  return 'http://localhost:3001';
-}
-const API_URL = getFiscalFileApiUrl();
+import apiRequest, { getApiUrl } from '../../../shared/services/api';
 
 export interface FiscalFile {
   id: string;
@@ -54,7 +45,8 @@ export const fiscalFileService = {
     formData.append('competence', data.competence);
     formData.append('file_type', data.file_type);
 
-    const response = await fetch(`${API_URL}/api/v1/fiscal-files/upload`, {
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/v1/fiscal-files/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

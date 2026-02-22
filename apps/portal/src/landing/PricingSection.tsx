@@ -15,7 +15,7 @@ const PLANO_PADRAO_FEATURES = [
   'Até 5 clientes cadastrados',
   'Transação Tributária - Análise da capacidade de pagamento',
   'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
-  'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
+  'Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025',
   'Suporte por e-mail',
   'Relatórios básicos',
 ];

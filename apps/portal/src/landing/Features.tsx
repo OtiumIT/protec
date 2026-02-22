@@ -24,7 +24,7 @@ const modulosPrincipais: ModuloItem[] = [
   },
   {
     id: 'irpf-alta-renda',
-    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
+    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025',
     description: 'Análise da declaração do IR e simulação da nova tributação da alta renda, com alíquota aplicável e valor a pagar, comparando cenários antes e depois da nova legislação e apontando possíveis soluções para redução.',
     icon: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

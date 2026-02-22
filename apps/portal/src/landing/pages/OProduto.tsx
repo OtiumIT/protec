@@ -53,7 +53,7 @@ const MODULOS = [
   },
   {
     id: 'irpf-alta-renda',
-    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025',
+    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025',
     description:
       'Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com a indicação da alíquota aplicável e o valor a ser pago, comparando os cenários antes e depois da nova legislação, apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).',
     barColor: 'bg-protec',

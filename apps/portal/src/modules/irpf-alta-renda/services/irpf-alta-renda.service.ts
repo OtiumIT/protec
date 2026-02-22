@@ -5,12 +5,19 @@ import type {
   IrpfAltaRendaSimulacaoResponse,
   DadosIrpfAltaRenda,
   DeclaracaoIrpfCompleta,
+  ReportSummaryIrpfAltaRendaInput,
+  ReportSummaryIrpfAltaRendaResponse,
 } from '@shared/core';
 
 export interface ExtractFromPdfResult {
   declaracao_completa: DeclaracaoIrpfCompleta;
   ano: number;
   dados: DadosIrpfAltaRenda;
+  diagnostico?: {
+    fonte: string;
+    completude: 'alta' | 'media' | 'baixa';
+    avisos: string[];
+  };
 }
 
 export interface IrpfAltaRendaRecord {
@@ -144,5 +151,14 @@ export const irpfAltaRendaService = {
     }
     const result = await response.json();
     return result.data;
+  },
+
+  async reportSummary(input: ReportSummaryIrpfAltaRendaInput): Promise<ReportSummaryIrpfAltaRendaResponse> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: ReportSummaryIrpfAltaRendaResponse }>(
+      '/api/v1/irpf-alta-renda/report-summary',
+      { method: 'POST', body: JSON.stringify(input), token, tenantId }
+    );
+    return response.data;
   },
 };

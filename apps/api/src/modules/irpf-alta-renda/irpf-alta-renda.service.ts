@@ -1,11 +1,23 @@
 import { IrpfAltaRendaRepository, type CreateIrpfAltaRendaData, type IrpfAltaRendaRecord } from './irpf-alta-renda.repository';
 import { CompanyRepository } from '../companies/company.repository';
 import { AppError } from '../../shared/utils/error-handler';
-import { calcularBCC, aplicarFaixas, avaliarRiscoRetencao, gerarSugestoesPlanejamento, CONFIG_LEI_15270_2025 } from './calculations';
+import {
+  calcularBCC,
+  aplicarFaixas,
+  avaliarRiscoRetencao,
+  gerarSugestoesPlanejamento,
+  comporRendaParaDashboard,
+  calcularImpactoIncrementalBase,
+  construirMemoriaLegalExclusoes,
+  simularOtimizacaoIsentoVsTributado,
+  CONFIG_LEI_15270_2025,
+} from './calculations';
 import type {
   SimulateIrpfAltaRendaInput,
   SimulateAndSaveIrpfAltaRendaInput,
   IrpfAltaRendaSimulacaoResponse,
+  ReportSummaryIrpfAltaRendaInput,
+  ReportSummaryIrpfAltaRendaResponse,
 } from '@shared/core';
 
 function buildMemoriaCalculo(
@@ -25,6 +37,21 @@ function buildMemoriaCalculo(
   const lucrosExcl = input.dados.lucros_aprovados_ate_31dez2025 ?? 0;
   const ganhoCapitalExcl = input.dados.ganho_capital_excluido ?? 0;
   const fiisExcl = input.dados.rendimentos_fiis_excluidos ?? 0;
+  const outrosExclArt16A = input.dados.outros_excluidos_art_16a ?? 0;
+  const outrosIsentosQueEntram = (input.dados.outros_isentos_que_entram_base ?? []).reduce((s, i) => s + (i.valor ?? 0), 0);
+  const premissasAplicadas: string[] = [];
+  if (dividendos.length > 0) {
+    premissasAplicadas.push(
+      'Risco de retenção mensal foi avaliado por aproximação (valor anual por fonte dividido por 12).'
+    );
+  }
+  const itensLei7713 = input.dados.rendimentos_tributados_exclusivamente_lei_7713 ?? [];
+  if (itensLei7713.some((i) => (i.irrf ?? 0) <= 0)) {
+    premissasAplicadas.push(
+      'Itens da Lei 7.713 sem IRRF informado usam alíquota estimada para simulação de compensação.'
+    );
+  }
+
   return {
     ...resultado.memoria_calculo,
     rendimentos_tributaveis: rt,
@@ -32,6 +59,8 @@ function buildMemoriaCalculo(
     lucros_aprovados_ate_31dez2025: Math.round(lucrosExcl * 100) / 100,
     ganho_capital_excluido: Math.round(ganhoCapitalExcl * 100) / 100,
     rendimentos_fiis_excluidos: Math.round(fiisExcl * 100) / 100,
+    outros_excluidos_art_16a: Math.round(outrosExclArt16A * 100) / 100,
+    outros_isentos_que_entram_base: Math.round(outrosIsentosQueEntram * 100) / 100,
     detalhe_fontes: detalheFontes,
     base_calculo_combinada: bcc,
     faixa_aplicada: resultado.faixa,
@@ -39,6 +68,7 @@ function buildMemoriaCalculo(
     aliquota_aplicada_percentual: resultado.aliquota_percentual,
     fonte_normativa: CONFIG_LEI_15270_2025.fonte_normativa,
     observacao_progressiva: CONFIG_LEI_15270_2025.observacao_progressiva,
+    premissas_aplicadas: premissasAplicadas,
   };
 }
 
@@ -52,15 +82,28 @@ export class IrpfAltaRendaService {
    * Simula impacto tributário (Lei 15.270/2025) sem persistir.
    */
   async simulate(input: SimulateIrpfAltaRendaInput): Promise<IrpfAltaRendaSimulacaoResponse> {
+    const rendimentosLei7713 = input.dados.rendimentos_tributados_exclusivamente_lei_7713 ?? [];
+    if ((input.dados.optou_ajuste_anual_lei_7713 ?? false) && rendimentosLei7713.length > 0) {
+      throw new AppError(
+        'Rendimentos da Lei 7.713 (art. 12-A) só podem ser tratados como exclusão quando não há opção pelo ajuste anual.',
+        'LEI_7713_AJUSTE_ANUAL_INCOMPATIVEL',
+        422
+      );
+    }
+
     const lucrosExcl = input.dados.lucros_aprovados_ate_31dez2025 ?? 0;
     const ganhoCapitalExcl = input.dados.ganho_capital_excluido ?? 0;
     const fiisExcl = input.dados.rendimentos_fiis_excluidos ?? 0;
+    const outrosExclArt16A = input.dados.outros_excluidos_art_16a ?? 0;
+    const outrosIsentosQueEntramBase = (input.dados.outros_isentos_que_entram_base ?? []).reduce((s, i) => s + (i.valor ?? 0), 0);
     const bcc = calcularBCC(
       input.dados.rendimentos_tributaveis,
       input.dados.rendimentos_isentos_dividendos,
       lucrosExcl,
       ganhoCapitalExcl,
-      fiisExcl
+      fiisExcl,
+      outrosIsentosQueEntramBase,
+      outrosExclArt16A
     );
     const resultado = aplicarFaixas(bcc);
 
@@ -75,6 +118,10 @@ export class IrpfAltaRendaService {
 
     const risco = avaliarRiscoRetencao(input.dados.rendimentos_isentos_dividendos);
     const memoria_calculo = buildMemoriaCalculo(input, bcc, resultado);
+    const composicaoRenda = comporRendaParaDashboard(input.dados);
+    const impactoIncrementalBase = calcularImpactoIncrementalBase(input.dados);
+    const memoriaLegalExclusoes = construirMemoriaLegalExclusoes(input.dados);
+    const otimizacao = simularOtimizacaoIsentoVsTributado(input.dados, bcc, impostoComplementar, deducoesTotal);
     const sugestoes_planejamento = gerarSugestoesPlanejamento(input.dados, {
       base_calculo_combinada: resultado.base_calculo_combinada,
       faixa: resultado.faixa,
@@ -90,6 +137,26 @@ export class IrpfAltaRendaService {
       aplicacoes: aplicacoes,
       antecipado_dividendos: antecipado,
     };
+    if (otimizacao) {
+      (memoria_calculo as Record<string, unknown>).comparativo_investimentos = {
+        cenario_atual: {
+          bcc: otimizacao.bcc_cenario_atual,
+          imposto_complementar: otimizacao.imposto_complementar_atual,
+          rendimento_liquido: otimizacao.rendimento_liquido_cenario_isento,
+        },
+        cenario_otimizado: {
+          bcc: otimizacao.bcc_cenario_otimizado,
+          imposto_complementar: otimizacao.imposto_complementar_otimizado,
+          irrf_compensavel: otimizacao.irrf_compensavel_estimado,
+          rendimento_liquido: otimizacao.rendimento_liquido_cenario_tributado,
+        },
+      };
+      if (otimizacao.ganho_liquido_estimado > 0) {
+        sugestoes_planejamento.unshift(
+          `Otimizacao de carteira: migracao simulada de ${otimizacao.valor_migrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para ativo tributado com IRRF compensavel pode gerar ganho liquido estimado de ${otimizacao.ganho_liquido_estimado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.`
+        );
+      }
+    }
 
     return {
       ano: input.ano,
@@ -102,6 +169,10 @@ export class IrpfAltaRendaService {
       risco_retencao_mensal: risco.risco_retencao_mensal,
       risco_retencao_detalhe: risco.risco_retencao_detalhe,
       sugestoes_planejamento,
+      composicao_renda: composicaoRenda,
+      impacto_incremental_base: impactoIncrementalBase,
+      memoria_legal_exclusoes: memoriaLegalExclusoes,
+      otimizacao_isento_vs_tributado: otimizacao,
       memoria_calculo,
     };
   }
@@ -155,5 +226,27 @@ export class IrpfAltaRendaService {
   async delete(id: string): Promise<void> {
     await this.getById(id);
     await this.repo.delete(id);
+  }
+
+  async buildReportSummary(input: ReportSummaryIrpfAltaRendaInput): Promise<ReportSummaryIrpfAltaRendaResponse> {
+    const resultado = await this.simulate({ ano: input.ano, dados: input.dados });
+    return {
+      scenario_name: input.scenario_name?.trim() || `Simulacao IRPFM ${input.ano}`,
+      gerado_em: new Date().toISOString(),
+      resumo_executivo: {
+        faixa: resultado.faixa,
+        aliquota_percentual: resultado.aliquota_percentual,
+        imposto_a_complementar: resultado.imposto_estimado,
+        economia_potencial_otimizacao: resultado.otimizacao_isento_vs_tributado?.ganho_liquido_estimado,
+      },
+      composicao: {
+        tributaveis: resultado.composicao_renda?.tributaveis ?? 0,
+        isentos_que_entram_base: resultado.composicao_renda?.isentos_que_entram_base ?? 0,
+        isentos_excluidos: resultado.composicao_renda?.isentos_excluidos ?? 0,
+      },
+      comparativo_otimizacao: resultado.otimizacao_isento_vs_tributado,
+      memoria_legal_exclusoes: resultado.memoria_legal_exclusoes ?? [],
+      recomendacoes_priorizadas: resultado.sugestoes_planejamento ?? [],
+    };
   }
 }
