@@ -4,7 +4,8 @@ const DEV_API_URL = 'http://localhost:3001';
 /** Base URL da API. Avaliada em tempo de requisição para garantir uso correto em produção (Cloudflare, etc.). */
 export function getApiUrl(): string {
   const fromEnv = (import.meta.env?.VITE_API_URL as string)?.trim();
-  if (fromEnv && !fromEnv.includes('localhost')) return fromEnv;
+  if (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) return DEV_API_URL;
+  if (fromEnv) return fromEnv;
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) return PRODUCTION_API_URL;
   if (import.meta.env.PROD) return PRODUCTION_API_URL;
   return DEV_API_URL;

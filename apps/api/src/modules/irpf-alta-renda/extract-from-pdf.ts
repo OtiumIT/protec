@@ -7,6 +7,7 @@
 import OpenAI from 'openai';
 import { DadosIrpfAltaRendaSchema, DeclaracaoIrpfCompletaSchema } from '@shared/core';
 import { z } from 'zod';
+import { classificarIsentosArt16A, identificarOutrosExcluidosArt16A } from './calculations';
 
 // ── Formatos de fallback (LLM às vezes retorna estrutura diferente) ─────────────
 
@@ -36,6 +37,11 @@ export type ExtractIrpfFromPdfResult = {
   declaracao_completa: z.infer<typeof DeclaracaoIrpfCompletaSchema>;
   ano: number;
   dados: z.infer<typeof DadosIrpfAltaRendaSchema>;
+  diagnostico?: {
+    fonte: 'pdf_texto' | 'pdf_escaneado';
+    completude: 'alta' | 'media' | 'baixa';
+    avisos: string[];
+  };
 };
 
 // ── Prompts por etapa (extração em até 4 etapas) ───────────────────────────────
@@ -43,12 +49,12 @@ export type ExtractIrpfFromPdfResult = {
 const STAGE1_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 1: Extraia APENAS identificação, dependentes e resumo da Declaração de IRPF.
 
 Retorne JSON com: "identificacao" (nome, cpf, data_nascimento, exercicio, ano_calendario, tipo_declaracao), "dependentes" (array), "resumo" (base_calculo_ir, imposto_devido, imposto_pago_retencao, imposto_a_restituir, imposto_a_pagar).
-Use "" e 0 quando ausente. RETORNE APENAS JSON válido, sem markdown.`;
+Use "" e 0 quando ausente. Nunca invente CPF/CNPJ. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE2_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 2: Extraia APENAS rendimentos tributáveis da Declaração de IRPF.
 
 Retorne JSON com: "rendimentos_tributaveis_pj" (total, itens com cnpj, nome_fonte, codigo, valor), "rendimentos_tributaveis_pf" (total, itens com cpf_pagador, nome_pagador, descricao, valor, mes), "rendimentos_tributaveis_outros" (total, itens), "rendimentos_tributacao_exclusiva_definitiva" (total, itens com codigo 06/10, descricao, valor).
-Fichas: Recebidos de PJ, Recebidos de PF, Tributação exclusiva (aplicações, JCP). RETORNE APENAS JSON válido, sem markdown.`;
+Fichas: Recebidos de PJ, Recebidos de PF, Tributação exclusiva (aplicações, JCP). Mantenha centavos, não arredonde além de 2 casas. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE3_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 3: Extraia rendimentos isentos e classifique conforme Lei 15.270/2025 (Art. 16-A § 1º).
 
@@ -62,7 +68,7 @@ CLASSIFICAÇÃO (valores a EXCLUIR da base de cálculo da alta renda):
 - lucros_aprovados_ate_31dez2025: Lucros/dividendos aprovados em assembleia até 31/12/2025
 - outros_excluidos_art_16a: LHI, CRI, LIG, LCD e demais do Art. 16-A § 1º
 
-Códigos isentos: 09 (lucros/dividendos), 13 (sócio Simples), 01/03 (herança). Some e preencha lei_15_270_classificacao. RETORNE APENAS JSON válido, sem markdown.`;
+Códigos isentos: 09 (lucros/dividendos), 13 (sócio Simples), 01/03 (herança). Para cada item, preserve codigo e descricao literal quando houver. Some e preencha lei_15_270_classificacao. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE4_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 4: Extraia bens e direitos, dívidas, pagamentos e doações da Declaração de IRPF.
 
@@ -71,8 +77,14 @@ RETORNE APENAS JSON válido, sem markdown.`;
 
 // ── Extração em 4 etapas ───────────────────────────────────────────────────────
 
-async function extractInStages(openai: OpenAI, text: string): Promise<string> {
-  const trimmed = text.slice(0, 18000);
+async function extractInStages(openai: OpenAI, text: string): Promise<{
+  json: string;
+  stageFailures: string[];
+  wasTrimmed: boolean;
+}> {
+  const MAX_STAGE_TEXT = 18000;
+  const trimmed = text.slice(0, MAX_STAGE_TEXT);
+  const wasTrimmed = text.length > MAX_STAGE_TEXT;
   const stages = [
     { prompt: STAGE1_PROMPT, label: 'Etapa 1 (identificação)' },
     { prompt: STAGE2_PROMPT, label: 'Etapa 2 (rendimentos)' },
@@ -81,6 +93,7 @@ async function extractInStages(openai: OpenAI, text: string): Promise<string> {
   ];
 
   const merged: Record<string, unknown> = {};
+  const stageFailures: string[] = [];
   for (const { prompt, label } of stages) {
     try {
       const completion = await openai.chat.completions.create({
@@ -99,14 +112,16 @@ async function extractInStages(openai: OpenAI, text: string): Promise<string> {
       }
     } catch (err) {
       console.warn(`[extractIrpfFromPdf] ${label} falhou:`, err);
+      stageFailures.push(label);
     }
   }
-  return JSON.stringify(merged);
+  return { json: JSON.stringify(merged), stageFailures, wasTrimmed };
 }
 
 /** Prompt completo para PDF escaneado (1 chamada via Files API) */
 const SYSTEM_PROMPT_FILES = `Extraia 100% dos dados do PDF da Declaração de IRPF. Retorne JSON com: identificacao, dependentes, rendimentos_tributaveis_pj, rendimentos_tributaveis_pf, rendimentos_tributaveis_outros, rendimentos_isentos_nao_tributaveis, rendimentos_tributacao_exclusiva_definitiva, bens_direitos, dividas_onus, resumo, pagamentos_efetuados, doacoes_deducoes.
-Inclua lei_15_270_classificacao: { ganho_capital_excluido, rendimentos_fiis_excluidos, lucros_aprovados_ate_31dez2025, outros_excluidos_art_16a }. Use "" e 0 quando ausente. RETORNE APENAS JSON válido.`;
+Inclua lei_15_270_classificacao: { ganho_capital_excluido, rendimentos_fiis_excluidos, lucros_aprovados_ate_31dez2025, outros_excluidos_art_16a }.
+Regras: preservar códigos/descrições como no documento, não inventar fontes, usar 0 quando ausente, retornar APENAS JSON válido.`;
 
 // ── Exportação principal ──────────────────────────────────────────────────────
 
@@ -133,9 +148,15 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
   console.log('[extractIrpfFromPdf] hasText:', hasText, 'cleanText.length:', cleanText.length);
 
   let rawContent: string | null | undefined;
+  let diagnosticSource: 'pdf_texto' | 'pdf_escaneado' = hasText ? 'pdf_texto' : 'pdf_escaneado';
+  let stageFailures: string[] = [];
+  let wasTrimmed = false;
 
   if (hasText) {
-    rawContent = await extractInStages(openai, cleanText);
+    const extraction = await extractInStages(openai, cleanText);
+    rawContent = extraction.json;
+    stageFailures = extraction.stageFailures;
+    wasTrimmed = extraction.wasTrimmed;
   } else {
     console.log('[extractIrpfFromPdf] PDF escaneado, usando Files API');
     const { toFile } = await import('openai');
@@ -180,10 +201,27 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
 
   // Tentar formato completo; se falhar, formato antigo
   const validatedFull = DeclaracaoIrpfCompletaSchema.safeParse(normalizeParsedToDeclaracao(parsed));
+  const warnings: string[] = [];
+  if (wasTrimmed) {
+    warnings.push('Texto do PDF muito extenso; foi aplicada extração parcial por etapas para manter estabilidade.');
+  }
+  if (stageFailures.length > 0) {
+    warnings.push(`Falha em etapas da extração (${stageFailures.join(', ')}). Revise os dados antes de simular.`);
+  }
   if (validatedFull.success) {
     const ano = validatedFull.data.identificacao?.exercicio ?? validatedFull.data.identificacao?.ano_calendario ?? new Date().getFullYear();
     const dados = mapDeclaracaoCompletaToDados(validatedFull.data);
-    return { declaracao_completa: validatedFull.data, ano, dados };
+    const completude: 'alta' | 'media' | 'baixa' = stageFailures.length > 1 ? 'baixa' : stageFailures.length === 1 || wasTrimmed ? 'media' : 'alta';
+    return {
+      declaracao_completa: validatedFull.data,
+      ano,
+      dados,
+      diagnostico: {
+        fonte: diagnosticSource,
+        completude,
+        avisos: warnings,
+      },
+    };
   }
 
   const validatedOld = OldFormatSchema.safeParse(parsed);
@@ -191,7 +229,17 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
     console.log('[extractIrpfFromPdf] Formato antigo detectado; convertendo');
     const declaracao_completa = mapOldFormatToDeclaracaoCompleta(validatedOld.data);
     const dados = mapOldFormatToDados(validatedOld.data);
-    return { declaracao_completa, ano: validatedOld.data.ano, dados };
+    warnings.push('Formato legado detectado na extração. Recomenda-se validação manual dos campos antes da simulação.');
+    return {
+      declaracao_completa,
+      ano: validatedOld.data.ano,
+      dados,
+      diagnostico: {
+        fonte: diagnosticSource,
+        completude: 'media',
+        avisos: warnings,
+      },
+    };
   }
 
   const msg = validatedFull.error?.errors?.[0]?.message ?? 'estrutura invalida';
@@ -249,6 +297,14 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     codigo: '13' as const,
   }));
   const rendimentos_isentos_dividendos = [...isentos09, ...isentos13];
+  const classificacaoDeterministica = classificarIsentosArt16A(
+    isentos.map((i: any) => ({
+      codigo: String(i.codigo ?? ''),
+      descricao: i.descricao ?? i.nome_fonte,
+      nome_fonte: i.nome_fonte,
+      valor: round2(i.valor ?? 0),
+    }))
+  );
 
   const excl = d.rendimentos_tributacao_exclusiva_definitiva?.itens ?? [];
   const aplicacoes = excl.filter((i: any) => String(i.codigo ?? '').includes('06')).reduce((s: number, i: any) => s + (i.valor ?? 0), 0);
@@ -267,10 +323,19 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
   const resumo = (d as any).resumo ?? {};
   const impostoPagoRetencao = round2(Number(resumo.imposto_pago_retencao ?? 0));
 
+  const tributadosLei7713 = excl.map((i: any) => ({
+    descricao: i.descricao ?? i.nome_fonte ?? `Codigo ${i.codigo ?? 'N/A'}`,
+    valor_bruto: round2(i.valor ?? 0),
+    irrf: 0,
+    aliquota_irrf_percentual: 15,
+  }));
+
   const lei15270 = (d as any).lei_15_270_classificacao ?? {};
   const ganhoCapital = round2(Number(lei15270.ganho_capital_excluido ?? 0));
-  const fiisExcl = round2(Number(lei15270.rendimentos_fiis_excluidos ?? 0));
-  const lucrosExcl = round2(Number(lei15270.lucros_aprovados_ate_31dez2025 ?? 0));
+  const fiisExcl = round2(Number(lei15270.rendimentos_fiis_excluidos ?? classificacaoDeterministica.rendimentos_fiis_excluidos ?? 0));
+  const lucrosExcl = round2(Number(lei15270.lucros_aprovados_ate_31dez2025 ?? classificacaoDeterministica.lucros_aprovados_ate_31dez2025 ?? 0));
+  const ganhoCapitalDeterministico = round2(Number(classificacaoDeterministica.ganho_capital_excluido ?? 0));
+  const outrosExclLei = round2(Number(lei15270.outros_excluidos_art_16a ?? classificacaoDeterministica.outros_excluidos_art_16a ?? 0));
 
   const fiisFallback =
     fiisExcl === 0
@@ -280,6 +345,7 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
           ).reduce((s: number, i: any) => s + (i.valor ?? 0), 0)
         )
       : fiisExcl;
+  const outrosExclFallback = outrosExclLei > 0 ? outrosExclLei : identificarOutrosExcluidosArt16A(isentos as Array<{ descricao?: string; valor?: number }>);
 
   return {
     contribuinte: { nome, cpf },
@@ -289,6 +355,7 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     tributaveis_pf_alugueis,
     isentos_lucros_dividendos: isentos09,
     isentos_simples_nacional: isentos13,
+    outros_isentos_que_entram_base: classificacaoDeterministica.outros_isentos_que_entram_base,
     outros_rendimentos: {
       aplicacoes_financeiras_exclusiva: round2(aplicacoes),
       juros_capital_proprio: round2(jcp),
@@ -300,8 +367,10 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     imposto_ja_pago_aplicacoes: 0,
     imposto_antecipado_dividendos: 0,
     lucros_aprovados_ate_31dez2025: lucrosExcl,
-    ganho_capital_excluido: ganhoCapital,
+    ganho_capital_excluido: ganhoCapital > 0 ? ganhoCapital : ganhoCapitalDeterministico,
     rendimentos_fiis_excluidos: fiisFallback,
+    outros_excluidos_art_16a: outrosExclFallback,
+    rendimentos_tributados_exclusivamente_lei_7713: tributadosLei7713,
   };
 }
 
@@ -383,6 +452,8 @@ function mapOldFormatToDados(old: OldFormatResult): z.infer<typeof DadosIrpfAlta
     tributaveis_pf_alugueis: (bc.tributaveis_pf_alugueis ?? []).map((i) => ({ mes: i.mes ?? '', valor: round2(i.valor ?? 0) })),
     isentos_lucros_dividendos: isentos09,
     isentos_simples_nacional: isentos13,
+    outros_isentos_que_entram_base: [],
+    rendimentos_tributados_exclusivamente_lei_7713: [],
     outros_rendimentos: {
       aplicacoes_financeiras_exclusiva: round2(outros.aplicacoes_financeiras_exclusiva ?? 0),
       juros_capital_proprio: round2(outros.juros_capital_proprio ?? 0),
@@ -396,6 +467,7 @@ function mapOldFormatToDados(old: OldFormatResult): z.infer<typeof DadosIrpfAlta
     lucros_aprovados_ate_31dez2025: 0,
     ganho_capital_excluido: 0,
     rendimentos_fiis_excluidos: 0,
+    outros_excluidos_art_16a: 0,
   };
 }
 

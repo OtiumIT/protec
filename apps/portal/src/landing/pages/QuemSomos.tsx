@@ -118,7 +118,7 @@ export function QuemSomos() {
                     </h3>
                     </div>
                     <p className="mt-4 text-slate-600 leading-[1.6] text-base flex-1">
-                      Mais de 30 anos em consultoria empresarial, com foco no sucesso dos clientes. Especialistas em assessoria trabalhista, societária, tributária e contábil e em demandas do Bacen. Essa experiência definiu o que o IATax entrega: análise da capacidade de pagamento (transação tributária), simulação do aumento da tributação do lucro presumido (LC 224/2025) e tributação da alta renda/dividendos (IRPFM - Lei 12.570/2025).
+                      Mais de 30 anos em consultoria empresarial, com foco no sucesso dos clientes. Especialistas em assessoria trabalhista, societária, tributária e contábil e em demandas do Bacen. Essa experiência definiu o que o IATax entrega: análise da capacidade de pagamento (transação tributária), simulação do aumento da tributação do lucro presumido (LC 224/2025) e tributação da alta renda/dividendos (IRPFM - Lei 15.270/2025).
                     </p>
                     <div className="mt-auto pt-4">
                     <button
@@ -165,7 +165,7 @@ export function QuemSomos() {
                   </h3>
                 </div>
                 <p className="mt-4 text-slate-600 leading-[1.6] text-base flex-1">
-                  Especialistas em desenvolvimento de software e inteligência artificial. Desenhamos e construímos o IATax: gestão por cliente e por competência, módulos como Transação Tributária (análise da capacidade de pagamento), Simulação do aumento da tributação do lucro presumido (LC 224/2025) e Tributação da alta renda/dividendos (IRPFM - Lei 12.570/2025). Soluções digitais intuitivas que amplificam a capacidade do consultor.
+                  Especialistas em desenvolvimento de software e inteligência artificial. Desenhamos e construímos o IATax: gestão por cliente e por competência, módulos como Transação Tributária (análise da capacidade de pagamento), Simulação do aumento da tributação do lucro presumido (LC 224/2025) e Tributação da alta renda/dividendos (IRPFM - Lei 15.270/2025). Soluções digitais intuitivas que amplificam a capacidade do consultor.
                 </p>
                 <div className="mt-auto pt-4">
                 <button

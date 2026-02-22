@@ -44,6 +44,47 @@ export const PatrimonioImobiliarioSchema = z.object({
   valor_atual: monetaryValue,
 });
 
+/** Isentos que entram na base mínima (fora dos códigos 09/13) */
+export const OutroIsentoQueEntraBaseSchema = z.object({
+  descricao: z.string().max(255),
+  tipo_ativo: z.enum(['outro_isento', 'lucro_exterior', 'renda_eventual']).default('outro_isento'),
+  valor: monetaryValue,
+});
+
+/** Rendimentos da Lei 7.713 com IRRF potencialmente compensável no ajuste */
+export const RendimentoTributadoLei7713Schema = z.object({
+  descricao: z.string().max(255),
+  valor_bruto: monetaryValue,
+  irrf: monetaryValue.default(0),
+  aliquota_irrf_percentual: z.number().nonnegative().max(100).optional().default(15),
+});
+
+export const MemoriaLegalExclusaoSchema = z.object({
+  item: z.string(),
+  valor: monetaryValue,
+  base_legal: z.string(),
+  motivo: z.string(),
+});
+
+export const ImpactoIncrementalCategoriaSchema = z.object({
+  categoria: z.string(),
+  valor: monetaryValue,
+  percentual_base: z.number(),
+});
+
+export const OtimizacaoIsentoVsTributadoSchema = z.object({
+  valor_migrado: monetaryValue,
+  bcc_cenario_atual: monetaryValue,
+  bcc_cenario_otimizado: monetaryValue,
+  imposto_complementar_atual: monetaryValue,
+  imposto_complementar_otimizado: monetaryValue,
+  irrf_compensavel_estimado: monetaryValue,
+  rendimento_liquido_cenario_isento: monetaryValue,
+  rendimento_liquido_cenario_tributado: monetaryValue,
+  ganho_liquido_estimado: monetaryValue,
+  observacao: z.string().optional(),
+});
+
 // ── Dados completos extraídos / preenchidos ───────────────────────────────────
 
 /**
@@ -91,6 +132,14 @@ export const DadosIrpfAltaRendaSchema = z.object({
   ganho_capital_excluido: monetaryValue.optional().default(0),
   /** Rendimentos de FIIs excluídos (Art. 16-A § 1º V-j — FIIs com 100+ cotistas) */
   rendimentos_fiis_excluidos: monetaryValue.optional().default(0),
+  /** Outros excluídos (Art. 16-A § 1º) como CRI, CRA, LCI, LCA, LIG, poupança e debêntures de infraestrutura */
+  outros_excluidos_art_16a: monetaryValue.optional().default(0),
+  /** Isentos que entram na base mínima, fora dos códigos 09 e 13 */
+  outros_isentos_que_entram_base: z.array(OutroIsentoQueEntraBaseSchema).optional().default([]),
+  /** Rendimentos tributados exclusivamente na fonte sob Lei 7.713 (IRRF pode reduzir imposto a complementar) */
+  rendimentos_tributados_exclusivamente_lei_7713: z.array(RendimentoTributadoLei7713Schema).optional().default([]),
+  /** Indica se o contribuinte optou pelo ajuste anual para rendimentos do art. 12-A da Lei 7.713 */
+  optou_ajuste_anual_lei_7713: z.boolean().optional().default(false),
 });
 
 // ── Inputs / Outputs ──────────────────────────────────────────────────────────
@@ -122,7 +171,43 @@ export const IrpfAltaRendaSimulacaoResponseSchema = z.object({
   risco_retencao_detalhe: z.string().optional(),
   /** Sugestões dinâmicas de planejamento (holding, segregação) com base nos dados da simulação */
   sugestoes_planejamento: z.array(z.string()).optional(),
+  /** Visão resumida de composição da renda para dashboards */
+  composicao_renda: z.object({
+    tributaveis: z.number(),
+    isentos_que_entram_base: z.number(),
+    isentos_excluidos: z.number(),
+    tributacao_exclusiva_lei_7713: z.number().optional(),
+  }).optional(),
+  /** Contribuição de cada grupo para a base de cálculo combinada */
+  impacto_incremental_base: z.array(ImpactoIncrementalCategoriaSchema).optional(),
+  /** Comparação entre manter isento que entra na base e migrar para ativo tributado com IRRF compensável */
+  otimizacao_isento_vs_tributado: OtimizacaoIsentoVsTributadoSchema.optional(),
+  /** Explicação jurídica das exclusões aplicadas no cálculo */
+  memoria_legal_exclusoes: z.array(MemoriaLegalExclusaoSchema).optional(),
   memoria_calculo: z.record(z.unknown()).optional(),
+});
+
+export const ReportSummaryIrpfAltaRendaInputSchema = SimulateIrpfAltaRendaInputSchema.extend({
+  scenario_name: z.string().max(120).optional(),
+});
+
+export const ReportSummaryIrpfAltaRendaResponseSchema = z.object({
+  scenario_name: z.string(),
+  gerado_em: z.string(),
+  resumo_executivo: z.object({
+    faixa: FaixaAltaRendaSchema,
+    aliquota_percentual: z.number(),
+    imposto_a_complementar: z.number(),
+    economia_potencial_otimizacao: z.number().optional(),
+  }),
+  composicao: z.object({
+    tributaveis: z.number(),
+    isentos_que_entram_base: z.number(),
+    isentos_excluidos: z.number(),
+  }),
+  comparativo_otimizacao: OtimizacaoIsentoVsTributadoSchema.optional(),
+  memoria_legal_exclusoes: z.array(MemoriaLegalExclusaoSchema).default([]),
+  recomendacoes_priorizadas: z.array(z.string()).default([]),
 });
 
 export const ListIrpfAltaRendaQuerySchema = z.object({
@@ -144,8 +229,15 @@ export type RendimentoPFAluguel = z.infer<typeof RendimentoPFAluguelSchema>;
 export type RendimentoIsentoDividendo = z.infer<typeof RendimentoIsentoDividendoSchema>;
 export type OutrosRendimentos = z.infer<typeof OutrosRendimentosSchema>;
 export type PatrimonioImobiliario = z.infer<typeof PatrimonioImobiliarioSchema>;
+export type OutroIsentoQueEntraBase = z.infer<typeof OutroIsentoQueEntraBaseSchema>;
+export type RendimentoTributadoLei7713 = z.infer<typeof RendimentoTributadoLei7713Schema>;
+export type MemoriaLegalExclusao = z.infer<typeof MemoriaLegalExclusaoSchema>;
+export type ImpactoIncrementalCategoria = z.infer<typeof ImpactoIncrementalCategoriaSchema>;
+export type OtimizacaoIsentoVsTributado = z.infer<typeof OtimizacaoIsentoVsTributadoSchema>;
 export type DadosIrpfAltaRenda = z.infer<typeof DadosIrpfAltaRendaSchema>;
 export type SimulateIrpfAltaRendaInput = z.infer<typeof SimulateIrpfAltaRendaInputSchema>;
 export type SimulateAndSaveIrpfAltaRendaInput = z.infer<typeof SimulateAndSaveIrpfAltaRendaInputSchema>;
 export type FaixaAltaRenda = z.infer<typeof FaixaAltaRendaSchema>;
 export type IrpfAltaRendaSimulacaoResponse = z.infer<typeof IrpfAltaRendaSimulacaoResponseSchema>;
+export type ReportSummaryIrpfAltaRendaInput = z.infer<typeof ReportSummaryIrpfAltaRendaInputSchema>;
+export type ReportSummaryIrpfAltaRendaResponse = z.infer<typeof ReportSummaryIrpfAltaRendaResponseSchema>;

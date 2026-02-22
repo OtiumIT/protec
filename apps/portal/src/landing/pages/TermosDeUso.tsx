@@ -121,7 +121,7 @@ export function TermosDeUso() {
                       1. Objeto
                     </h2>
                     <p className="mt-2 text-slate-600 leading-relaxed text-[15px]">
-                      O IATax é uma plataforma de inteligência fiscal e contábil que oferece ferramentas para análise da capacidade de pagamento (transação tributária), simulação do aumento da tributação do lucro presumido (LC 224/2025), tributação da alta renda/dividendos (IRPFM - Lei 12.570/2025), organização de clientes e arquivos fiscais. O serviço é prestado sob o modelo SaaS (Software as a Service) pela IATax Soluções Inteligentes.
+                      O IATax é uma plataforma de inteligência fiscal e contábil que oferece ferramentas para análise da capacidade de pagamento (transação tributária), simulação do aumento da tributação do lucro presumido (LC 224/2025), tributação da alta renda/dividendos (IRPFM - Lei 15.270/2025), organização de clientes e arquivos fiscais. O serviço é prestado sob o modelo SaaS (Software as a Service) pela IATax Soluções Inteligentes.
                     </p>
                   </div>
 

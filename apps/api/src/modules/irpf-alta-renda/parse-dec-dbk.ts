@@ -11,6 +11,7 @@ import {
   DeclaracaoIrpfCompletaSchema,
   type DeclaracaoIrpfCompleta,
 } from '@shared/core';
+import { classificarIsentosArt16A } from './calculations';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const CPF_LENGTH = 11;
@@ -59,6 +60,19 @@ export type ParseDecDbkResult = {
   dados: import('@shared/core').DadosIrpfAltaRenda;
   declaracao_completa: DeclaracaoIrpfCompleta;
   parser_version?: number;
+  diagnostico?: {
+    fonte: 'dec_dbk_fixed_width' | 'dec_dbk_pipe';
+    completude: 'alta' | 'media' | 'baixa';
+    avisos: string[];
+  };
+};
+
+const CODIGO_ISENTO_DESCRICAO: Record<string, string> = {
+  '01': 'Transferencias patrimoniais (heranca/doacao)',
+  '03': 'Transferencias patrimoniais entre conjuges/dependentes',
+  '09': 'Lucros e dividendos recebidos',
+  '13': 'Rendimento de socio ou titular de microempresa/EPP Simples',
+  '99': 'Outros rendimentos isentos',
 };
 
 /**
@@ -79,6 +93,7 @@ function parseFixedWidth(
   const itensIsentos09: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
   const itensIsentos13: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
   const codigosValor: Record<string, number> = {}; // codigo -> valor
+  const avisos: string[] = [];
 
   if (lines[0]?.startsWith('IRPF')) {
     const l1 = lines[0];
@@ -177,6 +192,13 @@ function parseFixedWidth(
   const totalRendPf = (codigosValor['__totalPf20'] as number | undefined) ?? itensPf.reduce((s, i) => s + i.valor, 0);
   const tot09 = codigosValor['09'] ?? itensIsentos09.reduce((s, i) => s + i.valor, 0);
   const tot13 = codigosValor['13'] ?? itensIsentos13.reduce((s, i) => s + i.valor, 0);
+  const itensIsentosOutros = Object.entries(codigosValor)
+    .filter(([codigo, valor]) => !codigo.startsWith('__') && codigo !== '09' && codigo !== '13' && Number(valor) > 0)
+    .map(([codigo, valor]) => ({
+      codigo,
+      descricao: CODIGO_ISENTO_DESCRICAO[codigo] ?? `Rendimento isento codigo ${codigo}`,
+      valor: round2(Number(valor)),
+    }));
 
   if (tot09 > 0 && itensIsentos09.length === 0) {
     itensIsentos09.push({ nome_fonte: 'Dividendos (cód. 09)', valor: tot09 });
@@ -184,12 +206,39 @@ function parseFixedWidth(
   if (tot13 > 0 && itensIsentos13.length === 0) {
     itensIsentos13.push({ nome_fonte: 'Sócio Simples (cód. 13)', valor: tot13 });
   }
+  if (totalRendPf > 0 && itensPf.length === 0) {
+    avisos.push('O parser identificou total de rendimentos PF sem detalhamento por item. Revise manualmente aluguéis/carnê-leão.');
+  }
+  if (impostoPagoRetencao === 0) {
+    avisos.push('Imposto já pago por retenção não identificado automaticamente no arquivo. Confirme este campo antes de simular.');
+  }
 
   if (!nome && cpf) nome = 'Contribuinte (importado)';
   if (!nome && !cpf) nome = 'Contribuinte (verifique os dados)';
   if (!cpf) cpf = '00000000000';
 
-  return buildResult(ano, nome, cpf, totalRendPj, totalRendPf, itensPj, itensPf, itensIsentos09, itensIsentos13, baseCalculoIr, impostoDevido, impostoPagoRetencao, tot09, tot13);
+  return buildResult(
+    ano,
+    nome,
+    cpf,
+    totalRendPj,
+    totalRendPf,
+    itensPj,
+    itensPf,
+    itensIsentos09,
+    itensIsentos13,
+    itensIsentosOutros,
+    baseCalculoIr,
+    impostoDevido,
+    impostoPagoRetencao,
+    tot09,
+    tot13,
+    {
+      fonte: 'dec_dbk_fixed_width',
+      completude: totalRendPj + totalRendPf <= 0 ? 'baixa' : avisos.length > 1 ? 'media' : 'alta',
+      avisos,
+    }
+  );
 }
 
 function buildResult(
@@ -202,11 +251,13 @@ function buildResult(
   itensPf: { descricao?: string; valor: number; mes?: string }[],
   itensIsentos09: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[],
   itensIsentos13: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[],
+  itensIsentosOutros: { codigo: string; descricao?: string; valor: number }[],
   baseCalculoIr: number,
   impostoDevido: number,
   impostoPagoRetencao: number,
   tot09 = 0,
-  tot13 = 0
+  tot13 = 0,
+  diagnostico?: ParseDecDbkResult['diagnostico']
 ): ParseDecDbkResult {
   const t09 = round2(tot09 > 0 ? tot09 : itensIsentos09.reduce((s, i) => s + i.valor, 0));
   const t13 = round2(tot13 > 0 ? tot13 : itensIsentos13.reduce((s, i) => s + i.valor, 0));
@@ -215,6 +266,25 @@ function buildResult(
     ...itensIsentos09.map((i) => ({ ...i, valor: round2(i.valor), codigo: '09' as const })),
     ...itensIsentos13.map((i) => ({ ...i, valor: round2(i.valor), codigo: '13' as const })),
   ];
+  const classificacaoIsentos = classificarIsentosArt16A([
+    ...itensIsentos09.map((i) => ({
+      codigo: '09',
+      descricao: i.nome_fonte,
+      nome_fonte: i.nome_fonte,
+      valor: round2(i.valor),
+    })),
+    ...itensIsentos13.map((i) => ({
+      codigo: '13',
+      descricao: i.nome_fonte,
+      nome_fonte: i.nome_fonte,
+      valor: round2(i.valor),
+    })),
+    ...itensIsentosOutros.map((i) => ({
+      codigo: i.codigo,
+      descricao: i.descricao,
+      valor: round2(i.valor),
+    })),
+  ]);
 
   const declaracao_completa: DeclaracaoIrpfCompleta = {
     identificacao: { nome, cpf, exercicio: ano, ano_calendario: ano - 1 },
@@ -223,10 +293,11 @@ function buildResult(
     rendimentos_tributaveis_pf: { total: round2(totalRendPf), itens: itensPf.map((i) => ({ ...i, valor: round2(i.valor) })) },
     rendimentos_tributaveis_outros: { total: 0, itens: [] },
     rendimentos_isentos_nao_tributaveis: {
-      total: round2(t09 + t13),
+      total: round2(t09 + t13 + itensIsentosOutros.reduce((s, i) => s + (i.valor ?? 0), 0)),
       itens: [
         ...itensIsentos09.map((i) => ({ codigo: '09', nome_fonte: i.nome_fonte, valor: round2(i.valor) })),
         ...itensIsentos13.map((i) => ({ codigo: '13', nome_fonte: i.nome_fonte, valor: round2(i.valor) })),
+        ...itensIsentosOutros.map((i) => ({ codigo: i.codigo, descricao: i.descricao, valor: round2(i.valor) })),
       ],
     },
     rendimentos_tributacao_exclusiva_definitiva: { total: 0, itens: [] },
@@ -242,10 +313,10 @@ function buildResult(
     pagamentos_efetuados: [],
     doacoes_deducoes: [],
     lei_15_270_classificacao: {
-      ganho_capital_excluido: 0,
-      rendimentos_fiis_excluidos: 0,
-      lucros_aprovados_ate_31dez2025: 0,
-      outros_excluidos_art_16a: 0,
+      ganho_capital_excluido: classificacaoIsentos.ganho_capital_excluido,
+      rendimentos_fiis_excluidos: classificacaoIsentos.rendimentos_fiis_excluidos,
+      lucros_aprovados_ate_31dez2025: classificacaoIsentos.lucros_aprovados_ate_31dez2025,
+      outros_excluidos_art_16a: classificacaoIsentos.outros_excluidos_art_16a,
     },
     fonte: 'dec_dbk',
     extraido_em: new Date().toISOString(),
@@ -259,13 +330,16 @@ function buildResult(
     tributaveis_pf_alugueis: itensPf.map((i) => ({ mes: i.mes ?? '', valor: round2(i.valor) })),
     isentos_lucros_dividendos: itensIsentos09.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
     isentos_simples_nacional: itensIsentos13.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
+    outros_isentos_que_entram_base: classificacaoIsentos.outros_isentos_que_entram_base,
+    rendimentos_tributados_exclusivamente_lei_7713: [],
     imposto_ja_pago_retencao_fonte: round2(impostoPagoRetencao),
     imposto_ja_pago_carne_leao: 0,
     imposto_ja_pago_aplicacoes: 0,
     imposto_antecipado_dividendos: 0,
-    lucros_aprovados_ate_31dez2025: 0,
-    ganho_capital_excluido: 0,
-    rendimentos_fiis_excluidos: 0,
+    lucros_aprovados_ate_31dez2025: classificacaoIsentos.lucros_aprovados_ate_31dez2025,
+    ganho_capital_excluido: classificacaoIsentos.ganho_capital_excluido,
+    rendimentos_fiis_excluidos: classificacaoIsentos.rendimentos_fiis_excluidos,
+    outros_excluidos_art_16a: classificacaoIsentos.outros_excluidos_art_16a,
   };
 
   const declaracaoValidada = DeclaracaoIrpfCompletaSchema.parse(declaracao_completa);
@@ -276,6 +350,7 @@ function buildResult(
     dados: dadosValidados,
     declaracao_completa: declaracaoValidada,
     parser_version: DEC_DBK_PARSER_VERSION,
+    diagnostico,
   };
 }
 
@@ -333,8 +408,10 @@ function parsePipeDelimited(
   const itensPf: { descricao?: string; valor: number; mes?: string }[] = [];
   const itensIsentos09: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
   const itensIsentos13: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
+  const itensIsentosOutros: { codigo: string; descricao?: string; valor: number }[] = [];
   let totalRendPj = 0;
   let totalRendPf = 0;
+  const avisos: string[] = [];
 
   for (const fields of records) {
     const tipo = (fields[0] ?? '').toUpperCase().slice(0, 6);
@@ -379,6 +456,17 @@ function parsePipeDelimited(
       const v = parseValorMonetario(valorField);
       if (v > 0) itensIsentos13.push({ nome_fonte: fields[1] ?? 'Sócio Simples', valor: v });
     }
+    if (codigoReceita && !/^(09|090|13|130)$/.test(codigoReceita)) {
+      const v = parseValorMonetario(valorField);
+      if (v > 0) {
+        const cod = codigoReceita.padStart(2, '0').slice(-2);
+        itensIsentosOutros.push({
+          codigo: cod,
+          descricao: fields[1] || CODIGO_ISENTO_DESCRICAO[cod] || `Rendimento isento codigo ${cod}`,
+          valor: v,
+        });
+      }
+    }
     if ((tipo === 'TOTRES' || tipo === '99') && fields.length >= 3) {
       const bc = parseValorMonetario(fields[1] ?? fields[2] ?? '');
       const imp = parseValorMonetario(fields[2] ?? fields[3] ?? '');
@@ -390,6 +478,12 @@ function parsePipeDelimited(
   if (!nome && cpf) nome = 'Contribuinte (importado)';
   if (!nome && !cpf) nome = 'Contribuinte (verifique os dados)';
   if (!cpf) cpf = '00000000000';
+  if (totalRendPf === 0) {
+    avisos.push('Rendimentos tributáveis de PF não foram encontrados no layout pipe; valide esse valor manualmente.');
+  }
+  if (impostoPagoRetencao === 0) {
+    avisos.push('Imposto já pago por retenção não identificado automaticamente no layout pipe. Confirme antes de simular.');
+  }
 
   return buildResult(
     ano,
@@ -401,8 +495,16 @@ function parsePipeDelimited(
     itensPf,
     itensIsentos09,
     itensIsentos13,
+    itensIsentosOutros,
     baseCalculoIr,
     impostoDevido,
-    impostoPagoRetencao
+    impostoPagoRetencao,
+    0,
+    0,
+    {
+      fonte: 'dec_dbk_pipe',
+      completude: totalRendPj + totalRendPf <= 0 ? 'baixa' : avisos.length > 1 ? 'media' : 'alta',
+      avisos,
+    }
   );
 }
