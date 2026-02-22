@@ -15,3 +15,4 @@ export * from './judicial-process.schema.js';
 export * from './simulador-in-2306.schema.js';
 export * from './irpf-alta-renda.schema.js';
 export * from './declaracao-irpf-completa.schema.js';
+export * from './property.schema.js';

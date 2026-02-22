@@ -76,13 +76,13 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
       const inputValue = e.target.value;
 
       // Se o campo está vazio, permitir limpar
-      if (inputValue === '' || inputValue === prefix + ' ' || inputValue === prefix) {
+      if (inputValue === '' || (prefix && (inputValue === prefix + ' ' || inputValue === prefix))) {
         setDisplayValue('');
         onChange(0);
         return;
       }
 
-      // Remove o prefixo se presente
+      // Remove o prefixo se o usuário colar "R$ 1.000,00"
       let cleanedValue = inputValue;
       if (prefix && cleanedValue.startsWith(prefix)) {
         cleanedValue = cleanedValue.replace(prefix, '').trim();
@@ -122,7 +122,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
             ref={ref}
             type="text"
             inputMode="decimal"
-            value={displayValue ? `${prefix ? prefix + ' ' : ''}${displayValue}` : ''}
+            value={displayValue}
             onChange={handleChange}
             onBlur={handleBlur}
             onFocus={handleFocus}

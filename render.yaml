@@ -31,6 +31,8 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      - key: FORCE_ALL_MODULES_ACTIVE
+        value: 'true'
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

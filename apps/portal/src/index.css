@@ -63,4 +63,19 @@
     padding: 1.5rem 2rem;
     background: white;
   }
+
+  /* Impressão: resultado do Simulador Imobiliário (PF vs PJ vs Reforma) */
+  #simulador-imoveis-resultado-print,
+  #simulador-imoveis-resultado-print * {
+    visibility: visible;
+  }
+  #simulador-imoveis-resultado-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    background: white;
+  }
 }

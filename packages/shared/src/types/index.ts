@@ -225,3 +225,37 @@ export type ApiError = {
     details?: any;
   };
 };
+
+export type Property = {
+  id: string;
+  client_id: string;
+  tipo_locacao: 'fixa' | 'flexivel';
+  identificador: string;
+  modo_entrada: 'detalhado' | 'reduzido';
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PropertyMonthlyTotal = {
+  id: string;
+  property_id: string;
+  mes_referencia: string;
+  receita_longa: number;
+  receita_short: number;
+  despesas_dedutiveis: number;
+  custos_operacionais: number;
+  created_at?: Date | string;
+  updated_at?: Date | string;
+};
+
+export type PropertyTransaction = {
+  id: string;
+  property_id: string;
+  mes_referencia: string;
+  tipo: 'receita' | 'despesa_dedutivel' | 'custo_operacional';
+  categoria: string;
+  valor: number;
+  observacao?: string;
+  created_at?: Date | string;
+  updated_at?: Date | string;
+};

@@ -96,12 +96,20 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     [companyId]
   );
 
+  // #region agent log
+  fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:company-check',message:'Company lookup result',data:{companyId,found:company.rows.length>0,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
   if (company.rows.length === 0) {
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:return-404',message:'Returning 404 TENANT_NOT_FOUND',data:{companyId,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return c.json(
       {
         error: {
-          message: 'Tenant not found',
+          message: 'Tenant not found. Verifique se o company_id (X-Tenant-ID ou JWT) existe em companies.',
           code: 'TENANT_NOT_FOUND',
+          path: c.req.path,
         },
       },
       404
