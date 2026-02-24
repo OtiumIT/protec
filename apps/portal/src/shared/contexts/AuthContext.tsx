@@ -6,7 +6,7 @@ interface User {
   email: string;
   name: string;
   role: string;
-  company_id: string | null;
+  tenant_id: string | null;
 }
 
 interface AuthContextType {
@@ -48,34 +48,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUser(user);
     setToken(tokens.access);
-    setTenantId(user.company_id || null);
-
+    const tid = user.tenant_id ?? null;
+    setTenantId(tid);
     localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
     localStorage.setItem('user', JSON.stringify(user));
-    if (user.company_id) {
-      localStorage.setItem('tenantId', user.company_id);
-    } else {
-      localStorage.removeItem('tenantId');
-    }
+    if (tid) localStorage.setItem('tenantId', tid);
+    else localStorage.removeItem('tenantId');
   };
 
   const register = async (data: RegisterData) => {
     const response = await authService.register(data);
     const { user, tokens } = response.data;
-
     setUser(user);
     setToken(tokens.access);
-    setTenantId(user.company_id || null);
-
+    const tid = user.tenant_id ?? null;
+    setTenantId(tid);
     localStorage.setItem('accessToken', tokens.access);
     localStorage.setItem('refreshToken', tokens.refresh);
     localStorage.setItem('user', JSON.stringify(user));
-    if (user.company_id) {
-      localStorage.setItem('tenantId', user.company_id);
-    } else {
-      localStorage.removeItem('tenantId');
-    }
+    if (tid) localStorage.setItem('tenantId', tid);
+    else localStorage.removeItem('tenantId');
   };
 
   const logout = () => {

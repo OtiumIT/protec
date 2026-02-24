@@ -39,7 +39,7 @@ export class UserService {
 
     // Verificar se email existe como super_admin (não pode ser usado em tenants)
     const existingSuperAdmin = await this.userRepo.findByEmailGlobal(data.email);
-    if (existingSuperAdmin && existingSuperAdmin.company_id === null) {
+    if (existingSuperAdmin && existingSuperAdmin.tenant_id === null) {
       throw new AppError('Email já existe como super admin e não pode ser usado em tenants', 'EMAIL_ALREADY_EXISTS', 409);
     }
 
@@ -47,7 +47,7 @@ export class UserService {
     const allUsersWithEmail = await this.userRepo.findAllByEmail(data.email);
     if (allUsersWithEmail.length > 0) {
       console.log(`[UserService.create] Email ${data.email} encontrado em outros tenants:`, 
-        allUsersWithEmail.map(u => ({ id: u.id, company_id: u.company_id, role: u.role, status: u.status }))
+        allUsersWithEmail.map(u => ({ id: u.id, tenant_id: u.tenant_id, role: u.role, status: u.status }))
       );
     }
 
@@ -73,7 +73,7 @@ export class UserService {
       status: user.status,
     });
 
-    console.log(`[UserService.create] Usuário criado com sucesso: ${user.email}, status: ${user.status}, company_id: ${companyId}`);
+    console.log(`[UserService.create] Usuário criado com sucesso: ${user.email}, status: ${user.status}, tenant_id: ${companyId}`);
 
     return user;
   }

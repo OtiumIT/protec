@@ -112,8 +112,9 @@ export function IrpfAltaRenda() {
     if (!user) return;
     if (user.role === 'super_admin') {
       companyService.list().then((list) => setCompanies(list.map((c) => ({ id: c.id, name: c.name })))).catch(() => setCompanies([]));
-    } else if (user.company_id) {
-      setCompanies([{ id: user.company_id, name: 'Sua empresa' }]);
+    } else if (user.tenant_id ?? user.company_id) {
+      const tid = user.tenant_id ?? user.company_id;
+      setCompanies([{ id: tid, name: 'Sua empresa' }]);
     } else {
       setCompanies([]);
     }

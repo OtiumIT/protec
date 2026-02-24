@@ -5,7 +5,7 @@ export type User = {
   id: string;
   email: string;
   name: string;
-  company_id: string | null; // null para super_admin
+  tenant_id: string | null; // null para super_admin; id do escritório/tenant
   role: string;
   status?: 'active' | 'inactive'; // Status do usuário
   created_at: Date;

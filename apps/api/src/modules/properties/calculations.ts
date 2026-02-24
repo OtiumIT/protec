@@ -312,15 +312,40 @@ export function calcularPJ(
   };
 }
 
+/** Alíquota só CBS em 2027/2028 (IBS inicia 2029) – Transição Reforma */
+const ALIQUOTA_CBS_2027_2028 = 9;
+/** Redutor locação residencial comum (LC 214/2025 Art. 261) */
+const REDUTOR_LOCACAO_RESIDENCIAL = 70;
+/** Redutor hospedagem / curta temporada */
+const REDUTOR_SHORT_STAY = 50;
+/** Regime de transição Art. 487: 3,65% sobre receita bruta (contratos até 16/01/2025) */
+const ALIQUOTA_TRANSICAO_ART487 = 3.65;
+
+export interface OpcoesReformaCalculo {
+  ano: number;
+  /** Override da alíquota nominal; se não informado, 2027/2028 = 9% (CBS), 2029+ = 26,5% */
+  aliquota_ibs_cbs_estimada?: number;
+  redutor_locacao_pct?: number;
+  redutor_short_stay_pct?: number;
+  /** Regime transição: 3,65% sobre receita; resultado = min(3,65%, regime normal) */
+  contrato_antes_16012025?: boolean;
+  /** Se true, aplica 50% no montante de receita short e 70% no long (quando short > long) */
+  usar_redutor_diferenciado_short?: boolean;
+  receita_longa_total?: number;
+  receita_short_total?: number;
+}
+
 /**
- * Cenário Reforma 2027: IBS/CBS com créditos sobre custos operacionais.
- * Para locação de imóveis, o setor tem redutor de alíquota (ex.: 70% → paga 30% da alíquota nominal).
- * Com redutor 70% e nominal 28%, alíquota efetiva IBS/CBS ≈ 8,4%; somando IRPJ+CSLL, carga holding ≈ 16–18%.
+ * Cenário Reforma: IBS/CBS com créditos sobre custos.
+ * 2027/2028: apenas CBS (~9%); 2029+: IBS+CBS (26,5% a 28%).
+ * Redutor 70% locação residencial; 50% curta temporada quando dominante (Art. 261 e redutor diferenciado).
+ * Regime transição Art. 487: opção 3,65% sobre faturamento (contratos antes 16/01/2025).
  */
 export function calcularReforma2027(
   aggregated: AggregatedYear,
-  aliquotaIbsCbs: number = 26.5,
-  redutorLocacaoPct?: number
+  aliquotaIbsCbsOverride?: number,
+  redutorLocacaoPct?: number,
+  opcoes?: OpcoesReformaCalculo
 ): {
   receita_bruta_total: number;
   custos_operacionais_total: number;
@@ -329,25 +354,65 @@ export function calcularReforma2027(
   ibs_cbs_liquido: number;
   imposto_total: number;
   aliquota_efetiva: number;
-  /** Alíquota nominal (antes do redutor), para exibição */
   aliquota_nominal_ibs_cbs: number;
-  /** Redutor aplicado (0 = nenhum), para exibição */
   redutor_locacao_aplicado_pct: number;
+  /** Regime transição Art. 487 aplicado (imposto a 3,65%) */
+  imposto_transicao_365?: number;
+  aplicou_transicao_art487?: boolean;
+  /** Quando short > long: redutor 50% na parte short, 70% na long */
+  redutor_diferenciado_short?: boolean;
 } {
-  const {
-    receita_total,
-    custos_operacionais_total,
-  } = aggregated;
+  const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
+  const ano = opcoes?.ano ?? aggAno ?? 2027;
 
-  /** Redutor padrão 70% para locação de imóveis (setor); regra de negócio fica no backend. */
-  const redutor = redutorLocacaoPct ?? 70;
-  const aliquotaEfetivaRate = (aliquotaIbsCbs / 100) * (1 - redutor / 100);
+  /** Escalonamento: 2027/2028 só CBS (9%); 2029+ IBS+CBS (26,5% padrão) */
+  const aliquotaNominal =
+    aliquotaIbsCbsOverride ??
+    ((ano >= 2027 && ano <= 2028) ? ALIQUOTA_CBS_2027_2028 : 26.5);
 
-  const ibsCbsReceita = round2(receita_total * aliquotaEfetivaRate);
-  const creditosIbsCbs = round2(
-    custos_operacionais_total * aliquotaEfetivaRate
-  );
-  const ibsCbsLiquido = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
+  const receitaLonga = opcoes?.receita_longa_total ?? 0;
+  const receitaShort = opcoes?.receita_short_total ?? 0;
+  const usarRedutorDiferenciado =
+    opcoes?.usar_redutor_diferenciado_short === true &&
+    receitaShort > receitaLonga &&
+    receita_total > 0;
+
+  const redutorLong = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+  const redutorShort = opcoes?.redutor_short_stay_pct ?? REDUTOR_SHORT_STAY;
+
+  let ibsCbsReceita: number;
+  let creditosIbsCbs: number;
+  let redutorExibicao: number;
+
+  if (usarRedutorDiferenciado) {
+    const partLong = receitaLonga / receita_total;
+    const partShort = receitaShort / receita_total;
+    const rateLong = (aliquotaNominal / 100) * (1 - redutorLong / 100);
+    const rateShort = (aliquotaNominal / 100) * (1 - redutorShort / 100);
+    ibsCbsReceita = round2(receita_total * (partLong * rateLong + partShort * rateShort));
+    const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
+    creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
+    redutorExibicao = redutorLong;
+  } else {
+    const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+    const aliquotaEfetivaRate = (aliquotaNominal / 100) * (1 - redutor / 100);
+    ibsCbsReceita = round2(receita_total * aliquotaEfetivaRate);
+    creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate);
+    redutorExibicao = redutor;
+  }
+
+  let ibsCbsLiquido = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
+
+  let aplicouTransicao = false;
+  let impostoTransicao365: number | undefined;
+
+  if (opcoes?.contrato_antes_16012025 && receita_total > 0) {
+    impostoTransicao365 = round2(receita_total * (ALIQUOTA_TRANSICAO_ART487 / 100));
+    if (impostoTransicao365 < ibsCbsLiquido) {
+      ibsCbsLiquido = impostoTransicao365;
+      aplicouTransicao = true;
+    }
+  }
 
   const aliquotaEfetiva =
     receita_total > 0 ? (ibsCbsLiquido / receita_total) * 100 : 0;
@@ -360,8 +425,11 @@ export function calcularReforma2027(
     ibs_cbs_liquido: ibsCbsLiquido,
     imposto_total: round2(ibsCbsLiquido),
     aliquota_efetiva: round2(aliquotaEfetiva),
-    aliquota_nominal_ibs_cbs: round2(aliquotaIbsCbs),
-    redutor_locacao_aplicado_pct: redutor,
+    aliquota_nominal_ibs_cbs: round2(aliquotaNominal),
+    redutor_locacao_aplicado_pct: redutorExibicao,
+    ...(impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 }),
+    ...(aplicouTransicao && { aplicou_transicao_art487: true }),
+    ...(usarRedutorDiferenciado && { redutor_diferenciado_short: true }),
   };
 }
 

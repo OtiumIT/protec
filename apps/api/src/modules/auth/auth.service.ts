@@ -118,19 +118,17 @@ export class AuthService {
       user = await this.authRepo.findByEmail(email, companyId);
     }
     
-    // Se encontrou super_admin, company_id será null
-    if (user && user.company_id === null) {
+    if (user && user.tenant_id === null) {
       // É super_admin, não precisa de companyId
-    } else if (user && user.company_id) {
-      companyId = user.company_id;
+    } else if (user && user.tenant_id) {
+      companyId = user.tenant_id;
     }
 
     if (!user) {
       throw new Error('Invalid credentials');
     }
 
-    // Verificar senha
-    const passwordHash = await this.authRepo.findPasswordHash(user.id, user.company_id);
+    const passwordHash = await this.authRepo.findPasswordHash(user.id, user.tenant_id);
     if (!passwordHash) {
       throw new Error('Invalid credentials');
     }
@@ -143,7 +141,7 @@ export class AuthService {
     // Gerar tokens (companyId pode ser null para super_admin)
     const tokens = this.generateTokens({
       userId: user.id,
-      companyId: user.company_id || null,
+      companyId: user.tenant_id || null,
       email: user.email,
       role: user.role,
     });
@@ -154,7 +152,7 @@ export class AuthService {
     await this.authRepo.createRefreshToken(user.id, tokens.refresh, expiresAt);
 
     // Log da operação
-    logSensitiveOperation('user_logged_in', user.id, user.company_id || 'super_admin');
+    logSensitiveOperation('user_logged_in', user.id, user.tenant_id || 'super_admin');
 
     return { user, tokens };
   }

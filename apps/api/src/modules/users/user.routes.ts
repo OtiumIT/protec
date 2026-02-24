@@ -8,7 +8,22 @@ import { PlanRepository } from '../plans/plan.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { CreateUserSchema, UpdateUserSchema } from '@shared/core';
+import type { User } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
+
+/** Formata User para resposta da API (já com tenant_id). */
+function toUserResponse(user: User & { created_at?: string; updated_at?: string }) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    tenant_id: user.tenant_id,
+    status: user.status || 'active',
+    ...(user.created_at && { created_at: user.created_at }),
+    ...(user.updated_at && { updated_at: user.updated_at }),
+  };
+}
 
 const userRoutes = new Hono();
 
@@ -76,7 +91,14 @@ adminRoutes.get('/admin', async (c) => {
     
     const result = await userService.list(companyId, { page, limit, role });
     
-    return c.json({ data: result });
+    return c.json({
+      data: {
+        users: result.users.map(toUserResponse),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      },
+    });
   } catch (error) {
     console.error('[GET /users/admin] Erro:', error);
     return errorHandler(error, c);
@@ -112,18 +134,7 @@ adminRoutes.post(
       });
       
       return c.json(
-        {
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              company_id: user.company_id,
-              status: user.status || 'active',
-            },
-          },
-        },
+        { data: { user: toUserResponse(user) } },
         201
       );
     } catch (error) {
@@ -156,18 +167,7 @@ adminRoutes.post(
       });
       
       return c.json(
-        {
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              company_id: user.company_id,
-              status: user.status || 'active',
-            },
-          },
-        },
+        { data: { user: toUserResponse(user) } },
         201
       );
     } catch (error) {
@@ -193,7 +193,7 @@ adminRoutes.get('/admin/super-admins', async (c) => {
     const users = await userService.listSuperAdmins();
     console.log('[GET /users/admin/super-admins] Found', users.length, 'super admins');
     
-    return c.json({ data: { users } });
+    return c.json({ data: { users: users.map(toUserResponse) } });
   } catch (error) {
     console.error('[GET /users/admin/super-admins] Error:', error);
     console.error('[GET /users/admin/super-admins] Error stack:', error instanceof Error ? error.stack : 'No stack');
@@ -210,18 +210,23 @@ userRoutes.route('/', adminRoutes);
  */
 userRoutes.get('/', async (c) => {
   try {
-    const companyId = c.get('companyId');
-    if (!companyId) {
+    const tenantId = c.get('companyId');
+    if (!tenantId) {
       return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
     }
     const page = parseInt(c.req.query('page') || '1', 10);
     const limit = parseInt(c.req.query('limit') || '20', 10);
     const role = c.req.query('role');
 
-    const result = await userService.list(companyId, { page, limit, role });
+    const result = await userService.list(tenantId, { page, limit, role });
 
     return c.json({
-      data: result,
+      data: {
+        users: result.users.map(toUserResponse),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      },
     });
   } catch (error) {
     return errorHandler(error, c);
@@ -248,30 +253,32 @@ userRoutes.get('/:id', async (c) => {
       return c.json({ error: { message: 'Not found', code: 'NOT_FOUND' } }, 404);
     }
     
-    const companyId = c.get('companyId');
-    if (!companyId) {
+    const tenantId = c.get('companyId');
+    if (!tenantId) {
       return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
     }
 
-    const user = await userService.getById(id, companyId);
+    const user = await userService.getById(id, tenantId);
 
     return c.json({
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          company_id: user.company_id,
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        },
-      },
+      data: { user: toUserResponse(user) },
     });
   } catch (error) {
     return errorHandler(error, c);
   }
 });
+
+/** Mensagem amigável para erros de validação Zod no cadastro de usuário */
+function formatCreateUserValidationMessage(err: { errors: Array<{ path: (string | number)[]; message: string }> }): string {
+  const first = err.errors[0];
+  if (!first) return 'Dados inválidos. Verifique nome, e-mail e senha.';
+  const path = first.path[0];
+  if (path === 'name') return 'Nome deve ter no mínimo 3 caracteres.';
+  if (path === 'email') return 'Informe um e-mail válido.';
+  if (path === 'password') return 'Senha deve ter no mínimo 8 caracteres.';
+  if (path === 'role') return 'Perfil (role) inválido.';
+  return first.message || 'Dados inválidos. Verifique os campos e tente novamente.';
+}
 
 /**
  * POST /users
@@ -279,16 +286,24 @@ userRoutes.get('/:id', async (c) => {
  */
 userRoutes.post(
   '/',
-  zValidator('json', CreateUserSchema),
+  zValidator('json', CreateUserSchema, (result, c) => {
+    if (!result.success) {
+      const message = formatCreateUserValidationMessage(result.error);
+      return c.json(
+        { error: { message, code: 'VALIDATION_ERROR', details: result.error.errors } },
+        400
+      );
+    }
+  }),
   async (c) => {
     try {
-      const companyId = c.get('companyId');
-      if (!companyId) {
+      const tenantId = c.get('companyId'); // id do tenant (escritório); company_id no payload seria id do cliente
+      if (!tenantId) {
         return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
       }
       const data = c.req.valid('json');
 
-      const user = await userService.create(companyId, {
+      const user = await userService.create(tenantId, {
         name: data.name,
         email: data.email,
         password: data.password,
@@ -296,18 +311,7 @@ userRoutes.post(
       });
 
       return c.json(
-        {
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              company_id: user.company_id,
-              status: user.status || 'active',
-            },
-          },
-        },
+        { data: { user: toUserResponse(user) } },
         201
       );
     } catch (error) {
@@ -325,28 +329,18 @@ userRoutes.put(
   zValidator('json', UpdateUserSchema),
   async (c) => {
     try {
-      const companyId = c.get('companyId');
-      if (!companyId) {
+      const tenantId = c.get('companyId');
+      if (!tenantId) {
         return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
       }
       const id = c.req.param('id');
       const data = c.req.valid('json');
       const currentUser = c.get('user');
 
-      const user = await userService.update(id, companyId, data, currentUser);
+      const user = await userService.update(id, tenantId, data, currentUser);
 
       return c.json({
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            company_id: user.company_id,
-            status: user.status || 'active',
-            updated_at: user.updated_at,
-          },
-        },
+        data: { user: toUserResponse(user) },
       });
     } catch (error) {
       return errorHandler(error, c);
@@ -360,14 +354,14 @@ userRoutes.put(
  */
 userRoutes.delete('/:id', async (c) => {
   try {
-    const companyId = c.get('companyId');
-    if (!companyId) {
+    const tenantId = c.get('companyId');
+    if (!tenantId) {
       return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
     }
     const id = c.req.param('id');
     const currentUser = c.get('user');
 
-    await userService.delete(id, companyId, currentUser);
+    await userService.delete(id, tenantId, currentUser);
 
     return c.json({
       data: {

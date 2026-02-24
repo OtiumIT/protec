@@ -27,7 +27,7 @@ export interface AuthResponse {
       email: string;
       name: string;
       role: string;
-      company_id: string | null;
+      tenant_id: string | null;
     };
     tokens: {
       access: string;

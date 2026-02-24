@@ -32,12 +32,12 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
     let result;
     if (payload.companyId === null || payload.companyId === undefined) {
       result = await query<User>(
-        'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND company_id IS NULL',
+        'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND tenant_id IS NULL',
         [payload.userId]
       );
     } else {
       result = await query<User>(
-        'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND company_id = $2',
+        'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE id = $1 AND tenant_id = $2',
         [payload.userId, payload.companyId]
       );
     }

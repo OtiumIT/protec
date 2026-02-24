@@ -17,6 +17,8 @@ interface User {
   email: string;
   role: 'admin' | 'user';
   status?: 'active' | 'inactive';
+  /** Id do tenant (escritório) — API envia tenant_id */
+  tenant_id?: string | null;
   company_id?: string | null;
   company_name?: string;
   createdAt: string;
@@ -631,12 +633,16 @@ export function Users() {
           title={editingUser ? 'Editar Usuário' : 'Novo Usuário'}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Nome"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+            <div>
+              <Input
+                label="Nome"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                minLength={3}
+              />
+              <p className="mt-1 text-xs text-slate-500">Mínimo de 3 caracteres</p>
+            </div>
             <Input
               label="Email"
               type="email"

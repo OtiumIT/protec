@@ -6,6 +6,7 @@ import {
   calcularPJ,
   calcularReforma2027,
   calcularBreakEven,
+  type OpcoesReformaCalculo,
 } from './calculations';
 import type {
   CreatePropertyInput,
@@ -70,7 +71,17 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
     cenario: 'reforma',
     norma: 'LC 214/2025',
     artigo: 'Art. 487',
-    descricao: 'Regime de transição: contratos de locação firmados até 16/01/2025 podem optar por alíquota de 3,65% sobre receita bruta até o fim do contrato ou 31/12/2028.',
+    descricao: 'Opção de 3,65% sobre faturamento bruto para contratos de locação firmados até 16/01/2025 (regime de transição até fim do contrato ou 31/12/2028).',
+  },
+  {
+    cenario: 'reforma',
+    norma: 'Transição 2027-2029',
+    descricao: 'Vigência isolada da CBS (9%) em 2027 e 2028; o IBS passa a vigorar a partir de 2029, quando a alíquota nominal IBS+CBS atinge a faixa de 26,5% a 28%.',
+  },
+  {
+    cenario: 'reforma',
+    norma: 'Redutor diferenciado (LC 214/2025)',
+    descricao: 'Redução de 50% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay).',
   },
 ];
 
@@ -261,14 +272,21 @@ export class PropertyService {
       input.aplicar_presuncao_16_servicos ?? false
     );
 
-    const aliquotaReforma =
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada ?? 26.5;
-    const redutorLocacao =
-      input.opcoes_reforma?.redutor_locacao_pct ?? 70;
+    const redutorLocacaoSimulate =
+      input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
+        ? 50
+        : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
+    const opcoesReformaSimulate: OpcoesReformaCalculo = {
+      ano: input.ano,
+      aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      redutor_locacao_pct: redutorLocacaoSimulate,
+      contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
+    };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      aliquotaReforma,
-      redutorLocacao
+      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      redutorLocacaoSimulate,
+      opcoesReformaSimulate
     );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS */
     const impostoTotalPFReforma =
@@ -339,8 +357,8 @@ export class PropertyService {
         property_ids: input.property_ids,
         aliquota_efetiva_dirpf: input.aliquota_efetiva_dirpf,
         aplicar_presuncao_16_servicos: input.aplicar_presuncao_16_servicos,
-        aliquota_ibs_cbs_reforma: aliquotaReforma,
-        redutor_locacao_pct: redutorLocacao,
+        aliquota_ibs_cbs_reforma: cenarioReforma.aliquota_nominal_ibs_cbs,
+        redutor_locacao_pct: redutorLocacaoSimulate,
         receita_total: aggregatedTotal.receita_total,
         despesas_dedutiveis_total: aggregatedTotal.despesas_dedutiveis_total,
         custos_operacionais_total: aggregatedTotal.custos_operacionais_total,
@@ -450,14 +468,28 @@ export class PropertyService {
     const cenarioPJ32Fixo = aplicarPresuncao16
       ? calcularPJ(aggregatedTotal, false)
       : null;
-    const aliquotaReforma =
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada ?? 26.5;
     const redutorLocacao =
-      input.opcoes_reforma?.redutor_locacao_pct ?? 70;
+      input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
+        ? 50
+        : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
+    const usarRedutorDiferenciado =
+      input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada' ||
+      receitaShortTotal > receitaLongaTotal;
+    const opcoesReformaStandalone: OpcoesReformaCalculo = {
+      ano: input.ano,
+      aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      redutor_locacao_pct: redutorLocacao,
+      redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
+      contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
+      usar_redutor_diferenciado_short: usarRedutorDiferenciado,
+      receita_longa_total: receitaLongaTotal,
+      receita_short_total: receitaShortTotal,
+    };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      aliquotaReforma,
-      redutorLocacao
+      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      redutorLocacao,
+      opcoesReformaStandalone
     );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS */
     const impostoTotalPFReformaStandalone =
@@ -520,7 +552,7 @@ export class PropertyService {
         ano: input.ano,
         modo: 'standalone',
         aplicar_presuncao_16_servicos: aplicarPresuncao16,
-        aliquota_ibs_cbs_reforma: aliquotaReforma,
+        aliquota_ibs_cbs_reforma: cenarioReforma.aliquota_nominal_ibs_cbs,
         redutor_locacao_pct: redutorLocacao,
         cenario_32_fixo_imposto: cenarioPJ32Fixo?.imposto_total,
         receita_total: receitaTotal,

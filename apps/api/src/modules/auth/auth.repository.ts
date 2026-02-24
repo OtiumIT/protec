@@ -4,22 +4,22 @@ import type { User, RefreshToken } from '@shared/core';
 
 export class AuthRepository extends BaseRepository {
   /**
-   * Buscar usuário por email e company_id
+   * Buscar usuário por email e tenant_id
    */
-  async findByEmail(email: string, companyId: string): Promise<User | null> {
+  async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE email = $1 AND company_id = $2',
-      [email, companyId]
+      'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE email = $1 AND tenant_id = $2',
+      [email, tenantId]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar usuário por email (sem filtro de company - usado no login antes de identificar tenant)
+   * Buscar usuário por email (sem filtro de tenant - usado no login antes de identificar tenant)
    */
   async findByEmailOnly(email: string): Promise<User | null> {
     const result = await query<User>(
-      'SELECT id, email, name, company_id, role, created_at, updated_at FROM public.users WHERE email = $1',
+      'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE email = $1',
       [email]
     );
     return result.rows[0] || null;
@@ -28,19 +28,17 @@ export class AuthRepository extends BaseRepository {
   /**
    * Buscar senha hash do usuário
    */
-  async findPasswordHash(userId: string, companyId: string | null): Promise<string | null> {
-    // Se companyId for null (super_admin), buscar sem filtro de company_id
-    if (companyId === null) {
+  async findPasswordHash(userId: string, tenantId: string | null): Promise<string | null> {
+    if (tenantId === null) {
       const result = await query<{ password_hash: string }>(
-        'SELECT password_hash FROM public.users WHERE id = $1 AND company_id IS NULL',
+        'SELECT password_hash FROM public.users WHERE id = $1 AND tenant_id IS NULL',
         [userId]
       );
       return result.rows[0]?.password_hash || null;
     }
-    
     const result = await this.query<{ password_hash: string }>(
-      'SELECT password_hash FROM public.users WHERE id = $1 AND company_id = $2',
-      [userId, companyId]
+      'SELECT password_hash FROM public.users WHERE id = $1 AND tenant_id = $2',
+      [userId, tenantId]
     );
     return result.rows[0]?.password_hash || null;
   }

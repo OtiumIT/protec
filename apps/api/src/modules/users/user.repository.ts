@@ -17,23 +17,23 @@ export interface UpdateUserData {
 
 export class UserRepository extends BaseRepository {
   /**
-   * Buscar usuário por ID e company_id
+   * Buscar usuário por ID e tenant_id
    */
-  async findById(id: string, companyId: string): Promise<User | null> {
+  async findById(id: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, status, created_at, updated_at FROM users WHERE id = $1 AND company_id = $2',
-      [id, companyId]
+      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE id = $1 AND tenant_id = $2',
+      [id, tenantId]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar usuário por email e company_id
+   * Buscar usuário por email e tenant_id
    */
-  async findByEmail(email: string, companyId: string): Promise<User | null> {
+  async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, status, created_at, updated_at FROM users WHERE email = $1 AND company_id = $2',
-      [email, companyId]
+      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1 AND tenant_id = $2',
+      [email, tenantId]
     );
     return result.rows[0] || null;
   }
@@ -43,7 +43,7 @@ export class UserRepository extends BaseRepository {
    */
   async findByEmailGlobal(email: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, status, created_at, updated_at FROM users WHERE email = $1',
+      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1',
       [email],
       false // Não requer filtro de tenant
     );
@@ -55,7 +55,7 @@ export class UserRepository extends BaseRepository {
    */
   async findAllByEmail(email: string): Promise<User[]> {
     const result = await this.query<User>(
-      'SELECT id, email, name, company_id, role, status, created_at, updated_at FROM users WHERE email = $1 ORDER BY created_at DESC',
+      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1 ORDER BY created_at DESC',
       [email],
       false // Não requer filtro de tenant
     );
@@ -65,35 +65,34 @@ export class UserRepository extends BaseRepository {
   /**
    * Criar usuário
    */
-  async create(companyId: string, data: CreateUserData): Promise<User> {
-    // Garantir que o status seja sempre 'active' ao criar
+  async create(tenantId: string, data: CreateUserData): Promise<User> {
+    // requireCompanyId: false — INSERT define tenant_id nos VALUES.
     const result = await this.query<User>(
-      `INSERT INTO users (email, name, password_hash, company_id, role, status) 
+      `INSERT INTO users (email, name, password_hash, tenant_id, role, status) 
        VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'active')) 
-       RETURNING id, email, name, company_id, role, COALESCE(status, 'active') as status, created_at, updated_at`,
-      [data.email, data.name, data.password, companyId, data.role || 'user', 'active']
+       RETURNING id, email, name, tenant_id, role, COALESCE(status, 'active') as status, created_at, updated_at`,
+      [data.email, data.name, data.password, tenantId, data.role || 'user', 'active'],
+      false
     );
     const createdUser = result.rows[0];
     
-    // Garantir que o status seja 'active' (fallback caso haja algum problema)
     if (!createdUser.status || createdUser.status !== 'active') {
       console.warn(`[UserRepository.create] Usuário criado com status inesperado: ${createdUser.status || 'undefined'}, forçando 'active'`);
-      // Atualizar no banco se necessário
       await this.query(
-        'UPDATE users SET status = $1 WHERE id = $2',
-        ['active', createdUser.id]
+        'UPDATE users SET status = $1 WHERE id = $2 AND tenant_id = $3',
+        ['active', createdUser.id, tenantId]
       );
       createdUser.status = 'active';
     }
     
-    console.log(`[UserRepository.create] Usuário criado: ${createdUser.email}, status: ${createdUser.status}, company_id: ${companyId}`);
+    console.log(`[UserRepository.create] Usuário criado: ${createdUser.email}, status: ${createdUser.status}, tenant_id: ${tenantId}`);
     return createdUser;
   }
 
   /**
    * Atualizar usuário
    */
-  async update(id: string, companyId: string, data: UpdateUserData): Promise<User> {
+  async update(id: string, tenantId: string, data: UpdateUserData): Promise<User> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -116,15 +115,15 @@ export class UserRepository extends BaseRepository {
     }
 
     if (updates.length === 0) {
-      return this.findById(id, companyId) as Promise<User>;
+      return this.findById(id, tenantId) as Promise<User>;
     }
 
-    params.push(id, companyId);
+    params.push(id, tenantId);
     const result = await this.query<User>(
       `UPDATE users 
        SET ${updates.join(', ')}, updated_at = NOW() 
-       WHERE id = $${paramIndex++} AND company_id = $${paramIndex++} 
-       RETURNING id, email, name, company_id, role, status, created_at, updated_at`,
+       WHERE id = $${paramIndex++} AND tenant_id = $${paramIndex++} 
+       RETURNING id, email, name, tenant_id, role, status, created_at, updated_at`,
       params
     );
     return result.rows[0];
@@ -133,37 +132,37 @@ export class UserRepository extends BaseRepository {
   /**
    * Deletar usuário
    */
-  async delete(id: string, companyId: string): Promise<void> {
+  async delete(id: string, tenantId: string): Promise<void> {
     await this.query(
-      'DELETE FROM users WHERE id = $1 AND company_id = $2',
-      [id, companyId]
+      'DELETE FROM users WHERE id = $1 AND tenant_id = $2',
+      [id, tenantId]
     );
   }
 
   /**
-   * Contar usuários por empresa (para validação de seats)
+   * Contar usuários por tenant (para validação de seats)
    */
-  async countByCompany(companyId: string): Promise<number> {
+  async countByCompany(tenantId: string): Promise<number> {
     const result = await this.query<{ count: string }>(
-      'SELECT COUNT(*) as count FROM users WHERE company_id = $1',
-      [companyId]
+      'SELECT COUNT(*) as count FROM users WHERE tenant_id = $1',
+      [tenantId]
     );
     return parseInt(result.rows[0].count, 10);
   }
 
   /**
-   * Listar usuários por empresa (com paginação)
+   * Listar usuários por tenant (com paginação)
    */
   async findByCompany(
-    companyId: string,
+    tenantId: string,
     options: { page?: number; limit?: number; role?: string } = {}
   ): Promise<{ users: User[]; total: number }> {
     const page = options.page || 1;
     const limit = options.limit || 20;
     const offset = (page - 1) * limit;
 
-    const params: any[] = [companyId];
-    let whereClause = 'company_id = $1';
+    const params: any[] = [tenantId];
+    let whereClause = 'tenant_id = $1';
 
     if (options.role) {
       whereClause += ' AND role = $2';
@@ -179,7 +178,7 @@ export class UserRepository extends BaseRepository {
 
     // Buscar usuários
     const usersResult = await this.query<User>(
-      `SELECT id, email, name, company_id, role, status, created_at, updated_at 
+      `SELECT id, email, name, tenant_id, role, status, created_at, updated_at 
        FROM users 
        WHERE ${whereClause} 
        ORDER BY created_at DESC 
@@ -194,13 +193,13 @@ export class UserRepository extends BaseRepository {
   }
 
   /**
-   * Criar super_admin (sem company_id)
+   * Criar super_admin (sem tenant_id)
    */
   async createSuperAdmin(data: CreateUserData): Promise<User> {
     const result = await this.query<User>(
-      `INSERT INTO users (email, name, password_hash, company_id, role, status) 
+      `INSERT INTO users (email, name, password_hash, tenant_id, role, status) 
        VALUES ($1, $2, $3, NULL, 'super_admin', 'active') 
-       RETURNING id, email, name, company_id, role, status, created_at, updated_at`,
+       RETURNING id, email, name, tenant_id, role, status, created_at, updated_at`,
       [data.email, data.name, data.password],
       false // Não requer filtro de tenant
     );
@@ -218,13 +217,13 @@ export class UserRepository extends BaseRepository {
           id, 
           email, 
           name, 
-          company_id, 
+          tenant_id, 
           role, 
           COALESCE(status, 'active') as status, 
           created_at, 
           updated_at 
          FROM users 
-         WHERE role = 'super_admin' AND company_id IS NULL 
+         WHERE role = 'super_admin' AND tenant_id IS NULL 
          ORDER BY created_at DESC`,
         [],
         false // Não requer filtro de tenant

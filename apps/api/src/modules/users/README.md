@@ -3,6 +3,15 @@
 ## Descrição
 Gerencia usuários do sistema, incluindo criação, edição, exclusão e validação de limites (seats).
 
+## Modelo de domínio (tenant × company × users)
+
+- **1 tenant** (ex.: Protec) = um escritório/contabilidade.
+- **1 tenant** tem **N usuários** (usuários do escritório).
+- **1 tenant** tem **N companies** (clientes do escritório — empresas que o tenant atende).
+- **Company** (cliente) **não tem usuários** (ainda); usuários pertencem ao **tenant**.
+
+Na API, o identificador do escritório é exposto como **tenant_id** (no banco a coluna em `users` segue como `company_id` = id do tenant). O termo **company_id** fica reservado para o cliente (company) do tenant, quando houver uso futuro.
+
 ## Regras de Negócio
 
 ### Regra 1: Validação de Seats
@@ -53,7 +62,7 @@ Gerencia usuários do sistema, incluindo criação, edição, exclusão e valida
 - **Query params**: `?page=1&limit=20&role=admin`
 - **Resposta**: `{ data: { users: [], total: number, page: number, limit: number } }`
 - **Autenticação**: Requerida
-- **Multitenant**: Filtro automático por company_id
+- **Multitenant**: Filtro automático por tenant (resposta com `tenant_id`)
 
 ### GET /users/:id
 - **Descrição**: Buscar usuário por ID
@@ -115,7 +124,7 @@ Gerencia usuários do sistema, incluindo criação, edição, exclusão e valida
 // Criar usuário
 const response = await fetch('/api/v1/users', {
   method: 'POST',
-  headers: { 'Authorization': 'Bearer <token>', 'X-Tenant-ID': '<companyId>' },
+  headers: { 'Authorization': 'Bearer <token>', 'X-Tenant-ID': '<tenantId>' },
   body: JSON.stringify({
     name: 'Novo Usuário',
     email: 'usuario@empresa.com',
@@ -126,6 +135,6 @@ const response = await fetch('/api/v1/users', {
 
 // Listar usuários
 const response = await fetch('/api/v1/users?page=1&limit=20', {
-  headers: { 'Authorization': 'Bearer <token>', 'X-Tenant-ID': '<companyId>' }
+  headers: { 'Authorization': 'Bearer <token>', 'X-Tenant-ID': '<tenantId>' }
 });
 ```

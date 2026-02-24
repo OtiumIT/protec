@@ -236,7 +236,13 @@ export const propertyService = {
       taxa_plataforma?: number;
       outros_custos?: number;
     }>;
-    opcoes_reforma?: { aliquota_ibs_cbs_estimada?: number; redutor_locacao_pct?: number };
+    opcoes_reforma?: {
+      aliquota_ibs_cbs_estimada?: number;
+      redutor_locacao_pct?: number;
+      redutor_short_stay_pct?: number;
+      contrato_antes_16012025?: boolean;
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+    };
   }): Promise<PropertyTaxSimulationResponse> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: PropertyTaxSimulationResponse }>(
@@ -256,7 +262,12 @@ export const propertyService = {
     property_ids: string[];
     aliquota_efetiva_dirpf?: number;
     aplicar_presuncao_16_servicos?: boolean;
-    opcoes_reforma?: { aliquota_ibs_cbs_estimada?: number; redutor_locacao_pct?: number };
+    opcoes_reforma?: {
+      aliquota_ibs_cbs_estimada?: number;
+      redutor_locacao_pct?: number;
+      contrato_antes_16012025?: boolean;
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+    };
   }): Promise<PropertyTaxSimulationResponse> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: PropertyTaxSimulationResponse }>(

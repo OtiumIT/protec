@@ -200,29 +200,11 @@ const adminMenuItems: MenuItem[] = [
     ),
     children: [
       {
-        name: 'Simulador',
+        name: 'Simulador PF vs PJ vs Reforma',
         path: '/properties/simulador',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-        ),
-      },
-      {
-        name: 'Imóveis',
-        path: '/properties',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-        ),
-      },
-      {
-        name: 'Dashboard',
-        path: '/properties/dashboard',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         ),
       },
@@ -482,7 +464,7 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
               }
             }}
             className={`
-              w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-all duration-200
+              w-full flex items-start justify-between gap-2 px-4 py-2.5 rounded-lg transition-all duration-200
               group relative
               ${active 
                 ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
@@ -494,14 +476,14 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
             aria-expanded={isExpanded}
             aria-label={`${item.name} menu`}
           >
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
               <span className={`
-                flex-shrink-0 transition-colors duration-200
+                flex-shrink-0 transition-colors duration-200 mt-0.5
                 ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
               `}>
                 {item.icon}
               </span>
-              <span className="truncate">{item.name}</span>
+              <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
               {item.badge && (
                 <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                   {item.badge}
@@ -510,7 +492,7 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
             </div>
             <svg
               className={`
-                w-4 h-4 flex-shrink-0 transition-transform duration-200 ml-2
+                w-4 h-4 flex-shrink-0 self-center transition-transform duration-200 ml-2
                 ${isExpanded ? 'rotate-90' : ''}
                 ${active ? 'text-brand' : 'text-slate-400'}
               `}
@@ -536,7 +518,7 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
                     <Link
                       to={child.path || '#'}
                       className={`
-                        flex items-center space-x-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-sm
+                        flex items-start gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-sm
                         group relative
                         ${childActive 
                           ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
@@ -547,12 +529,12 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
                       aria-current={childActive ? 'page' : undefined}
                     >
                       <span className={`
-                        flex-shrink-0 transition-colors duration-200
+                        flex-shrink-0 transition-colors duration-200 mt-0.5
                         ${childActive ? 'text-brand' : 'text-slate-400 group-hover:text-brand'}
                       `}>
                         {child.icon}
                       </span>
-                      <span className="truncate">{child.name}</span>
+                      <span className="break-words min-w-0 flex-1 text-left leading-snug">{child.name}</span>
                       {child.badge && (
                         <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
                           {child.badge}
@@ -576,7 +558,7 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
         <Link
           to={item.path || '#'}
           className={`
-            flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200
+            flex items-start gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
             group relative
             ${active 
               ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
@@ -588,12 +570,12 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
           aria-current={active ? 'page' : undefined}
         >
           <span className={`
-            flex-shrink-0 transition-colors duration-200
+            flex-shrink-0 transition-colors duration-200 mt-0.5
             ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
           `}>
             {item.icon}
           </span>
-          <span className="truncate flex-1">{item.name}</span>
+          <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
           {item.badge && (
             <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
               {item.badge}
@@ -656,15 +638,15 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
       >
         {/* Logo e botão de colapsar */}
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 bg-gradient-to-br from-brand to-brand/80 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-white font-bold text-xl">O</span>
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-slate-900 truncate">
+              <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
                 Otium<span className="text-brand">IT</span>
               </h1>
-              <p className="text-xs text-slate-500 truncate">SaaS Boilerplate</p>
+              <p className="text-xs text-slate-500 break-words leading-tight">SaaS Boilerplate</p>
             </div>
           </div>
           <button
@@ -712,11 +694,11 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 p-4 overflow-y-auto overscroll-contain">
+        <nav className="flex-1 min-h-0 p-4 overflow-y-auto overscroll-contain">
           {/* Seção Administrativo - sempre visível quando há itens (não depende da carga de módulos) */}
           {isAdmin && administrativeItems.length > 0 && (
             <div className="mb-6">
-              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                 {isSuperAdmin ? 'Administração Global' : 'Administrativo'}
               </h3>
               <ul className="space-y-1">
@@ -735,7 +717,7 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
             if (items.length === 0) return null;
             return (
               <div key={moduleKey} className="mb-6">
-                <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                   {moduleName}
                 </h3>
                 <ul className="space-y-1">
@@ -765,8 +747,8 @@ export function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              <p className="text-sm font-medium text-slate-900 break-words leading-snug">{user?.name}</p>
+              <p className="text-xs text-slate-500 break-words leading-snug">{user?.email}</p>
             </div>
           </div>
         </div>

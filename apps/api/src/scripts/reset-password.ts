@@ -24,7 +24,7 @@ async function resetPassword() {
   try {
     // Buscar usuário
     const userResult = await query(
-      `SELECT id, email, name, role, company_id FROM users WHERE email = $1`,
+      `SELECT id, email, name, role, tenant_id FROM users WHERE email = $1`,
       [email]
     );
 
@@ -36,20 +36,16 @@ async function resetPassword() {
     const user = userResult.rows[0];
     console.log(`✅ Usuário encontrado: ${user.name} (${user.role})`);
 
-    // Hash da nova senha
-    console.log('🔐 Gerando hash da nova senha...');
     const passwordHash = await hashPassword(newPassword);
 
-    // Atualizar senha
-    if (user.company_id) {
+    if (user.tenant_id) {
       await query(
-        `UPDATE users SET password_hash = $1 WHERE id = $2 AND company_id = $3`,
-        [passwordHash, user.id, user.company_id]
+        `UPDATE users SET password_hash = $1 WHERE id = $2 AND tenant_id = $3`,
+        [passwordHash, user.id, user.tenant_id]
       );
     } else {
-      // Super admin sem company_id
       await query(
-        `UPDATE users SET password_hash = $1 WHERE id = $2 AND company_id IS NULL`,
+        `UPDATE users SET password_hash = $1 WHERE id = $2 AND tenant_id IS NULL`,
         [passwordHash, user.id]
       );
     }

@@ -74,11 +74,21 @@ export const BatchPropertyTransactionSchema = z.object({
   transactions: z.array(PropertyTransactionSchema).min(1),
 });
 
+/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 50% */
+export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedagem_temporada']);
+export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
+
 export const OpcoesReformaSchema = z.object({
-  /** Alíquota nominal estimada do IVA (IBS+CBS), ex.: 26,5% a 28% */
+  /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. */
   aliquota_ibs_cbs_estimada: z.number().min(0).max(100).optional().default(26.5),
-  /** Redutor para locação de imóveis (reforma): ex. 70 → alíquota efetiva = nominal × (1 - 70/100). Padrão 70 conforme setor imobiliário. */
+  /** Redutor para locação residencial (reforma): 70 = alíquota efetiva = nominal × 30%. Padrão 70. */
   redutor_locacao_pct: z.number().min(0).max(100).optional(),
+  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem ou quando receita curto > longo. */
+  redutor_short_stay_pct: z.number().min(0).max(100).optional().default(50),
+  /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
+  contrato_antes_16012025: z.boolean().optional().default(false),
+  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Se não informado, deriva de receita curto vs longo. */
+  perfil_locacao: PerfilLocacaoReformaSchema.optional(),
 });
 
 /** Simulador standalone: campos granulares por mês */
@@ -177,6 +187,12 @@ export const CenarioReforma2027Schema = z.object({
   redutor_locacao_aplicado_pct: z.number().optional(),
   /** Na ótica PF em 2027: IR (Carnê-Leão) continua; imposto_total = ir_pf + ibs_cbs_liquido */
   ir_pf: z.number().optional(),
+  /** Regime transição Art. 487: valor do imposto a 3,65% sobre receita bruta */
+  imposto_transicao_365: z.number().optional(),
+  /** true se foi aplicado o regime de transição (3,65%) por ser menor que o regime normal */
+  aplicou_transicao_art487: z.boolean().optional(),
+  /** true quando foi aplicado redutor 50% na parte short stay (hospedagem/temporada) */
+  redutor_diferenciado_short: z.boolean().optional(),
 });
 
 export const BreakEvenSchema = z.object({

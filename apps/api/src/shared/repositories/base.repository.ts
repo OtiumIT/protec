@@ -17,25 +17,30 @@ export abstract class BaseRepository {
     params: any[] = [],
     requireCompanyId: boolean = true
   ): Promise<QueryResult<T>> {
-    // Validação: queries que acessam dados de tenant devem incluir company_id
-    // Mas apenas se requireCompanyId for true E a query realmente requerer
-    if (requireCompanyId) {
+    const lowerSql = sql.toLowerCase().replace(/\s+/g, ' ').trim();
+    const isInsertSettingTenantOrCompany =
+      lowerSql.startsWith('insert') && (lowerSql.includes('company_id') || lowerSql.includes('tenant_id'));
+
+    // Validação: queries que acessam dados de tenant devem incluir company_id ou tenant_id (users)
+    if (requireCompanyId && !isInsertSettingTenantOrCompany) {
       const requiresValidation = this.requiresCompanyId(sql);
       if (requiresValidation) {
-        const lowerSql = sql.toLowerCase();
-        // Verificar se a query já inclui filtro de company_id (incluindo IS NULL para super_admins)
-        const hasCompanyIdFilter = (lowerSql.includes('company_id =') || 
-                                    lowerSql.includes('company_id is null') ||
-                                    lowerSql.includes('company_id is not null'));
-        
+        const hasCompanyIdInWhere = (lowerSql.includes('company_id =') ||
+                                      lowerSql.includes('company_id is null') ||
+                                      lowerSql.includes('company_id is not null'));
+        const hasTenantIdInWhere = (lowerSql.includes('tenant_id =') ||
+                                    lowerSql.includes('tenant_id is null') ||
+                                    lowerSql.includes('tenant_id is not null'));
+        const hasCompanyIdFilter = hasCompanyIdInWhere || hasTenantIdInWhere ||
+          (lowerSql.startsWith('insert') && (lowerSql.includes('company_id') || lowerSql.includes('tenant_id')));
+
         if (!hasCompanyIdFilter) {
           const error = new Error(
-            'Query must include company_id filter for tenant isolation. ' +
-            'Add "AND company_id = $X" to your query or pass companyId in params. ' +
-            'If querying super_admins (company_id IS NULL), use requireCompanyId: false.'
+            'Query must include company_id or tenant_id filter for tenant isolation. ' +
+            'Add "AND company_id = $X" (ou tenant_id para users) or use requireCompanyId: false.'
           );
           console.error('[BaseRepository.query] Validation failed:', {
-            sql,
+            sql: sql.substring(0, 150),
             requireCompanyId,
             requiresValidation,
             hasCompanyIdFilter,
@@ -44,8 +49,6 @@ export abstract class BaseRepository {
         }
       }
     }
-    // Se requireCompanyId é false, não validar - permite queries sem filtro de tenant
-    // (útil para super_admins, queries globais, etc.)
 
     try {
       return await dbQuery<T>(sql, params);

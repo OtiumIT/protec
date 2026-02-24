@@ -24,9 +24,6 @@ import { RatingValidator } from './modules/rating-validator/pages/RatingValidato
 import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/RatingValidatorPrintPreview';
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
-import { Properties } from './modules/properties/pages/Properties';
-import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
-import { PropertyDashboard } from './modules/properties/pages/PropertyDashboard';
 import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -179,30 +176,9 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route
-        path="/properties/dashboard"
-        element={
-          <PrivateRoute>
-            <PropertyDashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/properties/:id"
-        element={
-          <PrivateRoute>
-            <PropertyDetail />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/properties"
-        element={
-          <PrivateRoute>
-            <Properties />
-          </PrivateRoute>
-        }
-      />
+      <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
+      <Route path="/properties/:id" element={<Navigate to="/properties/simulador" replace />} />
+      <Route path="/properties" element={<Navigate to="/properties/simulador" replace />} />
         <Route path="/quem-somos" element={<QuemSomos />} />
         <Route path="/o-produto" element={<OProduto />} />
         <Route path="/fale-conosco" element={<FaleConosco />} />

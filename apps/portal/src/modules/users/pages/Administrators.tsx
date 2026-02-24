@@ -16,6 +16,7 @@ interface User {
   email: string;
   role: 'super_admin';
   status?: 'active' | 'inactive';
+  tenant_id?: string | null;
   company_id?: string | null;
   createdAt: string;
 }

@@ -16,7 +16,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput } from '@shared/core';
+import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma } from '@shared/core';
 
 function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -148,6 +148,8 @@ export function SimuladorImoveis() {
   );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
+  const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
+  const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma | ''>('');
 
   const updateMes = (idx: number, field: keyof MesFields, value: number) => {
     setMeses((prev) => {
@@ -239,6 +241,11 @@ export function SimuladorImoveis() {
       const res = await propertyService.simulateStandalone({
         ano,
         meses: mesesParaEnvio,
+        opcoes_reforma: {
+          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
+          contrato_antes_16012025: contratoAntes16012025,
+          perfil_locacao: perfilLocacao || undefined,
+        },
       });
       setResult(res);
       success('Simulação concluída.');
@@ -290,6 +297,35 @@ export function SimuladorImoveis() {
             <Button type="submit" variant="primary" disabled={loading} className="min-w-[200px]">
               {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma 2027'}
             </Button>
+          </div>
+        </Card>
+
+        {/* Opções da Reforma 2027 */}
+        <Card className="p-5 border-amber-200/80 bg-amber-50/30">
+          <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma 2027 (IBS/CBS)</h3>
+          <div className="flex flex-wrap gap-6 items-start">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={contratoAntes16012025}
+                onChange={(e) => setContratoAntes16012025(e.target.checked)}
+                className="rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
+            </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
+              <select
+                value={perfilLocacao}
+                onChange={(e) => setPerfilLocacao((e.target.value || '') as PerfilLocacaoReforma | '')}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[220px]"
+              >
+                <option value="">Automático (curto &gt; longo → 50%)</option>
+                <option value="residencial_comum">Locação residencial comum (Redutor 70%)</option>
+                <option value="hospedagem_temporada">Hospedagem / Temporada (Redutor 50%)</option>
+              </select>
+              <span className="text-xs text-slate-500">Em 2027/2028 usa-se só CBS (9%); a partir de 2029, IBS+CBS (26,5%).</span>
+            </div>
           </div>
         </Card>
 
@@ -410,9 +446,14 @@ export function SimuladorImoveis() {
                 </p>
               );
             })()}
+            {(result.cenarios.pj.irpj_adicional ?? 0) > 0 && (
+              <p className="text-xs text-slate-600 mt-1">
+                Adicional IRPJ (10% sobre parcela que excedeu R$ 60 mil/trimestre – Lei 9.249/95): {formatMoney(result.cenarios.pj.irpj_adicional ?? 0)}
+              </p>
+            )}
             {(result.cenarios.pj.irpj_postergado ?? 0) > 0 && (
               <p className="text-xs text-amber-700 mt-1 font-medium">
-                Imposto postergado (diferença ao exceder R$ 120k): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}
+                Recolhimento da diferença postergada (16% → 32%): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano; a diferença de imposto dos trimestres que usaram 16% foi recolhida.
               </p>
             )}
             {(result.memoria_calculo as { cenario_32_fixo_imposto?: number } | undefined)?.cenario_32_fixo_imposto !== undefined && (
@@ -460,25 +501,35 @@ export function SimuladorImoveis() {
           </Card>
           <Card>
             <h3 className="font-semibold text-slate-700 mb-2">Reforma 2027 – Pessoa Física (IR + IBS/CBS)</h3>
-            <p className="text-2xl font-bold text-slate-800">
-              {formatMoney((result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
-            </p>
-            <p className="text-sm text-slate-600 mt-1">
-              Alíquota total: {(result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
-            </p>
             {(() => {
               const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
-              const irPf = (refPf as { ir_pf?: number })?.ir_pf;
-              if (irPf == null) return null;
+              const irHoje = result.cenarios.pf.imposto_total;
+              const ibsCbs = refPf?.ibs_cbs_liquido ?? 0;
+              const totalPF2027 = irHoje + ibsCbs;
+              const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
+              const aliquotaTotal = receita > 0 ? (totalPF2027 / receita) * 100 : 0;
               return (
-                <p className="text-xs text-slate-500 mt-1">
-                  IR (Carnê-Leão): {formatMoney(irPf)} + IBS/CBS: {formatMoney(refPf!.ibs_cbs_liquido)} = total acima.
-                </p>
+                <>
+                  <p className="text-2xl font-bold text-slate-800">
+                    {formatMoney(totalPF2027)}
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Alíquota total: {aliquotaTotal.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    IR (Carnê-Leão, mesmo de hoje): {formatMoney(irHoje)} + IBS/CBS: {formatMoney(ibsCbs)} = total acima.
+                  </p>
+                  {irHoje === 0 && (
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      Nesta simulação o IR da PF é zero (base de cálculo zero ou deduções altas), por isso o total da PF coincide com o valor só de IBS/CBS.
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Em 2027 a PF continua pagando o mesmo IR de hoje sobre a renda; soma-se o IBS/CBS sobre a atividade.
+                  </p>
+                </>
               );
             })()}
-            <p className="text-xs text-slate-500 mt-1">
-              Em 2027 a PF continua pagando IR sobre a renda; IBS/CBS incide sobre a atividade. Carga total = IR + IBS/CBS.
-            </p>
             <p className="text-xs text-amber-800/90 mt-1">
               Se tiver mais de 3 imóveis e receita &gt; R$ 240 mil/ano (ajustado IPCA), a PF pode ser tributada pelo IBS/CBS.
             </p>
@@ -497,6 +548,12 @@ export function SimuladorImoveis() {
             <p className="text-xs text-slate-500 mt-1">
               Carga total holding em 2027: IBS/CBS + IRPJ + CSLL, estimada na faixa de 16% a 18%.
             </p>
+            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
+              <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
+            )}
+            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
+              <p className="text-xs text-slate-600 mt-1">Redutor diferenciado: 50% na parte short stay (hospedagem/temporada).</p>
+            )}
           </Card>
           </div>
 

@@ -84,9 +84,10 @@ export function errorHandler(error: unknown, c: Context): Response {
     );
   }
 
-  // Erro customizado com código
+  // Erro customizado com código (AppError usa statusCode quando informado)
   if (error instanceof Error && 'code' in error) {
-    const statusCode = getStatusCodeFromErrorCode((error as any).code);
+    const err = error as { code: string; statusCode?: number };
+    const statusCode = typeof err.statusCode === 'number' ? err.statusCode : getStatusCodeFromErrorCode(err.code);
     return c.json<ApiError>(
       {
         error: {
@@ -133,6 +134,8 @@ function getStatusCodeFromErrorCode(code: string): number {
     MODULE_NOT_ACTIVE: 402,
     SUBSCRIPTION_INACTIVE: 402,
     USER_LIMIT_REACHED: 409,
+    EMAIL_ALREADY_EXISTS: 409,
+    SUBSCRIPTION_NOT_FOUND: 402,
   };
 
   return statusMap[code] || 500;
