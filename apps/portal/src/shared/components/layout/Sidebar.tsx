@@ -220,12 +220,11 @@ const adminMenuItems: MenuItem[] = [
 interface SidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
-  /** No desktop: quando true, sidebar fica escondida */
-  collapsed?: boolean;
-  onCollapseToggle?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollapseToggle }: SidebarProps) {
+export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
   const { user, tenantId } = useAuth();
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
@@ -432,40 +431,50 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
       return (
         <li key={item.name}>
           <button
-            onClick={() => toggleMenu(item.name)}
+            onClick={() => {
+              if (isCollapsed && onToggleCollapse) {
+                onToggleCollapse();
+              } else {
+                toggleMenu(item.name);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 toggleMenu(item.name);
               }
             }}
+            title={item.name}
             className={`
-              w-full flex items-start justify-between gap-2 px-4 py-2.5 rounded-lg transition-all duration-200
+              w-full flex items-center gap-2 rounded-lg transition-all duration-200
               group relative
               ${active 
                 ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
                 : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
               }
+              ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-2.5' : 'items-start justify-between px-4 py-2.5'}
               ${isChild ? 'ml-2 text-sm' : ''}
               focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
             `}
             aria-expanded={isExpanded}
             aria-label={`${item.name} menu`}
           >
-            <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className={`flex min-w-0 flex-1 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'items-start gap-3'}`}>
               <span className={`
                 flex-shrink-0 transition-colors duration-200 mt-0.5
                 ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
+                ${isCollapsed ? 'lg:mt-0' : ''}
               `}>
                 {item.icon}
               </span>
-              <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
+              {!isCollapsed && <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>}
               {item.badge && (
                 <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                   {item.badge}
                 </span>
               )}
             </div>
+            {!isCollapsed && (
             <svg
               className={`
                 w-4 h-4 flex-shrink-0 self-center transition-transform duration-200 ml-2
@@ -479,7 +488,9 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
+            )}
           </button>
+          {!isCollapsed && (
           <div
             className={`
               overflow-hidden transition-all duration-300 ease-in-out
@@ -525,6 +536,7 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
               })}
             </ul>
           </div>
+          )}
         </li>
       );
     }
@@ -533,8 +545,10 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
       <li key={item.name}>
         <Link
           to={item.path || '#'}
+          title={item.name}
           className={`
-            flex items-start gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
+            flex items-center gap-3 rounded-lg transition-all duration-200
+            ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-2.5' : 'items-start px-4 py-2.5'}
             group relative
             ${active 
               ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
@@ -548,16 +562,21 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
           <span className={`
             flex-shrink-0 transition-colors duration-200 mt-0.5
             ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
+            ${isCollapsed ? 'lg:mt-0' : ''}
           `}>
             {item.icon}
           </span>
-          <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
-          {item.badge && (
-            <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-              {item.badge}
-            </span>
+          {!isCollapsed && (
+            <>
+              <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
+              {item.badge && (
+                <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </>
           )}
-          {active && (
+          {active && !isCollapsed && (
             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brand rounded-r-full" aria-hidden="true" />
           )}
         </Link>
@@ -607,41 +626,46 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
           w-64 h-full max-h-screen lg:max-h-screen
           bg-white border-r border-slate-200
           flex flex-col
-          transform transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}
+          transform transition-all duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           shadow-xl lg:shadow-none
+          w-64 ${isCollapsed ? 'lg:w-16' : ''}
         `}
         aria-label="Navegação principal"
       >
-        {/* Logo e botões (fechar mobile / esconder menu desktop) */}
-        <div className="flex-shrink-0 p-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* Logo e botão de colapsar */}
+        <div className={`border-b border-slate-200 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-4 flex-row justify-between'}`}>
+          <div className={`flex items-center min-w-0 flex-1 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}>
             <div className="w-10 h-10 bg-gradient-to-br from-brand to-brand/80 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-white font-bold text-xl">O</span>
             </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
-                Otium<span className="text-brand">IT</span>
-              </h1>
-              <p className="text-xs text-slate-500 break-words leading-tight">Protec</p>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
+                  Otium<span className="text-brand">IT</span>
+                </h1>
+                <p className="text-xs text-slate-500 break-words leading-tight">Protec</p>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
-            {/* Desktop: botão esconder menu */}
-            {onCollapseToggle && (
+            {onToggleCollapse && (
               <button
-                onClick={onCollapseToggle}
-                className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
-                aria-label="Esconder menu"
-                title="Esconder menu"
+                onClick={onToggleCollapse}
+                className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0"
+                aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+                title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                 </svg>
               </button>
             )}
-            {/* Mobile: botão fechar */}
             <button
               onClick={onToggle}
               className="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
@@ -654,8 +678,9 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
           </div>
         </div>
 
-        {/* Busca rápida */}
-        <div className="flex-shrink-0 p-4 border-b border-slate-200">
+        {/* Busca rápida - oculta quando recolhido */}
+        {!isCollapsed && (
+        <div className="p-4 border-b border-slate-200">
           <div className="relative">
             <svg 
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" 
@@ -686,15 +711,18 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
             )}
           </div>
         </div>
+        )}
 
         {/* Menu */}
-        <nav className="flex-1 min-h-0 p-4 overflow-y-auto overscroll-contain">
+        <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-2 lg:px-2' : 'p-4'}`}>
           {/* Seção Administrativo - sempre visível quando há itens (não depende da carga de módulos) */}
           {isAdmin && administrativeItems.length > 0 && (
             <div className="mb-6">
+              {!isCollapsed && (
               <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                 {isSuperAdmin ? 'Administração Global' : 'Administrativo'}
               </h3>
+              )}
               <ul className="space-y-1">
                 {administrativeItems.map((item) => renderMenuItem(item))}
               </ul>
@@ -718,9 +746,11 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
               single.name === moduleName;
             return (
               <div key={moduleKey} className="mb-6">
+                {!isCollapsed && (
                 <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                   {moduleName}
                 </h3>
+                )}
                 <ul className="space-y-1">
                   {collapseParent && single.children
                     ? single.children.map((child: MenuItem) => (
@@ -760,17 +790,19 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
         </nav>
 
         {/* User Info */}
-        <div className="flex-shrink-0 p-4 border-t border-slate-200 bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-brand/20 to-brand/10 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-brand/20">
+        <div className={`border-t border-slate-200 bg-slate-50/50 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex lg:justify-center' : 'p-4'}`}>
+          <div className={`flex items-center ${isCollapsed ? 'lg:flex-col lg:gap-1' : 'space-x-3'}`}>
+            <div className="w-10 h-10 bg-gradient-to-br from-brand/20 to-brand/10 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-brand/20" title={user?.name ?? ''}>
               <span className="text-brand font-semibold text-sm">
                 {user?.name?.charAt(0).toUpperCase()}
               </span>
             </div>
+            {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-900 break-words leading-snug">{user?.name}</p>
               <p className="text-xs text-slate-500 break-words leading-snug">{user?.email}</p>
             </div>
+            )}
           </div>
         </div>
       </aside>

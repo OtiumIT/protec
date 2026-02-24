@@ -78,4 +78,19 @@
     padding: 1rem;
     background: white;
   }
+
+  /* Impressão: resultado da simulação IRPF Alta Renda */
+  #irpf-alta-renda-resultado-print,
+  #irpf-alta-renda-resultado-print * {
+    visibility: visible;
+  }
+  #irpf-alta-renda-resultado-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 1.5rem 2rem;
+    background: white;
+  }
 }

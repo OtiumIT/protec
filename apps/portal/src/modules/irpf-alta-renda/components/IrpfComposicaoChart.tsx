@@ -36,7 +36,15 @@ export function IrpfComposicaoChart({ composicao }: Props) {
     <div className="h-72 w-full" role="img" aria-label="Gráfico de composição da renda para base de cálculo">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={data} dataKey="value" nameKey="name" innerRadius={70} outerRadius={105} labelLine={false}>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={70}
+            outerRadius={105}
+            label={({ name, percent }) => (percent >= 0.02 ? `${(percent * 100).toFixed(0)}%` : '')}
+            labelLine={false}
+          >
             {data.map((entry, index) => (
               <Cell key={index} fill={COLOR_BY_NAME[entry.name] ?? '#64748b'} />
             ))}

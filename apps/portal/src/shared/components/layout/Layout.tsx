@@ -1,7 +1,9 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
+
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,15 +12,30 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isSidebarCollapsed));
+    } catch {
+      // ignore
+    }
+  }, [isSidebarCollapsed]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        collapsed={isSidebarCollapsed}
-        onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((c) => !c)}
       />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}

@@ -23,6 +23,8 @@ import type {
 import { IrpfKpiCards } from '../components/IrpfKpiCards';
 import { IrpfComposicaoChart } from '../components/IrpfComposicaoChart';
 import { IrpfComparativoChart } from '../components/IrpfComparativoChart';
+import { RemoveConfirmModal } from '../../../shared/components/ui/RemoveConfirmModal';
+import { InfoModal } from '../../../shared/components/ui/InfoModal';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -89,6 +91,20 @@ export function IrpfAltaRenda() {
   const [decDbkParserVersion, setDecDbkParserVersion] = useState<number | null>(null);
   const [diagnosticoExtracao, setDiagnosticoExtracao] = useState<{ completude: 'alta' | 'media' | 'baixa'; avisos: string[] } | null>(null);
   const [processingStage, setProcessingStage] = useState('');
+  const [removeConfirmModal, setRemoveConfirmModal] = useState<{
+    isOpen: boolean;
+    type: 'dividendo' | 'outroIsento' | 'lei7713';
+    index: number;
+  }>({ isOpen: false, type: 'dividendo', index: 0 });
+  const [selectedImportType, setSelectedImportType] = useState<'pdf' | 'dec_dbk' | 'manual' | null>(null);
+  const [infoModalLei, setInfoModalLei] = useState(false);
+  const [infoModalPdf, setInfoModalPdf] = useState(false);
+  const [infoModalDecDbk, setInfoModalDecDbk] = useState(false);
+  const [infoModalManual, setInfoModalManual] = useState(false);
+  const [importSectionKey, setImportSectionKey] = useState(0);
+  const [decDbkDropActive, setDecDbkDropActive] = useState(false);
+  const [manualFormStarted, setManualFormStarted] = useState(false);
+  const [pdfDropActive, setPdfDropActive] = useState(false);
 
   const loadData = useCallback(async () => {
     setListLoading(true);
@@ -171,6 +187,37 @@ export function IrpfAltaRenda() {
   const removeLei7713 = (index: number) => {
     if (rendimentosLei7713.length <= 1) return;
     setRendimentosLei7713((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const hasDividendoData = (d: RendimentoIsentoDividendo) =>
+    (d.nome_fonte?.trim() ?? '') !== '' || (d.valor ?? 0) > 0;
+  const hasOutroIsentoData = (item: OutroIsentoInput) => (item.descricao?.trim() ?? '') !== '' || (item.valor ?? 0) > 0;
+  const hasLei7713Data = (item: Lei7713Input) =>
+    (item.descricao?.trim() ?? '') !== '' || (item.valor_bruto ?? 0) > 0 || (item.irrf ?? 0) > 0;
+
+  const handleRemoveClick = (
+    type: 'dividendo' | 'outroIsento' | 'lei7713',
+    index: number,
+    hasData: boolean
+  ) => {
+    if (type === 'dividendo' && dividendos.length <= 1) return;
+    if (type === 'outroIsento' && outrosIsentosQueEntramBase.length <= 1) return;
+    if (type === 'lei7713' && rendimentosLei7713.length <= 1) return;
+    if (hasData) {
+      setRemoveConfirmModal({ isOpen: true, type, index });
+    } else {
+      if (type === 'dividendo') removeDividendo(index);
+      else if (type === 'outroIsento') removeOutroIsento(index);
+      else removeLei7713(index);
+    }
+  };
+
+  const handleRemoveConfirm = () => {
+    const { type, index } = removeConfirmModal;
+    if (type === 'dividendo') removeDividendo(index);
+    else if (type === 'outroIsento') removeOutroIsento(index);
+    else removeLei7713(index);
+    setRemoveConfirmModal({ ...removeConfirmModal, isOpen: false });
   };
 
   const buildInput = (): SimulateIrpfAltaRendaInput => ({
@@ -353,6 +400,7 @@ export function IrpfAltaRenda() {
       showError('Selecione um arquivo PDF.');
       return;
     }
+    setSelectedImportType('pdf');
     setPdfLoading(true);
     setProcessingStage('Enviando PDF...');
     try {
@@ -378,6 +426,7 @@ export function IrpfAltaRenda() {
       showError('Selecione um arquivo .dec ou .dbk.');
       return;
     }
+    setSelectedImportType('dec_dbk');
     setDecDbkLoading(true);
     setProcessingStage('Enviando arquivo .dec/.dbk...');
     try {
@@ -397,66 +446,336 @@ export function IrpfAltaRenda() {
     }
   };
 
+  const handleCancelSimulacao = () => {
+    setDeclaracaoExtraida(null);
+    setDiagnosticoExtracao(null);
+    setDecDbkParserVersion(null);
+    setPdfFile(null);
+    setDecDbkFile(null);
+    setSelectedImportType(null);
+    setResult(null);
+    setAno(CURRENT_YEAR);
+    setContribuinteNome('');
+    setContribuinteCpf('');
+    setRendimentosTributaveis(0);
+    setDividendos([{ ...emptyDividendo }]);
+    setLucrosAprovadosAte31dez2025(0);
+    setImpostoJaPagoRetencao(0);
+    setImpostoJaPagoCarneLeao(0);
+    setImpostoJaPagoAplicacoes(0);
+    setImpostoAntecipadoDividendos(0);
+    setGanhoCapitalExcluido(0);
+    setRendimentosFiisExcluidos(0);
+    setOutrosExcluidosArt16A(0);
+    setOutrosIsentosQueEntramBase([{ descricao: '', valor: 0 }]);
+    setRendimentosLei7713([{ descricao: '', valor_bruto: 0, irrf: 0 }]);
+    setOptouAjusteAnualLei7713(false);
+    setImportSectionKey((k) => k + 1);
+    setManualFormStarted(false);
+    success('Simulação cancelada. Escolha novamente o tipo de importação.');
+  };
+
+  const hasLoadedData = Boolean(declaracaoExtraida) ||
+    contribuinteNome.trim() !== '' ||
+    contribuinteCpf.trim() !== '' ||
+    rendimentosTributaveis > 0 ||
+    dividendos.some((d) => (d.valor ?? 0) > 0);
+
+  const showFormSection = (selectedImportType === 'manual' && manualFormStarted) || hasLoadedData;
+
   return (
     <Layout>
       <ToastContainer />
-      <div className="w-full max-w-full space-y-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025</h1>
-        <p className="text-slate-600">
-          Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com indicação da alíquota aplicável e do valor a ser pago, comparando cenários antes e depois da nova legislação e apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).
+      <RemoveConfirmModal
+        isOpen={removeConfirmModal.isOpen}
+        onClose={() => setRemoveConfirmModal({ ...removeConfirmModal, isOpen: false })}
+        onConfirm={handleRemoveConfirm}
+        title="Confirmar remoção"
+        message='Este item contém dados preenchidos. Para remover, digite "remover" no campo abaixo.'
+      />
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start gap-2 mb-6">
+          <h1 className="text-3xl font-bold text-slate-900">
+            Simulador de Tributação de Alta Renda – IRPFM
+          </h1>
+          <button
+            type="button"
+            onClick={() => setInfoModalLei(true)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-400 transition-colors"
+            aria-label="Informações sobre a Lei 15.270/2025"
+            title="Lei 15.270/2025"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+        <p className="text-sm sm:text-base text-slate-600 -mt-4 mb-2">
+          Simule o imposto complementar da alta renda, compare cenários e explore alternativas de planejamento.
         </p>
+        <InfoModal
+          isOpen={infoModalLei}
+          onClose={() => setInfoModalLei(false)}
+          title="Lei 15.270/2025 (Art. 16-A)"
+          size="md"
+        >
+          <p>
+            Esta legislação alterou a tributação de rendimentos de alta renda, incluindo novas alíquotas e regras para dividendos. Nossa ferramenta simula o impacto dessas alterações e explora estratégias para otimizar sua carga tributária, comparando cenários pré e pós-lei.
+          </p>
+          <p className="mt-2">
+            <a
+              href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15270.htm"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand hover:underline font-medium"
+            >
+              Ver lei na íntegra →
+            </a>
+          </p>
+        </InfoModal>
         {processingStage && (
-          <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3">
-            <p className="text-sm text-indigo-700 font-medium">{processingStage}</p>
-            <div className="mt-2 h-2 rounded bg-indigo-100 overflow-hidden">
-              <div className="h-2 w-2/3 bg-indigo-500 animate-pulse" />
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm text-slate-700 font-medium">{processingStage}</p>
+            <div className="mt-2 h-2 rounded bg-slate-200 overflow-hidden">
+              <div className="h-2 w-2/3 bg-brand animate-pulse" />
             </div>
           </div>
         )}
 
-        <Card title="Importar dados de um PDF (DAA / declaração IRPF)" className="w-full">
-          <p className="text-sm text-slate-600 mb-4">
-            Envie um PDF da declaração ou do DAA para preencher automaticamente nome, CPF, ano, rendimentos tributáveis e dividendos (extração via OpenAI). Revise os dados antes de simular.
-          </p>
-          <form onSubmit={handlePdfUpload} className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px]">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Arquivo PDF</label>
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand file:text-white file:font-medium"
-              />
+        <div className={result ? 'xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start' : 'space-y-6'}>
+        <div className="space-y-6">
+        <Card key={importSectionKey} title="Etapa 1: Tipo de importação" className="w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card PDF */}
+            <div
+              role="button"
+              tabIndex={showFormSection ? -1 : 0}
+              onClick={() => !showFormSection && setSelectedImportType('pdf')}
+              onKeyDown={(e) => !showFormSection && (e.key === 'Enter' || e.key === ' ') && setSelectedImportType('pdf')}
+              className={`relative flex flex-col rounded-2xl border-2 p-6 transition-all duration-200 ${
+                showFormSection
+                  ? 'opacity-50 cursor-default'
+                  : selectedImportType === 'pdf'
+                    ? 'border-brand bg-white shadow-lg cursor-pointer opacity-100'
+                    : selectedImportType === null
+                      ? 'border-slate-200 bg-white opacity-60 hover:opacity-80 cursor-pointer'
+                      : 'border-slate-200 bg-white opacity-60 cursor-pointer'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setInfoModalPdf(true); }}
+                className="absolute top-2 right-2 p-1.5 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                aria-label="Mais informações"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'pdf' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
+                  <img src="/irpf-icon-pdf.png" alt="" className="w-20 h-20 object-contain" />
+                </div>
+                <h3 className={`font-bold text-lg ${selectedImportType === 'pdf' ? 'text-brand' : 'text-slate-700'}`}>PDF (DAA / Declaração)</h3>
+              </div>
+              <form onSubmit={handlePdfUpload} className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                <label
+                  className={`block rounded-xl border-2 border-dashed py-4 px-3 text-center cursor-pointer transition-colors ${pdfDropActive ? 'border-brand bg-brand/10' : selectedImportType === 'pdf' ? 'border-brand/50 bg-brand/5 hover:border-brand hover:bg-brand/10' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}
+                  onDragOver={(e) => { e.preventDefault(); setPdfDropActive(true); }}
+                  onDragLeave={() => setPdfDropActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setPdfDropActive(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file?.type === 'application/pdf') {
+                      setPdfFile(file);
+                      setSelectedImportType('pdf');
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+                    className="hidden"
+                  />
+                  {pdfFile ? (
+                    <p className="text-sm font-medium text-brand truncate max-w-full">{pdfFile.name}</p>
+                  ) : (
+                    <p className="text-xs text-slate-500">Solte o PDF aqui</p>
+                  )}
+                </label>
+                <Button type="submit" disabled={pdfLoading || !pdfFile} className="w-full">
+                  {pdfLoading ? 'Extraindo...' : 'Extrair dados'}
+                </Button>
+              </form>
             </div>
-            <Button type="submit" disabled={pdfLoading || !pdfFile}>
-              {pdfLoading ? 'Extraindo...' : 'Extrair dados do PDF'}
-            </Button>
-          </form>
+
+            {/* Card .dec /.dbk */}
+            <div
+              role="button"
+              tabIndex={showFormSection ? -1 : 0}
+              onClick={() => !showFormSection && setSelectedImportType('dec_dbk')}
+              onKeyDown={(e) => !showFormSection && (e.key === 'Enter' || e.key === ' ') && setSelectedImportType('dec_dbk')}
+              className={`relative flex flex-col rounded-2xl border-2 p-6 transition-all duration-200 ${
+                showFormSection
+                  ? 'opacity-50 cursor-default'
+                  : selectedImportType === 'dec_dbk'
+                    ? 'border-brand bg-white shadow-lg cursor-pointer opacity-100'
+                    : selectedImportType === null
+                      ? 'border-slate-200 bg-white opacity-60 hover:opacity-80 cursor-pointer'
+                      : 'border-slate-200 bg-white opacity-60 cursor-pointer'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setInfoModalDecDbk(true); }}
+                className="absolute top-2 right-2 p-1.5 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                aria-label="Mais informações"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'dec_dbk' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
+                  <img src="/irpf-icon-dec-dbk.png" alt="" className="w-20 h-20 object-contain" />
+                </div>
+                <h3 className={`font-bold text-lg ${selectedImportType === 'dec_dbk' ? 'text-brand' : 'text-slate-700'}`}>.dec ou .dbk</h3>
+              </div>
+              <form onSubmit={handleDecDbkUpload} className="space-y-3" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <label
+                  className={`block rounded-xl border-2 border-dashed py-4 px-3 text-center cursor-pointer transition-colors ${decDbkDropActive ? 'border-brand bg-brand/10' : selectedImportType === 'dec_dbk' ? 'border-brand bg-white hover:bg-brand/5' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDecDbkDropActive(true); setSelectedImportType('dec_dbk'); }}
+                  onDragLeave={(e) => { e.preventDefault(); setDecDbkDropActive(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDecDbkDropActive(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && (file.name.endsWith('.dec') || file.name.endsWith('.dbk'))) {
+                      setDecDbkFile(file);
+                      setSelectedImportType('dec_dbk');
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept=".dec,.dbk"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setDecDbkFile(f);
+                      if (f) setSelectedImportType('dec_dbk');
+                    }}
+                    className="hidden"
+                  />
+                  <span className={`text-sm font-medium block truncate max-w-full ${decDbkFile ? 'text-brand' : 'text-slate-500'}`}>
+                    {decDbkFile ? decDbkFile.name : 'Solte o arquivo aqui'}
+                  </span>
+                </label>
+                <Button type="submit" variant="tertiary" disabled={decDbkLoading || !decDbkFile} className="w-full">
+                  {decDbkLoading ? 'Importando...' : 'Importar'}
+                </Button>
+              </form>
+            </div>
+
+            {/* Card Inserção manual */}
+            <div
+              role="button"
+              tabIndex={showFormSection ? -1 : 0}
+              onClick={() => !showFormSection && setSelectedImportType('manual')}
+              onKeyDown={(e) => !showFormSection && (e.key === 'Enter' || e.key === ' ') && setSelectedImportType('manual')}
+              className={`relative flex flex-col rounded-2xl border-2 p-6 transition-all duration-200 ${
+                showFormSection
+                  ? 'opacity-50 cursor-default'
+                  : selectedImportType === 'manual'
+                    ? 'border-brand bg-white shadow-lg cursor-pointer opacity-100'
+                    : selectedImportType === null
+                      ? 'border-slate-200 bg-white opacity-60 hover:opacity-80 cursor-pointer'
+                      : 'border-slate-200 bg-white opacity-60 cursor-pointer'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setInfoModalManual(true); }}
+                className="absolute top-2 right-2 p-1.5 rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors z-10"
+                aria-label="Mais informações sobre inserção manual"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'manual' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
+                  <img src="/irpf-icon-manual.png" alt="" className="w-20 h-20 object-contain" />
+                </div>
+                <h3 className={`font-bold text-lg ${selectedImportType === 'manual' ? 'text-brand' : 'text-slate-700'}`}>Inserção manual</h3>
+              </div>
+              <Button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); selectedImportType === 'manual' && setManualFormStarted(true); }}
+                disabled={selectedImportType !== 'manual'}
+                className="w-full"
+              >
+                Iniciar preenchimento
+              </Button>
+            </div>
+          </div>
         </Card>
 
-        <Card title="Importar .dec ou .dbk (Programa IRPF / e-CAC)" className="w-full">
-          <p className="text-sm text-slate-600 mb-4">
-            Envie o arquivo .dec (após transmitir) ou .dbk (backup em edição) obtido no Programa IRPF ou no e-CAC (Documentos e Arquivos → Cópia da Declaração).
-          </p>
-          <form onSubmit={handleDecDbkUpload} className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px]">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Arquivo .dec ou .dbk</label>
-              <input
-                type="file"
-                accept=".dec,.dbk"
-                onChange={(e) => setDecDbkFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-brand file:text-white file:font-medium"
-              />
-            </div>
-            <Button type="submit" disabled={decDbkLoading || !decDbkFile}>
-              {decDbkLoading ? 'Importando...' : 'Importar .dec/.dbk'}
+        {showFormSection && (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-lg border border-slate-200 bg-slate-50 shadow-sm">
+            <p className="text-sm text-slate-700 font-medium">
+              {selectedImportType === 'manual'
+                ? 'Inserção manual'
+                : `Dados carregados${selectedImportType === 'pdf' ? ' de PDF' : selectedImportType === 'dec_dbk' ? ' de .dec/.dbk' : ''}`}
+            </p>
+            <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
+              Cancelar Simulação
             </Button>
-          </form>
-        </Card>
+          </div>
+        )}
 
-        <Card title="Dados do IRPF" className="w-full">
+        <InfoModal
+          isOpen={infoModalPdf}
+          onClose={() => setInfoModalPdf(false)}
+          title="Importar PDF (DAA / Declaração IRPF)"
+          size="md"
+        >
+          <p>
+            Para análise rápida, anexe o PDF da sua declaração ou do DAA. A extração automática (IA) preenche nome, CPF, ano, rendimentos tributáveis e dividendos. Revise os dados antes de simular.
+          </p>
+        </InfoModal>
+
+        <InfoModal
+          isOpen={infoModalDecDbk}
+          onClose={() => setInfoModalDecDbk(false)}
+          title="Importar .dec ou .dbk"
+          size="md"
+        >
+          <p>
+            Para importação mais completa e precisa, use o arquivo .dec (após transmitir) ou .dbk (backup) do Programa IRPF, ou obtenha no e-CAC em Documentos e Arquivos → Cópia da Declaração. Esses formatos garantem que todos os detalhes sejam considerados na simulação.
+          </p>
+        </InfoModal>
+
+        <InfoModal
+          isOpen={infoModalManual}
+          onClose={() => setInfoModalManual(false)}
+          title="Inserção manual"
+          size="md"
+        >
+          <p>
+            Na inserção manual, você preenche todos os dados da declaração diretamente nos campos do formulário: nome e CPF do contribuinte, ano-calendário, rendimentos tributáveis, dividendos por fonte, exclusões legais (lucros aprovados até 31/12/2025, ganho de capital, FIIs, etc.), impostos já pagos e demais ajustes. Ideal quando não possui PDF ou arquivo .dec/.dbk, ou quando precisa simular cenários hipotéticos do zero.
+          </p>
+          <p className="mt-2">
+            Após clicar em &quot;Iniciar preenchimento&quot;, o formulário completo será exibido para você digitar ou editar os valores. Revise os dados e clique em &quot;Simular&quot; para obter o resultado.
+          </p>
+        </InfoModal>
+
+        {showFormSection && (
+        <Card title="Etapa 2: Dados do IRPF" className="w-full">
           {declaracaoExtraida && (
-            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3 max-h-80 overflow-y-auto">
+            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3">
               <p className="font-medium text-emerald-800">
                 Declaração extraída
                 {declaracaoExtraida.fonte === 'dec_dbk' && (
@@ -514,7 +833,7 @@ export function IrpfAltaRenda() {
               )}
             </div>
           )}
-          <form onSubmit={handleSimulate} className="space-y-4">
+          <form onSubmit={handleSimulate} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Nome do contribuinte"
@@ -550,50 +869,84 @@ export function IrpfAltaRenda() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <label className="block text-sm font-medium text-slate-700">
                   Rendimentos isentos – Lucros e dividendos (09) e Sócio Simples (13)
                 </label>
-                <Button type="button" variant="secondary" size="sm" onClick={addDividendo}>
+                <Button type="button" variant="secondary" size="sm" onClick={addDividendo} className="self-start sm:self-auto shrink-0">
                   + Adicionar fonte
                 </Button>
               </div>
-              <div className="space-y-2">
-                {dividendos.map((d, i) => (
-                  <div key={i} className="flex flex-wrap items-end gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <div className="min-w-[180px]">
-                      <label className="block text-xs font-medium text-slate-500 mb-1">Tipo (cód. Receita)</label>
-                      <select
-                        value={d.codigo || '09'}
-                        onChange={(e) => updateDividendo(i, 'codigo', e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                      >
-                        <option value="09">09 – Dividendos</option>
-                        <option value="13">13 – Sócio Simples</option>
-                      </select>
-                    </div>
-                    <Input
-                      placeholder="Nome/CNPJ fonte"
-                      value={d.nome_fonte ?? ''}
-                      onChange={(e) => updateDividendo(i, 'nome_fonte', e.target.value)}
-                      className="flex-1 min-w-[120px]"
-                    />
-                    <MoneyInput
-                      value={d.valor ?? 0}
-                      onChange={(v) => updateDividendo(i, 'valor', v)}
-                      className="w-36"
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => removeDividendo(i)}
-                      disabled={dividendos.length <= 1}
-                    >
-                      Remover
-                    </Button>
-                  </div>
-                ))}
+              <div className="rounded-md border border-slate-200 overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <table className="w-full text-sm min-w-[320px] sm:min-w-[420px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[160px] sm:min-w-[180px]">Tipo</th>
+                      <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700">Nome/CNPJ fonte</th>
+                      <th className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[140px]">Valor</th>
+                      <th className="w-14 py-1.5 px-2 sm:px-3 text-center" aria-hidden="true">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dividendos.map((d, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[160px] sm:min-w-[180px]">
+                          <select
+                            value={d.codigo || '09'}
+                            onChange={(e) => updateDividendo(i, 'codigo', e.target.value)}
+                            className="w-full min-w-0 bg-white border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                            aria-label={`Tipo/código do item ${i + 1}`}
+                          >
+                            <option value="09">09 – Dividendos</option>
+                            <option value="13">13 – Sócio Simples</option>
+                          </select>
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-0">
+                          <input
+                            type="text"
+                            placeholder="Nome/CNPJ fonte"
+                            value={d.nome_fonte ?? ''}
+                            onChange={(e) => updateDividendo(i, 'nome_fonte', e.target.value)}
+                            className="w-full min-w-0 bg-white border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                            aria-label={`Nome ou CNPJ da fonte ${i + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[140px]">
+                          <MoneyInput
+                            value={d.valor ?? 0}
+                            onChange={(v) => updateDividendo(i, 'valor', v)}
+                            className="w-full min-w-[120px] py-1.5 px-2 sm:px-3 text-sm font-mono tabular-nums"
+                            aria-label={`Valor da fonte ${i + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveClick('dividendo', i, hasDividendoData(d))}
+                            disabled={dividendos.length <= 1}
+                            className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-500 transition-colors"
+                            aria-label={`Remover linha ${i + 1}`}
+                            title="Excluir linha"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="text-xs font-medium hidden sm:inline">Excluir</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-medium">
+                      <td className="py-1.5 px-2 sm:px-3 text-slate-700" colSpan={2}>
+                        Total
+                      </td>
+                      <td className="py-1.5 px-2 sm:px-3 text-right font-mono tabular-nums">
+                        {formatCurrency(dividendos.reduce((s, d) => s + (d.valor ?? 0), 0))}
+                      </td>
+                      <td className="py-1.5 px-2 sm:px-3" />
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -621,38 +974,75 @@ export function IrpfAltaRenda() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <p className="text-sm font-medium text-slate-700">Outros isentos que entram na base mínima</p>
-                <Button type="button" variant="secondary" size="sm" onClick={addOutroIsento}>
+                <Button type="button" variant="secondary" size="sm" onClick={addOutroIsento} className="self-start sm:self-auto shrink-0">
                   + Adicionar item
                 </Button>
               </div>
-              <div className="space-y-2">
-                {outrosIsentosQueEntramBase.map((item, index) => (
-                  <div key={index} className="flex flex-wrap items-end gap-2 p-2 bg-slate-50 rounded-md">
-                    <Input
-                      placeholder="Descrição do ativo/rendimento"
-                      value={item.descricao}
-                      onChange={(e) => updateOutroIsento(index, 'descricao', e.target.value)}
-                      className="flex-1 min-w-[160px]"
-                    />
-                    <MoneyInput
-                      value={item.valor}
-                      onChange={(v) => updateOutroIsento(index, 'valor', v)}
-                      className="w-40"
-                    />
-                    <Button type="button" variant="secondary" size="sm" onClick={() => removeOutroIsento(index)} disabled={outrosIsentosQueEntramBase.length <= 1}>
-                      Remover
-                    </Button>
-                  </div>
-                ))}
+              <div className="rounded-md border border-slate-200 overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <table className="w-full text-sm min-w-[320px] sm:min-w-[420px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700">Descrição</th>
+                      <th className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[140px]">Valor</th>
+                      <th className="w-14 py-1.5 px-2 sm:px-3 text-center" aria-hidden="true">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outrosIsentosQueEntramBase.map((item, index) => (
+                      <tr key={index} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-0">
+                          <input
+                            type="text"
+                            placeholder="Descrição do ativo/rendimento"
+                            value={item.descricao}
+                            onChange={(e) => updateOutroIsento(index, 'descricao', e.target.value)}
+                            className="w-full min-w-0 bg-white border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                            aria-label={`Descrição do item ${index + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[140px]">
+                          <MoneyInput
+                            value={item.valor}
+                            onChange={(v) => updateOutroIsento(index, 'valor', v)}
+                            className="w-full min-w-[120px] py-1.5 px-2 sm:px-3 text-sm font-mono tabular-nums"
+                            aria-label={`Valor do item ${index + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveClick('outroIsento', index, hasOutroIsentoData(item))}
+                            disabled={outrosIsentosQueEntramBase.length <= 1}
+                            className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-500 transition-colors"
+                            aria-label={`Remover linha ${index + 1}`}
+                            title="Excluir linha"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="text-xs font-medium hidden sm:inline">Excluir</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-medium">
+                      <td className="py-1.5 px-2 sm:px-3 text-slate-700">Total</td>
+                      <td className="py-1.5 px-2 sm:px-3 text-right font-mono tabular-nums">
+                        {formatCurrency(outrosIsentosQueEntramBase.reduce((s, i) => s + (i.valor ?? 0), 0))}
+                      </td>
+                      <td className="py-1.5 px-2 sm:px-3" />
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <p className="text-sm font-medium text-slate-700">Tributados exclusivamente na fonte (Lei 7.713)</p>
-                <Button type="button" variant="secondary" size="sm" onClick={addLei7713}>
+                <Button type="button" variant="secondary" size="sm" onClick={addLei7713} className="self-start sm:self-auto shrink-0">
                   + Adicionar item
                 </Button>
               </div>
@@ -668,30 +1058,74 @@ export function IrpfAltaRenda() {
                   Nesse caso, esses valores não devem ser tratados como exclusão da base mínima.
                 </span>
               </label>
-              <div className="space-y-2">
-                {rendimentosLei7713.map((item, index) => (
-                  <div key={index} className="flex flex-wrap items-end gap-2 p-2 bg-slate-50 rounded-md">
-                    <Input
-                      placeholder="Descrição"
-                      value={item.descricao}
-                      onChange={(e) => updateLei7713(index, 'descricao', e.target.value)}
-                      className="flex-1 min-w-[160px]"
-                    />
-                    <MoneyInput
-                      value={item.valor_bruto}
-                      onChange={(v) => updateLei7713(index, 'valor_bruto', v)}
-                      className="w-36"
-                    />
-                    <MoneyInput
-                      value={item.irrf}
-                      onChange={(v) => updateLei7713(index, 'irrf', v)}
-                      className="w-36"
-                    />
-                    <Button type="button" variant="secondary" size="sm" onClick={() => removeLei7713(index)} disabled={rendimentosLei7713.length <= 1}>
-                      Remover
-                    </Button>
-                  </div>
-                ))}
+              <div className="rounded-md border border-slate-200 overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <table className="w-full text-sm min-w-[320px] sm:min-w-[420px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700">Descrição</th>
+                      <th className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[140px]">Valor bruto</th>
+                      <th className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[120px]">IRRF</th>
+                      <th className="w-14 py-1.5 px-2 sm:px-3 text-center" aria-hidden="true">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rendimentosLei7713.map((item, index) => (
+                      <tr key={index} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-0">
+                          <input
+                            type="text"
+                            placeholder="Descrição"
+                            value={item.descricao}
+                            onChange={(e) => updateLei7713(index, 'descricao', e.target.value)}
+                            className="w-full min-w-0 bg-white border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                            aria-label={`Descrição do item Lei 7.713 ${index + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[140px]">
+                          <MoneyInput
+                            value={item.valor_bruto}
+                            onChange={(v) => updateLei7713(index, 'valor_bruto', v)}
+                            className="w-full min-w-[120px] py-1.5 px-2 sm:px-3 text-sm font-mono tabular-nums"
+                            aria-label={`Valor bruto do item ${index + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[120px]">
+                          <MoneyInput
+                            value={item.irrf}
+                            onChange={(v) => updateLei7713(index, 'irrf', v)}
+                            className="w-full min-w-[100px] py-1.5 px-2 sm:px-3 text-sm font-mono tabular-nums"
+                            aria-label={`IRRF do item ${index + 1}`}
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveClick('lei7713', index, hasLei7713Data(item))}
+                            disabled={rendimentosLei7713.length <= 1}
+                            className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-500 transition-colors"
+                            aria-label={`Remover linha ${index + 1}`}
+                            title="Excluir linha"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="text-xs font-medium hidden sm:inline">Excluir</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-medium">
+                      <td className="py-1.5 px-2 sm:px-3 text-slate-700">Total</td>
+                      <td className="py-1.5 px-2 sm:px-3 text-right font-mono tabular-nums">
+                        {formatCurrency(rendimentosLei7713.reduce((s, i) => s + (i.valor_bruto ?? 0), 0))}
+                      </td>
+                      <td className="py-1.5 px-2 sm:px-3 text-right font-mono tabular-nums">
+                        {formatCurrency(rendimentosLei7713.reduce((s, i) => s + (i.irrf ?? 0), 0))}
+                      </td>
+                      <td className="py-1.5 px-2 sm:px-3" />
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -718,8 +1152,32 @@ export function IrpfAltaRenda() {
             </div>
           </form>
         </Card>
+        )}
+        </div>
 
         {result && (
+          <div className="xl:sticky xl:top-24 space-y-4">
+          <div id="irpf-alta-renda-resultado-print" className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Resultado da simulação – IRPF Alta Renda</h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  Ano {ano} · Contribuinte: {contribuinteNome || '—'} · BCC: {formatCurrency(result.base_calculo_combinada)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => window.print()}
+                className="print:hidden shrink-0 inline-flex items-center gap-2"
+                aria-label="Exportar resultado para PDF"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Exportar para PDF
+              </Button>
+            </div>
           <Card title="Resultado da simulação" className="w-full">
             <IrpfKpiCards
               impostoComplementar={result.imposto_estimado}
@@ -727,23 +1185,84 @@ export function IrpfAltaRenda() {
               deducoes={result.deducoes_imposto_ja_pago}
               economiaPotencial={result.otimizacao_isento_vs_tributado?.ganho_liquido_estimado}
             />
-            <div className="space-y-3">
-              <p><strong>Faixa:</strong> {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}</p>
-              <p><strong>Alíquota aplicável:</strong> {result.aliquota_percentual}%</p>
-              {result.imposto_minimo != null && result.imposto_minimo > 0 && (
-                <p><strong>Imposto mínimo:</strong> {formatCurrency(result.imposto_minimo)}{result.deducoes_imposto_ja_pago != null && result.deducoes_imposto_ja_pago > 0 && (
-                  <> − Deduções (IR já pago): {formatCurrency(result.deducoes_imposto_ja_pago)}</>
-                )}</p>
-              )}
-              <p><strong>Valor a complementar:</strong> {formatCurrency(result.imposto_estimado)}</p>
-              {result.risco_retencao_mensal && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                  <p className="text-sm font-medium text-amber-800">Risco de retenção mensal (10% na fonte)</p>
-                  <p className="text-sm text-amber-700">{result.risco_retencao_detalhe}</p>
-                </div>
-              )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+              {/* Painel esquerdo: tabelas Rendimentos + IRPFM (estilo modelo) */}
+              <div className="space-y-4">
+                <div className="rounded-md border border-emerald-200 overflow-hidden">
+                  <div className="bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Rendimentos</div>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      <tr className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2 px-3 text-slate-700">Renda tributável (PJ + PF)</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.composicao_renda?.tributaveis ?? 0)}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2 px-3 text-slate-700">Renda isenta que entra na base</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.composicao_renda?.isentos_que_entram_base ?? 0)}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2 px-3 text-slate-700">Renda isenta excluída (dividendos 09/13)</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.composicao_renda?.isentos_excluidos ?? 0)}</td>
+                      </tr>
+                      {(result.composicao_renda?.tributacao_exclusiva_lei_7713 ?? 0) > 0 && (
+                        <tr className="border-b border-slate-200 hover:bg-slate-50">
+                          <td className="py-2 px-3 text-slate-700">Tributação exclusiva (Lei 7.713)</td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.composicao_renda!.tributacao_exclusiva_lei_7713!)}</td>
+                        </tr>
+                      )}
+                      <tr className="bg-slate-50 font-medium">
+                        <td className="py-2 px-3 text-slate-800">Rendimentos totais (BCC)</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.base_calculo_combinada)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="rounded-md border border-red-200 overflow-hidden">
+                  <div className="bg-red-600 px-3 py-2 text-sm font-semibold text-white">IRPFM (Art. 16-A)</div>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      <tr className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2 px-3 text-slate-700">Renda total para cálculo</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.base_calculo_combinada)}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2 px-3 text-slate-700">Alíquota mínima (%)</td>
+                        <td className="py-2 px-3 text-right font-mono tabular-nums">{typeof result.aliquota_percentual === 'number' ? result.aliquota_percentual.toFixed(2) : result.aliquota_percentual}%</td>
+                      </tr>
+                      {result.imposto_minimo != null && result.imposto_minimo > 0 && (
+                        <tr className="border-b border-slate-200 hover:bg-slate-50">
+                          <td className="py-2 px-3 text-slate-700">Imposto mínimo devido</td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.imposto_minimo)}</td>
+                        </tr>
+                      )}
+                      {result.deducoes_imposto_ja_pago != null && result.deducoes_imposto_ja_pago > 0 && (
+                        <tr className="border-b border-slate-200 hover:bg-slate-50">
+                          <td className="py-2 px-3 text-slate-700">Total de IR já recolhido/retido</td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.deducoes_imposto_ja_pago)}</td>
+                        </tr>
+                      )}
+                      <tr className="bg-amber-50 border-t-2 border-amber-300">
+                        <td className="py-3 px-3 font-semibold text-amber-900">Valor a complementar</td>
+                        <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-amber-900">{formatCurrency(result.imposto_estimado)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-xs text-slate-500">Faixa: {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}</p>
+
+                {result.risco_retencao_mensal && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-sm font-medium text-amber-800">Risco de retenção mensal (10% na fonte)</p>
+                    <p className="text-sm text-amber-700">{result.risco_retencao_detalhe}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Painel direito: gráficos (estilo modelo) */}
+              <div className="space-y-4">
                 <div className="rounded-md border border-slate-200 p-3">
                   <h4 className="text-sm font-medium text-slate-800 mb-2">Composição da renda</h4>
                   <IrpfComposicaoChart
@@ -774,7 +1293,7 @@ export function IrpfAltaRenda() {
               </div>
 
               {result.otimizacao_isento_vs_tributado && (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                <div className="lg:col-span-2 rounded-md border border-emerald-200 bg-emerald-50 p-3">
                   <p className="text-sm font-semibold text-emerald-800">Simulador de otimização (Isento vs Tributado)</p>
                   <p className="text-sm text-emerald-700 mt-1">
                     Migração simulada: {formatCurrency(result.otimizacao_isento_vs_tributado.valor_migrado)} | IRRF compensável:{' '}
@@ -802,7 +1321,7 @@ export function IrpfAltaRenda() {
               )}
 
               {Array.isArray(result.impacto_incremental_base) && result.impacto_incremental_base.length > 0 && (
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="lg:col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-sm font-semibold text-slate-800 mb-1">Drivers do imposto (top 3)</p>
                   <ul className="text-sm text-slate-700 list-disc list-inside">
                     {result.impacto_incremental_base
@@ -818,7 +1337,7 @@ export function IrpfAltaRenda() {
                 </div>
               )}
 
-              <div className="mt-4 pt-4 border-t border-slate-200 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="lg:col-span-2 mt-4 pt-4 border-t border-slate-200 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="text-sm font-semibold text-slate-800 mb-2">Possíveis soluções para redução da tributação</h4>
                 <p className="text-sm text-slate-700 mb-2">
                   Sugestões de planejamento com base nos dados da simulação:
@@ -964,7 +1483,11 @@ export function IrpfAltaRenda() {
               </form>
             </div>
           </Card>
+          </div>
+          </div>
         )}
+
+        </div>
 
         <Card title="Simulações salvas" className="w-full">
           {listLoading ? (
