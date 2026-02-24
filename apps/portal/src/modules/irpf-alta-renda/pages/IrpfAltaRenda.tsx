@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   irpfAltaRendaService,
@@ -105,6 +105,8 @@ export function IrpfAltaRenda() {
   const [decDbkDropActive, setDecDbkDropActive] = useState(false);
   const [manualFormStarted, setManualFormStarted] = useState(false);
   const [pdfDropActive, setPdfDropActive] = useState(false);
+  const [etapa2Collapsed, setEtapa2Collapsed] = useState(false);
+  const resultadoRef = useRef<HTMLDivElement>(null);
 
   const loadData = useCallback(async () => {
     setListLoading(true);
@@ -269,6 +271,7 @@ export function IrpfAltaRenda() {
     try {
       const res = await irpfAltaRendaService.simulate(buildInput());
       setResult(res);
+      setEtapa2Collapsed(true);
       if (startedAt) {
         trackIrpfMetric('irpfm_time_to_insight_seconds', {
           seconds: Math.round((Date.now() - startedAt) / 1000),
@@ -280,6 +283,11 @@ export function IrpfAltaRenda() {
         imposto_complementar: res.imposto_estimado,
       });
       success('Simulação concluída.');
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          resultadoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      });
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao simular');
     } finally {
@@ -447,6 +455,7 @@ export function IrpfAltaRenda() {
   };
 
   const handleCancelSimulacao = () => {
+    setEtapa2Collapsed(false);
     setDeclaracaoExtraida(null);
     setDiagnosticoExtracao(null);
     setDecDbkParserVersion(null);
@@ -548,7 +557,6 @@ export function IrpfAltaRenda() {
           </p>
         </InfoModal>
 
-        <div className={result ? 'xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start' : 'space-y-6'}>
         <div className="space-y-6">
         <Card
           key={importSectionKey}
@@ -816,7 +824,43 @@ export function IrpfAltaRenda() {
         </InfoModal>
 
         {showFormSection && (
-        <Card title="Etapa 2: Dados do IRPF" className="w-full">
+        <Card
+          title={
+            <div className="flex items-center justify-between gap-3 w-full">
+              <span>
+                {etapa2Collapsed ? 'Etapa 2 concluída:' : 'Etapa 2: Dados do IRPF'}
+                {etapa2Collapsed && (
+                  <span className="ml-2 text-slate-600 font-normal">
+                    {contribuinteNome || '—'} · BCC: {formatCurrency(bccCalculado)}
+                  </span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEtapa2Collapsed((c) => !c)}
+                className="flex-shrink-0 p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition-colors"
+                aria-label={etapa2Collapsed ? 'Expandir Etapa 2' : 'Recolher Etapa 2'}
+                title={etapa2Collapsed ? 'Expandir' : 'Recolher'}
+              >
+                <svg
+                  className={`w-5 h-5 transition-transform duration-200 ${etapa2Collapsed ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          }
+          className={`w-full ${etapa2Collapsed ? '!p-5' : ''}`}
+        >
+          {etapa2Collapsed ? (
+            <p className="text-sm text-slate-600">
+              Clique na seta acima para editar os dados e simular novamente.
+            </p>
+          ) : (
+          <>
           {declaracaoExtraida && (
             <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3">
               <p className="font-medium text-emerald-800">
@@ -1194,12 +1238,13 @@ export function IrpfAltaRenda() {
               </Button>
             </div>
           </form>
+          </>
+          )}
         </Card>
         )}
-        </div>
 
         {result && (
-          <div className="xl:sticky xl:top-24 space-y-4">
+          <div ref={resultadoRef} id="etapa-3-resultado" className="space-y-4 scroll-mt-6">
           <div id="irpf-alta-renda-resultado-print" className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
               <div>
@@ -1221,7 +1266,7 @@ export function IrpfAltaRenda() {
                 Exportar para PDF
               </Button>
             </div>
-          <Card title="Resultado da simulação" className="w-full">
+          <Card title="Etapa 3: Resultado da simulação" className="w-full">
             <IrpfKpiCards
               impostoComplementar={result.imposto_estimado}
               impostoMinimo={result.imposto_minimo}
