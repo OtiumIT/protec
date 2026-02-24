@@ -42,7 +42,7 @@ export function IrpfComposicaoChart({ composicao }: Props) {
             nameKey="name"
             innerRadius={70}
             outerRadius={105}
-            label={({ name, percent }) => (percent >= 0.02 ? `${(percent * 100).toFixed(0)}%` : '')}
+            label={({ percent }) => (percent >= 0.02 ? `${(percent * 100).toFixed(0)}%` : '')}
             labelLine={false}
           >
             {data.map((entry, index) => (
