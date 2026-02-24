@@ -5,6 +5,7 @@ import {
   calcularCenario2025,
   calcularAno2026,
   agregarAnual,
+  detalheProporcaoTrimestre,
 } from './calculations';
 import type {
   SimulateIN2306Input,
@@ -206,6 +207,14 @@ export class SimuladorIN2306Service {
       economia_equiparacao_vs_2026: Math.round((imposto2026 - impostoEquip) * 100) / 100,
     };
 
+    const proporcaoTrimestres: unknown[] = [];
+    for (let t = 0; t < 4; t++) {
+      const receitas = input.trimestres[t];
+      if (!receitas) continue;
+      const detalhe = detalheProporcaoTrimestre(receitas, false, t + 1, input.ano);
+      if (detalhe) proporcaoTrimestres.push(detalhe);
+    }
+
     const result: SimuladorTributarioResponse = {
       ano: input.ano,
       cenario_2025,
@@ -219,6 +228,7 @@ export class SimuladorIN2306Service {
         equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar
           ? 'Serviços tributados com 8% IRPJ e 12% CSLL'
           : 'Não aplicada',
+        proporcao_trimestres: proporcaoTrimestres,
       },
     };
 

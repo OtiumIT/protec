@@ -624,7 +624,7 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
               <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
                 Otium<span className="text-brand">IT</span>
               </h1>
-              <p className="text-xs text-slate-500 break-words leading-tight">SaaS Boilerplate</p>
+              <p className="text-xs text-slate-500 break-words leading-tight">Protec</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -709,13 +709,38 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
           )}
           {(FORCE_SHOW_ALL_MODULES || !isLoadingModules) && moduleSections.map(({ moduleKey, moduleName, items }) => {
             if (items.length === 0) return null;
+            // Um único item com o mesmo nome do módulo e com filhos: exibir só o título da seção + filhos (evita "Gestão Imobiliária" 2x)
+            const single = items.length === 1 && items[0];
+            const collapseParent =
+              single?.children?.length &&
+              single.name === moduleName;
             return (
               <div key={moduleKey} className="mb-6">
                 <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                   {moduleName}
                 </h3>
                 <ul className="space-y-1">
-                  {items.map((item) => renderMenuItem(item))}
+                  {collapseParent
+                    ? single.children!.map((child) => (
+                        <li key={child.name}>
+                          <Link
+                            to={child.path || '#'}
+                            className={`
+                              flex items-start gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
+                              group relative text-slate-700 hover:bg-slate-50 hover:text-brand
+                              ${isActive(child.path) ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' : ''}
+                              focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                            `}
+                            aria-current={isActive(child.path) ? 'page' : undefined}
+                          >
+                            <span className={`flex-shrink-0 mt-0.5 ${isActive(child.path) ? 'text-brand' : 'text-slate-400 group-hover:text-brand'}`}>
+                              {child.icon}
+                            </span>
+                            <span className="break-words min-w-0 flex-1 text-left leading-snug">{child.name}</span>
+                          </Link>
+                        </li>
+                      ))
+                    : items.map((item) => renderMenuItem(item))}
                 </ul>
               </div>
             );

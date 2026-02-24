@@ -122,6 +122,141 @@ function basesTrimestreComAcrescimo(
   };
 }
 
+function formatNum(n: number): string {
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Labels das atividades para exibição (Receita Federal – Perguntas e Respostas) */
+const LABEL_ATIVIDADE: Record<keyof ReceitasTrimestre, string> = {
+  produtos_mercadorias: 'Venda de produtos/mercadorias',
+  servicos: 'Prestação de serviços',
+  servicos_favorecida: 'Serviços (lista favorecida)',
+  servicos_hospitalares: 'Serviços hospitalares',
+  demais_receitas: 'Demais receitas',
+};
+
+export interface ProporcaoAtividade {
+  chave: keyof ReceitasTrimestre;
+  label: string;
+  receita: number;
+  participacao_pct: number;
+  limite_proporcional: number;
+  excedente: number;
+  percentual_irpj_normal: number;
+  percentual_irpj_acrescimo: number;
+  percentual_csll_normal: number;
+  percentual_csll_acrescimo: number;
+  /** Fórmula resumida: "(limite × P%) + (excedente × P'%)" para esta atividade */
+  formula_resumida: string;
+}
+
+export interface ProporcaoTrimestre {
+  trimestre: number;
+  receita_bruta_total: number;
+  limite_trimestral: number;
+  aplica_acrescimo_irpj: boolean;
+  aplica_acrescimo_csll: boolean;
+  atividades: ProporcaoAtividade[];
+  /** Fórmula geral: (R$ A × P%) + (R$ B × P'%) + ... */
+  formula_geral_irpj: string;
+  formula_geral_csll: string;
+}
+
+/**
+ * Detalhe do cálculo por proporção (Pergunta 14 RF / § 6º).
+ * Retorna null quando a receita do trimestre não excede o limite (não há parcela excedente).
+ * Usado para demonstrar na tela: participação de cada atividade, limite proporcional e excedente.
+ */
+export function detalheProporcaoTrimestre(
+  r: ReceitasTrimestre,
+  equiparacaoHospitalar: boolean,
+  numTrimestre: number,
+  ano: number
+): ProporcaoTrimestre | null {
+  const total = receitaBrutaTrimestre(r);
+  if (total <= 0 || total <= LIMITE_TRIMESTRAL) return null;
+
+  const aplicarAcrescimoIrpj = ano >= 2026;
+  const aplicarAcrescimoCsll = ano >= 2026 && numTrimestre >= 2;
+  const presServicos = equiparacaoHospitalar
+    ? { irpj: PRESUMICAO.servicos_hospitalares.irpj, csll: PRESUMICAO.servicos_hospitalares.csll }
+    : PRESUMICAO.servicos;
+  const presMap: Record<keyof ReceitasTrimestre, { irpj: number; csll: number }> = {
+    produtos_mercadorias: PRESUMICAO.produtos_mercadorias,
+    servicos: presServicos,
+    servicos_favorecida: PRESUMICAO.servicos_favorecida,
+    servicos_hospitalares: PRESUMICAO.servicos_hospitalares,
+    demais_receitas: PRESUMICAO.demais_receitas,
+  };
+
+  const keys: (keyof ReceitasTrimestre)[] = [
+    'produtos_mercadorias',
+    'servicos',
+    'servicos_favorecida',
+    'servicos_hospitalares',
+    'demais_receitas',
+  ];
+
+  const atividades: ProporcaoAtividade[] = [];
+  const partesIrpj: string[] = [];
+  const partesCsll: string[] = [];
+
+  for (const key of keys) {
+    const val = r[key] ?? 0;
+    if (val <= 0) continue;
+
+    const participacao_pct = (val / total) * 100;
+    const limite_proporcional = round2(LIMITE_TRIMESTRAL * (val / total));
+    const excedente = round2(Math.max(0, val - limite_proporcional));
+    const pres = presMap[key];
+    const pctIrpjNormal = pres.irpj * 100;
+    const pctIrpjAcrescimo = round2(pctIrpjNormal * 1.1);
+    const pctCsllNormal = pres.csll * 100;
+    const pctCsllAcrescimo = round2(pctCsllNormal * 1.1);
+
+    const formulaResumida =
+      excedente > 0
+        ? `(R$ ${formatNum(limite_proporcional)} × ${pctIrpjNormal}%) + (R$ ${formatNum(excedente)} × ${pctIrpjAcrescimo}%)`
+        : `(R$ ${formatNum(limite_proporcional)} × ${pctIrpjNormal}%)`;
+
+    atividades.push({
+      chave: key,
+      label: LABEL_ATIVIDADE[key],
+      receita: round2(val),
+      participacao_pct: round2(participacao_pct),
+      limite_proporcional,
+      excedente,
+      percentual_irpj_normal: pctIrpjNormal,
+      percentual_irpj_acrescimo: pctIrpjAcrescimo,
+      percentual_csll_normal: pctCsllNormal,
+      percentual_csll_acrescimo: pctCsllAcrescimo,
+      formula_resumida: formulaResumida,
+    });
+
+    if (limite_proporcional > 0) {
+      partesIrpj.push(`(R$ ${formatNum(limite_proporcional)} × ${pctIrpjNormal}%)`);
+      partesCsll.push(`(R$ ${formatNum(limite_proporcional)} × ${pctCsllNormal}%)`);
+    }
+    if (excedente > 0) {
+      const pI = aplicarAcrescimoIrpj ? pctIrpjAcrescimo : pctIrpjNormal;
+      const pC = aplicarAcrescimoCsll ? pctCsllAcrescimo : pctCsllNormal;
+      partesIrpj.push(`(R$ ${formatNum(excedente)} × ${pI}%)`);
+      partesCsll.push(`(R$ ${formatNum(excedente)} × ${pC}%)`);
+    }
+  }
+
+  return {
+    trimestre: numTrimestre,
+    receita_bruta_total: round2(total),
+    limite_trimestral: LIMITE_TRIMESTRAL,
+    aplica_acrescimo_irpj: aplicarAcrescimoIrpj,
+    aplica_acrescimo_csll: aplicarAcrescimoCsll,
+    atividades,
+    formula_geral_irpj: partesIrpj.join(' + '),
+    formula_geral_csll: partesCsll.join(' + '),
+  };
+}
+
 /** Adicional de IRPJ 10% sobre a parcela do lucro presumido que exceder R$ 60.000 no trimestre (Módulo C) */
 function adicionalIRPJ(baseCalculoIrpjTrimestre: number): number {
   if (baseCalculoIrpjTrimestre <= LIMITE_LUCRO_PRESUMIDO_ADICIONAL) return 0;

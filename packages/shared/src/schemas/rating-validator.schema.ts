@@ -82,15 +82,18 @@ export const PatrimonioLiquidoSchema = z.object({
   outros_ajustes: monetaryValue.default(0),
 });
 
-// Schema para DRE (opcional)
+// Número que pode ser negativo (2 decimais) — usado em DRE
+const signedMonetary = numberRounded.pipe(z.number().multipleOf(0.01));
+
+// Schema para DRE (opcional) — todos os valores podem ser negativos
 export const DRESchema = z.object({
-  receita_bruta: monetaryValue.default(0),
-  deducoes_vendas: monetaryValue.default(0),
-  receita_liquida: monetaryValue.optional(), // Calculado automaticamente se não fornecido
-  custos_vendas: monetaryValue.default(0),
-  despesas_operacionais: monetaryValue.default(0),
-  resultado_financeiro: numberRounded.pipe(z.number().multipleOf(0.01)), // Pode ser negativo
-  outros_resultados: numberRounded.pipe(z.number().multipleOf(0.01)), // Pode ser negativo
+  receita_bruta: signedMonetary.default(0),
+  deducoes_vendas: signedMonetary.default(0),
+  receita_liquida: signedMonetary.optional(), // Calculado automaticamente se não fornecido
+  custos_vendas: signedMonetary.default(0),
+  despesas_operacionais: signedMonetary.default(0),
+  resultado_financeiro: signedMonetary.default(0),
+  outros_resultados: signedMonetary.default(0),
 }).optional();
 
 // Schema principal para simulação (com pré-processamento que arredonda todos os números)

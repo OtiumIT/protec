@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import { LogoProvisorio } from './LogoProvisorio';
 
 const institutionalLinks = [
+  { to: '/quem-somos', label: 'Quem somos' },
+  { to: '/o-produto', label: 'O Produto' },
+  { to: '/aviso-legal', label: 'Aviso Legal' },
   { to: '/politica-privacidade', label: 'Política de Privacidade' },
   { to: '/termos-de-uso', label: 'Termos de Uso' },
   { to: '/fale-conosco', label: 'Contato' },
@@ -35,8 +38,11 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 py-4">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-slate-500">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center space-y-1">
+          <p className="text-sm text-slate-500">
+            Iatax Sistemas Inteligentes LTDA — 65.178.164/0001-59
+          </p>
+          <p className="text-sm text-slate-500">
             © 2026 IATax Soluções Inteligentes. Todos os direitos reservados.
           </p>
         </div>

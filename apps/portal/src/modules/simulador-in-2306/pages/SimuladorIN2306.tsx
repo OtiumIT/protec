@@ -105,6 +105,7 @@ export function SimuladorIN2306() {
   const [memoriaTab, setMemoriaTab] = useState<0 | 1 | 2>(0);
   const [detalhesAbertos, setDetalhesAbertos] = useState(false);
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
+  const resultadoTributarioRef = useRef<HTMLDivElement>(null);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -145,6 +146,12 @@ export function SimuladorIN2306() {
     })();
     return () => { cancelled = true; };
   }, [showError]);
+
+  useEffect(() => {
+    if (tributarioResult && resultadoTributarioRef.current) {
+      resultadoTributarioRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [tributarioResult]);
 
   const fillDemo1 = useCallback(() => {
     setTrimestres(DEMO_1_TRIMESTRES.map((t) => ({ ...t })));
@@ -696,7 +703,7 @@ export function SimuladorIN2306() {
 
           {tributarioResult && (
             <>
-              <div id="simulador-tributario-resultado-print" className="space-y-6">
+              <div ref={resultadoTributarioRef} id="simulador-tributario-resultado-print" className="space-y-6">
                 {/* Cabeçalho do resultado: título + resumo + botão PDF */}
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
                   <div>
@@ -883,6 +890,86 @@ export function SimuladorIN2306() {
                 <p className="text-xs text-slate-500 mb-4">
                   Valores &quot;a rec.&quot; consideram retenções (IRRF, 4,65% órgãos públicos). Se não informadas, os valores podem ser superiores ao efetivamente devido.
                 </p>
+
+                {/* Demonstração do cálculo por proporção (Receita Federal – Perguntas e Respostas) */}
+                {(() => {
+                  const proporcaoTrimestres = tributarioResult.memoria_calculo?.proporcao_trimestres;
+                  const arr = Array.isArray(proporcaoTrimestres) ? proporcaoTrimestres : [];
+                  if (arr.length === 0) return null;
+                  type ProporcaoTrim = {
+                    trimestre: number;
+                    receita_bruta_total: number;
+                    limite_trimestral: number;
+                    aplica_acrescimo_irpj: boolean;
+                    aplica_acrescimo_csll: boolean;
+                    atividades: Array<{
+                      label: string;
+                      receita: number;
+                      participacao_pct: number;
+                      limite_proporcional: number;
+                      excedente: number;
+                      percentual_irpj_normal: number;
+                      percentual_irpj_acrescimo: number;
+                      percentual_csll_normal: number;
+                      percentual_csll_acrescimo: number;
+                      formula_resumida: string;
+                    }>;
+                    formula_geral_irpj: string;
+                    formula_geral_csll: string;
+                  };
+                  return (
+                    <div className="mb-6 p-4 rounded-lg bg-slate-50 border border-slate-200">
+                      <h4 className="font-semibold text-slate-800 mb-2">Demonstração do cálculo por proporção</h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        Quando a receita bruta do trimestre supera R$ 1.250.000, o limite é distribuído conforme a participação de cada atividade na receita total do trimestre. Sobre o limite proporcional aplica-se o percentual normal; sobre o excedente, o percentual acrescido em 10% (IN 2.306/2026).
+                      </p>
+                      {arr.map((item: unknown) => {
+                        const pt = item as ProporcaoTrim;
+                        return (
+                          <div key={pt.trimestre} className="mb-4 last:mb-0">
+                            <h5 className="text-sm font-medium text-slate-700 mb-2">
+                              {pt.trimestre}º trimestre — Receita bruta: {formatMoney(pt.receita_bruta_total)} · Limite: {formatMoney(pt.limite_trimestral)}
+                              {pt.aplica_acrescimo_irpj && <span className="text-amber-700 ml-1">(acréscimo 10% IRPJ)</span>}
+                              {pt.aplica_acrescimo_csll && <span className="text-amber-700 ml-1">(acréscimo 10% CSLL)</span>}
+                            </h5>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden bg-white">
+                                <thead className="bg-slate-100 text-slate-700">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left">Atividade</th>
+                                    <th className="px-3 py-2 text-right">Receita</th>
+                                    <th className="px-3 py-2 text-right">Participação</th>
+                                    <th className="px-3 py-2 text-right">Limite proporcional</th>
+                                    <th className="px-3 py-2 text-right">Excedente</th>
+                                    <th className="px-3 py-2 text-left">Presunção (resumo)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {pt.atividades?.map((a, i) => (
+                                    <tr key={i} className="border-t border-slate-200">
+                                      <td className="px-3 py-2 text-slate-700">{a.label}</td>
+                                      <td className="px-3 py-2 text-right">{formatMoney(a.receita)}</td>
+                                      <td className="px-3 py-2 text-right">{a.participacao_pct.toFixed(1)}%</td>
+                                      <td className="px-3 py-2 text-right">{formatMoney(a.limite_proporcional)}</td>
+                                      <td className="px-3 py-2 text-right">{formatMoney(a.excedente)}</td>
+                                      <td className="px-3 py-2 text-xs text-slate-600">{a.formula_resumida}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-2">
+                              <strong>Base IRPJ (resumida):</strong> {pt.formula_geral_irpj}
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              <strong>Base CSLL (resumida):</strong> {pt.formula_geral_csll}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 {/* Tela: abas + uma tabela por vez */}
                 <div className="print:hidden">
