@@ -710,9 +710,11 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
           {(FORCE_SHOW_ALL_MODULES || !isLoadingModules) && moduleSections.map(({ moduleKey, moduleName, items }) => {
             if (items.length === 0) return null;
             // Um único item com o mesmo nome do módulo e com filhos: exibir só o título da seção + filhos (evita "Gestão Imobiliária" 2x)
-            const single = items.length === 1 && items[0];
+            const single: MenuItem | undefined = items.length === 1 ? items[0] : undefined;
             const collapseParent =
-              single?.children?.length &&
+              single != null &&
+              single.children != null &&
+              single.children.length > 0 &&
               single.name === moduleName;
             return (
               <div key={moduleKey} className="mb-6">
@@ -720,8 +722,8 @@ export function Sidebar({ isOpen = false, onToggle, collapsed = false, onCollaps
                   {moduleName}
                 </h3>
                 <ul className="space-y-1">
-                  {collapseParent
-                    ? single.children!.map((child) => (
+                  {collapseParent && single.children
+                    ? single.children.map((child: MenuItem) => (
                         <li key={child.name}>
                           <Link
                             to={child.path || '#'}

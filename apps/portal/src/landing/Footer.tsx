@@ -38,12 +38,9 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 py-4">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center space-y-1">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-sm text-slate-500">
-            Iatax Sistemas Inteligentes LTDA — 65.178.164/0001-59
-          </p>
-          <p className="text-sm text-slate-500">
-            © 2026 IATax Soluções Inteligentes. Todos os direitos reservados.
+            © 2026 Iatax Sistemas Inteligentes LTDA — 65.178.164/0001-59. Todos os direitos reservados.
           </p>
         </div>
       </div>
