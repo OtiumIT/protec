@@ -727,7 +727,7 @@ export function IrpfAltaRenda() {
                     {decDbkFile ? decDbkFile.name : 'Solte o arquivo aqui'}
                   </span>
                 </label>
-                <Button type="submit" variant="tertiary" disabled={decDbkLoading || !decDbkFile} className="w-full">
+                <Button type="submit" disabled={decDbkLoading || !decDbkFile} className="w-full">
                   {decDbkLoading ? 'Importando...' : 'Importar'}
                 </Button>
               </form>
