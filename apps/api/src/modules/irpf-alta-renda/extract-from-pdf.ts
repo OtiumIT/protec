@@ -371,6 +371,7 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     rendimentos_fiis_excluidos: fiisFallback,
     outros_excluidos_art_16a: outrosExclFallback,
     rendimentos_tributados_exclusivamente_lei_7713: tributadosLei7713,
+    optou_ajuste_anual_lei_7713: false,
   };
 }
 
@@ -468,6 +469,7 @@ function mapOldFormatToDados(old: OldFormatResult): z.infer<typeof DadosIrpfAlta
     ganho_capital_excluido: 0,
     rendimentos_fiis_excluidos: 0,
     outros_excluidos_art_16a: 0,
+    optou_ajuste_anual_lei_7713: false,
   };
 }
 

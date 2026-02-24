@@ -18,10 +18,6 @@ import {
 } from 'recharts';
 import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma } from '@shared/core';
 
-function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-}
-
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 function round2(n: number) {

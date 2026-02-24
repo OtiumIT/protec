@@ -142,12 +142,11 @@ export function Modules() {
 
   // Inicializar tenantId para admin de tenant apenas uma vez
   useEffect(() => {
-    if (!isSuperAdmin && (user?.tenant_id ?? user?.company_id) && !tenantInitializedRef.current) {
-      const companyId = (user?.tenant_id ?? user?.company_id) || '';
-      setSelectedTenantId(companyId);
+    if (!isSuperAdmin && user?.tenant_id && !tenantInitializedRef.current) {
+      setSelectedTenantId(user.tenant_id);
       tenantInitializedRef.current = true;
     }
-  }, [isSuperAdmin, user?.tenant_id, user?.company_id]);
+  }, [isSuperAdmin, user?.tenant_id]);
 
   // Carregar módulos do tenant quando selectedTenantId mudar
   useEffect(() => {

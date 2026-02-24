@@ -12,7 +12,7 @@ import type { User } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 /** Formata User para resposta da API (já com tenant_id). */
-function toUserResponse(user: User & { created_at?: string; updated_at?: string }) {
+function toUserResponse(user: User) {
   return {
     id: user.id,
     email: user.email,
@@ -20,8 +20,8 @@ function toUserResponse(user: User & { created_at?: string; updated_at?: string 
     role: user.role,
     tenant_id: user.tenant_id,
     status: user.status || 'active',
-    ...(user.created_at && { created_at: user.created_at }),
-    ...(user.updated_at && { updated_at: user.updated_at }),
+    ...(user.created_at != null && { created_at: user.created_at }),
+    ...(user.updated_at != null && { updated_at: user.updated_at }),
   };
 }
 
@@ -294,6 +294,7 @@ userRoutes.post(
         400
       );
     }
+    return;
   }),
   async (c) => {
     try {
