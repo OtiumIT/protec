@@ -547,14 +547,6 @@ export function IrpfAltaRenda() {
             </a>
           </p>
         </InfoModal>
-        {processingStage && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm text-slate-700 font-medium">{processingStage}</p>
-            <div className="mt-2 h-2 rounded bg-slate-200 overflow-hidden">
-              <div className="h-2 w-2/3 bg-brand animate-pulse" />
-            </div>
-          </div>
-        )}
 
         <div className={result ? 'xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start' : 'space-y-6'}>
         <div className="space-y-6">
@@ -777,6 +769,15 @@ export function IrpfAltaRenda() {
           </div>
           )}
         </Card>
+
+        {processingStage && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm text-slate-700 font-medium">{processingStage}</p>
+            <div className="mt-2 h-2 rounded bg-slate-200 overflow-hidden">
+              <div className="h-2 w-2/3 bg-brand animate-pulse" />
+            </div>
+          </div>
+        )}
 
         <InfoModal
           isOpen={infoModalPdf}
