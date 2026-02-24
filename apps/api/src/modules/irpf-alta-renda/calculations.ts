@@ -12,6 +12,7 @@ import type {
   MemoriaLegalExclusao,
   OtimizacaoIsentoVsTributado,
   OutroIsentoQueEntraBase,
+  RendimentoTributadoLei7713,
 } from '@shared/core';
 
 /** Parâmetros da Lei 15.270/2025 – alterar aqui quando houver regulamentação ou nova lei */
@@ -337,6 +338,12 @@ export function simularOtimizacaoIsentoVsTributado(
 
 const PALAVRAS_EXCLUSAO_ART16A = ['cri', 'cra', 'lci', 'lca', 'lig', 'poupanca', 'debenture', 'debentures', 'infraestrutura'];
 const CODIGOS_DOACAO_HERANCA = new Set(['01', '03']);
+/** Códigos com tributação exclusiva na fonte (06=applicações, 10=JCP) — não entram na BCC; IR pago deduzível */
+const CODIGOS_TRIBUTACAO_EXCLUSIVA = new Set(['06', '10']);
+/** Códigos LCI/LCA/poupança — excluídos da BCC (Art. 16-A) */
+const CODIGOS_LCI_LCA_POUPANCA = new Set(['11', '12']);
+/** Código 05 = outros isentos — tratar como excluído por precaução */
+const CODIGOS_OUTRO_ISENTO_EXCLUIDO = new Set(['05']);
 const PALAVRAS_DOACAO_HERANCA = ['doacao', 'heranca', 'legitima', 'adiantamento da legitima', 'transferencia patrimonial'];
 const PALAVRAS_FII = ['fii', 'fundo imobili', 'fundo de investimento imobili'];
 const PALAVRAS_GANHO_CAPITAL = ['ganho de capital', 'alienacao', 'venda de imovel', 'venda de participacao'];
@@ -362,23 +369,25 @@ export function classificarIsentosArt16A(
   ganho_capital_excluido: number;
   lucros_aprovados_ate_31dez2025: number;
   outros_isentos_que_entram_base: OutroIsentoQueEntraBase[];
+  rendimentos_tributados_exclusivamente_lei_7713: RendimentoTributadoLei7713[];
 } {
   let outrosExcluidos = 0;
   let fiisExcluidos = 0;
   let ganhoCapitalExcluido = 0;
   let lucrosTransicao = 0;
   const outrosEntramBase: OutroIsentoQueEntraBase[] = [];
+  const tributacaoExclusivaLei7713: RendimentoTributadoLei7713[] = [];
 
   for (const item of itens) {
     const valor = round2(item.valor ?? 0);
     if (valor <= 0) continue;
-    const codigo = String(item.codigo ?? '').trim();
+    const codigo = String(item.codigo ?? '').trim().padStart(2, '0').slice(-2);
     const desc = normalizarTexto(item.descricao ?? item.nome_fonte ?? '');
     const isFii = temPalavra(desc, PALAVRAS_FII);
     const isGanhoCapital = temPalavra(desc, PALAVRAS_GANHO_CAPITAL);
     const isTransicao = temPalavra(desc, PALAVRAS_TRANSICAO_2025);
     const isExclArt16A = temPalavra(desc, PALAVRAS_EXCLUSAO_ART16A);
-    const isDoacaoHeranca = CODIGOS_DOACAO_HERANCA.has(codigo.padStart(2, '0').slice(-2)) || temPalavra(desc, PALAVRAS_DOACAO_HERANCA);
+    const isDoacaoHeranca = CODIGOS_DOACAO_HERANCA.has(codigo) || temPalavra(desc, PALAVRAS_DOACAO_HERANCA);
 
     if (isTransicao) {
       lucrosTransicao += valor;
@@ -391,6 +400,19 @@ export function classificarIsentosArt16A(
     }
     if (isGanhoCapital) {
       ganhoCapitalExcluido += valor;
+      continue;
+    }
+    if (CODIGOS_TRIBUTACAO_EXCLUSIVA.has(codigo)) {
+      tributacaoExclusivaLei7713.push({
+        descricao: item.descricao ?? item.nome_fonte ?? `Rendimento codigo ${codigo} (tributacao exclusiva)`,
+        valor_bruto: valor,
+        irrf: 0,
+        aliquota_irrf_percentual: 15,
+      });
+      continue;
+    }
+    if (CODIGOS_LCI_LCA_POUPANCA.has(codigo) || CODIGOS_OUTRO_ISENTO_EXCLUIDO.has(codigo)) {
+      outrosExcluidos += valor;
       continue;
     }
     if (isExclArt16A) {
@@ -415,6 +437,7 @@ export function classificarIsentosArt16A(
     ganho_capital_excluido: round2(ganhoCapitalExcluido),
     lucros_aprovados_ate_31dez2025: round2(lucrosTransicao),
     outros_isentos_que_entram_base: outrosEntramBase,
+    rendimentos_tributados_exclusivamente_lei_7713: tributacaoExclusivaLei7713,
   };
 }
 

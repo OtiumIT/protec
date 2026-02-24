@@ -560,15 +560,18 @@ export function IrpfAltaRenda() {
               </div>
               <div className="space-y-2">
                 {dividendos.map((d, i) => (
-                  <div key={i} className="flex flex-wrap items-end gap-2 p-2 bg-slate-50 rounded-md">
-                    <select
-                      value={d.codigo || '09'}
-                      onChange={(e) => updateDividendo(i, 'codigo', e.target.value)}
-                      className="w-24 border border-slate-200 rounded px-2 py-1.5 text-sm"
-                    >
-                      <option value="09">09 – Dividendos</option>
-                      <option value="13">13 – Sócio Simples</option>
-                    </select>
+                  <div key={i} className="flex flex-wrap items-end gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <div className="min-w-[180px]">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Tipo (cód. Receita)</label>
+                      <select
+                        value={d.codigo || '09'}
+                        onChange={(e) => updateDividendo(i, 'codigo', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                      >
+                        <option value="09">09 – Dividendos</option>
+                        <option value="13">13 – Sócio Simples</option>
+                      </select>
+                    </div>
                     <Input
                       placeholder="Nome/CNPJ fonte"
                       value={d.nome_fonte ?? ''}

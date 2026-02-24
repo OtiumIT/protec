@@ -52,8 +52,8 @@ function extractAnoFromFilename(name: string): number | null {
   return match ? parseInt(match[1], 10) : null;
 }
 
-/** Versão do parser (2 = leiaute corrigido: 13 dígitos, tipo 20 totais, tipo 26 não em rendimentos) */
-export const DEC_DBK_PARSER_VERSION = 2;
+/** Versão do parser (3 = tipo 24 posições corrigidas, tipo 19 imposto pago, códigos 06/10/11/12 classificados) */
+export const DEC_DBK_PARSER_VERSION = 3;
 
 export type ParseDecDbkResult = {
   ano: number;
@@ -70,7 +70,12 @@ export type ParseDecDbkResult = {
 const CODIGO_ISENTO_DESCRICAO: Record<string, string> = {
   '01': 'Transferencias patrimoniais (heranca/doacao)',
   '03': 'Transferencias patrimoniais entre conjuges/dependentes',
+  '05': 'Outros rendimentos isentos (subcategoria)',
+  '06': 'Rendimentos de aplicacoes financeiras (tributacao exclusiva)',
   '09': 'Lucros e dividendos recebidos',
+  '10': 'Juros sobre capital proprio (JCP)',
+  '11': 'LCI/LCA/Poupanca (isento)',
+  '12': 'LCI/LCA/Poupanca (isento)',
   '13': 'Rendimento de socio ou titular de microempresa/EPP Simples',
   '99': 'Outros rendimentos isentos',
 };
@@ -88,6 +93,7 @@ function parseFixedWidth(
   let baseCalculoIr = 0;
   let impostoDevido = 0;
   let impostoPagoRetencao = 0;
+  let impostoPagoCarneLeao = 0;
   const itensPj: { cnpj?: string; nome_fonte?: string; valor: number }[] = [];
   const itensPf: { descricao?: string; valor: number; mes?: string }[] = [];
   const itensIsentos09: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
@@ -144,16 +150,19 @@ function parseFixedWidth(
       }
       if (cod && v > 0) {
         const c = cod.padStart(2, '0').slice(-2);
-        // Tipo 22 tem totais por código; tipo 23 tem valores detalhados. Para 09/13 usar só tipo 23.
-        if (tipo !== '22' || (c !== '09' && c !== '13')) {
+        // Tipo 22 tem layout diferente; preferir tipo 24 para 05/06/10. Tipo 23 para 09/13.
+        const skipTipo22 = tipo === '22' && (c === '09' || c === '13' || c === '05' || c === '06' || c === '10');
+        if (!skipTipo22) {
           codigosValor[c] = (codigosValor[c] || 0) + v;
         }
       }
     } else if (tipo === '24') {
-      const cod = line.substring(22, 24).replace(/\D/g, '');
-      const valStr = line.substring(24, 50).replace(/\D/g, '');
-      const v = valStr.length >= 10 ? parseValorMonetario(valStr) : 0;
-      if (cod && v > 0) codigosValor[cod] = (codigosValor[cod] || 0) + v;
+      // Layout: tipo(2) + CPF(11) + reservado(2) + cod(2) + valor(13) — ex.: 2487945339972000500000000339784219758085
+      const cod = line.substring(15, 17).replace(/\D/g, '').padStart(2, '0').slice(-2);
+      const v = parseValor13(line.substring(17, 30));
+      if (cod && v > 0 && v < 1e12) {
+        codigosValor[cod] = (codigosValor[cod] || 0) + v;
+      }
     } else if (tipo === '26') {
       // Tipo 26: códigos 01, 21, 26, 99 = Pagamentos Efetuados (deduções), NÃO são rendimentos.
       // Apenas 09 (dividendos) e 13 (sócio Simples) são isentos; não somamos 01/21/26/99 em itensPj.
@@ -184,7 +193,17 @@ function parseFixedWidth(
       if (base20 > 0 && baseCalculoIr === 0) baseCalculoIr = base20;
       if (imposto20 >= 0 && impostoDevido === 0) impostoDevido = imposto20;
     } else if (tipo === '19') {
-      // Tipo 19: não usar primeiro número (contém "19"+CPF); base/imposto vêm do tipo 20
+      // Tipo 19: blocos de 13 dígitos com impostos pagos (carnê-leão, retenção na fonte).
+      // Layout PGD: após "19"+CPF+spaces, blocos 13 dig. Índices 5 e 11 = carnê-leão e retenção.
+      const digitsOnly = line.substring(13).replace(/\D/g, '');
+      const blocos: number[] = [];
+      for (let p = 0; p + 13 <= digitsOnly.length; p += 13) {
+        blocos.push(parseValor13(digitsOnly.substring(p, p + 13)));
+      }
+      const v5 = blocos[5] ?? 0;
+      const v11 = blocos[11] ?? 0;
+      if (v5 > 0 && v5 < 1e9) impostoPagoCarneLeao = v5;
+      if (v11 > 0 && v11 < 1e9) impostoPagoRetencao = v11;
     }
   }
 
@@ -209,8 +228,13 @@ function parseFixedWidth(
   if (totalRendPf > 0 && itensPf.length === 0) {
     avisos.push('O parser identificou total de rendimentos PF sem detalhamento por item. Revise manualmente aluguéis/carnê-leão.');
   }
-  if (impostoPagoRetencao === 0) {
-    avisos.push('Imposto já pago por retenção não identificado automaticamente no arquivo. Confirme este campo antes de simular.');
+  const somaItensPj = itensPj.reduce((s, i) => s + i.valor, 0);
+  const totalPj20 = codigosValor['__totalPj20'] as number | undefined;
+  if (totalPj20 != null && somaItensPj > 0 && Math.abs(totalPj20 - somaItensPj) / totalPj20 > 0.01) {
+    avisos.push(`Discrepância entre total PJ (tipo 20: R$ ${totalPj20.toLocaleString('pt-BR')}) e soma dos itens (R$ ${somaItensPj.toLocaleString('pt-BR')}). Verifique os dados.`);
+  }
+  if (impostoPagoRetencao === 0 && impostoPagoCarneLeao === 0) {
+    avisos.push('Imposto já pago por retenção/carnê-leão não identificado automaticamente no arquivo. Confirme estes campos antes de simular.');
   }
 
   if (!nome && cpf) nome = 'Contribuinte (importado)';
@@ -231,6 +255,7 @@ function parseFixedWidth(
     baseCalculoIr,
     impostoDevido,
     impostoPagoRetencao,
+    impostoPagoCarneLeao,
     tot09,
     tot13,
     {
@@ -255,6 +280,7 @@ function buildResult(
   baseCalculoIr: number,
   impostoDevido: number,
   impostoPagoRetencao: number,
+  impostoPagoCarneLeao: number,
   tot09 = 0,
   tot13 = 0,
   diagnostico?: ParseDecDbkResult['diagnostico']
@@ -306,7 +332,7 @@ function buildResult(
     resumo: {
       base_calculo_ir: round2(baseCalculoIr || rendimentos_tributaveis),
       imposto_devido: round2(impostoDevido),
-      imposto_pago_retencao: round2(impostoPagoRetencao),
+      imposto_pago_retencao: round2(impostoPagoRetencao + impostoPagoCarneLeao),
       imposto_a_restituir: 0,
       imposto_a_pagar: 0,
     },
@@ -331,9 +357,9 @@ function buildResult(
     isentos_lucros_dividendos: itensIsentos09.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
     isentos_simples_nacional: itensIsentos13.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
     outros_isentos_que_entram_base: classificacaoIsentos.outros_isentos_que_entram_base,
-    rendimentos_tributados_exclusivamente_lei_7713: [],
+    rendimentos_tributados_exclusivamente_lei_7713: classificacaoIsentos.rendimentos_tributados_exclusivamente_lei_7713,
     imposto_ja_pago_retencao_fonte: round2(impostoPagoRetencao),
-    imposto_ja_pago_carne_leao: 0,
+    imposto_ja_pago_carne_leao: round2(impostoPagoCarneLeao),
     imposto_ja_pago_aplicacoes: 0,
     imposto_antecipado_dividendos: 0,
     lucros_aprovados_ate_31dez2025: classificacaoIsentos.lucros_aprovados_ate_31dez2025,
@@ -499,6 +525,7 @@ function parsePipeDelimited(
     baseCalculoIr,
     impostoDevido,
     impostoPagoRetencao,
+    0, // impostoPagoCarneLeao (não extraído no layout pipe)
     0,
     0,
     {
