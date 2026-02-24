@@ -146,6 +146,7 @@ export function SimuladorImoveis() {
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
   const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma | ''>('');
+  const resultSectionRef = useRef<HTMLDivElement>(null);
 
   const updateMes = (idx: number, field: keyof MesFields, value: number) => {
     setMeses((prev) => {
@@ -174,7 +175,7 @@ export function SimuladorImoveis() {
     setAno(anoDemo);
     setMeses(buildDemoMeses(anoDemo));
     setResult(null);
-    success('Demo carregada: predominância Airbnb, ~R$ 140k/ano (Ctrl+D+1). Clique em "Simular".');
+    success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
 
   useEffect(() => {
@@ -205,6 +206,12 @@ export function SimuladorImoveis() {
       if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
     };
   }, [fillDemo1]);
+
+  useEffect(() => {
+    if (result) {
+      resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [result]);
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,14 +271,6 @@ export function SimuladorImoveis() {
         </h1>
         <p className="text-slate-600 mt-2 max-w-2xl">
           Preencha os totais mensais por categoria. O resultado compara Pessoa Física (Carnê-Leão), Pessoa Jurídica (Lucro Presumido) e o cenário da Reforma Tributária (IBS/CBS).
-        </p>
-        <p className="text-slate-500 text-sm mt-2 flex items-center gap-2">
-          <kbd className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono">Ctrl</kbd>
-          <span>+</span>
-          <kbd className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono">D</kbd>
-          <span>+</span>
-          <kbd className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono">1</kbd>
-          <span className="text-slate-500">— preenche cenário de teste</span>
         </p>
       </div>
 
@@ -387,7 +386,7 @@ export function SimuladorImoveis() {
       </form>
 
       {result && (
-        <div id="simulador-imoveis-resultado-print" className="space-y-6 mt-6">
+        <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 mt-6">
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>

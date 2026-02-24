@@ -10,19 +10,28 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        collapsed={isSidebarCollapsed}
+        onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
-              {/* Botão de menu mobile */}
+              {/* Botão abrir menu: mobile sempre; no desktop só quando menu está escondido */}
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
+                onClick={() => {
+                  if (isSidebarCollapsed) setIsSidebarCollapsed(false);
+                  else setIsSidebarOpen((o) => !o);
+                }}
+                className={`p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors flex ${!isSidebarCollapsed ? 'lg:hidden' : ''}`}
                 aria-label="Abrir menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

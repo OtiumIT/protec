@@ -105,6 +105,18 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
       e.target.select();
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Backspace') {
+        const cents = Math.round(value * 100);
+        if (cents <= 0) return;
+        const newCents = Math.floor(cents / 10);
+        const newValue = Math.round(newCents) / 100;
+        e.preventDefault();
+        setDisplayValue(formatMoney(newValue));
+        onChange(newValue);
+      }
+    };
+
     return (
       <div className="w-full">
         {label && (
@@ -124,6 +136,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
             inputMode="decimal"
             value={displayValue}
             onChange={handleChange}
+            onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             onFocus={handleFocus}
             className={`
