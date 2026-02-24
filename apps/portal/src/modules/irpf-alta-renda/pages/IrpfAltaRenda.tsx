@@ -483,6 +483,20 @@ export function IrpfAltaRenda() {
 
   const showFormSection = (selectedImportType === 'manual' && manualFormStarted) || hasLoadedData;
 
+  const getSelectedImportLabel = () => {
+    if (selectedImportType === 'pdf') return 'PDF (DAA / Declaração)';
+    if (selectedImportType === 'dec_dbk') return '.dec ou .dbk';
+    if (selectedImportType === 'manual') return 'Inserção manual';
+    return '';
+  };
+
+  const getSelectedImportIcon = () => {
+    if (selectedImportType === 'pdf') return '/irpf-icon-pdf.png';
+    if (selectedImportType === 'dec_dbk') return '/irpf-icon-dec-dbk.png';
+    if (selectedImportType === 'manual') return '/irpf-icon-manual.png';
+    return null;
+  };
+
   return (
     <Layout>
       <ToastContainer />
@@ -544,7 +558,47 @@ export function IrpfAltaRenda() {
 
         <div className={result ? 'xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start' : 'space-y-6'}>
         <div className="space-y-6">
-        <Card key={importSectionKey} title="Etapa 1: Tipo de importação" className="w-full">
+        <Card
+          key={importSectionKey}
+          title={
+            showFormSection ? (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-600 font-normal">Etapa 1 concluída:</span>
+                <span className="inline-flex items-center gap-2 text-brand font-semibold">
+                  {getSelectedImportIcon() && (
+                    <img src={getSelectedImportIcon()!} alt="" className="w-6 h-6 object-contain" />
+                  )}
+                  {getSelectedImportLabel()}
+                </span>
+              </div>
+            ) : (
+              'Etapa 1: Tipo de importação'
+            )
+          }
+          className={`w-full ${showFormSection ? '!p-5' : ''}`}
+        >
+          {showFormSection ? (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-slate-600">
+                  {selectedImportType === 'manual'
+                    ? 'Preencha os dados abaixo e clique em Simular.'
+                    : 'Dados carregados. Revise abaixo e clique em Simular.'}
+                </p>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-medium text-sm border border-emerald-200/60">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {selectedImportType === 'manual' ? 'Preenchimento manual' : 'Dados extraídos'}
+                  </span>
+                  <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
+                    Cancelar Simulação
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card PDF */}
             <div
@@ -721,20 +775,8 @@ export function IrpfAltaRenda() {
               </Button>
             </div>
           </div>
+          )}
         </Card>
-
-        {showFormSection && (
-          <div className="flex items-center justify-between gap-3 p-4 rounded-lg border border-slate-200 bg-slate-50 shadow-sm">
-            <p className="text-sm text-slate-700 font-medium">
-              {selectedImportType === 'manual'
-                ? 'Inserção manual'
-                : `Dados carregados${selectedImportType === 'pdf' ? ' de PDF' : selectedImportType === 'dec_dbk' ? ' de .dec/.dbk' : ''}`}
-            </p>
-            <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
-              Cancelar Simulação
-            </Button>
-          </div>
-        )}
 
         <InfoModal
           isOpen={infoModalPdf}
