@@ -627,9 +627,7 @@ export function IrpfAltaRenda() {
                 </svg>
               </button>
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'pdf' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
-                  <img src="/irpf-icon-pdf.png" alt="" className="w-20 h-20 object-contain" />
-                </div>
+                <img src="/irpf-icon-pdf.png" alt="" className="w-28 h-28 object-contain mb-4" />
                 <h3 className={`font-bold text-lg ${selectedImportType === 'pdf' ? 'text-brand' : 'text-slate-700'}`}>PDF (DAA / Declaração)</h3>
               </div>
               <form onSubmit={handlePdfUpload} className="space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -692,9 +690,7 @@ export function IrpfAltaRenda() {
                 </svg>
               </button>
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'dec_dbk' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
-                  <img src="/irpf-icon-dec-dbk.png" alt="" className="w-20 h-20 object-contain" />
-                </div>
+                <img src="/irpf-icon-dec-dbk.png" alt="" className="w-28 h-28 object-contain mb-4" />
                 <h3 className={`font-bold text-lg ${selectedImportType === 'dec_dbk' ? 'text-brand' : 'text-slate-700'}`}>.dec ou .dbk</h3>
               </div>
               <form onSubmit={handleDecDbkUpload} className="space-y-3" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
@@ -760,9 +756,7 @@ export function IrpfAltaRenda() {
                 </svg>
               </button>
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 overflow-hidden transition-all ${selectedImportType === 'manual' ? 'bg-brand/10 ring-2 ring-brand/20' : 'bg-slate-100'}`}>
-                  <img src="/irpf-icon-manual.png" alt="" className="w-20 h-20 object-contain" />
-                </div>
+                <img src="/irpf-icon-manual.png" alt="" className="w-28 h-28 object-contain mb-4" />
                 <h3 className={`font-bold text-lg ${selectedImportType === 'manual' ? 'text-brand' : 'text-slate-700'}`}>Inserção manual</h3>
               </div>
               <Button
