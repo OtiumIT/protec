@@ -165,6 +165,7 @@ export function IrpfAltaRenda() {
   const [pdfExporting, setPdfExporting] = useState(false);
   const resultadoRef = useRef<HTMLDivElement>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const pdfContentRef = useRef<HTMLDivElement>(null);
   const pdfResultPlaceholderRef = useRef<HTMLDivElement>(null);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -389,10 +390,10 @@ export function IrpfAltaRenda() {
   useEffect(() => {
     if (!pdfExporting || !result) return;
     const runExport = async () => {
-      const container = pdfContainerRef.current;
+      const contentEl = pdfContentRef.current;
       const placeholder = pdfResultPlaceholderRef.current;
       const resultEl = document.getElementById('irpf-alta-renda-resultado-print');
-      if (!container || !resultEl) {
+      if (!contentEl || !resultEl) {
         setPdfExporting(false);
         return;
       }
@@ -402,7 +403,7 @@ export function IrpfAltaRenda() {
         clone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove());
         placeholder.appendChild(clone);
       }
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 250));
       try {
         const opt = {
           margin: 10,
@@ -412,7 +413,7 @@ export function IrpfAltaRenda() {
           jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
           pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
         };
-        await html2pdf().set(opt as any).from(container).save();
+        await html2pdf().set(opt as any).from(contentEl).save();
         success('PDF exportado com sucesso.');
       } catch (e) {
         console.error(e);
@@ -1125,9 +1126,10 @@ export function IrpfAltaRenda() {
           <div
             ref={pdfContainerRef}
             id="irpf-pdf-content"
-            className="fixed left-[-9999px] top-0 z-[-1] bg-white p-6 text-slate-900 overflow-visible"
-            style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box' }}
+            className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-slate-200/90 p-6 text-slate-900"
+            style={{ boxSizing: 'border-box' }}
           >
+            <div ref={pdfContentRef} className="bg-white shadow-xl p-6" style={{ width: '210mm', maxWidth: '210mm' }}>
             <div className="keep space-y-3 mb-4 pb-3 border-b border-slate-200">
               <p className="text-[10px] text-slate-500">
                 Simulado em{' '}
@@ -1182,6 +1184,7 @@ export function IrpfAltaRenda() {
               />
             )}
             <div ref={pdfResultPlaceholderRef} className="irpf-pdf-resultado" />
+            </div>
           </div>
         )}
 
