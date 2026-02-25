@@ -11,17 +11,30 @@ type Props = {
   };
 };
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
 export function IrpfComparativoChart({ atual, otimizado }: Props) {
   if (!otimizado) {
     return (
-      <div className="flex h-72 w-full items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
-        Sem cenário otimizado disponível para comparação. Preencha itens de otimização para visualizar o gráfico.
+      <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-3">
+        <p className="text-xs font-medium text-slate-600 mb-2">Situação atual</p>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-slate-500">Base:</span>
+            <span className="ml-1 font-mono font-medium text-slate-800">{formatCurrency(atual.base)}</span>
+          </div>
+          <div>
+            <span className="text-slate-500">A complementar:</span>
+            <span className="ml-1 font-mono font-medium text-slate-800">{formatCurrency(atual.impostoComplementar)}</span>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 mt-2">
+          Para ver otimização, preencha &quot;Outros isentos que entram na base&quot; ou &quot;Lei 7.713&quot;.
+        </p>
       </div>
     );
   }
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const formatCurrencyCompact = (value: number): string => {
     if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(2).replace('.', ',')} mi`;

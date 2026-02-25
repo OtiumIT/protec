@@ -8,8 +8,11 @@ type Props = {
 export function IrpfCustoPfPjChart({ comparativo }: Props) {
   if (!comparativo) {
     return (
-      <div className="flex h-64 w-full items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
-        Execute uma simulação para visualizar o comparativo de custo tributário PF vs PJ.
+      <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-3 text-sm text-slate-600">
+        <p className="font-medium text-slate-700">Comparativo PF vs PJ</p>
+        <p className="mt-1 text-xs">
+          Preencha &quot;Valor hipotético para comparativo&quot; ou inclua rendimentos Lei 7.713 para exibir o gráfico.
+        </p>
       </div>
     );
   }

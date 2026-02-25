@@ -169,15 +169,20 @@ export class IrpfAltaRendaService {
     }
 
     const valorHipotetico = input.dados.valor_hipotetico_comparativo_pf_pj;
-    const valorAplicacaoRef =
-      (valorHipotetico !== undefined && valorHipotetico > 0 ? valorHipotetico : null) ??
-      (input.dados.rendimentos_tributados_exclusivamente_lei_7713 ?? []).reduce(
-        (s, i) => s + (i.valor_bruto ?? 0),
-        0
-      ) ||
-      (input.dados.outros_rendimentos?.aplicacoes_financeiras_exclusiva ?? 0) ||
-      (input.dados.outros_rendimentos?.juros_capital_proprio ?? 0) ||
-      100_000;
+    const somaLei7713 = (input.dados.rendimentos_tributados_exclusivamente_lei_7713 ?? []).reduce(
+      (s, i) => s + (i.valor_bruto ?? 0),
+      0
+    );
+    const outrosAplic = input.dados.outros_rendimentos?.aplicacoes_financeiras_exclusiva ?? 0;
+    const outrosJuros = input.dados.outros_rendimentos?.juros_capital_proprio ?? 0;
+    const valorAplicacaoRef = Math.max(
+      1000,
+      (valorHipotetico != null && valorHipotetico > 0 ? valorHipotetico : null) ??
+        (somaLei7713 > 0 ? somaLei7713 : null) ??
+        (outrosAplic > 0 ? outrosAplic : null) ??
+        (outrosJuros > 0 ? outrosJuros : null) ??
+        100_000
+    );
     const rendimentosPj = input.dados.rendimentos_aplicacoes_financeiras_pj ?? 0;
     const comparativoPfPj = compararEficienciaPfPj(
       valorAplicacaoRef,

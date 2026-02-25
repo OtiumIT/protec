@@ -1751,8 +1751,8 @@ export function IrpfAltaRenda() {
               </div>
 
               {/* Painel direito: gráficos (estilo modelo) */}
-              <div className="space-y-4">
-                <div className="rounded-md border border-slate-200 p-3">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-md border border-slate-200 p-3 min-w-0">
                   <h4 className="text-sm font-medium text-slate-800 mb-2">Composição da renda</h4>
                   <IrpfComposicaoChart
                     composicao={{
@@ -1764,11 +1764,11 @@ export function IrpfAltaRenda() {
                     }}
                   />
                 </div>
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-slate-200 p-3 min-w-0">
                   <h4 className="text-sm font-medium text-slate-800 mb-2">Custo tributário: PF vs PJ</h4>
                   <IrpfCustoPfPjChart comparativo={(result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj} />
                 </div>
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-slate-200 p-3 min-w-0 xl:col-span-2">
                   <h4 className="text-sm font-medium text-slate-800 mb-2">Atual vs otimizado</h4>
                   <IrpfComparativoChart
                     atual={{
