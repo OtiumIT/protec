@@ -7,7 +7,8 @@ services:
     region: oregon
 
     # Monorepo: build APENAS API (shared + api), evita portal/workers = build mais rápido
-    buildCommand: pnpm install --frozen-lockfile && pnpm run build:api
+    # Render não tem pnpm por padrão; instalar globalmente antes do build
+    buildCommand: npm install -g pnpm@8 && pnpm install --frozen-lockfile && pnpm run build:api
     startCommand: cd apps/api && node dist/index.js
 
     # Só dispara deploy quando API ou shared mudam (não em mudanças só no portal)
