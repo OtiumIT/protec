@@ -19,14 +19,62 @@ import type {
   SimulateAndSaveIrpfAltaRendaInput,
   IrpfAltaRendaSimulacaoResponse,
   RendimentoIsentoDividendo,
+  ComparativoPfPj,
 } from '@shared/core';
 import { IrpfKpiCards } from '../components/IrpfKpiCards';
 import { IrpfComposicaoChart } from '../components/IrpfComposicaoChart';
 import { IrpfComparativoChart } from '../components/IrpfComparativoChart';
+import { IrpfCustoPfPjChart } from '../components/IrpfCustoPfPjChart';
 import { RemoveConfirmModal } from '../../../shared/components/ui/RemoveConfirmModal';
 import { InfoModal } from '../../../shared/components/ui/InfoModal';
+import { Modal } from '../../../shared/components/ui/Modal';
+import { ParametrosSimulacaoPrint } from '../components/ParametrosSimulacaoPrint';
+import html2pdf from 'html2pdf.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
+const DEMO_KEY_WINDOW_MS = 1500;
+
+/** Demo 1: Cenário básico (RT, dividendos, deduções) — Ctrl+D+1 */
+const DEMO_1 = {
+  nome: 'João Silva (Demo 1)',
+  cpf: '12345678909',
+  ano: CURRENT_YEAR,
+  rendimentosTributaveis: 400_000,
+  dividendos: [{ nome_fonte: 'Holding XYZ', valor: 300_000, codigo: '09' as const }],
+  lucrosAprovados: 0,
+  impostoRetencao: 60_000,
+  impostoCarneLeao: 0,
+  impostoAplicacoes: 0,
+  impostoAntecipado: 0,
+  ganhoCapital: 0,
+  fiis: 0,
+  outrosExcluidos: 0,
+  outrosIsentos: [] as OutroIsentoInput[],
+  lei7713: [] as Lei7713Input[],
+};
+
+/** Demo 2: Cenário com otimização (outros isentos que entram + Lei 7.713) — Ctrl+D+2 */
+const DEMO_2 = {
+  ...DEMO_1,
+  nome: 'Maria Santos (Demo 2)',
+  cpf: '98765432100',
+  rendimentosTributaveis: 350_000,
+  dividendos: [{ nome_fonte: 'Empresa ABC', valor: 250_000, codigo: '09' as const }],
+  outrosIsentos: [{ descricao: 'Renda de título isento', valor: 80_000 }] as OutroIsentoInput[],
+  lei7713: [{ descricao: 'CDB com IRRF', valor_bruto: 50_000, irrf: 7_500 }] as Lei7713Input[],
+};
+
+/** Demo 3: Cenário alta base (BCC > 1,2M, faixa fixa 10%) — Ctrl+D+3 */
+const DEMO_3 = {
+  ...DEMO_1,
+  nome: 'Carlos Alta Renda (Demo 3)',
+  cpf: '11122233344',
+  rendimentosTributaveis: 800_000,
+  dividendos: [
+    { nome_fonte: 'Holdings várias', valor: 600_000, codigo: '09' as const },
+  ],
+  impostoRetencao: 120_000,
+};
 
 const emptyDividendo: RendimentoIsentoDividendo = {
   nome_fonte: '',
@@ -80,6 +128,9 @@ export function IrpfAltaRenda() {
   const [outrosIsentosQueEntramBase, setOutrosIsentosQueEntramBase] = useState<OutroIsentoInput[]>([{ descricao: '', valor: 0 }]);
   const [rendimentosLei7713, setRendimentosLei7713] = useState<Lei7713Input[]>([{ descricao: '', valor_bruto: 0, irrf: 0 }]);
   const [optouAjusteAnualLei7713, setOptouAjusteAnualLei7713] = useState(false);
+  const [rendimentosAplicacoesPj, setRendimentosAplicacoesPj] = useState(0);
+  const [aliquotaIrrfComparativo, setAliquotaIrrfComparativo] = useState(15);
+  const [valorHipoteticoComparativo, setValorHipoteticoComparativo] = useState<number | undefined>(undefined);
 
   const [saveCompanyId, setSaveCompanyId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
@@ -105,8 +156,18 @@ export function IrpfAltaRenda() {
   const [decDbkDropActive, setDecDbkDropActive] = useState(false);
   const [manualFormStarted, setManualFormStarted] = useState(false);
   const [pdfDropActive, setPdfDropActive] = useState(false);
+  const [etapa1Collapsed, setEtapa1Collapsed] = useState(false);
   const [etapa2Collapsed, setEtapa2Collapsed] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [decDbkFileName, setDecDbkFileName] = useState<string | null>(null);
+  const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
+  const [pdfExportIncludeParams, setPdfExportIncludeParams] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const resultadoRef = useRef<HTMLDivElement>(null);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const pdfResultPlaceholderRef = useRef<HTMLDivElement>(null);
+  const waitingDemoDigitRef = useRef<number>(0);
+  const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
     setListLoading(true);
@@ -125,6 +186,101 @@ export function IrpfAltaRenda() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const fillDemo1 = useCallback(() => {
+    setContribuinteNome(DEMO_1.nome);
+    setContribuinteCpf(DEMO_1.cpf);
+    setAno(DEMO_1.ano);
+    setRendimentosTributaveis(DEMO_1.rendimentosTributaveis);
+    setDividendos(DEMO_1.dividendos.length > 0 ? DEMO_1.dividendos : [{ ...emptyDividendo }]);
+    setLucrosAprovadosAte31dez2025(DEMO_1.lucrosAprovados);
+    setImpostoJaPagoRetencao(DEMO_1.impostoRetencao);
+    setImpostoJaPagoCarneLeao(DEMO_1.impostoCarneLeao);
+    setImpostoJaPagoAplicacoes(DEMO_1.impostoAplicacoes);
+    setImpostoAntecipadoDividendos(DEMO_1.impostoAntecipado);
+    setGanhoCapitalExcluido(DEMO_1.ganhoCapital);
+    setRendimentosFiisExcluidos(DEMO_1.fiis);
+    setOutrosExcluidosArt16A(DEMO_1.outrosExcluidos);
+    setOutrosIsentosQueEntramBase(DEMO_1.outrosIsentos.length > 0 ? DEMO_1.outrosIsentos : [{ descricao: '', valor: 0 }]);
+    setRendimentosLei7713(DEMO_1.lei7713.length > 0 ? DEMO_1.lei7713 : [{ descricao: '', valor_bruto: 0, irrf: 0 }]);
+    setRendimentosAplicacoesPj(0);
+    setResult(null);
+    success('Demo 1: Cenário básico. Clique em Simular.');
+  }, [success]);
+
+  const fillDemo2 = useCallback(() => {
+    setContribuinteNome(DEMO_2.nome);
+    setContribuinteCpf(DEMO_2.cpf);
+    setAno(DEMO_2.ano);
+    setRendimentosTributaveis(DEMO_2.rendimentosTributaveis);
+    setDividendos(DEMO_2.dividendos.length > 0 ? DEMO_2.dividendos : [{ ...emptyDividendo }]);
+    setLucrosAprovadosAte31dez2025(DEMO_2.lucrosAprovados ?? 0);
+    setImpostoJaPagoRetencao(DEMO_2.impostoRetencao);
+    setImpostoJaPagoCarneLeao(DEMO_2.impostoCarneLeao);
+    setImpostoJaPagoAplicacoes(DEMO_2.impostoAplicacoes);
+    setImpostoAntecipadoDividendos(DEMO_2.impostoAntecipado);
+    setGanhoCapitalExcluido(DEMO_2.ganhoCapital ?? 0);
+    setRendimentosFiisExcluidos(DEMO_2.fiis ?? 0);
+    setOutrosExcluidosArt16A(DEMO_2.outrosExcluidos ?? 0);
+    setOutrosIsentosQueEntramBase(DEMO_2.outrosIsentos?.length ? DEMO_2.outrosIsentos : [{ descricao: '', valor: 0 }]);
+    setRendimentosLei7713(DEMO_2.lei7713?.length ? DEMO_2.lei7713 : [{ descricao: '', valor_bruto: 0, irrf: 0 }]);
+    setRendimentosAplicacoesPj(0);
+    setResult(null);
+    success('Demo 2: Cenário com otimização. Clique em Simular.');
+  }, [success]);
+
+  const fillDemo3 = useCallback(() => {
+    setContribuinteNome(DEMO_3.nome);
+    setContribuinteCpf(DEMO_3.cpf);
+    setAno(DEMO_3.ano);
+    setRendimentosTributaveis(DEMO_3.rendimentosTributaveis);
+    setDividendos(DEMO_3.dividendos.length > 0 ? DEMO_3.dividendos : [{ ...emptyDividendo }]);
+    setLucrosAprovadosAte31dez2025(DEMO_3.lucrosAprovados ?? 0);
+    setImpostoJaPagoRetencao(DEMO_3.impostoRetencao);
+    setImpostoJaPagoCarneLeao(DEMO_3.impostoCarneLeao);
+    setImpostoJaPagoAplicacoes(DEMO_3.impostoAplicacoes);
+    setImpostoAntecipadoDividendos(DEMO_3.impostoAntecipado);
+    setGanhoCapitalExcluido(DEMO_3.ganhoCapital ?? 0);
+    setRendimentosFiisExcluidos(DEMO_3.fiis ?? 0);
+    setOutrosExcluidosArt16A(DEMO_3.outrosExcluidos ?? 0);
+    setOutrosIsentosQueEntramBase(DEMO_3.outrosIsentos?.length ? DEMO_3.outrosIsentos : [{ descricao: '', valor: 0 }]);
+    setRendimentosLei7713(DEMO_3.lei7713?.length ? DEMO_3.lei7713 : [{ descricao: '', valor_bruto: 0, irrf: 0 }]);
+    setRendimentosAplicacoesPj(0);
+    setResult(null);
+    success('Demo 3: Cenário alta base (BCC > 1,2M). Clique em Simular.');
+  }, [success]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (waitingDemoDigitRef.current && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        e.preventDefault();
+        const which = e.key === '1' ? 1 : e.key === '2' ? 2 : 3;
+        waitingDemoDigitRef.current = 0;
+        if (demoKeyTimeoutRef.current) {
+          clearTimeout(demoKeyTimeoutRef.current);
+          demoKeyTimeoutRef.current = null;
+        }
+        if (which === 1) fillDemo1();
+        else if (which === 2) fillDemo2();
+        else fillDemo3();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+        waitingDemoDigitRef.current = Date.now();
+        demoKeyTimeoutRef.current = setTimeout(() => {
+          waitingDemoDigitRef.current = 0;
+          demoKeyTimeoutRef.current = null;
+        }, DEMO_KEY_WINDOW_MS);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
+    };
+  }, [fillDemo1, fillDemo2, fillDemo3]);
 
   useEffect(() => {
     if (!user) return;
@@ -222,6 +378,52 @@ export function IrpfAltaRenda() {
     setRemoveConfirmModal({ ...removeConfirmModal, isOpen: false });
   };
 
+  const handleOpenPdfModal = () => setPdfExportModalOpen(true);
+
+  const handleExportPdf = (includeParams: boolean) => {
+    setPdfExportIncludeParams(includeParams);
+    setPdfExportModalOpen(false);
+    setPdfExporting(true);
+  };
+
+  useEffect(() => {
+    if (!pdfExporting || !result) return;
+    const runExport = async () => {
+      const container = pdfContainerRef.current;
+      const placeholder = pdfResultPlaceholderRef.current;
+      const resultEl = document.getElementById('irpf-alta-renda-resultado-print');
+      if (!container || !resultEl) {
+        setPdfExporting(false);
+        return;
+      }
+      if (placeholder) {
+        placeholder.innerHTML = '';
+        const clone = resultEl.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove());
+        placeholder.appendChild(clone);
+      }
+      await new Promise((r) => setTimeout(r, 150));
+      try {
+        const opt = {
+          margin: 10,
+          filename: `IRPF-Alta-Renda-${ano}-${contribuinteNome || 'simulacao'}.pdf`.replace(/[^a-zA-Z0-9.-]/g, '_'),
+          image: { type: 'jpeg' as const, quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+          pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
+        };
+        await html2pdf().set(opt as any).from(container).save();
+        success('PDF exportado com sucesso.');
+      } catch (e) {
+        console.error(e);
+        showError('Falha ao exportar PDF. Tente novamente.');
+      } finally {
+        setPdfExporting(false);
+      }
+    };
+    runExport();
+  }, [pdfExporting, result, ano, contribuinteNome, success, showError]);
+
   const buildInput = (): SimulateIrpfAltaRendaInput => ({
     ano,
     dados: {
@@ -255,7 +457,10 @@ export function IrpfAltaRenda() {
           aliquota_irrf_percentual: i.valor_bruto > 0 ? (i.irrf / i.valor_bruto) * 100 : 15,
         })),
       optou_ajuste_anual_lei_7713: optouAjusteAnualLei7713,
-    },
+      rendimentos_aplicacoes_financeiras_pj: rendimentosAplicacoesPj,
+      aliquota_irrf_comparativo_percentual: aliquotaIrrfComparativo,
+      valor_hipotetico_comparativo_pf_pj: valorHipoteticoComparativo,
+    } as SimulateIrpfAltaRendaInput['dados'],
   });
 
   const handleSimulate = async (e: React.FormEvent) => {
@@ -395,6 +600,8 @@ export function IrpfAltaRenda() {
         : [{ descricao: '', valor_bruto: 0, irrf: 0 }]
     );
     setOptouAjusteAnualLei7713(Boolean(dd.optou_ajuste_anual_lei_7713));
+    const rendPj = (d as { rendimentos_aplicacoes_financeiras_pj?: number }).rendimentos_aplicacoes_financeiras_pj ?? 0;
+    setRendimentosAplicacoesPj(rendPj);
 
     setDeclaracaoExtraida(res.declaracao_completa ?? null);
     setDiagnosticoExtracao(res.diagnostico ? { completude: res.diagnostico.completude, avisos: res.diagnostico.avisos ?? [] } : null);
@@ -419,6 +626,7 @@ export function IrpfAltaRenda() {
       applyExtractedData(result);
       trackIrpfMetric('irpfm_pdf_upload_success', { ano: result.ano });
       success('Dados extraídos do PDF. Revise e clique em Simular.');
+      setPdfFileName(pdfFile.name);
       setPdfFile(null);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao extrair dados do PDF');
@@ -445,6 +653,7 @@ export function IrpfAltaRenda() {
       applyExtractedData(result);
       trackIrpfMetric('irpfm_dec_dbk_upload_success', { ano: result.ano });
       success('Dados importados do arquivo .dec/.dbk. Revise e clique em Simular.');
+      setDecDbkFileName(decDbkFile.name);
       setDecDbkFile(null);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao importar arquivo .dec/.dbk');
@@ -455,7 +664,10 @@ export function IrpfAltaRenda() {
   };
 
   const handleCancelSimulacao = () => {
+    setEtapa1Collapsed(false);
     setEtapa2Collapsed(false);
+    setPdfFileName(null);
+    setDecDbkFileName(null);
     setDeclaracaoExtraida(null);
     setDiagnosticoExtracao(null);
     setDecDbkParserVersion(null);
@@ -479,6 +691,7 @@ export function IrpfAltaRenda() {
     setOutrosIsentosQueEntramBase([{ descricao: '', valor: 0 }]);
     setRendimentosLei7713([{ descricao: '', valor_bruto: 0, irrf: 0 }]);
     setOptouAjusteAnualLei7713(false);
+    setRendimentosAplicacoesPj(0);
     setImportSectionKey((k) => k + 1);
     setManualFormStarted(false);
     success('Simulação cancelada. Escolha novamente o tipo de importação.');
@@ -491,6 +704,12 @@ export function IrpfAltaRenda() {
     dividendos.some((d) => (d.valor ?? 0) > 0);
 
   const showFormSection = (selectedImportType === 'manual' && manualFormStarted) || hasLoadedData;
+
+  const prevShowFormRef = useRef(false);
+  useEffect(() => {
+    if (showFormSection && !prevShowFormRef.current) setEtapa1Collapsed(true);
+    prevShowFormRef.current = showFormSection;
+  }, [showFormSection]);
 
   const getSelectedImportLabel = () => {
     if (selectedImportType === 'pdf') return 'PDF (DAA / Declaração)';
@@ -560,31 +779,57 @@ export function IrpfAltaRenda() {
         <div className="space-y-6">
         <Card
           key={importSectionKey}
+          onClick={showFormSection && etapa1Collapsed ? () => setEtapa1Collapsed(false) : undefined}
+          className={`w-full ${showFormSection && etapa1Collapsed ? '!p-5 cursor-pointer' : ''}`}
           title={
             showFormSection ? (
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-normal">Etapa 1 concluída:</span>
-                <span className="inline-flex items-center gap-2 text-brand font-semibold">
-                  {getSelectedImportIcon() && (
-                    <img src={getSelectedImportIcon()!} alt="" className="w-6 h-6 object-contain" />
-                  )}
-                  {getSelectedImportLabel()}
-                </span>
+              <div className="flex items-center justify-between gap-3 w-full">
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-600 font-normal">Etapa 1 concluída:</span>
+                  <span className="inline-flex items-center gap-2 text-brand font-semibold">
+                    {getSelectedImportIcon() && (
+                      <img src={getSelectedImportIcon()!} alt="" className="w-6 h-6 object-contain" />
+                    )}
+                    {getSelectedImportLabel()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setEtapa1Collapsed((c) => !c); }}
+                  className="flex-shrink-0 p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition-colors"
+                  aria-label={etapa1Collapsed ? 'Expandir Etapa 1' : 'Recolher Etapa 1'}
+                  title={etapa1Collapsed ? 'Expandir' : 'Recolher'}
+                >
+                  <svg
+                    className={`w-5 h-5 transition-transform duration-200 ${etapa1Collapsed ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
               </div>
             ) : (
               'Etapa 1: Tipo de importação'
             )
           }
-          className={`w-full ${showFormSection ? '!p-5' : ''}`}
         >
-          {showFormSection ? (
+          {showFormSection && etapa1Collapsed ? (
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-slate-600">
-                  {selectedImportType === 'manual'
-                    ? 'Preencha os dados abaixo e clique em Simular.'
-                    : 'Dados carregados. Revise abaixo e clique em Simular.'}
-                </p>
+                <div>
+                  <p className="text-sm text-slate-600">
+                    {selectedImportType === 'manual'
+                      ? 'Preencha os dados abaixo e clique em Simular.'
+                      : 'Dados carregados. Revise abaixo e clique em Simular.'}
+                  </p>
+                  {(pdfFileName || decDbkFileName) && (
+                    <p className="text-xs text-slate-500 mt-1 font-mono truncate max-w-md" title={pdfFileName || decDbkFileName || undefined}>
+                      Arquivo: {pdfFileName || decDbkFileName}
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-medium text-sm border border-emerald-200/60">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -592,13 +837,14 @@ export function IrpfAltaRenda() {
                     </svg>
                     {selectedImportType === 'manual' ? 'Preenchimento manual' : 'Dados extraídos'}
                   </span>
-                  <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
+                  <Button type="button" variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); handleCancelSimulacao(); }}>
                     Cancelar Simulação
                   </Button>
                 </div>
               </div>
             </div>
           ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card PDF */}
             <div
@@ -769,6 +1015,14 @@ export function IrpfAltaRenda() {
               </Button>
             </div>
           </div>
+          {showFormSection && !etapa1Collapsed && (
+            <div className="mt-4 pt-3 border-t border-slate-200">
+              <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
+                Cancelar Simulação
+              </Button>
+            </div>
+          )}
+          </>
           )}
         </Card>
 
@@ -816,6 +1070,120 @@ export function IrpfAltaRenda() {
             Após clicar em &quot;Iniciar preenchimento&quot;, o formulário completo será exibido para você digitar ou editar os valores. Revise os dados e clique em &quot;Simular&quot; para obter o resultado.
           </p>
         </InfoModal>
+
+        <Modal
+          isOpen={pdfExportModalOpen}
+          onClose={() => setPdfExportModalOpen(false)}
+          title="Exportar para PDF"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">O que deseja incluir no PDF?</p>
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                <input
+                  type="radio"
+                  name="pdfExportOption"
+                  checked={!pdfExportIncludeParams}
+                  onChange={() => setPdfExportIncludeParams(false)}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="font-medium text-slate-800">Apenas resultado</span>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    KPIs, tabelas, gráficos, sugestões de planejamento e memória de cálculo.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                <input
+                  type="radio"
+                  name="pdfExportOption"
+                  checked={pdfExportIncludeParams}
+                  onChange={() => setPdfExportIncludeParams(true)}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="font-medium text-slate-800">Resultado + parâmetros</span>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Inclui os parâmetros da simulação (Etapa 2) antes do resultado.
+                  </p>
+                </div>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="secondary" onClick={() => setPdfExportModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={() => handleExportPdf(pdfExportIncludeParams)}>
+                Exportar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {pdfExporting && result && (
+          <div
+            ref={pdfContainerRef}
+            id="irpf-pdf-content"
+            className="fixed left-[-9999px] top-0 z-[-1] bg-white p-6 text-slate-900 overflow-visible"
+            style={{ width: '210mm', maxWidth: '210mm', boxSizing: 'border-box' }}
+          >
+            <div className="keep space-y-3 mb-4 pb-3 border-b border-slate-200">
+              <p className="text-[10px] text-slate-500">
+                Simulado em{' '}
+                {new Date().toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+              <p className="text-[10px] text-slate-600 italic">
+                Simulação para fins de planejamento tributário. Não substitui a apuração oficial da DAA. Consulte seu contador ou advogado.
+              </p>
+              <p className="text-[10px] text-slate-600">
+                Base legal: Lei 15.270/2025 – Art. 16-A
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                <span>
+                  Faixa: {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}
+                </span>
+                <span>
+                  Alíquota efetiva:{' '}
+                  {result.base_calculo_combinada > 0
+                    ? ((result.imposto_estimado / result.base_calculo_combinada) * 100).toFixed(2)
+                    : '0'}%
+                </span>
+                {result.risco_retencao_mensal && (
+                  <span className="text-amber-700">Risco de retenção mensal (10% na fonte)</span>
+                )}
+              </div>
+            </div>
+            {pdfExportIncludeParams && (
+              <ParametrosSimulacaoPrint
+                contribuinteNome={contribuinteNome}
+                contribuinteCpf={contribuinteCpf}
+                ano={ano}
+                rendimentosTributaveis={rendimentosTributaveis}
+                dividendos={dividendos}
+                lucrosAprovadosAte31dez2025={lucrosAprovadosAte31dez2025}
+                ganhoCapitalExcluido={ganhoCapitalExcluido}
+                rendimentosFiisExcluidos={rendimentosFiisExcluidos}
+                outrosExcluidosArt16A={outrosExcluidosArt16A}
+                outrosIsentosQueEntramBase={outrosIsentosQueEntramBase}
+                rendimentosLei7713={rendimentosLei7713}
+                optouAjusteAnualLei7713={optouAjusteAnualLei7713}
+                impostoJaPagoRetencao={impostoJaPagoRetencao}
+                impostoJaPagoCarneLeao={impostoJaPagoCarneLeao}
+                impostoJaPagoAplicacoes={impostoJaPagoAplicacoes}
+                impostoAntecipadoDividendos={impostoAntecipadoDividendos}
+                bccCalculado={bccCalculado}
+              />
+            )}
+            <div ref={pdfResultPlaceholderRef} className="irpf-pdf-resultado" />
+          </div>
+        )}
 
         {showFormSection && (
         <Card
@@ -1217,6 +1585,32 @@ export function IrpfAltaRenda() {
                 <MoneyInput label="Carnê-leão" value={impostoJaPagoCarneLeao} onChange={setImpostoJaPagoCarneLeao} />
                 <MoneyInput label="Aplicações financeiras (tributação exclusiva)" value={impostoJaPagoAplicacoes} onChange={setImpostoJaPagoAplicacoes} />
                 <MoneyInput label="Antecipado dividendos (10% retido – Art. 6º-A)" value={impostoAntecipadoDividendos} onChange={setImpostoAntecipadoDividendos} />
+                <MoneyInput
+                  label="Rend. aplicações financeiras na PJ (diagnóstico PF vs PJ)"
+                  value={rendimentosAplicacoesPj}
+                  onChange={setRendimentosAplicacoesPj}
+                />
+                <MoneyInput
+                  label="Valor hipotético para comparativo PF vs PJ (opcional)"
+                  value={valorHipoteticoComparativo ?? 0}
+                  onChange={(v) => setValorHipoteticoComparativo(v > 0 ? v : undefined)}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Alíquota IRRF % (comparativo PF vs PJ)
+                  </label>
+                  <select
+                    value={aliquotaIrrfComparativo}
+                    onChange={(e) => setAliquotaIrrfComparativo(Number(e.target.value))}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value={15}>CDB curto / JCP (15%)</option>
+                    <option value={22.5}>CDB longo &gt;720d (22,5%)</option>
+                    <option value={20}>FII (20%)</option>
+                    <option value={0}>Outro (0%)</option>
+                  </select>
+                  <p className="text-xs text-slate-500 mt-0.5">Usado no comparativo de custo tributário.</p>
+                </div>
               </div>
             </div>
 
@@ -1250,17 +1644,30 @@ export function IrpfAltaRenda() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => window.print()}
+                onClick={handleOpenPdfModal}
+                disabled={pdfExporting}
                 className="print:hidden shrink-0 inline-flex items-center gap-2"
                 aria-label="Exportar resultado para PDF"
+                data-pdf-exclude
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Exportar para PDF
+                {pdfExporting ? (
+                  'Gerando PDF...'
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Exportar para PDF
+                  </>
+                )}
               </Button>
             </div>
-          <Card title="Etapa 3: Resultado da simulação" className="w-full">
+          <Card title="Etapa 3: Resultado da simulação" className="w-full keep">
+            {(result as { aviso_ano_fora_vigencia?: string }).aviso_ano_fora_vigencia && (
+              <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <strong>Atenção:</strong> {(result as { aviso_ano_fora_vigencia?: string }).aviso_ano_fora_vigencia}
+              </div>
+            )}
             <IrpfKpiCards
               impostoComplementar={result.imposto_estimado}
               impostoMinimo={result.imposto_minimo}
@@ -1351,9 +1758,15 @@ export function IrpfAltaRenda() {
                     composicao={{
                       tributaveis: result.composicao_renda?.tributaveis ?? 0,
                       isentos_que_entram_base: result.composicao_renda?.isentos_que_entram_base ?? 0,
+                      dividendos_09_13: (result.composicao_renda as { dividendos_09_13?: number } | undefined)?.dividendos_09_13,
                       isentos_excluidos: result.composicao_renda?.isentos_excluidos ?? 0,
+                      tributacao_exclusiva_lei_7713: (result.composicao_renda as { tributacao_exclusiva_lei_7713?: number } | undefined)?.tributacao_exclusiva_lei_7713,
                     }}
                   />
+                </div>
+                <div className="rounded-md border border-slate-200 p-3">
+                  <h4 className="text-sm font-medium text-slate-800 mb-2">Custo tributário: PF vs PJ</h4>
+                  <IrpfCustoPfPjChart comparativo={(result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj} />
                 </div>
                 <div className="rounded-md border border-slate-200 p-3">
                   <h4 className="text-sm font-medium text-slate-800 mb-2">Atual vs otimizado</h4>
@@ -1374,6 +1787,32 @@ export function IrpfAltaRenda() {
                 </div>
               </div>
 
+              {(() => {
+                const comparativo = (result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj;
+                return comparativo && comparativo.diferenca_percentual_pj_mais_caro > 0 ? (
+                  <div key="estrategico-pj" className="lg:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 keep">
+                    <p className="text-sm font-semibold text-amber-900">Relatório estratégico (PF vs PJ)</p>
+                    <p className="text-sm text-amber-800 mt-1">
+                      Seu cliente está pagando{' '}
+                      <strong>{comparativo.diferenca_percentual_pj_mais_caro.toFixed(1)}%</strong> a mais por
+                      investir via PJ (Lucro Presumido) para uma aplicação de{' '}
+                      {formatCurrency(comparativo.rendimento_bruto)}. Mantenha caixa fora da Holding para
+                      aplicações financeiras quando possível.
+                    </p>
+                  </div>
+                ) : null;
+              })()}
+              {result.otimizacao_isento_vs_tributado && result.otimizacao_isento_vs_tributado.irrf_compensavel_estimado > 0 && (
+                <div className="lg:col-span-2 rounded-md border border-indigo-200 bg-indigo-50 p-3 keep">
+                  <p className="text-sm font-semibold text-indigo-900">Otimização: migração LCI/CDB</p>
+                  <p className="text-sm text-indigo-800 mt-1">
+                    Migrar de LCI para CDB (ou ativo tributado com IRRF) pode gerar crédito estimado de{' '}
+                    <strong>{formatCurrency(result.otimizacao_isento_vs_tributado.irrf_compensavel_estimado)}</strong> no
+                    IRPFM, com ganho líquido potencial de{' '}
+                    {formatCurrency(result.otimizacao_isento_vs_tributado.ganho_liquido_estimado)}.
+                  </p>
+                </div>
+              )}
               {result.otimizacao_isento_vs_tributado && (
                 <div className="lg:col-span-2 rounded-md border border-emerald-200 bg-emerald-50 p-3">
                   <p className="text-sm font-semibold text-emerald-800">Simulador de otimização (Isento vs Tributado)</p>
@@ -1537,7 +1976,7 @@ export function IrpfAltaRenda() {
               </div>
             )}
 
-            <div className="mt-4 pt-4 border-t border-slate-200">
+            <div className="mt-4 pt-4 border-t border-slate-200" data-pdf-exclude>
               <h4 className="text-sm font-medium text-slate-700 mb-2">Salvar simulação</h4>
               <form onSubmit={handleSave} className="flex flex-wrap items-end gap-2">
                 <div className="min-w-[200px]">

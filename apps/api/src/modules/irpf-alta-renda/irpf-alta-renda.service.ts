@@ -10,6 +10,7 @@ import {
   calcularImpactoIncrementalBase,
   construirMemoriaLegalExclusoes,
   simularOtimizacaoIsentoVsTributado,
+  compararEficienciaPfPj,
   CONFIG_LEI_15270_2025,
 } from './calculations';
 import type {
@@ -118,6 +119,15 @@ export class IrpfAltaRendaService {
 
     const risco = avaliarRiscoRetencao(input.dados.rendimentos_isentos_dividendos);
     const memoria_calculo = buildMemoriaCalculo(input, bcc, resultado);
+
+    const ANO_VIGENCIA_IRPFM = 2027;
+    const avisoAnoForaVigencia =
+      input.ano < ANO_VIGENCIA_IRPFM
+        ? `A Lei 15.270/2025 (IRPFM) entra em vigor a partir do ano-calendário 2026 (declaração 2027). Esta simulação para ${input.ano} é apenas projeção; a base legal aplicável na data da declaração pode divergir.`
+        : undefined;
+    if (avisoAnoForaVigencia) {
+      (memoria_calculo as Record<string, unknown>).aviso_vigencia = avisoAnoForaVigencia;
+    }
     const composicaoRenda = comporRendaParaDashboard(input.dados);
     const impactoIncrementalBase = calcularImpactoIncrementalBase(input.dados);
     const memoriaLegalExclusoes = construirMemoriaLegalExclusoes(input.dados);
@@ -158,8 +168,50 @@ export class IrpfAltaRendaService {
       }
     }
 
+    const valorHipotetico = input.dados.valor_hipotetico_comparativo_pf_pj;
+    const valorAplicacaoRef =
+      (valorHipotetico !== undefined && valorHipotetico > 0 ? valorHipotetico : null) ??
+      (input.dados.rendimentos_tributados_exclusivamente_lei_7713 ?? []).reduce(
+        (s, i) => s + (i.valor_bruto ?? 0),
+        0
+      ) ||
+      (input.dados.outros_rendimentos?.aplicacoes_financeiras_exclusiva ?? 0) ||
+      (input.dados.outros_rendimentos?.juros_capital_proprio ?? 0) ||
+      100_000;
+    const rendimentosPj = input.dados.rendimentos_aplicacoes_financeiras_pj ?? 0;
+    const comparativoPfPj = compararEficienciaPfPj(
+      valorAplicacaoRef,
+      input.dados,
+      {
+        base_calculo_combinada: resultado.base_calculo_combinada,
+        imposto_estimado: impostoComplementar,
+        deducoes_imposto_ja_pago: deducoesTotal,
+        aliquota_percentual: resultado.aliquota_percentual,
+      },
+      rendimentosPj
+    );
+    if (comparativoPfPj && comparativoPfPj.diferenca_percentual_pj_mais_caro > 0) {
+      sugestoes_planejamento.push(
+        `Investir via PJ: para aplicacao de ${comparativoPfPj.rendimento_bruto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}, a carga na PJ (Lucro Presumido) e ${comparativoPfPj.diferenca_percentual_pj_mais_caro.toFixed(1)}% maior em relacao ao cenario PF.`
+      );
+    }
+
+    if (comparativoPfPj) {
+      const irrfCompensavelPj = comparativoPfPj.cenario_pf_tributacao_exclusiva.irrf;
+      const porTrimestre = Math.round((irrfCompensavelPj / 4) * 100) / 100;
+      const aliquotaUsada = input.dados.aliquota_irrf_comparativo_percentual ?? 15;
+      (memoria_calculo as Record<string, unknown>).irrf_compensavel_pj = {
+        anual: irrfCompensavelPj,
+        trimestre: { Q1: porTrimestre, Q2: porTrimestre, Q3: porTrimestre, Q4: porTrimestre },
+        aliquota_irrf_percentual: aliquotaUsada,
+        observacao:
+          'IRRF retido na fonte sobre receitas financeiras na PJ (CDB 15-22,5%, JCP 15%, FII 20%). Pode ser compensado com IRPJ devido. Valores por trimestre assumem distribuição uniforme.',
+      };
+    }
+
     return {
       ano: input.ano,
+      aviso_ano_fora_vigencia: avisoAnoForaVigencia,
       base_calculo_combinada: resultado.base_calculo_combinada,
       faixa: resultado.faixa,
       aliquota_percentual: resultado.aliquota_percentual,
@@ -173,6 +225,7 @@ export class IrpfAltaRendaService {
       impacto_incremental_base: impactoIncrementalBase,
       memoria_legal_exclusoes: memoriaLegalExclusoes,
       otimizacao_isento_vs_tributado: otimizacao,
+      comparativo_pf_pj: comparativoPfPj,
       memoria_calculo,
     };
   }

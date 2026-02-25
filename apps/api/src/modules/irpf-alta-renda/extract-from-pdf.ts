@@ -61,14 +61,14 @@ const STAGE3_PROMPT = `Você é um especialista em contabilidade tributária bra
 Retorne JSON com:
 1. "rendimentos_isentos_nao_tributaveis": { "total", "itens" } — cada item com codigo, descricao, cnpj_fonte, nome_fonte, valor
 2. "lei_15_270_classificacao": { "ganho_capital_excluido", "rendimentos_fiis_excluidos", "lucros_aprovados_ate_31dez2025", "outros_excluidos_art_16a" }
+3. "itens_isentos_base_irpfm": array de itens que SOMAM na base do IRPFM — codigo, descricao, valor. Inclua: dividendos (09), sócio Simples (13) e outros isentos que entram na base mínima (exceto os excluídos)
+4. "itens_isentos_excluidos_art_16a": array de itens EXCLUÍDOS da base (Art. 16-A § 1º) — codigo, descricao, valor. Inclua: LCI, LCA, CRI, CRA, Poupança, debêntures de infraestrutura, lucros aprovados até 31/12/2025
 
-CLASSIFICAÇÃO (valores a EXCLUIR da base de cálculo da alta renda):
-- ganho_capital_excluido: Ganho de capital que NÃO é em bolsa/mercado organizado (venda imóveis, participações societárias, etc.)
-- rendimentos_fiis_excluidos: Rendimentos de FIIs com 100+ cotistas
-- lucros_aprovados_ate_31dez2025: Lucros/dividendos aprovados em assembleia até 31/12/2025
-- outros_excluidos_art_16a: LHI, CRI, LIG, LCD e demais do Art. 16-A § 1º
+CLASSIFICAÇÃO:
+- Isentos que somam na base IRPFM: códigos 09 (lucros/dividendos), 13 (sócio Simples), outros que não sejam LCI/LCA/CRI/CRA/Poupança
+- Isentos excluídos Art. 16-A § 1º: LCI, LCA, CRI, CRA, Poupança, lucros aprovados até 31/12/2025, ganho de capital fora de bolsa, FIIs qualificados
 
-Códigos isentos: 09 (lucros/dividendos), 13 (sócio Simples), 01/03 (herança). Para cada item, preserve codigo e descricao literal quando houver. Some e preencha lei_15_270_classificacao. RETORNE APENAS JSON válido, sem markdown.`;
+Para cada item, preserve codigo e descricao literal. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE4_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 4: Extraia bens e direitos, dívidas, pagamentos e doações da Declaração de IRPF.
 
@@ -121,6 +121,7 @@ async function extractInStages(openai: OpenAI, text: string): Promise<{
 /** Prompt completo para PDF escaneado (1 chamada via Files API) */
 const SYSTEM_PROMPT_FILES = `Extraia 100% dos dados do PDF da Declaração de IRPF. Retorne JSON com: identificacao, dependentes, rendimentos_tributaveis_pj, rendimentos_tributaveis_pf, rendimentos_tributaveis_outros, rendimentos_isentos_nao_tributaveis, rendimentos_tributacao_exclusiva_definitiva, bens_direitos, dividas_onus, resumo, pagamentos_efetuados, doacoes_deducoes.
 Inclua lei_15_270_classificacao: { ganho_capital_excluido, rendimentos_fiis_excluidos, lucros_aprovados_ate_31dez2025, outros_excluidos_art_16a }.
+Categorize isentos em: itens_isentos_base_irpfm (dividendos 09/13, outros que entram na base) e itens_isentos_excluidos_art_16a (LCI, LCA, CRI, CRA, Poupança, lucros até 31/12/2025).
 Regras: preservar códigos/descrições como no documento, não inventar fontes, usar 0 quando ausente, retornar APENAS JSON válido.`;
 
 // ── Exportação principal ──────────────────────────────────────────────────────

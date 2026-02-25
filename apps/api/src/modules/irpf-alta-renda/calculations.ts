@@ -198,6 +198,7 @@ export function gerarSugestoesPlanejamento(
 export function comporRendaParaDashboard(dados: DadosIrpfAltaRenda): {
   tributaveis: number;
   isentos_que_entram_base: number;
+  dividendos_09_13: number;
   isentos_excluidos: number;
   tributacao_exclusiva_lei_7713: number;
 } {
@@ -216,6 +217,7 @@ export function comporRendaParaDashboard(dados: DadosIrpfAltaRenda): {
   return {
     tributaveis,
     isentos_que_entram_base: round2(dividendos + outrosIsentosBase),
+    dividendos_09_13: dividendos,
     isentos_excluidos: round2(exclusoes),
     tributacao_exclusiva_lei_7713: tributacaoExclusivaLei7713,
   };
@@ -342,8 +344,7 @@ const CODIGOS_DOACAO_HERANCA = new Set(['01', '03']);
 const CODIGOS_TRIBUTACAO_EXCLUSIVA = new Set(['06', '10']);
 /** Códigos LCI/LCA/poupança — excluídos da BCC (Art. 16-A) */
 const CODIGOS_LCI_LCA_POUPANCA = new Set(['11', '12']);
-/** Código 05 = outros isentos — tratar como excluído por precaução */
-const CODIGOS_OUTRO_ISENTO_EXCLUIDO = new Set(['05']);
+/** Código 05 = outros isentos — NÃO excluir automaticamente; usar descrição (keywords Art. 16-A) ou classificação manual */
 const PALAVRAS_DOACAO_HERANCA = ['doacao', 'heranca', 'legitima', 'adiantamento da legitima', 'transferencia patrimonial'];
 const PALAVRAS_FII = ['fii', 'fundo imobili', 'fundo de investimento imobili'];
 const PALAVRAS_GANHO_CAPITAL = ['ganho de capital', 'alienacao', 'venda de imovel', 'venda de participacao'];
@@ -411,10 +412,12 @@ export function classificarIsentosArt16A(
       });
       continue;
     }
-    if (CODIGOS_LCI_LCA_POUPANCA.has(codigo) || CODIGOS_OUTRO_ISENTO_EXCLUIDO.has(codigo)) {
+    if (CODIGOS_LCI_LCA_POUPANCA.has(codigo)) {
       outrosExcluidos += valor;
       continue;
     }
+    // Código 05: excluir apenas se descrição contém keywords Art. 16-A (LCI/LCA/CRI/CRA/etc);
+    // caso contrário, entra em outros_isentos_que_entram_base (ex.: rendimentos do exterior)
     if (isExclArt16A) {
       outrosExcluidos += valor;
       continue;
@@ -443,6 +446,149 @@ export function classificarIsentosArt16A(
 
 export function identificarOutrosExcluidosArt16A(itens: Array<{ descricao?: string; valor?: number }>): number {
   return classificarIsentosArt16A(itens).outros_excluidos_art_16a;
+}
+
+/** Parâmetros PJ Lucro Presumido — receitas financeiras 100% na base (sem presunção) */
+const CONFIG_PJ_LUCRO_PRESUMIDO = {
+  irpj_aliquota_percentual: 15,
+  adicional_irpj_percentual: 10,
+  limite_adicional_mensal: 20_000, // R$ 20k/mês
+  csll_percentual: 9,
+} as const;
+
+/** Alíquota IRRF típica sobre aplicações financeiras (CDB, etc.) */
+const ALIQUOTA_IRRF_APLICACOES = 0.15;
+
+export interface ComparativoPfPj {
+  rendimento_bruto: number;
+  /** PF tributação exclusiva (Lei 7.713): aplicação NÃO entra na BCC, só IRRF */
+  cenario_pf_tributacao_exclusiva: {
+    imposto_total: number;
+    irrf: number;
+    rendimento_liquido: number;
+  };
+  /** PF aplicação entra na base: impacto IRPFM + IRRF compensável */
+  cenario_pf_entra_base: {
+    imposto_total: number;
+    irrf_compensavel: number;
+    rendimento_liquido: number;
+  };
+  /** Mantido para compatibilidade (aponta para tributação exclusiva) */
+  cenario_pf: {
+    imposto_total: number;
+    irrf_compensavel: number;
+    rendimento_liquido: number;
+  };
+  cenario_pj: {
+    irpj: number;
+    adicional_irpj: number;
+    csll: number;
+    carga_efetiva_percentual: number;
+    rendimento_liquido: number;
+  };
+  /** % a mais de imposto na PJ em relação ao líquido PF (tributação exclusiva) */
+  diferenca_percentual_pj_mais_caro: number;
+}
+
+/**
+ * Compara eficiência tributária: mesma aplicação financeira em PF vs PJ (Lucro Presumido).
+ * PF: IR retido na fonte + impacto IRPFM (base combinada) com IRRF compensável.
+ * PJ: base 100%, IRPJ 15%, Adicional 10% sobre excedente R$ 20k/mês, CSLL 9% — carga até ~34%.
+ */
+export function compararEficienciaPfPj(
+  valorAplicacao: number,
+  dados: DadosIrpfAltaRenda,
+  resultadoSimulacao: {
+    base_calculo_combinada: number;
+    imposto_estimado: number;
+    deducoes_imposto_ja_pago: number;
+    aliquota_percentual: number;
+  },
+  rendimentosFinanceirosPj = 0
+): ComparativoPfPj | undefined {
+  if (valorAplicacao <= 0) return undefined;
+
+  const lucrosExcl = dados.lucros_aprovados_ate_31dez2025 ?? 0;
+  const ganhoCapitalExcl = dados.ganho_capital_excluido ?? 0;
+  const fiisExcl = dados.rendimentos_fiis_excluidos ?? 0;
+  const outrosExclArt16A = dados.outros_excluidos_art_16a ?? 0;
+  const outrosIsentosQueEntramBase = (dados.outros_isentos_que_entram_base ?? []).reduce((s, i) => s + (i.valor ?? 0), 0);
+  const dividendos = (dados.rendimentos_isentos_dividendos ?? []).reduce((s, d) => s + d.valor, 0);
+  const rt = dados.rendimentos_tributaveis ?? 0;
+
+  // ── Cenário PF A: Tributação exclusiva (Lei 7.713) — aplicação NÃO entra na BCC ───
+  // CDB, JCP etc: IRRF na fonte é final (ou compensável), mas o valor não aumenta a BCC.
+  const aliquotaIrrf = (dados.aliquota_irrf_comparativo_percentual ?? 15) / 100;
+  const irrfRetido = round2(valorAplicacao * aliquotaIrrf);
+  const impostoTotalPfTribExclusiva = irrfRetido;
+  const rendimentoLiquidoPfTribExclusiva = round2(Math.max(0, valorAplicacao - impostoTotalPfTribExclusiva));
+
+  // ── Cenário PF B: Aplicação entra na base — impacto IRPFM + IRRF compensável ─────
+  const deducoesAtuais = resultadoSimulacao.deducoes_imposto_ja_pago;
+  const bccComAplicacao = calcularBCC(
+    rt + valorAplicacao,
+    dados.rendimentos_isentos_dividendos ?? [],
+    lucrosExcl,
+    ganhoCapitalExcl,
+    fiisExcl,
+    outrosIsentosQueEntramBase,
+    outrosExclArt16A
+  );
+  const resultadoComAplicacao = aplicarFaixas(bccComAplicacao);
+  const impostoMinimoComAplicacao = resultadoComAplicacao.imposto_estimado;
+  const deducoesComIrrf = round2(deducoesAtuais + irrfRetido);
+  const impostoComplementarComAplicacao = round2(Math.max(0, impostoMinimoComAplicacao - deducoesComIrrf));
+  const impostoComplementarSemAplicacao = resultadoSimulacao.imposto_estimado;
+  const incrementoIrpfm = round2(Math.max(0, impostoComplementarComAplicacao - impostoComplementarSemAplicacao));
+  const impostoTotalPfEntraBase = round2(irrfRetido + incrementoIrpfm);
+  const rendimentoLiquidoPfEntraBase = round2(Math.max(0, valorAplicacao - impostoTotalPfEntraBase));
+
+  // ── Cenário PJ (Lucro Presumido) ───────────────────────────────────────────
+  // Base 100% tributada (receitas financeiras sem presunção). rendimentosFinanceirosPj
+  // usado para calcular adicional (excedente R$ 20k/mês) quando há receitas pré-existentes.
+  const basePj = round2(valorAplicacao);
+  const basePjComExistente = round2(valorAplicacao + rendimentosFinanceirosPj);
+  const irpj = round2(basePj * (CONFIG_PJ_LUCRO_PRESUMIDO.irpj_aliquota_percentual / 100));
+  const lucroAnualParaAdicional = basePjComExistente;
+  const limiteAnualAdicional = CONFIG_PJ_LUCRO_PRESUMIDO.limite_adicional_mensal * 12; // R$ 240k/ano
+  const excedenteAnual = Math.max(0, lucroAnualParaAdicional - limiteAnualAdicional);
+  const adicionalIrpj = round2(excedenteAnual * (CONFIG_PJ_LUCRO_PRESUMIDO.adicional_irpj_percentual / 100));
+  const csll = round2(basePj * (CONFIG_PJ_LUCRO_PRESUMIDO.csll_percentual / 100));
+  const impostoTotalPj = round2(irpj + adicionalIrpj + csll);
+  const cargaEfetivaPj = basePj > 0 ? round2((impostoTotalPj / basePj) * 100) : 0;
+  const rendimentoLiquidoPj = round2(Math.max(0, valorAplicacao - impostoTotalPj));
+
+  const diferencaPercentual =
+    rendimentoLiquidoPfTribExclusiva > 0
+      ? round2(((impostoTotalPj - impostoTotalPfTribExclusiva) / rendimentoLiquidoPfTribExclusiva) * 100)
+      : impostoTotalPj > 0 ? 100 : 0;
+
+  return {
+    rendimento_bruto: round2(valorAplicacao),
+    cenario_pf_tributacao_exclusiva: {
+      imposto_total: impostoTotalPfTribExclusiva,
+      irrf: irrfRetido,
+      rendimento_liquido: rendimentoLiquidoPfTribExclusiva,
+    },
+    cenario_pf_entra_base: {
+      imposto_total: impostoTotalPfEntraBase,
+      irrf_compensavel: irrfRetido,
+      rendimento_liquido: rendimentoLiquidoPfEntraBase,
+    },
+    cenario_pf: {
+      imposto_total: impostoTotalPfTribExclusiva,
+      irrf_compensavel: irrfRetido,
+      rendimento_liquido: rendimentoLiquidoPfTribExclusiva,
+    },
+    cenario_pj: {
+      irpj,
+      adicional_irpj: adicionalIrpj,
+      csll,
+      carga_efetiva_percentual: cargaEfetivaPj,
+      rendimento_liquido: rendimentoLiquidoPj,
+    },
+    diferenca_percentual_pj_mais_caro: diferencaPercentual,
+  };
 }
 
 function formatBRL(n: number): string {

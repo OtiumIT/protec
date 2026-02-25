@@ -85,6 +85,44 @@ export const OtimizacaoIsentoVsTributadoSchema = z.object({
   observacao: z.string().optional(),
 });
 
+/** Cenário PF: tributação exclusiva (Lei 7.713) — aplicação NÃO entra na BCC, só IRRF */
+export const CenarioPfTributacaoExclusivaSchema = z.object({
+  imposto_total: monetaryValue,
+  irrf: monetaryValue,
+  rendimento_liquido: monetaryValue,
+});
+
+/** Cenário PF: aplicação entra na base — impacto IRPFM + IRRF compensável */
+export const CenarioPfEntraBaseSchema = z.object({
+  imposto_total: monetaryValue,
+  irrf_compensavel: monetaryValue,
+  rendimento_liquido: monetaryValue,
+});
+
+/** Comparativo PF vs PJ para mesma aplicação financeira (Lucro Presumido) */
+export const ComparativoPfPjSchema = z.object({
+  rendimento_bruto: monetaryValue,
+  /** PF tributação exclusiva (Lei 7.713): CDB, JCP — não entra na BCC, só IRRF */
+  cenario_pf_tributacao_exclusiva: CenarioPfTributacaoExclusivaSchema,
+  /** PF aplicação entra na base: impacto IRPFM + IRRF compensável */
+  cenario_pf_entra_base: CenarioPfEntraBaseSchema,
+  /** Mantido para compatibilidade; aponta para cenario_pf_tributacao_exclusiva (cenário típico) */
+  cenario_pf: z.object({
+    imposto_total: monetaryValue,
+    irrf_compensavel: monetaryValue,
+    rendimento_liquido: monetaryValue,
+  }),
+  cenario_pj: z.object({
+    irpj: monetaryValue,
+    adicional_irpj: monetaryValue,
+    csll: monetaryValue,
+    carga_efetiva_percentual: z.number(),
+    rendimento_liquido: monetaryValue,
+  }),
+  /** % a mais de imposto na PJ em relação ao líquido PF (tributação exclusiva, cenário típico) */
+  diferenca_percentual_pj_mais_caro: z.number(),
+});
+
 // ── Dados completos extraídos / preenchidos ───────────────────────────────────
 
 /**
@@ -140,6 +178,12 @@ export const DadosIrpfAltaRendaSchema = z.object({
   rendimentos_tributados_exclusivamente_lei_7713: z.array(RendimentoTributadoLei7713Schema).optional().default([]),
   /** Indica se o contribuinte optou pelo ajuste anual para rendimentos do art. 12-A da Lei 7.713 */
   optou_ajuste_anual_lei_7713: z.boolean().optional().default(false),
+  /** Rendimentos de aplicações financeiras já existentes na PJ (diagnóstico PF vs PJ) */
+  rendimentos_aplicacoes_financeiras_pj: monetaryValue.optional().default(0),
+  /** Alíquota IRRF % para comparativo PF vs PJ: CDB curto/JCP 15, CDB longo (>720d) 22,5, FII 20. Default 15. */
+  aliquota_irrf_comparativo_percentual: z.number().min(0).max(100).optional().default(15),
+  /** Valor hipotético para comparativo PF vs PJ (sobrescreve cálculo automático a partir de aplicações). */
+  valor_hipotetico_comparativo_pf_pj: monetaryValue.optional(),
 });
 
 // ── Inputs / Outputs ──────────────────────────────────────────────────────────
@@ -175,6 +219,7 @@ export const IrpfAltaRendaSimulacaoResponseSchema = z.object({
   composicao_renda: z.object({
     tributaveis: z.number(),
     isentos_que_entram_base: z.number(),
+    dividendos_09_13: z.number().optional(),
     isentos_excluidos: z.number(),
     tributacao_exclusiva_lei_7713: z.number().optional(),
   }).optional(),
@@ -184,7 +229,11 @@ export const IrpfAltaRendaSimulacaoResponseSchema = z.object({
   otimizacao_isento_vs_tributado: OtimizacaoIsentoVsTributadoSchema.optional(),
   /** Explicação jurídica das exclusões aplicadas no cálculo */
   memoria_legal_exclusoes: z.array(MemoriaLegalExclusaoSchema).optional(),
+  /** Comparativo custo tributário PF vs PJ (Lucro Presumido) para mesma aplicação */
+  comparativo_pf_pj: ComparativoPfPjSchema.optional(),
   memoria_calculo: z.record(z.unknown()).optional(),
+  /** Aviso quando ano &lt; 2027: Lei 15.270/2025 vigente a partir do ano-calendário 2026 (declaração 2027) */
+  aviso_ano_fora_vigencia: z.string().optional(),
 });
 
 export const ReportSummaryIrpfAltaRendaInputSchema = SimulateIrpfAltaRendaInputSchema.extend({
@@ -234,6 +283,7 @@ export type RendimentoTributadoLei7713 = z.infer<typeof RendimentoTributadoLei77
 export type MemoriaLegalExclusao = z.infer<typeof MemoriaLegalExclusaoSchema>;
 export type ImpactoIncrementalCategoria = z.infer<typeof ImpactoIncrementalCategoriaSchema>;
 export type OtimizacaoIsentoVsTributado = z.infer<typeof OtimizacaoIsentoVsTributadoSchema>;
+export type ComparativoPfPj = z.infer<typeof ComparativoPfPjSchema>;
 export type DadosIrpfAltaRenda = z.infer<typeof DadosIrpfAltaRendaSchema>;
 export type SimulateIrpfAltaRendaInput = z.infer<typeof SimulateIrpfAltaRendaInputSchema>;
 export type SimulateAndSaveIrpfAltaRendaInput = z.infer<typeof SimulateAndSaveIrpfAltaRendaInputSchema>;
