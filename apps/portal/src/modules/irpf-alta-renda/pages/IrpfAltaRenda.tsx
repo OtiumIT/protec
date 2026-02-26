@@ -693,11 +693,11 @@ export function IrpfAltaRenda() {
     );
     setDecDbkParserVersion(payload?.parser_version ?? null);
 
-    const d: DadosIrpfAltaRenda = payload?.dados ?? {
+    const d = (payload?.dados ?? {
       contribuinte: { nome: full.contribuinte_nome, cpf: full.contribuinte_cpf },
       rendimentos_tributaveis: full.rendimentos_tributaveis,
       rendimentos_isentos_dividendos: full.dados_dividendos ?? [],
-    };
+    }) as DadosIrpfAltaRenda;
 
     setAno(payload?.ano ?? full.ano);
     setContribuinteNome(d.contribuinte?.nome ?? full.contribuinte_nome);
