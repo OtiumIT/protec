@@ -2,6 +2,7 @@ import apiRequest, { getApiUrl } from '../../../shared/services/api';
 import type {
   SimulateIrpfAltaRendaInput,
   SimulateAndSaveIrpfAltaRendaInput,
+  UpdateIrpfAltaRendaInput,
   IrpfAltaRendaSimulacaoResponse,
   DadosIrpfAltaRenda,
   DeclaracaoIrpfCompleta,
@@ -13,11 +14,23 @@ export interface ExtractFromPdfResult {
   declaracao_completa: DeclaracaoIrpfCompleta;
   ano: number;
   dados: DadosIrpfAltaRenda;
+  arquivo_nome?: string;
   diagnostico?: {
     fonte: string;
     completude: 'alta' | 'media' | 'baixa';
     avisos: string[];
   };
+}
+
+export interface IrpfAltaRendaPayloadJson {
+  tipo_importacao: 'pdf' | 'dec_dbk' | 'manual';
+  arquivo_nome?: string | null;
+  ano: number;
+  dados: DadosIrpfAltaRenda;
+  resultado_simulacao: IrpfAltaRendaSimulacaoResponse;
+  declaracao_completa?: Record<string, unknown> | null;
+  diagnostico?: { completude?: string; avisos?: string[] } | null;
+  parser_version?: number;
 }
 
 export interface IrpfAltaRendaRecord {
@@ -30,6 +43,7 @@ export interface IrpfAltaRendaRecord {
   dados_dividendos: { cnpj_fonte?: string; nome_fonte?: string; valor: number; codigo?: string }[];
   base_calculo_combinada: number;
   resultado_simulacao: IrpfAltaRendaSimulacaoResponse;
+  payload_json?: IrpfAltaRendaPayloadJson | null;
   title: string | null;
   created_by: string | null;
   created_at: string;
@@ -94,6 +108,22 @@ export const irpfAltaRendaService = {
       { token, tenantId }
     );
     return response.data.registro;
+  },
+
+  async update(
+    id: string,
+    input: UpdateIrpfAltaRendaInput
+  ): Promise<{ registro: IrpfAltaRendaRecord; resultado: IrpfAltaRendaSimulacaoResponse }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { registro: IrpfAltaRendaRecord; resultado: IrpfAltaRendaSimulacaoResponse };
+    }>(`/api/v1/irpf-alta-renda/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+      token,
+      tenantId,
+    });
+    return response.data;
   },
 
   async delete(id: string): Promise<void> {

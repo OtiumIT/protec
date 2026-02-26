@@ -98,6 +98,8 @@ function parseFixedWidth(
   const itensPf: { descricao?: string; valor: number; mes?: string }[] = [];
   const itensIsentos09: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
   const itensIsentos13: { nome_fonte?: string; cnpj_fonte?: string; valor: number }[] = [];
+  const dependentes: { nome?: string; cpf?: string; parentesco?: string }[] = [];
+  const bensDireitos: { codigo?: string; descricao?: string; valor_atual: number }[] = [];
   const codigosValor: Record<string, number> = {}; // codigo -> valor
   const avisos: string[] = [];
 
@@ -204,6 +206,28 @@ function parseFixedWidth(
       const v11 = blocos[11] ?? 0;
       if (v5 > 0 && v5 < 1e9) impostoPagoCarneLeao = v5;
       if (v11 > 0 && v11 < 1e9) impostoPagoRetencao = v11;
+    } else if (tipo === '25') {
+      // Tipo 25: dependentes. Layout PGD: tipo(2)+CPF(11)+nome(60)+cpf_dep(11)+parentesco
+      const nomeDep = line.substring(13, 73).trim();
+      const cpfDep = line.substring(73, 84).replace(/\D/g, '');
+      if (nomeDep.length > 2) {
+        dependentes.push({
+          nome: nomeDep,
+          cpf: cpfDep.length === 11 ? cpfDep : undefined,
+          parentesco: line.substring(84, 110).trim() || undefined,
+        });
+      }
+    } else if (tipo === '27') {
+      // Tipo 27: bens e direitos. Layout PGD (posições aproximadas): tipo(2)+CPF(11)+cod(2)+valor(13)+descricao
+      // Códigos: 01 imóvel urbano, 02 veículos, 11 imóvel rural, 12 terreno — relevantes para patrimônio imobiliário
+      const cod = line.substring(13, 15).replace(/\D/g, '').padStart(2, '0').slice(-2);
+      const valorStr = line.substring(15, 28).replace(/\D/g, '');
+      const valor = valorStr.length >= 11 ? parseValor13(valorStr) : 0;
+      const descricao = line.substring(28, 90).trim();
+      if (cod && valor > 0 && valor < 1e12) {
+        const desc = descricao || (cod === '01' ? 'Imóvel urbano' : cod === '02' ? 'Veículo' : cod === '11' ? 'Imóvel rural' : cod === '12' ? 'Terreno' : `Bem/direito (${cod})`);
+        bensDireitos.push({ codigo: cod, descricao: desc, valor_atual: round2(valor) });
+      }
     }
   }
 
@@ -258,6 +282,8 @@ function parseFixedWidth(
     impostoPagoCarneLeao,
     tot09,
     tot13,
+    dependentes,
+    bensDireitos,
     {
       fonte: 'dec_dbk_fixed_width',
       completude: totalRendPj + totalRendPf <= 0 ? 'baixa' : avisos.length > 1 ? 'media' : 'alta',
@@ -283,6 +309,8 @@ function buildResult(
   impostoPagoCarneLeao: number,
   tot09 = 0,
   tot13 = 0,
+  dependentes: { nome?: string; cpf?: string; parentesco?: string }[] = [],
+  bensDireitos: { codigo?: string; descricao?: string; valor_atual: number }[] = [],
   diagnostico?: ParseDecDbkResult['diagnostico']
 ): ParseDecDbkResult {
   const t09 = round2(tot09 > 0 ? tot09 : itensIsentos09.reduce((s, i) => s + i.valor, 0));
@@ -312,9 +340,14 @@ function buildResult(
     })),
   ]);
 
+  const totalBens = round2(bensDireitos.reduce((s, b) => s + b.valor_atual, 0));
+  const patrimonioImobiliario = bensDireitos
+    .filter((b) => ['01', '11', '12'].includes(b.codigo ?? ''))
+    .map((b) => ({ descricao: b.descricao ?? '', valor_atual: round2(b.valor_atual) }));
+
   const declaracao_completa: DeclaracaoIrpfCompleta = {
     identificacao: { nome, cpf, exercicio: ano, ano_calendario: ano - 1 },
-    dependentes: [],
+    dependentes: dependentes.map((d) => ({ nome: d.nome ?? '', cpf: d.cpf ?? '', parentesco: d.parentesco })),
     rendimentos_tributaveis_pj: { total: round2(totalRendPj), itens: itensPj.map((i) => ({ ...i, valor: round2(i.valor) })) },
     rendimentos_tributaveis_pf: { total: round2(totalRendPf), itens: itensPf.map((i) => ({ ...i, valor: round2(i.valor) })) },
     rendimentos_tributaveis_outros: { total: 0, itens: [] },
@@ -327,7 +360,14 @@ function buildResult(
       ],
     },
     rendimentos_tributacao_exclusiva_definitiva: { total: 0, itens: [] },
-    bens_direitos: { total: 0, itens: [] },
+    bens_direitos: {
+      total: totalBens,
+      itens: bensDireitos.map((b) => ({
+        codigo: b.codigo,
+        descricao: b.descricao,
+        valor_atual: round2(b.valor_atual),
+      })),
+    },
     dividas_onus: { total: 0, itens: [] },
     resumo: {
       base_calculo_ir: round2(baseCalculoIr || rendimentos_tributaveis),
@@ -354,6 +394,7 @@ function buildResult(
     rendimentos_isentos_dividendos,
     tributaveis_pj: itensPj.map((i) => ({ fonte: i.nome_fonte ?? '', cnpj: i.cnpj ?? '', valor: round2(i.valor) })),
     tributaveis_pf_alugueis: itensPf.map((i) => ({ mes: i.mes ?? '', valor: round2(i.valor) })),
+    patrimonio_imobiliario: patrimonioImobiliario,
     isentos_lucros_dividendos: itensIsentos09.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
     isentos_simples_nacional: itensIsentos13.map((i) => ({ nome_fonte: i.nome_fonte ?? '', cnpj_fonte: i.cnpj_fonte, valor: round2(i.valor) })),
     outros_isentos_que_entram_base: classificacaoIsentos.outros_isentos_que_entram_base,
@@ -528,6 +569,8 @@ function parsePipeDelimited(
     0, // impostoPagoCarneLeao (não extraído no layout pipe)
     0,
     0,
+    [], // dependentes (layout pipe não parseia tipo 25)
+    [], // bensDireitos (layout pipe não parseia tipo 27)
     {
       fonte: 'dec_dbk_pipe',
       completude: totalRendPj + totalRendPf <= 0 ? 'baixa' : avisos.length > 1 ? 'media' : 'alta',

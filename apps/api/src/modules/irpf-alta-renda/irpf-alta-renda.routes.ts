@@ -9,6 +9,7 @@ import { requireModule } from '../../middleware/module.middleware';
 import {
   SimulateIrpfAltaRendaInputSchema,
   SimulateAndSaveIrpfAltaRendaInputSchema,
+  UpdateIrpfAltaRendaInputSchema,
   ListIrpfAltaRendaQuerySchema,
   IrpfAltaRendaIdParamSchema,
   ReportSummaryIrpfAltaRendaInputSchema,
@@ -32,6 +33,8 @@ const service = new IrpfAltaRendaService(repo, companyRepo);
  * Extrai dados de IRPF de um PDF (ex.: DAA) via OpenAI e retorna ano + dados para preencher o formulário.
  * Body: multipart/form-data com campo "file" (arquivo PDF).
  */
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
 irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
   try {
     const formData = await c.req.formData();
@@ -42,10 +45,13 @@ irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
     if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
       return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
     }
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      return c.json({ error: { message: 'O arquivo PDF deve ter no máximo 10MB.', code: 'FILE_TOO_LARGE' } }, 400);
+    }
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const result = await extractIrpfFromPdf(buffer);
-    return c.json({ data: result }, 200);
+    return c.json({ data: { ...result, arquivo_nome: file.name } }, 200);
   } catch (err) {
     return errorHandler(err, c);
   }
@@ -77,7 +83,7 @@ irpfAltaRendaRoutes.post('/import-declaration', async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const result = parseDecDbk(buffer, file.name);
-    return c.json({ data: result }, 200);
+    return c.json({ data: { ...result, arquivo_nome: file.name } }, 200);
   } catch (err) {
     return errorHandler(err, c);
   }
@@ -175,6 +181,27 @@ irpfAltaRendaRoutes.get(
       const { id } = c.req.valid('param');
       const registro = await service.getById(id);
       return c.json({ data: { registro } });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/**
+ * PATCH /irpf-alta-renda/:id
+ * Atualiza simulação existente. Re-simula com os dados enviados.
+ */
+irpfAltaRendaRoutes.patch(
+  '/:id',
+  zValidator('param', IrpfAltaRendaIdParamSchema),
+  zValidator('json', UpdateIrpfAltaRendaInputSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { registro, resultado } = await service.update(id, input, userId);
+      return c.json({ data: { registro, resultado } }, 200);
     } catch (err) {
       return errorHandler(err, c);
     }

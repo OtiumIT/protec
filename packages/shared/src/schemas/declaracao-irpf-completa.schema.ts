@@ -67,6 +67,7 @@ export const RendimentoExclusivaItemSchema = z.object({
   cnpj_fonte: z.string().optional(),
   nome_fonte: z.string().optional(),
   valor: valorMonetario,
+  irrf: valorMonetario.optional(), // IR retido na fonte (ex.: aplicações código 06)
 });
 
 // ── 7. Bens e Direitos ──────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ export const ResumoDeclaracaoSchema = z.object({
   base_calculo_ir: valorMonetario,
   imposto_devido: valorMonetario,
   imposto_pago_retencao: valorMonetario,
+  imposto_ja_pago_carne_leao: valorMonetario.optional(),
   imposto_a_restituir: valorMonetario,
   imposto_a_pagar: valorMonetario,
   deducao_simplificada: valorMonetario.optional(),

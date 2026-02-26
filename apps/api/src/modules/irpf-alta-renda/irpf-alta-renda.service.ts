@@ -1,4 +1,4 @@
-import { IrpfAltaRendaRepository, type CreateIrpfAltaRendaData, type IrpfAltaRendaRecord } from './irpf-alta-renda.repository';
+import { IrpfAltaRendaRepository, type CreateIrpfAltaRendaData, type IrpfAltaRendaRecord, type UpdateIrpfAltaRendaData } from './irpf-alta-renda.repository';
 import { CompanyRepository } from '../companies/company.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import {
@@ -16,6 +16,7 @@ import {
 import type {
   SimulateIrpfAltaRendaInput,
   SimulateAndSaveIrpfAltaRendaInput,
+  UpdateIrpfAltaRendaInput,
   IrpfAltaRendaSimulacaoResponse,
   ReportSummaryIrpfAltaRendaInput,
   ReportSummaryIrpfAltaRendaResponse,
@@ -251,6 +252,17 @@ export class IrpfAltaRendaService {
 
     const resultado = await this.simulate({ ano: input.ano, dados: input.dados });
 
+    const payloadJson: Record<string, unknown> = {
+      tipo_importacao: input.tipo_importacao ?? 'manual',
+      arquivo_nome: input.arquivo_nome ?? null,
+      ano: input.ano,
+      dados: input.dados,
+      resultado_simulacao: resultado,
+      declaracao_completa: input.declaracao_completa ?? null,
+      diagnostico: input.diagnostico ?? null,
+      parser_version: input.parser_version ?? undefined,
+    };
+
     const createData: CreateIrpfAltaRendaData = {
       company_id: input.company_id ?? null,
       ano: input.ano,
@@ -260,6 +272,7 @@ export class IrpfAltaRendaService {
       dados_dividendos: input.dados.rendimentos_isentos_dividendos,
       base_calculo_combinada: resultado.base_calculo_combinada,
       resultado_simulacao: resultado as unknown as Record<string, unknown>,
+      payload_json: payloadJson,
       title: input.title ?? null,
       created_by: userId ?? null,
     };
@@ -269,12 +282,78 @@ export class IrpfAltaRendaService {
     return { registro, resultado };
   }
 
+  /**
+   * Atualiza simulação existente. Re-simula com os dados enviados.
+   */
+  async update(
+    id: string,
+    input: UpdateIrpfAltaRendaInput,
+    userId?: string
+  ): Promise<{ registro: IrpfAltaRendaRecord; resultado: IrpfAltaRendaSimulacaoResponse }> {
+    const record = await this.getById(id);
+    if (input.company_id) {
+      const company = await this.companyRepo.findById(input.company_id);
+      if (!company) {
+        throw new AppError('Empresa não encontrada', 'COMPANY_NOT_FOUND', 404);
+      }
+    }
+
+    const resultado = await this.simulate({ ano: input.ano, dados: input.dados });
+
+    const existingPayload = (record.payload_json ?? {}) as Record<string, unknown>;
+    const payloadJson: Record<string, unknown> = {
+      ...existingPayload,
+      tipo_importacao: existingPayload.tipo_importacao ?? 'manual',
+      arquivo_nome: existingPayload.arquivo_nome ?? null,
+      ano: input.ano,
+      dados: input.dados,
+      resultado_simulacao: resultado,
+      declaracao_completa: existingPayload.declaracao_completa ?? null,
+      diagnostico: existingPayload.diagnostico ?? null,
+    };
+
+    const updateData: UpdateIrpfAltaRendaData = {
+      company_id: input.company_id ?? record.company_id,
+      ano: input.ano,
+      contribuinte_nome: input.dados.contribuinte.nome,
+      contribuinte_cpf: input.dados.contribuinte.cpf,
+      rendimentos_tributaveis: input.dados.rendimentos_tributaveis,
+      dados_dividendos: input.dados.rendimentos_isentos_dividendos,
+      base_calculo_combinada: resultado.base_calculo_combinada,
+      resultado_simulacao: resultado as unknown as Record<string, unknown>,
+      payload_json: payloadJson,
+      title: input.title ?? record.title ?? null,
+    };
+
+    const registro = await this.repo.update(id, updateData);
+    return { registro, resultado };
+  }
+
   async getById(id: string): Promise<IrpfAltaRendaRecord> {
     const record = await this.repo.findById(id);
     if (!record) {
       throw new AppError('Simulação IRPF Alta Renda não encontrada', 'IRPF_ALTA_RENDA_NOT_FOUND', 404);
     }
+    if (!record.payload_json) {
+      record.payload_json = this.buildLegacyPayload(record);
+    }
     return record;
+  }
+
+  private buildLegacyPayload(record: IrpfAltaRendaRecord): Record<string, unknown> {
+    return {
+      tipo_importacao: 'manual' as const,
+      arquivo_nome: null,
+      ano: record.ano,
+      dados: {
+        contribuinte: { nome: record.contribuinte_nome, cpf: record.contribuinte_cpf },
+        rendimentos_tributaveis: record.rendimentos_tributaveis,
+        rendimentos_isentos_dividendos: record.dados_dividendos,
+      },
+      resultado_simulacao: record.resultado_simulacao,
+      declaracao_completa: null,
+      diagnostico: null,
+    };
   }
 
   async list(options: { company_id?: string; ano?: number; page?: number; limit?: number }) {

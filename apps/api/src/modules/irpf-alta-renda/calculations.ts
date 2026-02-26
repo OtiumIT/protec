@@ -456,9 +456,6 @@ const CONFIG_PJ_LUCRO_PRESUMIDO = {
   csll_percentual: 9,
 } as const;
 
-/** Alíquota IRRF típica sobre aplicações financeiras (CDB, etc.) */
-const ALIQUOTA_IRRF_APLICACOES = 0.15;
-
 export interface ComparativoPfPj {
   rendimento_bruto: number;
   /** PF tributação exclusiva (Lei 7.713): aplicação NÃO entra na BCC, só IRRF */
@@ -513,7 +510,6 @@ export function compararEficienciaPfPj(
   const fiisExcl = dados.rendimentos_fiis_excluidos ?? 0;
   const outrosExclArt16A = dados.outros_excluidos_art_16a ?? 0;
   const outrosIsentosQueEntramBase = (dados.outros_isentos_que_entram_base ?? []).reduce((s, i) => s + (i.valor ?? 0), 0);
-  const dividendos = (dados.rendimentos_isentos_dividendos ?? []).reduce((s, d) => s + d.valor, 0);
   const rt = dados.rendimentos_tributaveis ?? 0;
 
   // ── Cenário PF A: Tributação exclusiva (Lei 7.713) — aplicação NÃO entra na BCC ───

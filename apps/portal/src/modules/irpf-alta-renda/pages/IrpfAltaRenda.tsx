@@ -22,6 +22,9 @@ import type {
   ComparativoPfPj,
 } from '@shared/core';
 import { IrpfKpiCards } from '../components/IrpfKpiCards';
+import { IrpfBccCard } from '../components/IrpfBccCard';
+import { IrpfFormAccordionSection } from '../components/IrpfFormAccordionSection';
+import { LabelWithTooltip } from '../components/LabelWithTooltip';
 import { IrpfComposicaoChart } from '../components/IrpfComposicaoChart';
 import { IrpfComparativoChart } from '../components/IrpfComparativoChart';
 import { IrpfCustoPfPjChart } from '../components/IrpfCustoPfPjChart';
@@ -91,6 +94,39 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/** Valida CPF pelos dígitos verificadores. Retorna true se válido ou se tiver menos de 11 dígitos (ainda digitando). */
+function validarCpf(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]!, 10) * (10 - i);
+  let d1 = (sum * 10) % 11;
+  if (d1 === 10) d1 = 0;
+  if (d1 !== parseInt(digits[9]!, 10)) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]!, 10) * (11 - i);
+  let d2 = (sum * 10) % 11;
+  if (d2 === 10) d2 = 0;
+  if (d2 !== parseInt(digits[10]!, 10)) return false;
+  return true;
+}
+
+/** Converte avisos técnicos em mensagens amigáveis para o usuário. */
+function mensagemAmigavel(aviso: string): string {
+  const a = aviso.toLowerCase();
+  if (a.includes('stagefailures') || a.includes('falha em etapas da extração')) {
+    return 'Houve um problema na extração dos dados. Algumas informações podem estar incompletas. Revise os campos antes de simular ou use o preenchimento manual.';
+  }
+  if (a.includes('porta 3001') || a.includes('reinicie a api')) {
+    return 'Se os valores estiverem incorretos, tente reimportar o arquivo ou use o preenchimento manual.';
+  }
+  if (a.includes('estrutura invalida') || a.includes('formato inesperado')) {
+    return 'Não foi possível interpretar o conteúdo. Tente outro arquivo ou use o preenchimento manual.';
+  }
+  return aviso;
+}
+
 type OutroIsentoInput = {
   descricao: string;
   valor: number;
@@ -147,6 +183,10 @@ export function IrpfAltaRenda() {
     type: 'dividendo' | 'outroIsento' | 'lei7713';
     index: number;
   }>({ isOpen: false, type: 'dividendo', index: 0 });
+  const [deleteSimulacaoModal, setDeleteSimulacaoModal] = useState<{
+    isOpen: boolean;
+    item: IrpfAltaRendaRecord | null;
+  }>({ isOpen: false, item: null });
   const [selectedImportType, setSelectedImportType] = useState<'pdf' | 'dec_dbk' | 'manual' | null>(null);
   const [infoModalLei, setInfoModalLei] = useState(false);
   const [infoModalPdf, setInfoModalPdf] = useState(false);
@@ -158,11 +198,18 @@ export function IrpfAltaRenda() {
   const [pdfDropActive, setPdfDropActive] = useState(false);
   const [etapa1Collapsed, setEtapa1Collapsed] = useState(false);
   const [etapa2Collapsed, setEtapa2Collapsed] = useState(false);
+  const [diagnosticoAvisosExpanded, setDiagnosticoAvisosExpanded] = useState(false);
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
   const [decDbkFileName, setDecDbkFileName] = useState<string | null>(null);
   const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
   const [pdfExportIncludeParams, setPdfExportIncludeParams] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [listAnoFilter, setListAnoFilter] = useState<number | ''>('');
+  const [listSearchContribuinte, setListSearchContribuinte] = useState('');
+  const [listPage, setListPage] = useState(1);
+  const [listTotal, setListTotal] = useState(0);
+  const LIST_LIMIT = 50;
+  const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultadoRef = useRef<HTMLDivElement>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfContentRef = useRef<HTMLDivElement>(null);
@@ -174,15 +221,20 @@ export function IrpfAltaRenda() {
     setListLoading(true);
     setListError(null);
     try {
-      const listRes = await irpfAltaRendaService.list({ page: 1, limit: 50 });
+      const listRes = await irpfAltaRendaService.list({
+        page: listPage,
+        limit: LIST_LIMIT,
+        ...(listAnoFilter !== '' && { ano: listAnoFilter }),
+      });
       setItems(listRes.items);
+      setListTotal(listRes.total);
     } catch (e) {
       setListError(e instanceof Error ? e.message : 'Erro ao carregar simulações');
       showError(e instanceof Error ? e.message : 'Erro ao carregar');
     } finally {
       setListLoading(false);
     }
-  }, [showError]);
+  }, [showError, listAnoFilter, listPage]);
 
   useEffect(() => {
     loadData();
@@ -470,6 +522,11 @@ export function IrpfAltaRenda() {
       showError('Preencha nome e CPF do contribuinte.');
       return;
     }
+    const cpfDigits = contribuinteCpf.replace(/\D/g, '');
+    if (cpfDigits.length === 11 && !validarCpf(contribuinteCpf)) {
+      showError('CPF inválido. Verifique os dígitos.');
+      return;
+    }
     const startedAt = Date.now();
     trackIrpfMetric('irpfm_simulate_started', { ano });
     setLoading(true);
@@ -501,10 +558,30 @@ export function IrpfAltaRenda() {
     }
   };
 
+  const buildSaveInput = (): SimulateAndSaveIrpfAltaRendaInput => {
+    const base = buildInput();
+    const tipoImport = selectedImportType ?? 'manual';
+    return {
+      ...base,
+      company_id: saveCompanyId || undefined,
+      title: saveTitle.trim() || undefined,
+      tipo_importacao: tipoImport,
+      arquivo_nome: tipoImport === 'pdf' ? (pdfFileName ?? null) : tipoImport === 'dec_dbk' ? (decDbkFileName ?? null) : null,
+      declaracao_completa: declaracaoExtraida ?? undefined,
+      diagnostico: diagnosticoExtracao ? { completude: diagnosticoExtracao.completude, avisos: diagnosticoExtracao.avisos } : undefined,
+      parser_version: decDbkParserVersion ?? undefined,
+    };
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contribuinteNome.trim() || !contribuinteCpf.trim()) {
       showError('Preencha nome e CPF do contribuinte.');
+      return;
+    }
+    const cpfDigits = contribuinteCpf.replace(/\D/g, '');
+    if (cpfDigits.length === 11 && !validarCpf(contribuinteCpf)) {
+      showError('CPF inválido. Verifique os dígitos.');
       return;
     }
     if (!saveCompanyId) {
@@ -513,20 +590,29 @@ export function IrpfAltaRenda() {
     }
     setLoading(true);
     try {
-      const input: SimulateAndSaveIrpfAltaRendaInput = {
-        ...buildInput(),
-        company_id: saveCompanyId,
-        title: saveTitle.trim() || undefined,
-      };
-      await irpfAltaRendaService.simulateAndSave(input);
-      trackIrpfMetric('irpfm_simulation_saved', {
-        ano: input.ano,
-        has_title: Boolean(input.title),
-      });
-      success('Simulação salva.');
+      if (editingSimulationId) {
+        const input = buildSaveInput();
+        await irpfAltaRendaService.update(editingSimulationId, {
+          ano: input.ano,
+          dados: input.dados,
+          title: input.title,
+          company_id: input.company_id ?? null,
+        });
+        trackIrpfMetric('irpfm_simulation_updated', { ano: input.ano });
+        success('Simulação atualizada.');
+      } else {
+        const input = buildSaveInput();
+        await irpfAltaRendaService.simulateAndSave(input);
+        trackIrpfMetric('irpfm_simulation_saved', {
+          ano: input.ano,
+          has_title: Boolean(input.title),
+        });
+        success('Simulação salva.');
+      }
       setResult(null);
       setSaveTitle('');
       setSaveCompanyId('');
+      setEditingSimulationId(null);
       loadData();
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao salvar');
@@ -535,16 +621,174 @@ export function IrpfAltaRenda() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Excluir esta simulação?')) return;
+  const handleSaveNew = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contribuinteNome.trim() || !contribuinteCpf.trim()) {
+      showError('Preencha nome e CPF do contribuinte.');
+      return;
+    }
+    const cpfDigits = contribuinteCpf.replace(/\D/g, '');
+    if (cpfDigits.length === 11 && !validarCpf(contribuinteCpf)) {
+      showError('CPF inválido. Verifique os dígitos.');
+      return;
+    }
+    if (!saveCompanyId) {
+      showError('Selecione uma empresa para salvar.');
+      return;
+    }
+    setLoading(true);
     try {
-      await irpfAltaRendaService.delete(id);
-      success('Excluído.');
+      const input = buildSaveInput();
+      await irpfAltaRendaService.simulateAndSave(input);
+      trackIrpfMetric('irpfm_simulation_saved', { ano: input.ano, has_title: Boolean(input.title) });
+      success('Nova simulação salva.');
+      setResult(null);
+      setSaveTitle('');
+      setSaveCompanyId('');
+      setEditingSimulationId(null);
+      loadData();
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Erro ao salvar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (item: IrpfAltaRendaRecord) => {
+    setDeleteSimulacaoModal({ isOpen: true, item });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const item = deleteSimulacaoModal.item;
+    if (!item) return;
+    try {
+      await irpfAltaRendaService.delete(item.id);
+      success('Simulação excluída.');
       loadData();
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao excluir');
     }
   };
+
+  const applyPayloadFromRecord = (full: IrpfAltaRendaRecord) => {
+    const payload = full.payload_json;
+    const tipoImport = payload?.tipo_importacao ?? 'manual';
+    setSelectedImportType(tipoImport === 'manual' ? 'manual' : tipoImport);
+    if (tipoImport === 'pdf') {
+      setPdfFileName(payload?.arquivo_nome ?? null);
+      setDecDbkFileName(null);
+    } else if (tipoImport === 'dec_dbk') {
+      setDecDbkFileName(payload?.arquivo_nome ?? null);
+      setPdfFileName(null);
+    } else {
+      setPdfFileName(null);
+      setDecDbkFileName(null);
+    }
+    setDeclaracaoExtraida((payload?.declaracao_completa as DeclaracaoIrpfCompleta) ?? null);
+    setDiagnosticoExtracao(
+      payload?.diagnostico
+        ? { completude: (payload.diagnostico.completude as 'alta' | 'media' | 'baixa') ?? 'media', avisos: payload.diagnostico.avisos ?? [] }
+        : null
+    );
+    setDecDbkParserVersion(payload?.parser_version ?? null);
+
+    const d = payload?.dados ?? {
+      contribuinte: { nome: full.contribuinte_nome, cpf: full.contribuinte_cpf },
+      rendimentos_tributaveis: full.rendimentos_tributaveis,
+      rendimentos_isentos_dividendos: full.dados_dividendos ?? [],
+    };
+
+    setAno(payload?.ano ?? full.ano);
+    setContribuinteNome(d.contribuinte?.nome ?? full.contribuinte_nome);
+    setContribuinteCpf((d.contribuinte?.cpf ?? full.contribuinte_cpf).replace(/\D/g, ''));
+    setRendimentosTributaveis(d.rendimentos_tributaveis ?? full.rendimentos_tributaveis);
+
+    const isentos09 = d.isentos_lucros_dividendos ?? [];
+    const isentos13 = d.isentos_simples_nacional ?? [];
+    const isentosLegado = d.rendimentos_isentos_dividendos ?? [];
+    const fmt = (x: { nome_fonte?: string; fonte?: string; cnpj_fonte?: string; cnpj?: string; valor: number }, cod: '09' | '13') => {
+      const nome = x.nome_fonte ?? x.fonte ?? '';
+      const cnpj = x.cnpj_fonte ?? x.cnpj ?? '';
+      const nomeFonte = nome && cnpj ? `${nome} (${cnpj})` : nome || cnpj;
+      return { nome_fonte: nomeFonte, cnpj_fonte: cnpj || undefined, valor: x.valor ?? 0, codigo: cod };
+    };
+    const combined =
+      isentos09.length > 0 || isentos13.length > 0
+        ? [...isentos09.map((x) => fmt(x, '09')), ...isentos13.map((x) => fmt(x, '13'))]
+        : isentosLegado.map((x) => ({
+            nome_fonte: x.nome_fonte ?? '',
+            cnpj_fonte: x.cnpj_fonte,
+            valor: x.valor ?? 0,
+            codigo: (x.codigo as '09' | '13') || '09',
+          }));
+    setDividendos(combined.length > 0 ? combined : [{ ...emptyDividendo }]);
+
+    setLucrosAprovadosAte31dez2025((d as { lucros_aprovados_ate_31dez2025?: number }).lucros_aprovados_ate_31dez2025 ?? 0);
+    const dd = d as {
+      imposto_ja_pago_retencao_fonte?: number;
+      imposto_ja_pago_carne_leao?: number;
+      imposto_ja_pago_aplicacoes?: number;
+      imposto_antecipado_dividendos?: number;
+      ganho_capital_excluido?: number;
+      rendimentos_fiis_excluidos?: number;
+      outros_excluidos_art_16a?: number;
+      outros_isentos_que_entram_base?: Array<{ descricao?: string; valor: number }>;
+      rendimentos_tributados_exclusivamente_lei_7713?: Array<{ descricao?: string; valor_bruto: number; irrf?: number }>;
+      optou_ajuste_anual_lei_7713?: boolean;
+      rendimentos_aplicacoes_financeiras_pj?: number;
+      aliquota_irrf_comparativo_percentual?: number;
+      valor_hipotetico_comparativo_pf_pj?: number;
+    };
+    setImpostoJaPagoRetencao(dd.imposto_ja_pago_retencao_fonte ?? 0);
+    setImpostoJaPagoCarneLeao(dd.imposto_ja_pago_carne_leao ?? 0);
+    setImpostoJaPagoAplicacoes(dd.imposto_ja_pago_aplicacoes ?? 0);
+    setImpostoAntecipadoDividendos(dd.imposto_antecipado_dividendos ?? 0);
+    setGanhoCapitalExcluido(dd.ganho_capital_excluido ?? 0);
+    setRendimentosFiisExcluidos(dd.rendimentos_fiis_excluidos ?? 0);
+    setOutrosExcluidosArt16A(dd.outros_excluidos_art_16a ?? 0);
+    setOutrosIsentosQueEntramBase(
+      dd.outros_isentos_que_entram_base?.length
+        ? dd.outros_isentos_que_entram_base.map((x) => ({ descricao: x.descricao ?? '', valor: x.valor ?? 0 }))
+        : [{ descricao: '', valor: 0 }]
+    );
+    setRendimentosLei7713(
+      dd.rendimentos_tributados_exclusivamente_lei_7713?.length
+        ? dd.rendimentos_tributados_exclusivamente_lei_7713.map((x) => ({
+            descricao: x.descricao ?? '',
+            valor_bruto: x.valor_bruto ?? 0,
+            irrf: x.irrf ?? 0,
+          }))
+        : [{ descricao: '', valor_bruto: 0, irrf: 0 }]
+    );
+    setOptouAjusteAnualLei7713(Boolean(dd.optou_ajuste_anual_lei_7713));
+    setRendimentosAplicacoesPj(dd.rendimentos_aplicacoes_financeiras_pj ?? 0);
+    setAliquotaIrrfComparativo(dd.aliquota_irrf_comparativo_percentual ?? 15);
+    setValorHipoteticoComparativo(dd.valor_hipotetico_comparativo_pf_pj);
+    setResult(full.resultado_simulacao);
+    setManualFormStarted(true);
+    setEtapa1Collapsed(true);
+    setEtapa2Collapsed(false);
+  };
+
+  const handleOpenEditar = async (item: IrpfAltaRendaRecord, asNew = false) => {
+    try {
+      const full = await irpfAltaRendaService.getById(item.id);
+      applyPayloadFromRecord(full);
+      setEditingSimulationId(asNew ? null : full.id);
+      setSaveCompanyId(full.company_id ?? '');
+      setSaveTitle(full.title ?? '');
+      success(asNew ? 'Simulação duplicada. Edite e salve como nova.' : 'Simulação carregada. Edite e salve ou salve como novo.');
+      resultadoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Erro ao carregar simulação');
+    }
+  };
+
+  const filteredItems = listSearchContribuinte.trim()
+    ? items.filter((i) =>
+        i.contribuinte_nome.toLowerCase().includes(listSearchContribuinte.toLowerCase().trim())
+      )
+    : items;
 
   const applyExtractedData = (res: ExtractFromPdfResult & { parser_version?: number }) => {
     const d = res.dados;
@@ -627,7 +871,8 @@ export function IrpfAltaRenda() {
       applyExtractedData(result);
       trackIrpfMetric('irpfm_pdf_upload_success', { ano: result.ano });
       success('Dados extraídos do PDF. Revise e clique em Simular.');
-      setPdfFileName(pdfFile.name);
+      setPdfFileName((result as { arquivo_nome?: string }).arquivo_nome ?? pdfFile.name);
+      setDecDbkFileName(null);
       setPdfFile(null);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao extrair dados do PDF');
@@ -654,7 +899,8 @@ export function IrpfAltaRenda() {
       applyExtractedData(result);
       trackIrpfMetric('irpfm_dec_dbk_upload_success', { ano: result.ano });
       success('Dados importados do arquivo .dec/.dbk. Revise e clique em Simular.');
-      setDecDbkFileName(decDbkFile.name);
+      setDecDbkFileName((result as { arquivo_nome?: string }).arquivo_nome ?? decDbkFile.name);
+      setPdfFileName(null);
       setDecDbkFile(null);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao importar arquivo .dec/.dbk');
@@ -665,12 +911,14 @@ export function IrpfAltaRenda() {
   };
 
   const handleCancelSimulacao = () => {
+    setEditingSimulationId(null);
     setEtapa1Collapsed(false);
     setEtapa2Collapsed(false);
     setPdfFileName(null);
     setDecDbkFileName(null);
     setDeclaracaoExtraida(null);
     setDiagnosticoExtracao(null);
+    setDiagnosticoAvisosExpanded(false);
     setDecDbkParserVersion(null);
     setPdfFile(null);
     setDecDbkFile(null);
@@ -736,6 +984,17 @@ export function IrpfAltaRenda() {
         title="Confirmar remoção"
         message='Este item contém dados preenchidos. Para remover, digite "remover" no campo abaixo.'
       />
+      <RemoveConfirmModal
+        isOpen={deleteSimulacaoModal.isOpen}
+        onClose={() => setDeleteSimulacaoModal({ isOpen: false, item: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir simulação"
+        message={
+          deleteSimulacaoModal.item
+            ? `Excluir a simulação de ${deleteSimulacaoModal.item.contribuinte_nome} (${deleteSimulacaoModal.item.ano})? Esta ação não pode ser desfeita. Digite "remover" para confirmar.`
+            : ''
+        }
+      />
       <div className="space-y-6">
         <div className="flex flex-wrap items-start gap-2 mb-6">
           <h1 className="text-3xl font-bold text-slate-900">
@@ -756,6 +1015,14 @@ export function IrpfAltaRenda() {
         <p className="text-sm sm:text-base text-slate-600 -mt-4 mb-2">
           Simule o imposto complementar da alta renda, compare cenários e explore alternativas de planejamento.
         </p>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">
+            Simulação para planejamento tributário – não substitui a Declaração de Ajuste Anual (DAA) nem parecer jurídico-tributário.
+          </p>
+          <p className="mt-0.5 text-amber-800">
+            Consulte seu contador ou advogado para validação dos resultados e enquadramento à Lei 15.270/2025.
+          </p>
+        </div>
         <InfoModal
           isOpen={infoModalLei}
           onClose={() => setInfoModalLei(false)}
@@ -828,6 +1095,11 @@ export function IrpfAltaRenda() {
                   {(pdfFileName || decDbkFileName) && (
                     <p className="text-xs text-slate-500 mt-1 font-mono truncate max-w-md" title={pdfFileName || decDbkFileName || undefined}>
                       Arquivo: {pdfFileName || decDbkFileName}
+                      {editingSimulationId && (
+                        <span className="block text-slate-400 mt-0.5 normal-case">
+                          Simulação importada. O arquivo original não está armazenado.
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -976,12 +1248,17 @@ export function IrpfAltaRenda() {
               </form>
             </div>
 
-            {/* Card Inserção manual */}
+            {/* Card Inserção manual - clique seleciona o tipo; botão "Começar preenchimento" abre o formulário */}
             <div
               role="button"
               tabIndex={showFormSection ? -1 : 0}
               onClick={() => !showFormSection && setSelectedImportType('manual')}
-              onKeyDown={(e) => !showFormSection && (e.key === 'Enter' || e.key === ' ') && setSelectedImportType('manual')}
+              onKeyDown={(e) => {
+                if (!showFormSection && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  setSelectedImportType('manual');
+                }
+              }}
               className={`relative flex flex-col rounded-2xl border-2 p-6 transition-all duration-200 ${
                 showFormSection
                   ? 'opacity-50 cursor-default'
@@ -1008,14 +1285,25 @@ export function IrpfAltaRenda() {
               </div>
               <Button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); selectedImportType === 'manual' && setManualFormStarted(true); }}
-                disabled={selectedImportType !== 'manual'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (selectedImportType === 'manual' && !showFormSection) {
+                    setManualFormStarted(true);
+                  }
+                }}
+                disabled={selectedImportType !== 'manual' || showFormSection}
                 className="w-full"
               >
-                Iniciar preenchimento
+                Começar preenchimento manual
               </Button>
             </div>
           </div>
+          <p
+            className="mt-4 text-xs text-slate-500"
+            title="Atalhos de demo para preencher rapidamente cenários de teste"
+          >
+            Atalhos: Ctrl+D+1 (básico), Ctrl+D+2 (otimização), Ctrl+D+3 (alta base)
+          </p>
           {showFormSection && !etapa1Collapsed && (
             <div className="mt-4 pt-3 border-t border-slate-200">
               <Button type="button" variant="secondary" size="sm" onClick={handleCancelSimulacao}>
@@ -1158,7 +1446,9 @@ export function IrpfAltaRenda() {
                     : '0'}%
                 </span>
                 {result.risco_retencao_mensal && (
-                  <span className="text-amber-700">Risco de retenção mensal (10% na fonte)</span>
+                  <span className="text-amber-700">
+                    Risco de retenção mensal (10% na fonte). Avaliação indicativa: média anual; gatilho real &gt; R$ 50.000/mês.
+                  </span>
                 )}
               </div>
             </div>
@@ -1226,6 +1516,35 @@ export function IrpfAltaRenda() {
             </p>
           ) : (
           <>
+          {diagnosticoExtracao && (diagnosticoExtracao.completude === 'media' || diagnosticoExtracao.completude === 'baixa') && (
+            <div
+              className="mb-4 p-4 rounded-lg border border-amber-300 bg-amber-50"
+              role="alert"
+              aria-live="polite"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p className="font-medium text-amber-900">
+                  Revise os dados extraídos – confiabilidade {diagnosticoExtracao.completude === 'media' ? 'média' : 'baixa'}
+                </p>
+                {diagnosticoExtracao.avisos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDiagnosticoAvisosExpanded((e) => !e)}
+                    className="text-sm font-medium text-amber-800 hover:text-amber-900 underline shrink-0"
+                  >
+                    {diagnosticoAvisosExpanded ? 'Ocultar avisos' : 'Ver avisos'}
+                  </button>
+                )}
+              </div>
+              {diagnosticoAvisosExpanded && diagnosticoExtracao.avisos.length > 0 && (
+                <ul className="mt-2 list-disc list-inside text-sm text-amber-900 space-y-1">
+                  {diagnosticoExtracao.avisos.map((aviso, idx) => (
+                    <li key={idx}>{mensagemAmigavel(aviso)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {declaracaoExtraida && (
             <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm space-y-3">
               <p className="font-medium text-emerald-800">
@@ -1233,7 +1552,7 @@ export function IrpfAltaRenda() {
                 {declaracaoExtraida.fonte === 'dec_dbk' && (
                   decDbkParserVersion === 2
                     ? ' — Parser .dbk corrigido (v2)'
-                    : ' — Se os valores estiverem errados, reinicie a API (porta 3001) e reimporte o .dbk'
+                    : ' — Se os valores estiverem incorretos, tente reimportar o arquivo ou use o preenchimento manual'
                 )}
               </p>
               {diagnosticoExtracao && (
@@ -1242,7 +1561,7 @@ export function IrpfAltaRenda() {
                   {diagnosticoExtracao.avisos.length > 0 && (
                     <ul className="mt-1 list-disc list-inside space-y-0.5">
                       {diagnosticoExtracao.avisos.map((aviso, idx) => (
-                        <li key={idx}>{aviso}</li>
+                        <li key={idx}>{mensagemAmigavel(aviso)}</li>
                       ))}
                     </ul>
                   )}
@@ -1293,12 +1612,26 @@ export function IrpfAltaRenda() {
                 onChange={(e) => setContribuinteNome(e.target.value)}
                 placeholder="Nome completo"
               />
-              <Input
-                label="CPF"
-                value={contribuinteCpf}
-                onChange={(e) => setContribuinteCpf(e.target.value)}
-                placeholder="000.000.000-00"
-              />
+              <div className="w-full">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className="block text-sm font-medium text-slate-700">CPF</label>
+                  <span
+                    className="inline-flex text-slate-400 hover:text-slate-600 cursor-help"
+                    title="CPF com validação de dígitos verificadores."
+                    aria-label="CPF com validação de dígitos verificadores"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </div>
+                <input
+                  value={contribuinteCpf}
+                  onChange={(e) => setContribuinteCpf(e.target.value)}
+                  placeholder="000.000.000-00"
+                  className="w-full bg-white border border-slate-200 rounded-md px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1320,6 +1653,7 @@ export function IrpfAltaRenda() {
               />
             </div>
 
+            <IrpfFormAccordionSection title="Dividendos e isentos que entram na base" defaultOpen={true}>
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <label className="block text-sm font-medium text-slate-700">
@@ -1402,29 +1736,6 @@ export function IrpfAltaRenda() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <MoneyInput
-                label="Lucros aprovados até 31/12/2025 (excluídos – Art. 16-A § 1º XII)"
-                value={lucrosAprovadosAte31dez2025}
-                onChange={setLucrosAprovadosAte31dez2025}
-              />
-              <MoneyInput
-                label="Ganho de capital excluído (Art. 16-A § 1º I)"
-                value={ganhoCapitalExcluido}
-                onChange={setGanhoCapitalExcluido}
-              />
-              <MoneyInput
-                label="Rendimentos FIIs excluídos (Art. 16-A § 1º V-j)"
-                value={rendimentosFiisExcluidos}
-                onChange={setRendimentosFiisExcluidos}
-              />
-              <MoneyInput
-                label="Outros excluídos Art. 16-A § 1º (CRI/CRA/LCI/LCA/LIG/Poupança/Deb. Infra)"
-                value={outrosExcluidosArt16A}
-                onChange={setOutrosExcluidosArt16A}
-              />
-            </div>
-
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <p className="text-sm font-medium text-slate-700">Outros isentos que entram na base mínima</p>
@@ -1490,7 +1801,42 @@ export function IrpfAltaRenda() {
                 </table>
               </div>
             </div>
+            </IrpfFormAccordionSection>
 
+            <IrpfFormAccordionSection title="Exclusões da base (Art. 16-A § 1º)" defaultOpen={true}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <LabelWithTooltip
+                  label="Lucros aprovados até 31/12/2025"
+                  tooltip="Regra de transição (Art. 16-A § 1º XII): lucros e dividendos aprovados até 31/12/2025 ficam excluídos da base de cálculo."
+                />
+                <MoneyInput value={lucrosAprovadosAte31dez2025} onChange={setLucrosAprovadosAte31dez2025} />
+              </div>
+              <div>
+                <LabelWithTooltip
+                  label="Ganho de capital excluído"
+                  tooltip="Art. 16-A § 1º I: ganho de capital fora de bolsa/mercado organizado (ex.: venda de imóvel) não entra na BCC."
+                />
+                <MoneyInput value={ganhoCapitalExcluido} onChange={setGanhoCapitalExcluido} />
+              </div>
+              <div>
+                <LabelWithTooltip
+                  label="Rendimentos FIIs excluídos"
+                  tooltip="Art. 16-A § 1º V-j: FIIs com 100+ cotistas são excluídos da base de cálculo da tributação mínima."
+                />
+                <MoneyInput value={rendimentosFiisExcluidos} onChange={setRendimentosFiisExcluidos} />
+              </div>
+              <div>
+                <LabelWithTooltip
+                  label="Outros excluídos Art. 16-A (CRI, CRA, LCI, LCA...)"
+                  tooltip="Ativos incentivados: CRI, CRA, LCI, LCA, LIG, poupança e debêntures de infraestrutura – não entram na base de cálculo."
+                />
+                <MoneyInput value={outrosExcluidosArt16A} onChange={setOutrosExcluidosArt16A} />
+              </div>
+            </div>
+            </IrpfFormAccordionSection>
+
+            <IrpfFormAccordionSection title="Lei 7.713, deduções e comparativo PF vs PJ" defaultOpen={false}>
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <p className="text-sm font-medium text-slate-700">Tributados exclusivamente na fonte (Lei 7.713)</p>
@@ -1616,10 +1962,12 @@ export function IrpfAltaRenda() {
                 </div>
               </div>
             </div>
+            </IrpfFormAccordionSection>
 
             <div className="pt-2 border-t border-slate-200">
-              <p className="text-sm font-medium text-slate-700">
-                Base de cálculo (BCC) = RT + dividendos + outros isentos que entram na base − exclusões: {formatCurrency(bccCalculado)}
+              <IrpfBccCard bcc={bccCalculado} />
+              <p className="text-xs text-slate-500 mt-2">
+                Fórmula: RT + dividendos + outros isentos que entram na base − exclusões (lucros aprovados, ganho capital, FIIs, Art. 16-A)
               </p>
             </div>
 
@@ -1676,6 +2024,7 @@ export function IrpfAltaRenda() {
               impostoMinimo={result.imposto_minimo}
               deducoes={result.deducoes_imposto_ja_pago}
               economiaPotencial={result.otimizacao_isento_vs_tributado?.ganho_liquido_estimado}
+              riscoRetencaoMensal={result.risco_retencao_mensal}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
@@ -1749,6 +2098,9 @@ export function IrpfAltaRenda() {
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                     <p className="text-sm font-medium text-amber-800">Risco de retenção mensal (10% na fonte)</p>
                     <p className="text-sm text-amber-700">{result.risco_retencao_detalhe}</p>
+                    <p className="text-xs text-amber-600 mt-1 italic">
+                      Avaliação indicativa: considera média anual. O gatilho real é pagamento mensal &gt; R$ 50.000.
+                    </p>
                   </div>
                 )}
               </div>
@@ -1980,7 +2332,9 @@ export function IrpfAltaRenda() {
             )}
 
             <div className="mt-4 pt-4 border-t border-slate-200" data-pdf-exclude>
-              <h4 className="text-sm font-medium text-slate-700 mb-2">Salvar simulação</h4>
+              <h4 className="text-sm font-medium text-slate-700 mb-2">
+                {editingSimulationId ? 'Atualizar ou salvar como novo' : 'Salvar simulação'}
+              </h4>
               <form onSubmit={handleSave} className="flex flex-wrap items-end gap-2">
                 <div className="min-w-[200px]">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
@@ -2002,8 +2356,13 @@ export function IrpfAltaRenda() {
                   className="min-w-[180px]"
                 />
                 <Button type="submit" variant="secondary" disabled={loading}>
-                  Salvar
+                  {editingSimulationId ? 'Salvar' : 'Salvar'}
                 </Button>
+                {editingSimulationId && (
+                  <Button type="button" variant="secondary" disabled={loading} onClick={handleSaveNew}>
+                    Salvar novo
+                  </Button>
+                )}
               </form>
             </div>
           </Card>
@@ -2026,36 +2385,132 @@ export function IrpfAltaRenda() {
           ) : items.length === 0 ? (
             <p className="text-slate-500">Nenhuma simulação salva.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="py-2 pr-2">Ano</th>
-                    <th className="py-2 pr-2">Contribuinte</th>
-                    <th className="py-2 pr-2">BCC</th>
-                    <th className="py-2 pr-2">Faixa</th>
-                    <th className="py-2 pr-2">Imposto</th>
-                    <th className="py-2 pr-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-b border-slate-100">
-                      <td className="py-2 pr-2">{item.ano}</td>
-                      <td className="py-2 pr-2">{item.contribuinte_nome}</td>
-                      <td className="py-2 pr-2">{formatCurrency(item.base_calculo_combinada)}</td>
-                      <td className="py-2 pr-2">{item.resultado_simulacao?.faixa ?? '-'}</td>
-                      <td className="py-2 pr-2">{formatCurrency(item.resultado_simulacao?.imposto_estimado ?? 0)}</td>
-                      <td className="py-2 pr-2">
-                        <Button type="button" variant="secondary" size="sm" onClick={() => handleDelete(item.id)}>
-                          Excluir
-                        </Button>
-                      </td>
+            <>
+              <div className="flex flex-wrap gap-3 mb-4">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-0.5">Filtrar por ano</label>
+                  <select
+                    value={listAnoFilter}
+                    onChange={(e) => {
+                      setListAnoFilter(e.target.value === '' ? '' : Number(e.target.value));
+                      setListPage(1);
+                    }}
+                    className="rounded-md border border-slate-200 px-3 py-1.5 text-sm"
+                  >
+                    <option value="">Todos</option>
+                    {[CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-0.5">Buscar contribuinte</label>
+                  <input
+                    type="text"
+                    value={listSearchContribuinte}
+                    onChange={(e) => setListSearchContribuinte(e.target.value)}
+                    placeholder="Nome do contribuinte"
+                    className="rounded-md border border-slate-200 px-3 py-1.5 text-sm min-w-[180px]"
+                  />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left">
+                      <th className="py-2 pr-2">Ano</th>
+                      <th className="py-2 pr-2">Contribuinte</th>
+                      <th className="py-2 pr-2">Arquivo</th>
+                      <th className="py-2 pr-2">BCC</th>
+                      <th className="py-2 pr-2">Faixa</th>
+                      <th className="py-2 pr-2">Imposto</th>
+                      <th className="py-2 pr-2"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-4 text-slate-500 text-center">
+                          Nenhuma simulação encontrada com os filtros aplicados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredItems.map((item) => {
+                        const payload = item.payload_json;
+                        const tipoOrigem = payload?.tipo_importacao ?? 'manual';
+                        const badge =
+                          tipoOrigem === 'pdf' ? (
+                            <span className="inline-block px-1.5 py-0.5 text-xs rounded bg-amber-100 text-amber-800">PDF</span>
+                          ) : tipoOrigem === 'dec_dbk' ? (
+                            <span className="inline-block px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-800">.dec/.dbk</span>
+                          ) : (
+                            <span className="inline-block px-1.5 py-0.5 text-xs rounded bg-slate-100 text-slate-600">Manual</span>
+                          );
+                        return (
+                          <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                            <td className="py-2 pr-2">{item.ano}</td>
+                            <td className="py-2 pr-2">{item.contribuinte_nome}</td>
+                            <td className="py-2 pr-2">
+                              <span className="flex items-center gap-1">
+                                {badge}
+                                {payload?.arquivo_nome && (
+                                  <span className="text-xs text-slate-500 truncate max-w-[120px]" title={payload.arquivo_nome}>
+                                    {payload.arquivo_nome}
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-2">{formatCurrency(item.base_calculo_combinada)}</td>
+                            <td className="py-2 pr-2">{item.resultado_simulacao?.faixa ?? '-'}</td>
+                            <td className="py-2 pr-2">{formatCurrency(item.resultado_simulacao?.imposto_estimado ?? 0)}</td>
+                            <td className="py-2 pr-2">
+                              <div className="flex flex-wrap gap-1">
+                                <Button type="button" variant="secondary" size="sm" onClick={() => handleOpenEditar(item, false)}>
+                                  Editar
+                                </Button>
+                                <Button type="button" variant="secondary" size="sm" onClick={() => handleOpenEditar(item, true)}>
+                                  Duplicar
+                                </Button>
+                                <Button type="button" variant="secondary" size="sm" onClick={() => handleDeleteClick(item)}>
+                                  Excluir
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {listTotal > LIST_LIMIT && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                  <p className="text-sm text-slate-600">
+                    Página {listPage} de {Math.ceil(listTotal / LIST_LIMIT)} ({listTotal} simulações)
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={listPage <= 1}
+                      onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={listPage >= Math.ceil(listTotal / LIST_LIMIT)}
+                      onClick={() => setListPage((p) => p + 1)}
+                    >
+                      Próxima
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </Card>
       </div>

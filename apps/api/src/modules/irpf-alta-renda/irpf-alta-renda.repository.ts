@@ -11,6 +11,7 @@ export interface IrpfAltaRendaRecord {
   dados_dividendos: RendimentoIsentoDividendo[];
   base_calculo_combinada: number;
   resultado_simulacao: Record<string, unknown>;
+  payload_json: Record<string, unknown> | null;
   title: string | null;
   created_by: string | null;
   created_at: Date;
@@ -26,8 +27,22 @@ export interface CreateIrpfAltaRendaData {
   dados_dividendos: RendimentoIsentoDividendo[];
   base_calculo_combinada: number;
   resultado_simulacao: Record<string, unknown>;
+  payload_json?: Record<string, unknown> | null;
   title?: string | null;
   created_by?: string | null;
+}
+
+export interface UpdateIrpfAltaRendaData {
+  company_id?: string | null;
+  ano: number;
+  contribuinte_nome: string;
+  contribuinte_cpf: string;
+  rendimentos_tributaveis: number;
+  dados_dividendos: RendimentoIsentoDividendo[];
+  base_calculo_combinada: number;
+  resultado_simulacao: Record<string, unknown>;
+  payload_json: Record<string, unknown>;
+  title?: string | null;
 }
 
 export class IrpfAltaRendaRepository extends BaseRepository {
@@ -35,7 +50,7 @@ export class IrpfAltaRendaRepository extends BaseRepository {
     const result = await this.query<IrpfAltaRendaRecord>(
       `SELECT id, company_id, ano, contribuinte_nome, contribuinte_cpf,
               rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
-              resultado_simulacao, title, created_by, created_at, updated_at
+              resultado_simulacao, payload_json, title, created_by, created_at, updated_at
        FROM irpf_alta_renda WHERE id = $1`,
       [id],
       false
@@ -50,11 +65,11 @@ export class IrpfAltaRendaRepository extends BaseRepository {
       `INSERT INTO irpf_alta_renda (
          company_id, ano, contribuinte_nome, contribuinte_cpf,
          rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
-         resultado_simulacao, title, created_by
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         resultado_simulacao, payload_json, title, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, company_id, ano, contribuinte_nome, contribuinte_cpf,
                  rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
-                 resultado_simulacao, title, created_by, created_at, updated_at`,
+                 resultado_simulacao, payload_json, title, created_by, created_at, updated_at`,
       [
         data.company_id,
         data.ano,
@@ -64,12 +79,43 @@ export class IrpfAltaRendaRepository extends BaseRepository {
         JSON.stringify(data.dados_dividendos),
         data.base_calculo_combinada,
         JSON.stringify(data.resultado_simulacao),
+        data.payload_json ? JSON.stringify(data.payload_json) : null,
         data.title ?? null,
         data.created_by ?? null,
       ],
       false
     );
     return this.mapRow(result.rows[0]);
+  }
+
+  async update(id: string, data: UpdateIrpfAltaRendaData): Promise<IrpfAltaRendaRecord> {
+    const result = await this.query<IrpfAltaRendaRecord>(
+      `UPDATE irpf_alta_renda SET
+         company_id = $2, ano = $3, contribuinte_nome = $4, contribuinte_cpf = $5,
+         rendimentos_tributaveis = $6, dados_dividendos = $7, base_calculo_combinada = $8,
+         resultado_simulacao = $9, payload_json = $10, title = $11, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, company_id, ano, contribuinte_nome, contribuinte_cpf,
+                 rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
+                 resultado_simulacao, payload_json, title, created_by, created_at, updated_at`,
+      [
+        id,
+        data.company_id ?? null,
+        data.ano,
+        data.contribuinte_nome,
+        data.contribuinte_cpf,
+        data.rendimentos_tributaveis,
+        JSON.stringify(data.dados_dividendos),
+        data.base_calculo_combinada,
+        JSON.stringify(data.resultado_simulacao),
+        JSON.stringify(data.payload_json),
+        data.title ?? null,
+      ],
+      false
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error('IRPF_ALTA_RENDA_NOT_FOUND');
+    return this.mapRow(row);
   }
 
   async delete(id: string): Promise<void> {
@@ -110,7 +156,7 @@ export class IrpfAltaRendaRepository extends BaseRepository {
     const listResult = await this.query<IrpfAltaRendaRecord>(
       `SELECT id, company_id, ano, contribuinte_nome, contribuinte_cpf,
               rendimentos_tributaveis, dados_dividendos, base_calculo_combinada,
-              resultado_simulacao, title, created_by, created_at, updated_at
+              resultado_simulacao, payload_json, title, created_by, created_at, updated_at
        FROM irpf_alta_renda ${whereClause}
        ORDER BY created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -124,12 +170,13 @@ export class IrpfAltaRendaRepository extends BaseRepository {
     };
   }
 
-  private mapRow(row: IrpfAltaRendaRecord): IrpfAltaRendaRecord {
+  private mapRow(row: IrpfAltaRendaRecord & { payload_json?: unknown }): IrpfAltaRendaRecord {
     return {
       ...row,
       rendimentos_tributaveis: Number(row.rendimentos_tributaveis),
       base_calculo_combinada: Number(row.base_calculo_combinada),
       dados_dividendos: Array.isArray(row.dados_dividendos) ? row.dados_dividendos : [],
+      payload_json: row.payload_json != null && typeof row.payload_json === 'object' ? (row.payload_json as Record<string, unknown>) : null,
     };
   }
 }

@@ -48,12 +48,12 @@ export type ExtractIrpfFromPdfResult = {
 
 const STAGE1_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 1: Extraia APENAS identificação, dependentes e resumo da Declaração de IRPF.
 
-Retorne JSON com: "identificacao" (nome, cpf, data_nascimento, exercicio, ano_calendario, tipo_declaracao), "dependentes" (array), "resumo" (base_calculo_ir, imposto_devido, imposto_pago_retencao, imposto_a_restituir, imposto_a_pagar).
+Retorne JSON com: "identificacao" (nome, cpf, data_nascimento, exercicio, ano_calendario, tipo_declaracao), "dependentes" (array), "resumo" (base_calculo_ir, imposto_devido, imposto_pago_retencao, imposto_ja_pago_carne_leao, imposto_a_restituir, imposto_a_pagar).
 Use "" e 0 quando ausente. Nunca invente CPF/CNPJ. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE2_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 2: Extraia APENAS rendimentos tributáveis da Declaração de IRPF.
 
-Retorne JSON com: "rendimentos_tributaveis_pj" (total, itens com cnpj, nome_fonte, codigo, valor), "rendimentos_tributaveis_pf" (total, itens com cpf_pagador, nome_pagador, descricao, valor, mes), "rendimentos_tributaveis_outros" (total, itens), "rendimentos_tributacao_exclusiva_definitiva" (total, itens com codigo 06/10, descricao, valor).
+Retorne JSON com: "rendimentos_tributaveis_pj" (total, itens com cnpj, nome_fonte, codigo, valor), "rendimentos_tributaveis_pf" (total, itens com cpf_pagador, nome_pagador, descricao, valor, mes), "rendimentos_tributaveis_outros" (total, itens), "rendimentos_tributacao_exclusiva_definitiva" (total, itens com codigo 06/10, descricao, valor, irrf quando houver IR retido na fonte).
 Fichas: Recebidos de PJ, Recebidos de PF, Tributação exclusiva (aplicações, JCP). Mantenha centavos, não arredonde além de 2 casas. RETORNE APENAS JSON válido, sem markdown.`;
 
 const STAGE3_PROMPT = `Você é um especialista em contabilidade tributária brasileira. ETAPA 3: Extraia rendimentos isentos e classifique conforme Lei 15.270/2025 (Art. 16-A § 1º).
@@ -323,11 +323,18 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
 
   const resumo = (d as any).resumo ?? {};
   const impostoPagoRetencao = round2(Number(resumo.imposto_pago_retencao ?? 0));
+  const impostoCarneLeao = round2(Number(resumo.imposto_ja_pago_carne_leao ?? resumo.imposto_carne_leao ?? 0));
+
+  const impostoAplicacoes = round2(
+    (excl as Array<{ codigo?: string; irrf?: number; valor?: number }>)
+      .filter((i: any) => String(i.codigo ?? '').includes('06'))
+      .reduce((s: number, i: any) => s + (i.irrf ?? 0), 0)
+  );
 
   const tributadosLei7713 = excl.map((i: any) => ({
     descricao: i.descricao ?? i.nome_fonte ?? `Codigo ${i.codigo ?? 'N/A'}`,
     valor_bruto: round2(i.valor ?? 0),
-    irrf: 0,
+    irrf: round2(i.irrf ?? 0),
     aliquota_irrf_percentual: 15,
   }));
 
@@ -364,8 +371,8 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     },
     patrimonio_imobiliario,
     imposto_ja_pago_retencao_fonte: impostoPagoRetencao,
-    imposto_ja_pago_carne_leao: 0,
-    imposto_ja_pago_aplicacoes: 0,
+    imposto_ja_pago_carne_leao: impostoCarneLeao,
+    imposto_ja_pago_aplicacoes: impostoAplicacoes,
     imposto_antecipado_dividendos: 0,
     lucros_aprovados_ate_31dez2025: lucrosExcl,
     ganho_capital_excluido: ganhoCapital > 0 ? ganhoCapital : ganhoCapitalDeterministico,
@@ -373,6 +380,8 @@ function mapDeclaracaoCompletaToDados(d: z.infer<typeof DeclaracaoIrpfCompletaSc
     outros_excluidos_art_16a: outrosExclFallback,
     rendimentos_tributados_exclusivamente_lei_7713: tributadosLei7713,
     optou_ajuste_anual_lei_7713: false,
+    rendimentos_aplicacoes_financeiras_pj: 0,
+    aliquota_irrf_comparativo_percentual: 15,
   };
 }
 
@@ -455,6 +464,8 @@ function mapOldFormatToDados(old: OldFormatResult): z.infer<typeof DadosIrpfAlta
     isentos_lucros_dividendos: isentos09,
     isentos_simples_nacional: isentos13,
     outros_isentos_que_entram_base: [],
+    rendimentos_aplicacoes_financeiras_pj: 0,
+    aliquota_irrf_comparativo_percentual: 15,
     rendimentos_tributados_exclusivamente_lei_7713: [],
     outros_rendimentos: {
       aplicacoes_financeiras_exclusiva: round2(outros.aplicacoes_financeiras_exclusiva ?? 0),

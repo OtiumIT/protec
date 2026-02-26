@@ -21,7 +21,7 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 
 - **Módulo**: Feature toggle `IRPF_ALTA_RENDA`.
 - **Repositories**: `CompanyRepository` (validação de empresa ao salvar com `company_id`).
-- **Tabela tenant**: `irpf_alta_renda` (coluna `company_id` referencia `public.companies(id)`).
+- **Tabela tenant**: `irpf_alta_renda` (coluna `company_id` referencia `public.companies(id)`). A coluna `payload_json` (JSONB) armazena a simulação completa (dados de entrada + resultado).
 
 ## Fluxos e Endpoints
 
@@ -30,15 +30,17 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 - **Descrição**: Importa arquivo .dec ou .dbk (Programa IRPF / e-CAC) e retorna `{ ano, dados, declaracao_completa }` para preencher o formulário.
 - **Diagnóstico**: retorna `diagnostico` com `completude` e `avisos` para orientar revisão manual quando houver parsing parcial.
 - **Body**: `multipart/form-data` com campo **file** (arquivo .dec ou .dbk).
-- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda, declaracao_completa } }`.
+- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda, declaracao_completa, arquivo_nome } }`.
 - **Validação**: Extensão .dec ou .dbk, tamanho máx 5MB.
 
 ### POST /irpf-alta-renda/extract-from-pdf
 
-- **Descrição**: Extrai dados de IRPF de um PDF (ex.: DAA, resumo da declaração) usando OpenAI e retorna `{ ano, dados }` para preencher o formulário.
+- **Descrição**: Extrai dados de IRPF de um PDF (ex.: DAA, resumo da declaração) usando OpenAI e retorna `{ ano, dados, declaracao_completa }` para preencher o formulário.
+- **Campos extraídos (resumo)**: base_calculo_ir, imposto_devido, imposto_pago_retencao, imposto_ja_pago_carne_leao, imposto_a_restituir, imposto_a_pagar.
+- **Tributação exclusiva**: itens com código 06/10 podem incluir `irrf` (IR retido na fonte), somado em `imposto_ja_pago_aplicacoes`.
 - **Diagnóstico**: retorna `diagnostico` com `completude` e `avisos` (ex.: etapa com falha, texto truncado, fallback legado).
 - **Body**: `multipart/form-data` com campo **file** (arquivo PDF).
-- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda } }`.
+- **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda, declaracao_completa, arquivo_nome } }`.
 - **Requisito**: Variável de ambiente **OPENAI_API_KEY** configurada na API.
 
 ### POST /irpf-alta-renda/simulate
@@ -55,8 +57,16 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 
 ### POST /irpf-alta-renda/simulate-and-save
 
-- **Body**: Idem ao simulate + `client_id?`, `title?`.
+- **Body**: Idem ao simulate + `company_id?`, `title?`, `tipo_importacao?` ('pdf' | 'dec_dbk' | 'manual'), `arquivo_nome?`, `declaracao_completa?`, `diagnostico?`, `parser_version?`.
 - **Resposta**: `{ registro, resultado }` (registro persistido + mesmo objeto de resultado da simulação).
+- **Payload persistido**: O registro inclui `payload_json` (JSONB) com a simulação completa: `tipo_importacao`, `arquivo_nome`, `ano`, `dados`, `resultado_simulacao`, `declaracao_completa`, `diagnostico`.
+
+### PATCH /irpf-alta-renda/:id
+
+- **Descrição**: Atualiza simulação existente. Re-simula com os dados enviados e persiste o resultado.
+- **Body**: `UpdateIrpfAltaRendaInputSchema` (ano, dados: DadosIrpfAltaRenda, title?, company_id?).
+- **Resposta**: `{ registro, resultado }` (registro atualizado + resultado da simulação).
+- **Payload**: O `payload_json` é atualizado mantendo `tipo_importacao`, `arquivo_nome`, `declaracao_completa` e `diagnostico` do registro anterior.
 
 ### GET /irpf-alta-renda
 
@@ -65,16 +75,36 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 
 ### GET /irpf-alta-renda/:id
 
-- **Resposta**: `{ registro }`.
+- **Resposta**: `{ registro }`. O registro inclui `payload_json` com a simulação completa. Registros antigos sem `payload_json` recebem um objeto sintético a partir das colunas existentes (`tipo_importacao: "manual"`, `arquivo_nome: null`).
 
 ### DELETE /irpf-alta-renda/:id
-- ### POST /irpf-alta-renda/report-summary
+
+- **Resposta**: `{ success: true }`.
+
+### POST /irpf-alta-renda/report-summary
 
 - **Descrição**: Gera payload JSON estruturado para relatório executivo (base para PDF futuro).
 - **Body**: `ReportSummaryIrpfAltaRendaInputSchema`.
 - **Resposta**: `ReportSummaryIrpfAltaRendaResponseSchema` (resumo executivo, composição, comparativo otimização, memória legal e recomendações).
 
-- **Resposta**: `{ success: true }`.
+## Estrutura do payload_json
+
+O campo `payload_json` (coluna JSONB) armazena a simulação completa para permitir reabrir e editar com todos os dados:
+
+```json
+{
+  "tipo_importacao": "pdf" | "dec_dbk" | "manual",
+  "arquivo_nome": "exemplo.pdf" | null,
+  "ano": 2025,
+  "dados": { /* DadosIrpfAltaRenda completo */ },
+  "resultado_simulacao": { /* IrpfAltaRendaSimulacaoResponse */ },
+  "declaracao_completa": { /* DeclaracaoIrpfCompleta ou null */ },
+  "diagnostico": { "completude": "alta", "avisos": [] } | null,
+  "parser_version": 1
+}
+```
+
+- **extract-from-pdf** e **import-declaration** retornam `arquivo_nome` na resposta para o frontend persistir no payload.
 
 ## Isolamento
 

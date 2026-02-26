@@ -196,6 +196,22 @@ export const SimulateIrpfAltaRendaInputSchema = z.object({
 export const SimulateAndSaveIrpfAltaRendaInputSchema = SimulateIrpfAltaRendaInputSchema.extend({
   company_id: z.string().uuid().optional(),
   title: z.string().max(255).optional(),
+  tipo_importacao: z.enum(['pdf', 'dec_dbk', 'manual']).optional().default('manual'),
+  arquivo_nome: z.string().max(500).nullable().optional(),
+  declaracao_completa: z.record(z.unknown()).nullable().optional(),
+  diagnostico: z.object({
+    completude: z.enum(['alta', 'media', 'baixa']).optional(),
+    avisos: z.array(z.string()).optional(),
+  }).nullable().optional(),
+  parser_version: z.number().int().optional(),
+});
+
+/** Input para PATCH (atualizar simulação existente). Re-simula com os dados enviados. */
+export const UpdateIrpfAltaRendaInputSchema = z.object({
+  ano: z.number().int().min(2020).max(2035),
+  dados: DadosIrpfAltaRendaSchema,
+  title: z.string().max(255).optional(),
+  company_id: z.string().uuid().optional().nullable(),
 });
 
 export const FaixaAltaRendaSchema = z.enum(['isento', 'progressiva', 'fixa_10']);
@@ -235,6 +251,21 @@ export const IrpfAltaRendaSimulacaoResponseSchema = z.object({
   /** Aviso quando ano &lt; 2027: Lei 15.270/2025 vigente a partir do ano-calendário 2026 (declaração 2027) */
   aviso_ano_fora_vigencia: z.string().optional(),
 });
+
+/** Schema do payload_json persistido. Permite evolução de campos (passthrough). */
+export const IrpfAltaRendaPayloadJsonSchema = z.object({
+  tipo_importacao: z.enum(['pdf', 'dec_dbk', 'manual']),
+  arquivo_nome: z.string().nullable().optional(),
+  ano: z.number(),
+  dados: DadosIrpfAltaRendaSchema,
+  resultado_simulacao: IrpfAltaRendaSimulacaoResponseSchema,
+  declaracao_completa: z.record(z.unknown()).nullable().optional(),
+  diagnostico: z.object({
+    completude: z.enum(['alta', 'media', 'baixa']).optional(),
+    avisos: z.array(z.string()).optional(),
+  }).nullable().optional(),
+  parser_version: z.number().int().optional(),
+}).passthrough();
 
 export const ReportSummaryIrpfAltaRendaInputSchema = SimulateIrpfAltaRendaInputSchema.extend({
   scenario_name: z.string().max(120).optional(),
@@ -287,6 +318,8 @@ export type ComparativoPfPj = z.infer<typeof ComparativoPfPjSchema>;
 export type DadosIrpfAltaRenda = z.infer<typeof DadosIrpfAltaRendaSchema>;
 export type SimulateIrpfAltaRendaInput = z.infer<typeof SimulateIrpfAltaRendaInputSchema>;
 export type SimulateAndSaveIrpfAltaRendaInput = z.infer<typeof SimulateAndSaveIrpfAltaRendaInputSchema>;
+export type UpdateIrpfAltaRendaInput = z.infer<typeof UpdateIrpfAltaRendaInputSchema>;
+export type IrpfAltaRendaPayloadJson = z.infer<typeof IrpfAltaRendaPayloadJsonSchema>;
 export type FaixaAltaRenda = z.infer<typeof FaixaAltaRendaSchema>;
 export type IrpfAltaRendaSimulacaoResponse = z.infer<typeof IrpfAltaRendaSimulacaoResponseSchema>;
 export type ReportSummaryIrpfAltaRendaInput = z.infer<typeof ReportSummaryIrpfAltaRendaInputSchema>;

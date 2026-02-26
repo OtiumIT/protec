@@ -18,6 +18,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '034_irpf_alta_renda_add_company_id.sql',
   '036_properties.sql',
   '038_property_monthly_totals.sql',
+  '040_irpf_alta_renda_payload_json.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {
