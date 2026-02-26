@@ -53,15 +53,15 @@ export function IrpfComposicaoChart({ composicao }: Props) {
   const data = residual > 0 ? [...principal, { name: 'Outros (<2%)', value: residual }] : principal;
 
   return (
-    <div className="h-72 w-full" role="img" aria-label="Gráfico de composição da renda para base de cálculo">
+    <div className="h-80 min-h-[320px] w-full" role="img" aria-label="Gráfico de composição da renda para base de cálculo">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
-            innerRadius={70}
-            outerRadius={105}
+            innerRadius={80}
+            outerRadius={120}
             label={({ percent }) => (percent >= 0.02 ? `${(percent * 100).toFixed(0)}%` : '')}
             labelLine={false}
           >

@@ -2095,37 +2095,8 @@ export function IrpfAltaRenda() {
 
                 <p className="text-xs text-slate-500">Faixa: {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}</p>
 
-                {result.risco_retencao_mensal && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                    <p className="text-sm font-medium text-amber-800">Risco de retenção mensal (10% na fonte)</p>
-                    <p className="text-sm text-amber-700">{result.risco_retencao_detalhe}</p>
-                    <p className="text-xs text-amber-600 mt-1 italic">
-                      Avaliação indicativa: considera média anual. O gatilho real é pagamento mensal &gt; R$ 50.000.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Painel direito: gráficos (estilo modelo) */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className="rounded-md border border-slate-200 p-3 min-w-0">
-                  <h4 className="text-sm font-medium text-slate-800 mb-2">Composição da renda</h4>
-                  <IrpfComposicaoChart
-                    composicao={{
-                      tributaveis: result.composicao_renda?.tributaveis ?? 0,
-                      isentos_que_entram_base: result.composicao_renda?.isentos_que_entram_base ?? 0,
-                      dividendos_09_13: (result.composicao_renda as { dividendos_09_13?: number } | undefined)?.dividendos_09_13,
-                      isentos_excluidos: result.composicao_renda?.isentos_excluidos ?? 0,
-                      tributacao_exclusiva_lei_7713: (result.composicao_renda as { tributacao_exclusiva_lei_7713?: number } | undefined)?.tributacao_exclusiva_lei_7713,
-                    }}
-                  />
-                </div>
-                <div className="rounded-md border border-slate-200 p-3 min-w-0">
-                  <h4 className="text-sm font-medium text-slate-800 mb-2">Custo tributário: PF vs PJ</h4>
-                  <IrpfCustoPfPjChart comparativo={(result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj} />
-                </div>
-                <div className="rounded-md border border-slate-200 p-3 min-w-0 xl:col-span-2">
-                  <h4 className="text-sm font-medium text-slate-800 mb-2">Atual vs otimizado</h4>
+                <div className="rounded-md border border-slate-200 p-4">
+                  <h4 className="text-sm font-medium text-slate-800 mb-3">Atual vs otimizado</h4>
                   <IrpfComparativoChart
                     atual={{
                       base: result.base_calculo_combinada,
@@ -2141,6 +2112,38 @@ export function IrpfAltaRenda() {
                     }
                   />
                 </div>
+              </div>
+
+              {/* Painel direito: gráficos em coluna única (max 2 colunas na página, mais espaço para gráficos) */}
+              <div className="flex flex-col gap-6">
+                <div className="rounded-md border border-slate-200 p-4 min-w-0 flex-1">
+                  <h4 className="text-sm font-medium text-slate-800 mb-3">Composição da renda</h4>
+                  <IrpfComposicaoChart
+                    composicao={{
+                      tributaveis: result.composicao_renda?.tributaveis ?? 0,
+                      isentos_que_entram_base: result.composicao_renda?.isentos_que_entram_base ?? 0,
+                      dividendos_09_13: (result.composicao_renda as { dividendos_09_13?: number } | undefined)?.dividendos_09_13,
+                      isentos_excluidos: result.composicao_renda?.isentos_excluidos ?? 0,
+                      tributacao_exclusiva_lei_7713: (result.composicao_renda as { tributacao_exclusiva_lei_7713?: number } | undefined)?.tributacao_exclusiva_lei_7713,
+                    }}
+                  />
+                </div>
+                <div className="rounded-md border border-slate-200 p-4 min-w-0 flex-1">
+                  <h4 className="text-sm font-medium text-slate-800 mb-3">Custo tributário: PF vs PJ</h4>
+                  <IrpfCustoPfPjChart comparativo={(result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj} />
+                </div>
+                {result.risco_retencao_mensal && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                    <h4 className="text-sm font-medium text-amber-800 mb-2">Risco de retenção mensal (10% na fonte)</h4>
+                    <p className="text-sm text-amber-800">{result.risco_retencao_detalhe}</p>
+                    <p className="text-sm text-amber-700 mt-2">
+                      Possível retenção de 10% na fonte: valor mensal superior a R$ 50.000 em uma ou mais fontes (Sócio Simples (cód. 13)).
+                    </p>
+                    <p className="text-xs text-amber-600 mt-2 italic">
+                      Avaliação indicativa: considera média anual. O gatilho real é pagamento mensal &gt; R$ 50.000.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {(() => {

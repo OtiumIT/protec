@@ -55,45 +55,49 @@ export function IrpfComparativoChart({ atual, otimizado }: Props) {
     },
   ];
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white text-sm">
-        <table className="w-full min-w-[280px]">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="px-3 py-2 text-left font-medium text-slate-700"></th>
-              <th className="px-3 py-2 text-right font-medium text-slate-700">Situação atual</th>
-              <th className="px-3 py-2 text-right font-medium text-slate-700">Situação otimizada</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-slate-100">
-              <td className="px-3 py-2 font-medium text-slate-700">Base</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-800">{formatCurrency(atual.base)}</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-800">{formatCurrency(otimizado.base)}</td>
-            </tr>
-            <tr>
-              <td className="px-3 py-2 font-medium text-slate-700">A complementar</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-800">{formatCurrency(atual.impostoComplementar)}</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-800">{formatCurrency(otimizado.impostoComplementar)}</td>
-            </tr>
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-md border border-slate-200 bg-slate-50/50 px-4 py-3">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Situação atual</p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-600">Base:</span>
+              <span className="font-mono font-medium text-slate-800">{formatCurrency(atual.base)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">A complementar:</span>
+              <span className="font-mono font-medium text-slate-800">{formatCurrency(atual.impostoComplementar)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50/50 px-4 py-3">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Situação otimizada</p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-600">Base:</span>
+              <span className="font-mono font-medium text-slate-800">{formatCurrency(otimizado.base)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">A complementar:</span>
+              <span className="font-mono font-medium text-slate-800">{formatCurrency(otimizado.impostoComplementar)}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="h-64 w-full" role="img" aria-label="Gráfico comparativo entre situação atual e otimizada">
+      <div className="h-72 min-h-[280px] w-full" role="img" aria-label="Gráfico comparativo entre situação atual e otimizada">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 8, right: 80, left: 90, bottom: 8 }}
+            margin={{ top: 16, right: 24, left: 56, bottom: 16 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis
               type="number"
               tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-              tick={{ fontSize: 11 }}
-              width={70}
+              tick={{ fontSize: 12 }}
             />
-            <YAxis type="category" dataKey="metrica" width={100} tick={{ fontSize: 12 }} />
+            <YAxis type="category" dataKey="metrica" width={80} tick={{ fontSize: 13 }} />
             <Tooltip formatter={(v) => formatCurrency(Number(v))} />
             <Legend />
             <Bar dataKey="atual" fill="#0ea5e9" name="Situação atual" radius={[0, 4, 4, 0]} />

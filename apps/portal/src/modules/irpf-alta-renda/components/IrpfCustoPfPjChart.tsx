@@ -50,9 +50,9 @@ export function IrpfCustoPfPjChart({ comparativo }: Props) {
         PF (trib. exclusiva): CDB/JCP — IRRF na fonte, sem impacto na BCC. PF (entra na base): aplicação aumenta IRPFM.
         Base: {formatCurrency(comparativo.rendimento_bruto)}.
       </p>
-      <div className="h-56 w-full" role="img" aria-label="Comparativo custo tributário PF vs PJ">
+      <div className="h-64 min-h-[256px] w-full" role="img" aria-label="Comparativo custo tributário PF vs PJ">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 20, left: 8, bottom: 8 }}>
+          <BarChart data={data} margin={{ top: 16, right: 24, left: 24, bottom: 16 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="cenario" tick={{ fontSize: 11 }} />
             <YAxis
