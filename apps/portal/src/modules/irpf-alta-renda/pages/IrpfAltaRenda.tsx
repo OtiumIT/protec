@@ -20,6 +20,7 @@ import type {
   IrpfAltaRendaSimulacaoResponse,
   RendimentoIsentoDividendo,
   ComparativoPfPj,
+  DadosIrpfAltaRenda,
 } from '@shared/core';
 import { IrpfKpiCards } from '../components/IrpfKpiCards';
 import { IrpfBccCard } from '../components/IrpfBccCard';
@@ -692,7 +693,7 @@ export function IrpfAltaRenda() {
     );
     setDecDbkParserVersion(payload?.parser_version ?? null);
 
-    const d = payload?.dados ?? {
+    const d: DadosIrpfAltaRenda = payload?.dados ?? {
       contribuinte: { nome: full.contribuinte_nome, cpf: full.contribuinte_cpf },
       rendimentos_tributaveis: full.rendimentos_tributaveis,
       rendimentos_isentos_dividendos: full.dados_dividendos ?? [],
@@ -714,7 +715,7 @@ export function IrpfAltaRenda() {
     };
     const combined =
       isentos09.length > 0 || isentos13.length > 0
-        ? [...isentos09.map((x) => fmt(x, '09')), ...isentos13.map((x) => fmt(x, '13'))]
+        ? [...isentos09.map((x: RendimentoIsentoDividendo) => fmt(x, '09')), ...isentos13.map((x: RendimentoIsentoDividendo) => fmt(x, '13'))]
         : isentosLegado.map((x) => ({
             nome_fonte: x.nome_fonte ?? '',
             cnpj_fonte: x.cnpj_fonte,
