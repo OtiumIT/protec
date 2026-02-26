@@ -288,7 +288,7 @@ export class IrpfAltaRendaService {
   async update(
     id: string,
     input: UpdateIrpfAltaRendaInput,
-    userId?: string
+    _userId?: string
   ): Promise<{ registro: IrpfAltaRendaRecord; resultado: IrpfAltaRendaSimulacaoResponse }> {
     const record = await this.getById(id);
     if (input.company_id) {
