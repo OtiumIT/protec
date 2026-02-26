@@ -60,11 +60,13 @@ export type Plan = {
   id: string;
   name: string;
   max_users: number;
+  max_clients?: number;
   price: number;
   billing_cycle: 'monthly' | 'yearly';
   features: string[] | Record<string, any>;
   is_custom?: boolean;
   is_managed?: boolean;
+  status?: 'active' | 'inactive';
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -79,6 +81,8 @@ export type Subscription = {
   stripe_subscription_id?: string;
   stripe_customer_id?: string;
   canceled_at?: Date;
+  /** Data em que entrou no plano Free pela primeira vez; após 7 dias perde acesso às funcionalidades */
+  free_plan_started_at?: Date;
   created_at: Date;
   updated_at: Date;
 };

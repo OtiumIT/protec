@@ -50,6 +50,9 @@ importers:
       pg:
         specifier: ^8.11.3
         version: 8.17.2
+      stripe:
+        specifier: ^20.3.1
+        version: 20.3.1(@types/node@20.19.30)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -2461,7 +2464,7 @@ packages:
     resolution: {integrity: sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==}
     engines: {node: '>=20.16.0 || >=22.3.0'}
     optionalDependencies:
-      '@napi-rs/canvas': 0.1.80
+      '@napi-rs/canvas': 0.1.93
     dev: false
 
   /pdfjs-dist@5.4.624:
@@ -2948,6 +2951,18 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       ansi-regex: 5.0.1
+    dev: false
+
+  /stripe@20.3.1(@types/node@20.19.30):
+    resolution: {integrity: sha512-k990yOT5G5rhX3XluRPw5Y8RLdJDW4dzQ29wWT66piHrbnM2KyamJ1dKgPsw4HzGHRWjDiSSdcI2WdxQUPV3aQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+    dependencies:
+      '@types/node': 20.19.30
     dev: false
 
   /sucrase@3.35.1:

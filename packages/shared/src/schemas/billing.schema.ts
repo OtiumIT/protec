@@ -12,3 +12,13 @@ export const StripeWebhookSchema = z.object({
   }),
   created: z.number().optional(),
 });
+
+export const BillingPortalSessionSchema = z.object({
+  returnUrl: z.string().url(),
+});
+
+export const BillingCheckoutSessionSchema = z.object({
+  planId: z.string().uuid(),
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
+});

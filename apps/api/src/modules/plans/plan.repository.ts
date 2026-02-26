@@ -4,6 +4,7 @@ import type { Plan } from '@shared/core';
 export interface CreatePlanData {
   name: string;
   maxUsers: number;
+  maxClients?: number;
   price: number;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
@@ -14,6 +15,7 @@ export interface CreatePlanData {
 export interface UpdatePlanData {
   name?: string;
   maxUsers?: number;
+  maxClients?: number;
   price?: number;
   billingCycle?: 'monthly' | 'yearly';
   features?: string[];
@@ -29,7 +31,7 @@ export class PlanRepository extends BaseRepository {
    */
   async findById(id: string): Promise<Plan | null> {
     const result = await this.query<any>(
-      'SELECT id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at FROM plans WHERE id = $1',
+      'SELECT id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at FROM plans WHERE id = $1',
       [id],
       false // Planos não requerem filtro de tenant
     );
@@ -46,7 +48,7 @@ export class PlanRepository extends BaseRepository {
    */
   async findByName(name: string): Promise<Plan | null> {
     const result = await this.query<any>(
-      `SELECT id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at 
+      `SELECT id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
        FROM plans WHERE name = $1 LIMIT 1`,
       [name],
       false
@@ -64,8 +66,9 @@ export class PlanRepository extends BaseRepository {
   async findAll(): Promise<Plan[]> {
     const result = await this.query<any>(
       `SELECT DISTINCT ON (name) 
-        id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at 
+        id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
        FROM plans 
+       WHERE (status IS NULL OR status = 'active')
        ORDER BY name, created_at ASC`,
       [],
       false // Planos não requerem filtro de tenant
@@ -87,15 +90,17 @@ export class PlanRepository extends BaseRepository {
       return acc;
     }, {} as Record<number, string>);
 
+    const maxClients = data.maxClients ?? 0;
     const result = await this.query<any>(
-      `INSERT INTO plans (name, max_users, price, billing_cycle, features, is_custom, is_managed) 
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) 
-       RETURNING id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at`,
+      `INSERT INTO plans (name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed) 
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) 
+       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, created_at, updated_at`,
       [
-        data.name, 
-        data.maxUsers, 
-        data.price, 
-        data.billingCycle, 
+        data.name,
+        data.maxUsers,
+        maxClients,
+        data.price,
+        data.billingCycle,
         JSON.stringify(featuresObj),
         (data as any).isCustom || false,
         (data as any).isManaged || false,
@@ -123,6 +128,10 @@ export class PlanRepository extends BaseRepository {
       updates.push(`max_users = $${paramIndex++}`);
       params.push(data.maxUsers);
     }
+    if (data.maxClients !== undefined) {
+      updates.push(`max_clients = $${paramIndex++}`);
+      params.push(data.maxClients);
+    }
     if (data.price !== undefined) {
       updates.push(`price = $${paramIndex++}`);
       params.push(data.price);
@@ -148,6 +157,10 @@ export class PlanRepository extends BaseRepository {
       updates.push(`is_managed = $${paramIndex++}`);
       params.push(data.isManaged);
     }
+    if (data.status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      params.push(data.status);
+    }
 
     if (updates.length === 0) {
       return this.findById(id) as Promise<Plan>;
@@ -158,7 +171,7 @@ export class PlanRepository extends BaseRepository {
       `UPDATE plans 
        SET ${updates.join(', ')}, updated_at = NOW() 
        WHERE id = $${paramIndex++} 
-       RETURNING id, name, max_users, price, billing_cycle, features, is_custom, is_managed, created_at, updated_at`,
+       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, created_at, updated_at`,
       params,
       false
     );

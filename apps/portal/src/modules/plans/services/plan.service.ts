@@ -5,6 +5,7 @@ export interface Plan {
   id: string;
   name: string;
   maxUsers: number;
+  maxClients?: number;
   price: number;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
@@ -16,6 +17,7 @@ export interface Plan {
 export interface CreatePlanData {
   name: string;
   maxUsers: number;
+  maxClients?: number;
   price: number;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
@@ -26,6 +28,7 @@ export interface CreatePlanData {
 export interface UpdatePlanData {
   name?: string;
   maxUsers?: number;
+  maxClients?: number;
   price?: number;
   billingCycle?: 'monthly' | 'yearly';
   features?: string[];
@@ -37,10 +40,10 @@ export interface UpdatePlanData {
 function getAuthHeaders() {
   const token = localStorage.getItem('accessToken');
   const tenantId = localStorage.getItem('tenantId');
-  if (!token || !tenantId) {
+  if (!token) {
     throw new Error('Not authenticated');
   }
-  return { token, tenantId };
+  return { token, tenantId: tenantId ?? undefined };
 }
 
 // Helper para converter formato da API
@@ -48,7 +51,8 @@ function convertPlan(plan: any): Plan {
   return {
     id: plan.id,
     name: plan.name,
-    maxUsers: plan.max_users || plan.maxUsers,
+    maxUsers: plan.max_users ?? plan.maxUsers,
+    maxClients: plan.max_clients ?? plan.maxClients ?? 0,
     price: typeof plan.price === 'string' ? parseFloat(plan.price) : (plan.price || 0),
     billingCycle: plan.billing_cycle || plan.billingCycle,
     features: Array.isArray(plan.features) ? plan.features : (typeof plan.features === 'string' ? JSON.parse(plan.features) : []),
@@ -92,6 +96,7 @@ export const planService = {
         body: JSON.stringify({
           name: data.name,
           maxUsers: data.maxUsers,
+          maxClients: data.maxClients ?? 0,
           price: data.price,
           billingCycle: data.billingCycle,
           features: data.features,
@@ -112,6 +117,7 @@ export const planService = {
         body: JSON.stringify({
           name: data.name,
           maxUsers: data.maxUsers,
+          maxClients: data.maxClients,
           price: data.price,
           billingCycle: data.billingCycle,
           features: data.features,

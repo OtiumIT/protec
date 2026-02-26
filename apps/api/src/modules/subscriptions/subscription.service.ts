@@ -10,22 +10,37 @@ export class SubscriptionService {
   ) {}
 
   /**
-   * Criar assinatura
+   * Criar assinatura.
+   * @param options.allowCustomPlan - Se false (padrão), impede plano customizado (apenas super_admin pode).
    */
-  async create(companyId: string, data: CreateSubscriptionData): Promise<Subscription> {
-    // Verificar se plano existe
+  async create(
+    companyId: string,
+    data: CreateSubscriptionData,
+    options?: { allowCustomPlan?: boolean }
+  ): Promise<Subscription> {
     const plan = await this.planRepo.findById(data.planId);
     if (!plan) {
       throw new AppError('Plan not found', 'PLAN_NOT_FOUND', 404);
     }
+    const isCustom = (plan as any).is_custom === true || (plan as any).isCustom === true;
+    if (isCustom && !options?.allowCustomPlan) {
+      throw new AppError(
+        'Apenas o administrador geral pode associar o plano customizado.',
+        'CUSTOM_PLAN_FORBIDDEN',
+        403
+      );
+    }
 
-    // Verificar se já existe assinatura ativa
     const existing = await this.subscriptionRepo.findByCompany(companyId);
     if (existing && ['active', 'trialing'].includes(existing.status)) {
       throw new AppError('Active subscription already exists', 'SUBSCRIPTION_EXISTS', 409);
     }
 
-    return this.subscriptionRepo.create(companyId, data);
+    const createData: CreateSubscriptionData = { ...data };
+    if ((plan as any).name === 'Free') {
+      createData.freePlanStartedAt = new Date();
+    }
+    return this.subscriptionRepo.create(companyId, createData);
   }
 
   /**
@@ -89,17 +104,42 @@ export class SubscriptionService {
   }
 
   /**
-   * Atualizar assinatura
+   * Atualizar assinatura.
+   * @param options.allowCustomPlan - Se false (padrão), impede plano customizado (apenas super_admin pode).
    */
-  async update(companyId: string, data: UpdateSubscriptionData): Promise<Subscription & { plan: Plan }> {
-    const subscription = await this.subscriptionRepo.update(companyId, data);
-    
-    // Buscar plano associado
+  async update(
+    companyId: string,
+    data: UpdateSubscriptionData,
+    options?: { allowCustomPlan?: boolean }
+  ): Promise<Subscription & { plan: Plan }> {
+    const updateData: UpdateSubscriptionData = { ...data };
+    if (data.planId) {
+      const plan = await this.planRepo.findById(data.planId);
+      if (!plan) {
+        throw new AppError('Plan not found', 'PLAN_NOT_FOUND', 404);
+      }
+      const isCustom = (plan as any).is_custom === true || (plan as any).isCustom === true;
+      if (isCustom && !options?.allowCustomPlan) {
+        throw new AppError(
+          'Apenas o administrador geral pode associar o plano customizado.',
+          'CUSTOM_PLAN_FORBIDDEN',
+          403
+        );
+      }
+      if ((plan as any).name === 'Free') {
+        const existing = await this.subscriptionRepo.findByCompany(companyId);
+        const started = (existing as any)?.free_plan_started_at;
+        updateData.freePlanStartedAt = started ? new Date(started) : new Date();
+      }
+    }
+
+    const subscription = await this.subscriptionRepo.update(companyId, updateData);
+
     const plan = await this.planRepo.findById(subscription.plan_id);
     if (!plan) {
       throw new AppError('Plan not found', 'PLAN_NOT_FOUND', 404);
     }
-    
+
     return {
       ...subscription,
       plan,

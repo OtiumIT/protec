@@ -35,7 +35,18 @@ Gerencia assinaturas das empresas, incluindo criação, atualização de status,
   3. Verificar status
   4. Bloquear se necessário
 
-### Regra 4: Sincronização com Stripe
+### Regra 4: Plano Free – 7 dias de acesso
+- **Quando aplicar**: Qualquer acesso a funcionalidades (módulos) e recursos do tenant.
+- **Validação**: No plano Free, a data da primeira entrada é armazenada em `free_plan_started_at`. Após 7 dias, o tenant perde acesso a todas as funcionalidades (middleware retorna 402 `FREE_PLAN_EXPIRED`).
+- **Exceção**: O tenant continua podendo acessar "Meu plano", listar planos e iniciar checkout para assinar plano pago.
+- **Definição da data**: Ao criar assinatura no Free ou ao alterar plano para Free, `free_plan_started_at` é preenchido apenas na primeira vez (não é resetado se voltar ao Free depois de um plano pago).
+
+### Regra 5: Plano Customizado (apenas admin geral)
+- **Quando aplicar**: POST/PUT `/subscriptions` (rotas do tenant, não admin)
+- **Validação**: O cliente (tenant) não pode criar nem alterar assinatura para plano com `is_custom = true`. Apenas super_admin, via POST/PUT `/subscriptions/admin`, pode associar plano customizado.
+- **Erro**: 403 `CUSTOM_PLAN_FORBIDDEN` com mensagem "Apenas o administrador geral pode associar o plano customizado."
+
+### Regra 5: Sincronização com Stripe
 - **Quando aplicar**: Webhooks do Stripe
 - **Validação**: Assinatura do webhook
 - **Processo**:
@@ -57,18 +68,23 @@ Gerencia assinaturas das empresas, incluindo criação, atualização de status,
 - **Multitenant**: Filtro automático por company_id
 
 ### POST /subscriptions
-- **Descrição**: Criar assinatura
+- **Descrição**: Criar assinatura (próprio tenant)
 - **Body**: `{ planId }`
 - **Resposta**: `{ data: { subscription } }`
 - **Autenticação**: Requerida
-- **Validação**: Plano deve existir
+- **Validação**: Plano deve existir; plano customizado não permitido (apenas super_admin via rota admin)
 
 ### PUT /subscriptions
-- **Descrição**: Atualizar assinatura
+- **Descrição**: Atualizar assinatura (próprio tenant)
 - **Body**: `{ planId?, status? }`
 - **Resposta**: `{ data: { subscription } }`
 - **Autenticação**: Requerida
-- **Validação**: Apenas admin pode atualizar
+- **Validação**: Plano customizado não permitido (apenas super_admin via rota admin)
+
+### GET/POST/PUT /subscriptions/admin?companyId=xxx
+- **Descrição**: Buscar/criar/atualizar assinatura de uma empresa (apenas super_admin)
+- **Permissão**: Apenas `role === 'super_admin'`
+- **Permite**: Incluir plano customizado
 
 ### POST /subscriptions/cancel
 - **Descrição**: Cancelar assinatura

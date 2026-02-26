@@ -43,20 +43,26 @@ planRoutes.get('/:id', async (c) => {
   }
 });
 
-// Rotas protegidas (apenas admin)
+// Rotas protegidas (apenas admin ou super_admin)
 planRoutes.use('/admin/*', authMiddleware);
+
+function canManagePlans(c: { get: (key: string) => unknown }): boolean {
+  const user = c.get('user') as { role?: string } | undefined;
+  const jwt = c.get('jwt') as { role?: string } | undefined;
+  const role = (user?.role ?? jwt?.role ?? '').toString().trim().toLowerCase();
+  return role === 'admin' || role === 'super_admin';
+}
 
 /**
  * POST /plans/admin
- * Criar plano (apenas admin)
+ * Criar plano (apenas admin ou super_admin)
  */
 planRoutes.post(
   '/admin',
   zValidator('json', CreatePlanSchema),
   async (c) => {
     try {
-      const user = c.get('user');
-      if (user?.role !== 'admin') {
+      if (!canManagePlans(c)) {
         return c.json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } }, 403);
       }
 
@@ -64,6 +70,7 @@ planRoutes.post(
       const plan = await planService.create({
         name: data.name,
         maxUsers: data.maxUsers,
+        maxClients: data.maxClients,
         price: data.price,
         billingCycle: data.billingCycle,
         features: data.features,
@@ -92,8 +99,7 @@ planRoutes.put(
   zValidator('json', UpdatePlanSchema),
   async (c) => {
     try {
-      const user = c.get('user');
-      if (user?.role !== 'admin') {
+      if (!canManagePlans(c)) {
         return c.json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } }, 403);
       }
 
@@ -102,6 +108,7 @@ planRoutes.put(
       const plan = await planService.update(id, {
         name: data.name,
         maxUsers: data.maxUsers,
+        maxClients: data.maxClients,
         price: data.price,
         billingCycle: data.billingCycle,
         features: data.features,
@@ -125,8 +132,7 @@ planRoutes.put(
  */
 planRoutes.delete('/admin/:id', async (c) => {
   try {
-    const user = c.get('user');
-    if (user?.role !== 'admin') {
+    if (!canManagePlans(c)) {
       return c.json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } }, 403);
     }
 

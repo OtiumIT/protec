@@ -32,12 +32,30 @@ Gerencia integração com Stripe para processamento de pagamentos, criação de 
 
 ## Endpoints
 
-### POST /webhooks/stripe
-- **Descrição**: Receber webhooks do Stripe
-- **Headers**: `Stripe-Signature` (validação)
-- **Body**: Evento do Stripe
+### POST /api/v1/webhooks/stripe
+- **Descrição**: Receber webhooks do Stripe (raw body para validação da assinatura)
+- **Headers**: `Stripe-Signature` (obrigatório para validação)
+- **Body**: Raw body do evento (não enviar como JSON no Content-Type para preservar assinatura)
 - **Resposta**: `200 OK`
 - **Autenticação**: Não requerida (validação via signature)
+
+### GET /api/v1/billing/invoices (auth + tenant)
+- **Descrição**: Lista faturas (invoices) do cliente no Stripe.
+- **Query**: `limit` (opcional, 1–100, padrão 24)
+- **Resposta**: `{ "data": { "invoices": [ { "id", "number", "status", "amountPaid", "currency", "createdAt", "hostedInvoiceUrl", "invoicePdf", "periodStart", "periodEnd" } ] } }`
+- **Sem stripe_customer_id**: Retorna array vazio.
+
+### POST /api/v1/billing/portal-session (auth + tenant)
+- **Descrição**: Cria sessão do Stripe Customer Billing Portal (alterar forma de pagamento, cancelar assinatura, ver faturas).
+- **Body**: `{ "returnUrl": "https://..." }`
+- **Resposta**: `{ "data": { "url": "https://billing.stripe.com/..." } }`
+- **Pré-requisito**: Assinatura do tenant deve ter `stripe_customer_id` (ex.: após pagar via Checkout).
+
+### POST /api/v1/billing/checkout-session (auth + tenant)
+- **Descrição**: Cria sessão do Stripe Checkout para assinar plano pago.
+- **Body**: `{ "planId": "uuid", "successUrl": "https://...", "cancelUrl": "https://..." }`
+- **Resposta**: `{ "data": { "url": "https://checkout.stripe.com/..." } }`
+- **Pré-requisito**: Plano deve ter `stripe_price_id` configurado no banco.
 
 ## Fluxos Importantes
 

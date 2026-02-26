@@ -4,6 +4,7 @@ export const PlanSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(3),
   max_users: z.number().min(1),
+  max_clients: z.number().min(0).optional(),
   price: z.number().min(0),
   billing_cycle: z.enum(['monthly', 'yearly']),
   features: z.array(z.string()),
@@ -16,6 +17,7 @@ export const PlanSchema = z.object({
 export const CreatePlanSchema = z.object({
   name: z.string().min(3),
   maxUsers: z.number().min(1),
+  maxClients: z.number().min(0).optional(),
   price: z.number().min(0),
   billingCycle: z.enum(['monthly', 'yearly']),
   features: z.array(z.string()),
@@ -26,6 +28,7 @@ export const CreatePlanSchema = z.object({
 export const UpdatePlanSchema = z.object({
   name: z.string().min(3).optional(),
   maxUsers: z.number().min(1).optional(),
+  maxClients: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
   billingCycle: z.enum(['monthly', 'yearly']).optional(),
   features: z.array(z.string()).optional(),

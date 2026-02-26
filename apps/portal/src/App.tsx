@@ -17,6 +17,8 @@ import { Users } from './modules/users/pages/Users';
 import { Administrators } from './modules/users/pages/Administrators';
 import { Editais } from './modules/editais/pages/Editais';
 import { Plans } from './modules/plans/pages/Plans';
+import { MeuPlano } from './modules/plans/pages/MeuPlano';
+import { GestaoAssinatura } from './modules/billing/pages/GestaoAssinatura';
 import { FiscalFiles } from './modules/fiscal-files/pages/FiscalFiles';
 import { FiscalFilesUpload } from './modules/fiscal-files/pages/FiscalFilesUpload';
 import { Modules } from './modules/modules/pages/Modules';
@@ -116,6 +118,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Plans />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/meu-plano"
+        element={
+          <PrivateRoute>
+            <MeuPlano />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/gestao-assinatura"
+        element={
+          <PrivateRoute>
+            <GestaoAssinatura />
           </PrivateRoute>
         }
       />

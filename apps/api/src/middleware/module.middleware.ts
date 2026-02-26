@@ -1,9 +1,12 @@
 import { Context, Next } from 'hono';
 import { query } from '../db/client';
 
+const FREE_PLAN_GRACE_DAYS = 7;
+
 /**
- * Middleware para verificar se módulo está ativo
+ * Middleware para verificar se módulo está ativo.
  * Retorna 402 Payment Required se módulo não estiver ativo.
+ * No plano Free, após 7 dias da primeira entrada, bloqueia acesso a todas as funcionalidades.
  *
  * Com FORCE_ALL_MODULES_ACTIVE=true no .env, a verificação é ignorada (útil para demo/apresentação).
  */
@@ -26,6 +29,35 @@ export function requireModule(moduleKey: string) {
     if (process.env.FORCE_ALL_MODULES_ACTIVE === 'true' || process.env.FORCE_ALL_MODULES_ACTIVE === '1') {
       await next();
       return;
+    }
+
+    // Plano Free: após 7 dias da primeira entrada, bloquear todas as funcionalidades
+    const subResult = await query<{ plan_name: string; free_plan_started_at: Date | null }>(
+      `SELECT p.name AS plan_name, s.free_plan_started_at
+       FROM public.subscriptions s
+       JOIN public.plans p ON p.id = s.plan_id
+       WHERE s.company_id = $1
+       ORDER BY s.created_at DESC
+       LIMIT 1`,
+      [companyId]
+    );
+    const sub = subResult.rows[0];
+    if (sub?.plan_name === 'Free' && sub.free_plan_started_at) {
+      const started = new Date(sub.free_plan_started_at).getTime();
+      const now = Date.now();
+      const sevenDaysMs = FREE_PLAN_GRACE_DAYS * 24 * 60 * 60 * 1000;
+      if (now - started > sevenDaysMs) {
+        return c.json(
+          {
+            error: {
+              message:
+                'O período de uso do plano Free encerrou. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
+              code: 'FREE_PLAN_EXPIRED',
+            },
+          },
+          402
+        );
+      }
     }
 
     // Verificar se módulo está ativo (public.* para não depender do search_path após setTenantSchema)

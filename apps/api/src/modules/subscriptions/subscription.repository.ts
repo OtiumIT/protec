@@ -5,6 +5,7 @@ export interface CreateSubscriptionData {
   planId: string;
   stripeSubscriptionId?: string;
   stripeCustomerId?: string;
+  freePlanStartedAt?: Date;
 }
 
 export interface UpdateSubscriptionData {
@@ -15,6 +16,7 @@ export interface UpdateSubscriptionData {
   stripeSubscriptionId?: string;
   stripeCustomerId?: string;
   canceledAt?: Date;
+  freePlanStartedAt?: Date;
 }
 
 export class SubscriptionRepository extends BaseRepository {
@@ -25,7 +27,7 @@ export class SubscriptionRepository extends BaseRepository {
     const result = await this.query<Subscription>(
       `SELECT id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
-       canceled_at, created_at, updated_at
+       canceled_at, free_plan_started_at, created_at, updated_at
        FROM subscriptions 
        WHERE company_id = $1 
        ORDER BY created_at DESC 
@@ -42,7 +44,7 @@ export class SubscriptionRepository extends BaseRepository {
     const result = await this.query<Subscription>(
       `SELECT id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
-       canceled_at, created_at, updated_at
+       canceled_at, free_plan_started_at, created_at, updated_at
        FROM subscriptions 
        WHERE stripe_subscription_id = $1`,
       [stripeSubscriptionId],
@@ -56,17 +58,18 @@ export class SubscriptionRepository extends BaseRepository {
    */
   async create(companyId: string, data: CreateSubscriptionData): Promise<Subscription> {
     const result = await this.query<Subscription>(
-      `INSERT INTO subscriptions (company_id, plan_id, status, stripe_subscription_id, stripe_customer_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO subscriptions (company_id, plan_id, status, stripe_subscription_id, stripe_customer_id, free_plan_started_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
-       canceled_at, created_at, updated_at`,
+       canceled_at, free_plan_started_at, created_at, updated_at`,
       [
         companyId,
         data.planId,
         'active',
         data.stripeSubscriptionId || null,
         data.stripeCustomerId || null,
+        data.freePlanStartedAt ?? null,
       ],
       false // INSERT define company_id nos VALUES; validação de filtro é para SELECT/UPDATE
     );
@@ -109,6 +112,10 @@ export class SubscriptionRepository extends BaseRepository {
       updates.push(`canceled_at = $${paramIndex++}`);
       params.push(data.canceledAt);
     }
+    if (data.freePlanStartedAt !== undefined) {
+      updates.push(`free_plan_started_at = $${paramIndex++}`);
+      params.push(data.freePlanStartedAt);
+    }
 
     if (updates.length === 0) {
       return this.findByCompany(companyId) as Promise<Subscription>;
@@ -121,7 +128,7 @@ export class SubscriptionRepository extends BaseRepository {
        WHERE company_id = $${paramIndex++} 
        RETURNING id, company_id, plan_id, status, current_period_start, 
        current_period_end, stripe_subscription_id, stripe_customer_id, 
-       canceled_at, created_at, updated_at`,
+       canceled_at, free_plan_started_at, created_at, updated_at`,
       params
     );
     return result.rows[0];

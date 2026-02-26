@@ -43,7 +43,7 @@ subscriptionRoutes.post(
         return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
       }
       const data = c.req.valid('json');
-      const subscription = await subscriptionService.create(companyId, { planId: data.planId });
+      const subscription = await subscriptionService.create(companyId, { planId: data.planId }, { allowCustomPlan: false });
       return c.json({ data: { subscription } }, 201);
     } catch (error) {
       return errorHandler(error, c);
@@ -61,7 +61,7 @@ subscriptionRoutes.put(
         return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
       }
       const data = c.req.valid('json');
-      const subscription = await subscriptionService.update(companyId, data);
+      const subscription = await subscriptionService.update(companyId, data, { allowCustomPlan: false });
       return c.json({ data: { subscription } });
     } catch (error) {
       return errorHandler(error, c);
@@ -138,7 +138,7 @@ subscriptionRoutes.post(
       
       const data = c.req.valid('json');
       
-      const subscription = await subscriptionService.create(companyId, data);
+      const subscription = await subscriptionService.create(companyId, data, { allowCustomPlan: true });
       return c.json({ data: { subscription } }, 201);
     } catch (error) {
       return errorHandler(error, c);
@@ -174,12 +174,12 @@ subscriptionRoutes.put(
         if (!data.planId) {
           return c.json({ error: { message: 'planId is required when creating new subscription', code: 'VALIDATION_ERROR' } }, 400);
         }
-        const subscription = await subscriptionService.create(companyId, { planId: data.planId });
+        const subscription = await subscriptionService.create(companyId, { planId: data.planId }, { allowCustomPlan: true });
         return c.json({ data: { subscription } });
       }
-      
-      // Atualizar subscription
-      const subscription = await subscriptionService.update(companyId, data);
+
+      // Atualizar subscription (super_admin pode colocar customizado)
+      const subscription = await subscriptionService.update(companyId, data, { allowCustomPlan: true });
       return c.json({ data: { subscription } });
     } catch (error) {
       return errorHandler(error, c);

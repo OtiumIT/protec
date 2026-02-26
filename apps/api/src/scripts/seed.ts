@@ -13,23 +13,52 @@ async function seed() {
   console.log('🌱 Iniciando seed...');
 
   try {
-    // Criar planos
+    // Criar planos (apenas Free e Standard; migration 040 define features e plan_modules)
     const plans = [
-      { name: 'Free', maxUsers: 1, price: 0, billingCycle: 'monthly' },
-      { name: 'Pro', maxUsers: 10, price: 29.99, billingCycle: 'monthly' },
-      { name: 'Enterprise', maxUsers: 100, price: 99.99, billingCycle: 'monthly' },
+      {
+        name: 'Free',
+        maxUsers: 1,
+        price: 0,
+        billingCycle: 'monthly',
+        features: ['7 dias grátis', 'Acesso a todos os módulos durante o período de teste', '1 usuário', 'Suporte por e-mail'],
+      },
+      {
+        name: 'Standard',
+        maxUsers: 10,
+        price: 99.9,
+        billingCycle: 'monthly',
+        features: [
+          'Transação Tributária - Análise da capacidade de pagamento',
+          'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
+          'Tributação da alta renda/dividendos - IRPF Alta Renda',
+          'Gestão Imobiliária',
+          'Arquivos fiscais (SPED, ECD, PGDAS)',
+          'Relatórios e análises',
+          'Analytics',
+          'Cobrança e assinaturas',
+          'Até 10 usuários',
+          'Suporte por e-mail',
+        ],
+      },
     ];
 
     for (const plan of plans) {
+      const featuresJson = JSON.stringify(plan.features.reduce((acc: Record<number, string>, f, i) => ({ ...acc, [i]: f }), {}));
       const result = await query(
-        `INSERT INTO plans (name, max_users, price, billing_cycle) 
-         VALUES ($1, $2, $3, $4) 
-         ON CONFLICT DO NOTHING
+        `INSERT INTO plans (name, max_users, price, billing_cycle, features, is_custom, is_managed, status) 
+         VALUES ($1, $2, $3, $4, $5::jsonb, false, false, 'active') 
+         ON CONFLICT (name) DO UPDATE SET
+           max_users = EXCLUDED.max_users,
+           price = EXCLUDED.price,
+           billing_cycle = EXCLUDED.billing_cycle,
+           features = EXCLUDED.features,
+           status = EXCLUDED.status,
+           updated_at = NOW()
          RETURNING id, name`,
-        [plan.name, plan.maxUsers, plan.price, plan.billingCycle]
+        [plan.name, plan.maxUsers, plan.price, plan.billingCycle, featuresJson]
       );
       if (result.rows.length > 0) {
-        console.log(`✅ Plano criado: ${result.rows[0].name}`);
+        console.log(`✅ Plano criado/atualizado: ${result.rows[0].name}`);
       }
     }
 

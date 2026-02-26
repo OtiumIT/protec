@@ -75,8 +75,11 @@ export class AuthService {
       contact_name: data.user.name,
     });
 
-    // Assinatura no plano Free para permitir uso e criação de usuários
-    await this.subscriptionRepo.create(company.id, { planId: freePlan.id });
+    // Assinatura no plano Free para permitir uso e criação de usuários (7 dias de acesso)
+    await this.subscriptionRepo.create(company.id, {
+      planId: freePlan.id,
+      freePlanStartedAt: new Date(),
+    });
 
     // Hash da senha e criar usuário admin do tenant
     const passwordHash = await hashPassword(data.user.password);

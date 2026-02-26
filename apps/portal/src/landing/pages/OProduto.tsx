@@ -14,51 +14,108 @@ const HERO_IMAGE_SRC = '/hero-o-produto.png';
 const BENEFICIOS = [
   {
     id: 'rotina-organizada',
-    title: 'Rotina fiscal organizada',
+    title: 'Tudo no lugar, nada perdido',
     description:
-      'Centralize SPED, ECD, PGDAS e balanços por cliente, com simulações e indicadores em um só lugar, sem depender de planilhas paralelas.',
+      'SPED, ECD, PGDAS e balanços por cliente e competência em um só lugar. Simulações e indicadores integrados — sem planilhas paralelas e sem tempo perdido procurando arquivo.',
   },
   {
     id: 'decisoes-seguras',
-    title: 'Decisões mais seguras',
+    title: 'Decisões com fundamento, não no feeling',
     description:
-      'Simulações padronizadas e validações automáticas reduzem o risco de decisões baseadas apenas em feeling ou em contas manuais.',
+      'Simulações padronizadas e validações automáticas reduzem risco e dão base técnica para suas recomendações. Menos contas manuais, mais segurança para você e para o cliente.',
   },
   {
     id: 'oportunidades-visiveis',
-    title: 'Oportunidades visíveis na carteira',
+    title: 'Oportunidades que viram receita',
     description:
-      'Enxergue rapidamente editais, cenários tributários e ratings que podem virar novos projetos e honorários recorrentes.',
+      'Enxergue na carteira editais elegíveis, cenários tributários e ratings revisáveis. Cada módulo aponta onde há espaço para novos projetos e honorários recorrentes.',
   },
 ] as const;
 
 const MODULOS = [
   {
     id: 'transacao-tributaria',
-    title: 'Transação Tributária - Análise da capacidade de pagamento',
+    title: 'Validador de Rating (CAPAG) — Transação Tributária',
     description:
-      'Avaliação se a classificação da capacidade de pagamento feita pela Receita Federal está correta, possibilitando a revisão do enquadramento com os dados contábeis analisados pelo sistema, com a emissão de relatório para fundamentação.',
+      'A Receita classifica seu cliente em A, B, C ou D — e essa classificação define descontos em transações. O IATax analisa Balanço e DRE, recalcula os indicadores (Liquidez Corrente, Liquidez Geral, Solvência) e gera relatório para revisão do enquadramento. Fundamentação com números, não com impressão.',
     barColor: 'bg-[#1e3a5f]',
     imageSrc: '/modulo-validador-rating.png',
-    imageAlt: 'Transação Tributária - Análise da capacidade de pagamento',
+    imageAlt: 'Validador de Rating - Análise da capacidade de pagamento',
+    bullets: [
+      'Revisão do enquadramento com dados contábeis analisados pelo sistema.',
+      'Relatório pronto para fundamentar pedido de revisão à Receita.',
+      'Simulação manual ou extração a partir do PDF da ECD.',
+    ],
   },
   {
     id: 'simulador-in2306',
-    title: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
+    title: 'Simulador IN 2.306 / LC 224/2025 — Lucro Presumido',
     description:
-      'Possibilita fazer a comparação da tributação do lucro presumido antes e depois da alteração trazida pela LC 224/2025, identificando quanto será o aumento para o contribuinte.',
+      'A LC 224/2025 e a IN 2.306/2026 mudam as regras do lucro presumido. Compare em poucos cliques: tributação antes e depois, cenário de equiparação hospitalar, adicional de IRPJ e ajuste anual. Identifique quanto sobe o imposto e onde há espaço para economia — com memória de cálculo para o cliente.',
     barColor: 'bg-brand',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Simulação do aumento da tributação do lucro presumido - LC 224/2025',
+    imageAlt: 'Simulador IN 2.306 - Impacto no lucro presumido',
+    bullets: [
+      'Compare cenários 2025 x 2026 x equiparação hospitalar.',
+      'Identifique o aumento tributário e oportunidades de economia.',
+      'Receitas por trimestre (produtos, serviços, hospitalar, demais) e memória de cálculo.',
+    ],
   },
   {
     id: 'irpf-alta-renda',
-    title: 'Tributação da alta renda/dividendos - IRPFM - Lei 15.270/2025',
+    title: 'IRPF Alta Renda — Lei 15.270/2025',
     description:
-      'Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com a indicação da alíquota aplicável e o valor a ser pago, comparando os cenários antes e depois da nova legislação, apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).',
+      'Dividendos e alta renda passam a ser tributados. O IATax importa a declaração (PDF da DAA ou arquivo .dec), calcula a base e a alíquota e simula cenários de redução: holding, segregação com cônjuge/filhos, otimização isento vs. tributado. Resultado claro para o cliente e recomendações objetivas.',
     barColor: 'bg-protec',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Tributação da alta renda/dividendos - IRPFM',
+    imageAlt: 'Simulador IRPF Alta Renda',
+    bullets: [
+      'Importe DAA (PDF) ou arquivo da declaração (.dec/.dbk).',
+      'Compare cenários antes e depois da nova legislação.',
+      'Soluções para redução: holding, segregação de renda, memória legal.',
+    ],
+  },
+  {
+    id: 'gestao-imoveis',
+    title: 'Gestão Imobiliária — Simule PF, PJ e Reforma 2027',
+    description:
+      'Cadastre imóveis por cliente, lance receitas e despesas (dedutíveis e operacionais) e simule a carga tributária em três cenários: Pessoa Física (Carnê-Leão), PJ (Lucro Presumido/Holding) e pós-Reforma (IBS/CBS com redutor para locação). Ideal para consultoria patrimonial e planejamento de investimentos em imóveis.',
+    barColor: 'bg-[#0f766e]',
+    imageSrc: '/modulo-simulador-in2306.png',
+    imageAlt: 'Simulador Imobiliário - Cenários tributários',
+    bullets: [
+      'Cenários PF, PJ e Reforma 2027 com redutor para locação.',
+      'Break-even e fluxo de caixa; modo detalhado ou reduzido.',
+      'Locação fixa e flexível (Airbnb); custos operacionais para créditos Reforma.',
+    ],
+  },
+  {
+    id: 'arquivos-fiscais',
+    title: 'Arquivos Fiscais — Base organizada por cliente',
+    description:
+      'Upload seguro de SPED, ECD, PGDAS, XML e PDF por cliente e competência. Centralize a base do escritório e alimente simulações e validações sem perder tempo procurando arquivos. A organização que todo módulo de análise precisa.',
+    barColor: 'bg-[#1e3a5f]',
+    imageSrc: '/modulo-validador-rating.png',
+    imageAlt: 'Arquivos Fiscais - Organização por cliente e competência',
+    bullets: [
+      'Upload por cliente e competência; tipos: SPED, ECD, PGDAS, XML, PDF.',
+      'Base organizada para todos os módulos (rating, IN 2306, IRPF, etc.).',
+      'Status de processamento e dados prontos para extração e simulação.',
+    ],
+  },
+  {
+    id: 'processos-judiciais',
+    title: 'Processos Judiciais e Editais de Contencioso',
+    description:
+      'Cadastre processos judiciais por cliente e tese (IPI Praça, PRL, IRPJ/CSLL desmutualização). O sistema verifica elegibilidade para editais (52, 53, 54/2025) e integra com o validador de rating na modalidade contencioso — para não perder oportunidade de desconto com fundamento em processo ativo.',
+    barColor: 'bg-brand',
+    imageSrc: '/modulo-simulador-in2306.png',
+    imageAlt: 'Processos Judiciais - Editais de contencioso',
+    bullets: [
+      'Teses elegíveis: IPI Praça, PRL, IRPJ/CSLL desmutualização.',
+      'Integração com validação de rating (modalidade contencioso).',
+      'Gestão de processos ativos por cliente para editais PGFN.',
+    ],
   },
 ] as const;
 
@@ -112,10 +169,10 @@ export function OProduto() {
             <div className="mx-auto max-w-2xl text-center lg:max-w-none lg:text-left flex flex-col h-full">
               <div className="flex-1 flex flex-col lg:justify-center">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                  Veja na prática como o IATax organiza arquivos fiscais e simulações para o seu escritório
+                  Inteligência tributária que gera resultado: simule, valide e recupere com os dados que você já tem
                 </h1>
                 <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
-                  Página dedicada ao produto: três módulos pensados para escritórios que já têm os dados em mãos e querem transformar SPED, ECD, PGDAS e balanços em oportunidades concretas de recuperação e economia.
+                  Seis módulos integrados para escritórios que querem transformar SPED, ECD, PGDAS e balanços em oportunidades concretas: revisão de rating, impacto da LC 224/2025, tributação da alta renda, simulação imobiliária, arquivos organizados e elegibilidade a editais. Menos planilha, mais consultoria.
                 </p>
               </div>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start lg:mt-auto lg:mb-1">
@@ -160,15 +217,16 @@ export function OProduto() {
           id="video"
           eyebrow="Demonstração"
           title="Veja o fluxo completo em poucos minutos"
-          subtitle="Da leitura dos arquivos fiscais às simulações e validação de riscos, em uma demonstração guiada que conecta os três módulos."
+          subtitle="Da organização dos arquivos fiscais às simulações e validação de rating, em uma demonstração guiada que mostra como cada módulo gera valor na rotina do escritório."
           tone="white"
         >
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="max-w-xl">
               <ul className="mt-1 space-y-2 text-sm text-slate-700">
-                <li>• Como revisar a classificação de capacidade de pagamento com dados contábeis.</li>
-                <li>• Como comparar a tributação do lucro presumido antes e depois da LC 224/2025.</li>
-                <li>• Como simular a tributação da alta renda e identificar soluções para redução.</li>
+                <li>• Revisão da capacidade de pagamento (rating) com dados contábeis e relatório para fundamentação.</li>
+                <li>• Comparativo do lucro presumido antes e depois da LC 224/2025 e IN 2.306/2026.</li>
+                <li>• Simulação da tributação da alta renda (Lei 15.270/2025) e cenários de redução.</li>
+                <li>• Gestão imobiliária, arquivos fiscais centralizados e elegibilidade a editais de contencioso.</li>
               </ul>
             </div>
             <div
@@ -197,7 +255,7 @@ export function OProduto() {
           id="beneficios"
           eyebrow="Benefícios"
           title="O que o IATax resolve na prática"
-          subtitle="Mais do que um sistema, o IATax organiza a base fiscal do escritório e traduz os dados em oportunidades concretas de atuação consultiva, com foco em segurança e recorrência."
+          subtitle="Organize a base fiscal, reduza risco nas decisões e transforme dados em oportunidades de consultoria e honorários recorrentes — com simulações e relatórios que o cliente entende e a Receita respeita."
           tone="muted"
         >
           <div className="mt-2 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -217,8 +275,8 @@ export function OProduto() {
         <LandingSection
           id="modulos"
           eyebrow="Módulos"
-          title="Três módulos, uma rotina integrada"
-          subtitle="Cada ferramenta foi desenhada para um ponto crítico: análise da capacidade de pagamento com fundamentação, comparação da tributação do lucro presumido (LC 224/2025) e simulação da tributação da alta renda com possíveis soluções para redução."
+          title="Seis módulos, uma rotina integrada"
+          subtitle="Cada ferramenta foi pensada para um ponto crítico da sua consultoria: validar rating com fundamentação, comparar impacto da reforma do lucro presumido, simular alta renda e imóveis, organizar arquivos e qualificar clientes para editais. Tudo com dados que você já tem."
           tone="white"
           className="border-y border-slate-200/70"
         >
@@ -242,24 +300,9 @@ export function OProduto() {
                   <h3 className="text-xl font-bold tracking-wide text-slate-900">{mod.title}</h3>
                   <p className="mt-4 text-slate-600 leading-[1.6] text-base">{mod.description}</p>
                   <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
-                    {mod.id === 'transacao-tributaria' && (
-                      <>
-                        <li>• Revise o enquadramento com dados contábeis analisados pelo sistema.</li>
-                        <li>• Emissão de relatório para fundamentação da classificação.</li>
-                      </>
-                    )}
-                    {mod.id === 'simulador-in2306' && (
-                      <>
-                        <li>• Compare cenários antes e depois da LC 224/2025.</li>
-                        <li>• Identifique o aumento tributário para o contribuinte.</li>
-                      </>
-                    )}
-                    {mod.id === 'irpf-alta-renda' && (
-                      <>
-                        <li>• Compare cenários antes e depois da nova legislação.</li>
-                        <li>• Possíveis soluções para redução (holding, segregação de renda).</li>
-                      </>
-                    )}
+                    {mod.bullets.map((bullet, i) => (
+                      <li key={i}>• {bullet}</li>
+                    ))}
                   </ul>
                   <Link
                     to="/fale-conosco"

@@ -35,6 +35,7 @@ export function Plans() {
   const [formData, setFormData] = useState<CreatePlanData>({
     name: '',
     maxUsers: 1,
+    maxClients: 0,
     price: 0,
     billingCycle: 'monthly',
     features: [],
@@ -64,13 +65,14 @@ export function Plans() {
       setFormData({
         name: plan.name,
         maxUsers: plan.maxUsers,
+        maxClients: plan.maxClients ?? 0,
         price: plan.price,
         billingCycle: plan.billingCycle,
         features: plan.features,
       });
     } else {
       setEditingPlan(null);
-      setFormData({ name: '', maxUsers: 1, price: 0, billingCycle: 'monthly', features: [] });
+      setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [] });
     }
     setFeatureInput('');
     setIsModalOpen(true);
@@ -79,7 +81,7 @@ export function Plans() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingPlan(null);
-    setFormData({ name: '', maxUsers: 1, price: 0, billingCycle: 'monthly', features: [] });
+    setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [] });
     setFeatureInput('');
   };
 
@@ -179,9 +181,12 @@ export function Plans() {
                     )}
                   </div>
                   <p className="text-sm text-slate-600">
-                    {plan.isCustom 
+                    {plan.isCustom
                       ? 'Módulos gerenciados individualmente'
-                      : `Até ${plan.maxUsers} usuário${plan.maxUsers > 1 ? 's' : ''}`
+                      : [
+                          `Até ${plan.maxUsers} usuário${plan.maxUsers > 1 ? 's' : ''}`,
+                          ((plan.maxClients ?? 0) > 0 ? ` · Até ${plan.maxClients ?? 0} cliente${(plan.maxClients ?? 0) > 1 ? 's' : ''}` : ' · Clientes ilimitados'),
+                        ].join('')
                     }
                   </p>
                 </div>
@@ -245,7 +250,7 @@ export function Plans() {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Máximo de Usuários
@@ -259,6 +264,21 @@ export function Plans() {
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Máximo de Clientes
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.maxClients ?? 0}
+                  onChange={(e) =>
+                    setFormData({ ...formData, maxClients: Math.max(0, parseInt(e.target.value) || 0) })
+                  }
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  placeholder="0 = ilimitado"
                 />
               </div>
               <div>
