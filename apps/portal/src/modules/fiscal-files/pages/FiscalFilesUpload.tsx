@@ -13,6 +13,7 @@ interface FileUpload {
   id: string;
   progress: number;
   status: 'pending' | 'uploading' | 'success' | 'error';
+  stage?: 'sending' | 'processing' | 'finalizing';
   error?: string;
 }
 
@@ -28,6 +29,15 @@ export function FiscalFilesUpload() {
   const [filesToUpload, setFilesToUpload] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const getFileStatusLabel = (fileUpload: FileUpload): string => {
+    if (fileUpload.status === 'pending') return 'Pendente';
+    if (fileUpload.status === 'success') return 'Concluído';
+    if (fileUpload.status === 'error') return 'Falha no processamento';
+    if (fileUpload.stage === 'finalizing') return 'Finalizando...';
+    if (fileUpload.stage === 'processing') return 'Processando dados...';
+    return 'Enviando arquivo...';
+  };
 
   // Carregar clientes
   useEffect(() => {
@@ -140,10 +150,27 @@ export function FiscalFilesUpload() {
       setFilesToUpload((prev) =>
         prev.map((f) =>
           f.id === fileUpload.id
-            ? { ...f, status: 'uploading', progress: 0 }
+            ? { ...f, status: 'uploading', progress: 8, stage: 'sending' }
             : f
         )
       );
+
+      const startedAt = Date.now();
+      const progressInterval = window.setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        setFilesToUpload((prev) =>
+          prev.map((f) => {
+            if (f.id !== fileUpload.id || f.status !== 'uploading') return f;
+            if (elapsed >= 12000) {
+              return { ...f, stage: 'finalizing', progress: Math.max(f.progress, 90) };
+            }
+            if (elapsed >= 3500) {
+              return { ...f, stage: 'processing', progress: Math.max(f.progress, 58) };
+            }
+            return { ...f, stage: 'sending', progress: Math.max(f.progress, 18) };
+          })
+        );
+      }, 900);
 
       try {
         await fiscalFileService.upload({
@@ -153,21 +180,24 @@ export function FiscalFilesUpload() {
           file: fileUpload.file,
         });
 
+        window.clearInterval(progressInterval);
         setFilesToUpload((prev) =>
           prev.map((f) =>
             f.id === fileUpload.id
-              ? { ...f, status: 'success', progress: 100 }
+              ? { ...f, status: 'success', progress: 100, stage: undefined }
               : f
           )
         );
         successCount++;
       } catch (error) {
+        window.clearInterval(progressInterval);
         setFilesToUpload((prev) =>
           prev.map((f) =>
             f.id === fileUpload.id
               ? {
                   ...f,
                   status: 'error',
+                  stage: undefined,
                   error: error instanceof Error ? error.message : 'Erro desconhecido',
                 }
               : f
@@ -373,12 +403,13 @@ export function FiscalFilesUpload() {
                             </div>
                           )}
                           {fileUpload.status === 'success' && (
-                            <Badge variant="success" className="text-xs">Enviado</Badge>
+                            <Badge variant="success" className="text-xs">Concluído</Badge>
                           )}
                           {fileUpload.status === 'error' && (
-                            <Badge variant="error" className="text-xs">Erro</Badge>
+                            <Badge variant="error" className="text-xs">Falha no processamento</Badge>
                           )}
                         </div>
+                        <p className="text-xs text-slate-600 mt-1">{getFileStatusLabel(fileUpload)}</p>
                         {fileUpload.error && (
                           <p className="text-xs text-red-600 mt-1">{fileUpload.error}</p>
                         )}
@@ -407,17 +438,17 @@ export function FiscalFilesUpload() {
                     )}
                     {uploadingFiles.length > 0 && (
                       <span className="text-xs text-blue-600">
-                        {uploadingFiles.length} enviando...
+                        {uploadingFiles.length} processando dados...
                       </span>
                     )}
                     {successFiles.length > 0 && (
                       <span className="text-xs text-indigo-600">
-                        {successFiles.length} enviado(s)
+                        {successFiles.length} concluído(s)
                       </span>
                     )}
                     {errorFiles.length > 0 && (
                       <span className="text-xs text-red-600">
-                        {errorFiles.length} erro(s)
+                        {errorFiles.length} falha(s) no processamento
                       </span>
                     )}
                   </div>
@@ -439,7 +470,7 @@ export function FiscalFilesUpload() {
             size="lg"
           >
             {isUploading
-              ? `Enviando ${uploadingFiles.length} arquivo(s)...`
+              ? `Processando ${uploadingFiles.length} arquivo(s)...`
               : `Enviar ${filesToUpload.length} arquivo(s)`}
           </Button>
         </div>

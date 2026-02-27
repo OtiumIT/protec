@@ -30,6 +30,13 @@ const STEPS: { number: Step; title: string; description: string }[] = [
 ];
 
 const DEMO_KEY_WINDOW_MS = 1500;
+const ECD_PROCESSING_STEPS = [
+  { minElapsedMs: 0, progress: 10, stage: 'Enviando arquivo...', detail: 'Transferindo o PDF da ECD para processamento.' },
+  { minElapsedMs: 1800, progress: 24, stage: 'Lendo estrutura do PDF...', detail: 'Preparando páginas e blocos contábeis.' },
+  { minElapsedMs: 6000, progress: 43, stage: 'Processando dados...', detail: 'Extraindo balanço patrimonial e DRE.' },
+  { minElapsedMs: 12000, progress: 64, stage: 'Conferindo consistência...', detail: 'Validando campos para preencher o formulário.' },
+  { minElapsedMs: 20000, progress: 82, stage: 'Finalizando...', detail: 'Aplicando os últimos ajustes da extração.' },
+] as const;
 
 /** Fallback quando API não retorna thresholds_by_level (para tabela sempre visível) */
 const FALLBACK_THRESHOLDS: Record<string, { D: string; C: string; B: string; A: string }> = {
@@ -131,6 +138,9 @@ export function RatingValidator() {
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ecdPdfInputRef = useRef<HTMLInputElement>(null);
   const [isExtractingEcdPdf, setIsExtractingEcdPdf] = useState(false);
+  const [ecdProcessingStage, setEcdProcessingStage] = useState('');
+  const [ecdProcessingDetail, setEcdProcessingDetail] = useState('');
+  const [ecdProcessingProgress, setEcdProcessingProgress] = useState(0);
 
   // Estado para controlar modo granular vs total em cada seção
   const [useTotalMode, setUseTotalMode] = useState<{
@@ -253,9 +263,26 @@ export function RatingValidator() {
         return;
       }
       setIsExtractingEcdPdf(true);
+      setEcdProcessingStage('Enviando arquivo...');
+      setEcdProcessingDetail('Preparando importação da ECD.');
+      setEcdProcessingProgress(10);
+      const startedAt = Date.now();
+      const updateProgress = () => {
+        const elapsedMs = Date.now() - startedAt;
+        const activeStep =
+          [...ECD_PROCESSING_STEPS].reverse().find((step) => elapsedMs >= step.minElapsedMs) ?? ECD_PROCESSING_STEPS[0];
+        setEcdProcessingStage(activeStep.stage);
+        setEcdProcessingDetail(activeStep.detail);
+        setEcdProcessingProgress(activeStep.progress);
+      };
+      const progressInterval = window.setInterval(updateProgress, 1200);
       try {
+        updateProgress();
         const result: ExtractEcdPdfResult = await ratingValidatorService.extractFromEcdPdf(file);
         const prefill = result.simulação_prefill;
+        setEcdProcessingStage('Finalizando...');
+        setEcdProcessingDetail('Aplicando dados extraídos na simulação.');
+        setEcdProcessingProgress(97);
         setFormData((prev) => ({
           ...prev,
           ativo_circulante: prefill.ativo_circulante,
@@ -272,10 +299,15 @@ export function RatingValidator() {
             ? `Dados da ECD de ${result.ecd.entidade.nome} importados. Revise os valores e prossiga.`
             : 'Dados do PDF da ECD importados. Revise os valores e prossiga.'
         );
+        setEcdProcessingProgress(100);
       } catch (err) {
         showError(err instanceof Error ? err.message : 'Falha ao extrair dados do PDF da ECD.');
       } finally {
+        window.clearInterval(progressInterval);
         setIsExtractingEcdPdf(false);
+        setEcdProcessingStage('');
+        setEcdProcessingDetail('');
+        setEcdProcessingProgress(0);
         if (ecdPdfInputRef.current) ecdPdfInputRef.current.value = '';
       }
     },
@@ -1421,6 +1453,23 @@ export function RatingValidator() {
                   Envie o PDF oficial do Recibo de Entrega da ECD (Balanço e DRE) para preencher automaticamente os dados da simulação.
                 </p>
               </div>
+              {ecdProcessingStage && (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-slate-700 font-medium">{ecdProcessingStage}</p>
+                    <span className="text-xs font-semibold text-slate-600">{Math.round(ecdProcessingProgress)}%</span>
+                  </div>
+                  {ecdProcessingDetail && (
+                    <p className="mt-1 text-xs text-slate-500">{ecdProcessingDetail}</p>
+                  )}
+                  <div className="mt-2 h-2 rounded bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-2 bg-brand transition-all duration-700 ease-out"
+                      style={{ width: `${Math.max(8, Math.min(100, ecdProcessingProgress))}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Progress Steps */}

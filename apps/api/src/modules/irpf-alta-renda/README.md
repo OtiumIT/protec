@@ -36,9 +36,17 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 ### POST /irpf-alta-renda/extract-from-pdf
 
 - **Descrição**: Extrai dados de IRPF de um PDF (ex.: DAA, resumo da declaração) usando OpenAI e retorna `{ ano, dados, declaracao_completa }` para preencher o formulário.
+- **Estratégia de extração (atual)**: chamada única ao `gpt-4o` com contexto integral do texto extraído (sem divisão por etapas e sem truncamento de 18k), para preservar consistência entre cabeçalho, tabelas e seções finais.
+- **Leitura tabular obrigatória no prompt**: o motor instrui o modelo a reconstruir tabelas linha a linha (descrição + colunas da mesma linha), com foco em evitar perda de valores alinhados à direita.
+- **Regra de ouro de valores**: o prompt proíbe retorno `0/0.00` quando houver valor monetário legível associado ao item; em caso ilegível, o modelo deve sinalizar ausência de valor em vez de inventar número.
+- **Captura completa de listas**: o prompt exige extração integral de itens, sem resumo/agregação, especialmente em Bens e Direitos, Rendimentos Isentos e Pagamentos Efetuados.
+- **Validação de Exercício/Ano-Calendário**: o prompt força conferência no cabeçalho (ex.: Exercício 2025 -> Ano-Calendário 2024) para reduzir troca de ano.
 - **Campos extraídos (resumo)**: base_calculo_ir, imposto_devido, imposto_pago_retencao, imposto_ja_pago_carne_leao, imposto_a_restituir, imposto_a_pagar.
 - **Tributação exclusiva**: itens com código 06/10 podem incluir `irrf` (IR retido na fonte), somado em `imposto_ja_pago_aplicacoes`.
-- **Diagnóstico**: retorna `diagnostico` com `completude` e `avisos` (ex.: etapa com falha, texto truncado, fallback legado).
+- **Diagnóstico**: retorna `diagnostico` com `completude` e `avisos` (ex.: baixa cobertura por seção, OCR fraco, fallback legado).
+- **Qualidade da extração**: a API calcula score determinístico de completude por seções (identificação, tributáveis, isentos, resumo, bens/dívidas) para evitar falso positivo de sucesso com dados vazios.
+- **Baixa confiança / OCR fraco**: quando há poucos valores monetários e baixa cobertura, a resposta inclui avisos explícitos recomendando uso de `.dec/.dbk` ou preenchimento manual.
+- **Fallback PDF escaneado**: quando não há texto útil, a API usa Files API com `gpt-4o` e o mesmo conjunto de regras do prompt unificado, com tolerância a ruído de OCR.
 - **Body**: `multipart/form-data` com campo **file** (arquivo PDF).
 - **Resposta**: `{ data: { ano, dados: DadosIrpfAltaRenda, declaracao_completa, arquivo_nome } }`.
 - **Requisito**: Variável de ambiente **OPENAI_API_KEY** configurada na API.

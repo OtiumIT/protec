@@ -37,6 +37,15 @@ import html2pdf from 'html2pdf.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const DEMO_KEY_WINDOW_MS = 1500;
+const PDF_PROCESSING_STEPS = [
+  { minElapsedMs: 0, progress: 8, stage: 'Enviando PDF...', detail: 'Realizando upload seguro do arquivo.' },
+  { minElapsedMs: 2000, progress: 18, stage: 'Lendo estrutura do PDF...', detail: 'Preparando o documento para extração de texto.' },
+  { minElapsedMs: 7000, progress: 32, stage: 'Extraindo conteúdo textual...', detail: 'Coletando campos e blocos relevantes da declaração.' },
+  { minElapsedMs: 14000, progress: 50, stage: 'Interpretando identificação e resumo...', detail: 'Organizando dados de contribuinte e totais principais.' },
+  { minElapsedMs: 22000, progress: 67, stage: 'Processando rendimentos...', detail: 'Classificando tributáveis, isentos e exclusivos.' },
+  { minElapsedMs: 30000, progress: 82, stage: 'Conferindo consistência dos dados...', detail: 'Validando estrutura para preencher o formulário.' },
+  { minElapsedMs: 38000, progress: 92, stage: 'Finalizando extração...', detail: 'Quase pronto, aplicando os últimos ajustes.' },
+] as const;
 
 /** Demo 1: Cenário básico (RT, dividendos, deduções) — Ctrl+D+1 */
 const DEMO_1 = {
@@ -72,7 +81,7 @@ const DEMO_2 = {
 const DEMO_3 = {
   ...DEMO_1,
   nome: 'Carlos Alta Renda (Demo 3)',
-  cpf: '11122233344',
+  cpf: '52998224725',
   rendimentosTributaveis: 800_000,
   dividendos: [
     { nome_fonte: 'Holdings várias', valor: 600_000, codigo: '09' as const },
@@ -179,6 +188,8 @@ export function IrpfAltaRenda() {
   const [decDbkParserVersion, setDecDbkParserVersion] = useState<number | null>(null);
   const [diagnosticoExtracao, setDiagnosticoExtracao] = useState<{ completude: 'alta' | 'media' | 'baixa'; avisos: string[] } | null>(null);
   const [processingStage, setProcessingStage] = useState('');
+  const [processingDetail, setProcessingDetail] = useState('');
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [removeConfirmModal, setRemoveConfirmModal] = useState<{
     isOpen: boolean;
     type: 'dividendo' | 'outroIsento' | 'lei7713';
@@ -864,12 +875,27 @@ export function IrpfAltaRenda() {
     setSelectedImportType('pdf');
     setPdfLoading(true);
     setProcessingStage('Enviando PDF...');
+    setProcessingDetail('Preparando importação...');
+    setProcessingProgress(8);
+    const startedAt = Date.now();
+    const updatePdfProgress = () => {
+      const elapsedMs = Date.now() - startedAt;
+      const activeStep =
+        [...PDF_PROCESSING_STEPS].reverse().find((step) => elapsedMs >= step.minElapsedMs) ?? PDF_PROCESSING_STEPS[0];
+      setProcessingStage(activeStep.stage);
+      setProcessingDetail(activeStep.detail);
+      setProcessingProgress(activeStep.progress);
+    };
+    const progressInterval = window.setInterval(updatePdfProgress, 1200);
     try {
       trackIrpfMetric('irpfm_pdf_upload_started');
-      setProcessingStage('Extraindo dados da declaração...');
+      updatePdfProgress();
       const result = await irpfAltaRendaService.extractFromPdf(pdfFile);
       setProcessingStage('Preenchendo formulário automaticamente...');
+      setProcessingDetail('Aplicando os dados extraídos nos campos.');
+      setProcessingProgress(97);
       applyExtractedData(result);
+      setProcessingProgress(100);
       trackIrpfMetric('irpfm_pdf_upload_success', { ano: result.ano });
       success('Dados extraídos do PDF. Revise e clique em Simular.');
       setPdfFileName((result as { arquivo_nome?: string }).arquivo_nome ?? pdfFile.name);
@@ -878,8 +904,11 @@ export function IrpfAltaRenda() {
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Erro ao extrair dados do PDF');
     } finally {
+      window.clearInterval(progressInterval);
       setPdfLoading(false);
       setProcessingStage('');
+      setProcessingDetail('');
+      setProcessingProgress(0);
     }
   };
 
@@ -892,12 +921,19 @@ export function IrpfAltaRenda() {
     setSelectedImportType('dec_dbk');
     setDecDbkLoading(true);
     setProcessingStage('Enviando arquivo .dec/.dbk...');
+    setProcessingDetail('Realizando upload do arquivo para importação.');
+    setProcessingProgress(20);
     try {
       trackIrpfMetric('irpfm_dec_dbk_upload_started');
       setProcessingStage('Lendo leiaute e classificando rendimentos...');
+      setProcessingDetail('Interpretando estrutura interna do arquivo .dec/.dbk.');
+      setProcessingProgress(65);
       const result = await irpfAltaRendaService.importDeclaration(decDbkFile);
       setProcessingStage('Aplicando dados no formulário...');
+      setProcessingDetail('Transferindo dados para os campos do simulador.');
+      setProcessingProgress(95);
       applyExtractedData(result);
+      setProcessingProgress(100);
       trackIrpfMetric('irpfm_dec_dbk_upload_success', { ano: result.ano });
       success('Dados importados do arquivo .dec/.dbk. Revise e clique em Simular.');
       setDecDbkFileName((result as { arquivo_nome?: string }).arquivo_nome ?? decDbkFile.name);
@@ -908,6 +944,8 @@ export function IrpfAltaRenda() {
     } finally {
       setDecDbkLoading(false);
       setProcessingStage('');
+      setProcessingDetail('');
+      setProcessingProgress(0);
     }
   };
 
@@ -1318,9 +1356,18 @@ export function IrpfAltaRenda() {
 
         {processingStage && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm text-slate-700 font-medium">{processingStage}</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-700 font-medium">{processingStage}</p>
+              <span className="text-xs font-semibold text-slate-600">{Math.max(0, Math.min(100, Math.round(processingProgress)))}%</span>
+            </div>
+            {processingDetail && (
+              <p className="mt-1 text-xs text-slate-500">{processingDetail}</p>
+            )}
             <div className="mt-2 h-2 rounded bg-slate-200 overflow-hidden">
-              <div className="h-2 w-2/3 bg-brand animate-pulse" />
+              <div
+                className="h-2 bg-brand transition-all duration-700 ease-out"
+                style={{ width: `${Math.max(8, Math.min(100, processingProgress))}%` }}
+              />
             </div>
           </div>
         )}

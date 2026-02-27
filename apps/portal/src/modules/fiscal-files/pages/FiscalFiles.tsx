@@ -137,14 +137,24 @@ export function FiscalFiles() {
 
   const getStatusBadge = (status: FiscalFile['status']) => {
     const statusMap = {
-      uploaded: { label: 'Enviado', variant: 'info' as const },
-      processing: { label: 'Processando', variant: 'warning' as const },
-      processed: { label: 'Processado', variant: 'success' as const },
-      error: { label: 'Erro', variant: 'error' as const },
+      uploaded: { label: 'Enviando arquivo...', variant: 'info' as const },
+      processing: { label: 'Processando dados...', variant: 'warning' as const },
+      processed: { label: 'Concluído', variant: 'success' as const },
+      error: { label: 'Falha no processamento', variant: 'error' as const },
     };
 
     const statusInfo = statusMap[status];
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+  };
+
+  const getStatusDetail = (status: FiscalFile['status']) => {
+    const map = {
+      uploaded: 'Arquivo recebido e aguardando processamento.',
+      processing: 'Processamento em andamento no backend.',
+      processed: 'Processamento concluído com sucesso.',
+      error: 'Não foi possível concluir o processamento.',
+    };
+    return map[status];
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -220,10 +230,10 @@ export function FiscalFiles() {
               className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             >
               <option value="">Todos os status</option>
-              <option value="uploaded">Enviado</option>
-              <option value="processing">Processando</option>
-              <option value="processed">Processado</option>
-              <option value="error">Erro</option>
+              <option value="uploaded">Enviando arquivo...</option>
+              <option value="processing">Processando dados...</option>
+              <option value="processed">Concluído</option>
+              <option value="error">Falha no processamento</option>
             </select>
 
             {/* Tipo */}
@@ -338,6 +348,7 @@ export function FiscalFiles() {
                     <span>Tamanho: {formatFileSize(file.file_size)}</span>
                     <span>Enviado em: {formatDate(file.created_at)}</span>
                   </div>
+                  <p className="text-xs text-slate-600 mt-1">{getStatusDetail(file.status)}</p>
                   {file.processing_error && (
                     <p className="text-xs text-red-600 mt-1">Erro: {file.processing_error}</p>
                   )}
