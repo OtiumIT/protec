@@ -2155,8 +2155,11 @@ export function IrpfAltaRenda() {
                       Seu cliente está pagando{' '}
                       <strong>{comparativo.diferenca_percentual_pj_mais_caro.toFixed(1)}%</strong> a mais por
                       investir via PJ (Lucro Presumido) para uma aplicação de{' '}
-                      {formatCurrency(comparativo.rendimento_bruto)}. Mantenha caixa fora da Holding para
-                      aplicações financeiras quando possível.
+                      {formatCurrency(comparativo.rendimento_bruto)} no cenário-base desta simulação. Essa
+                      diferença pode aumentar quando a PF utiliza ativos isentos (como LCI, LCA e
+                      debêntures incentivadas). Se a empresa precisar do recurso para operação, avalie o
+                      custo de liquidez antes de mover o caixa para PF. Estratégia sugerida: manter na PJ
+                      o caixa operacional e direcionar excedentes de longo prazo para PF quando possível.
                     </p>
                   </div>
                 ) : null;
