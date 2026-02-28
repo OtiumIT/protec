@@ -39,9 +39,16 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function ScrollToTop() {
   const location = useLocation();
 
-  // Sempre que o pathname mudar, força o scroll para o topo
-  // para evitar que telas deslogadas e internas abram "no meio" da página anterior.
+  // Sempre que a rota mudar:
+  // - se houver container de scroll da área logada, reseta nele;
+  // - caso contrário, usa o scroll global da janela.
   useEffect(() => {
+    const privateScrollContainer = document.querySelector('[data-private-scroll-container="true"]');
+    if (privateScrollContainer instanceof HTMLElement) {
+      privateScrollContainer.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      return;
+    }
+
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname]);
 

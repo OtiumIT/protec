@@ -1034,9 +1034,9 @@ export function IrpfAltaRenda() {
             : ''
         }
       />
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start gap-2 mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-start gap-2 mb-1">
+          <h1 className="text-3xl font-bold text-slate-900 leading-tight">
             Simulador de Tributação de Alta Renda – IRPFM
           </h1>
           <button
@@ -1051,10 +1051,10 @@ export function IrpfAltaRenda() {
             </svg>
           </button>
         </div>
-        <p className="text-sm sm:text-base text-slate-600 -mt-4 mb-2">
+        <p className="text-sm sm:text-base text-slate-600 mt-0 mb-1">
           Simule o imposto complementar da alta renda, compare cenários e explore alternativas de planejamento.
         </p>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="max-w-4xl rounded-xl border border-amber-200 bg-amber-50 px-5 py-3.5 text-sm text-amber-900">
           <p className="font-medium">
             Simulação para planejamento tributário – não substitui a Declaração de Ajuste Anual (DAA) nem parecer jurídico-tributário.
           </p>

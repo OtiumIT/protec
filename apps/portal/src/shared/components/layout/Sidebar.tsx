@@ -449,10 +449,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
               w-full flex items-center gap-2 rounded-lg transition-all duration-200
               group relative
               ${active 
-                ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
+                ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
                 : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
               }
-              ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-2.5' : 'items-start justify-between px-4 py-2.5'}
+              ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start justify-between px-4 py-3'}
               ${isChild ? 'ml-2 text-sm' : ''}
               focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
             `}
@@ -508,7 +508,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                         flex items-start gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-sm
                         group relative
                         ${childActive 
-                          ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
+                          ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
                           : 'text-slate-600 hover:bg-slate-50 hover:text-brand'
                         }
                         focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
@@ -548,10 +548,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           title={item.name}
           className={`
             flex items-center gap-3 rounded-lg transition-all duration-200
-            ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-2.5' : 'items-start px-4 py-2.5'}
+            ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start px-4 py-3'}
             group relative
             ${active 
-              ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' 
+              ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
               : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
             }
             ${isChild ? 'ml-2 text-sm' : ''}
@@ -622,8 +622,8 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
       <aside 
         className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          w-64 h-full max-h-screen lg:max-h-screen
+          fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50
+          w-64 h-screen max-h-screen
           bg-white border-r border-slate-200
           flex flex-col
           transform transition-all duration-300 ease-in-out
@@ -696,7 +696,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
               placeholder="Buscar no menu (⌘K)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-slate-50 hover:bg-white"
+              className="w-full h-11 pl-9 pr-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-slate-50 hover:bg-white"
             />
             {searchQuery && (
               <button
@@ -719,7 +719,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           {isAdmin && administrativeItems.length > 0 && (
             <div className="mb-6">
               {!isCollapsed && (
-              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
+              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-600 uppercase tracking-wider break-words">
                 {isSuperAdmin ? 'Administração Global' : 'Administrativo'}
               </h3>
               )}
@@ -747,7 +747,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             return (
               <div key={moduleKey} className="mb-6">
                 {!isCollapsed && (
-                <h3 className="px-4 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
+              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-600 uppercase tracking-wider break-words">
                   {moduleName}
                 </h3>
                 )}
@@ -758,9 +758,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                           <Link
                             to={child.path || '#'}
                             className={`
-                              flex items-start gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
+                              flex items-start gap-3 px-4 py-3 rounded-lg transition-all duration-200
                               group relative text-slate-700 hover:bg-slate-50 hover:text-brand
-                              ${isActive(child.path) ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-semibold shadow-sm' : ''}
+                              ${isActive(child.path) ? 'bg-brand/10 text-brand font-semibold shadow-sm' : ''}
                               focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
                             `}
                             aria-current={isActive(child.path) ? 'page' : undefined}
