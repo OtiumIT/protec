@@ -22,16 +22,34 @@ import { errorHandler } from '../shared/utils/error-handler';
 const app = new Hono();
 
 // CORS: múltiplas origens (separadas por vírgula) ou em dev qualquer localhost
+// Normaliza: trim, remove trailing slash (Origin do browser nunca tem / no final)
 const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+  ? process.env.CORS_ORIGIN.split(',')
+      .map((o) => o.trim().replace(/\/+$/, ''))
+      .filter(Boolean)
   : [];
 const isDev = process.env.NODE_ENV !== 'production';
+
+function isOriginAllowed(origin: string | undefined): string | null {
+  if (!origin) return null;
+  const normalized = origin.replace(/\/+$/, '');
+  if (corsOrigins.length === 0) return origin;
+  if (corsOrigins.includes(normalized)) return origin;
+  // Permite www quando config tem non-www (e vice-versa): example.com <-> www.example.com
+  const originHost = normalized.replace(/^https?:\/\//, '');
+  for (const allowed of corsOrigins) {
+    const allowedHost = allowed.replace(/^https?:\/\//, '');
+    const originBase = originHost.replace(/^www\./, '');
+    const allowedBase = allowedHost.replace(/^www\./, '');
+    if (originBase === allowedBase) return origin;
+  }
+  return null;
+}
+
 app.use('/*', cors({
   origin: (origin) => {
     if (isDev && /^https?:\/\/localhost(:\d+)?$/.test(origin ?? '')) return origin ?? '*';
-    if (corsOrigins.length && origin && corsOrigins.includes(origin)) return origin;
-    if (corsOrigins.length === 0) return origin ?? '*';
-    return null;
+    return isOriginAllowed(origin ?? undefined) ?? null;
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
