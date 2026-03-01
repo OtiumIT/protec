@@ -15,9 +15,10 @@ import {
 } from '../services/plan.service';
 
 export function Plans() {
-  const { error: showError, ToastContainer } = useToast();
+  const { success: showSuccess, error: showError, ToastContainer } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -32,7 +33,7 @@ export function Plans() {
     onConfirm: () => {},
   });
 
-  const [formData, setFormData] = useState<CreatePlanData>({
+  const [formData, setFormData] = useState<CreatePlanData & { status?: 'active' | 'inactive' }>({
     name: '',
     maxUsers: 1,
     maxClients: 0,
@@ -50,10 +51,21 @@ export function Plans() {
   const loadPlans = async () => {
     setIsLoading(true);
     try {
-      const data = await planService.list();
-      setPlans(data);
+      // Gestão: usar listAdmin para ver todos os planos (incl. inativos); fallback para list público
+      try {
+        const data = await planService.listAdmin();
+        setPlans(data);
+      } catch (adminError: any) {
+        if (adminError?.message?.includes('403') || adminError?.message?.includes('Forbidden')) {
+          const data = await planService.list();
+          setPlans(data);
+        } else {
+          throw adminError;
+        }
+      }
     } catch (error) {
       console.error('Error loading plans:', error);
+      showError('Erro ao carregar planos');
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +81,7 @@ export function Plans() {
         price: plan.price,
         billingCycle: plan.billingCycle,
         features: plan.features,
+        status: plan.status === 'inactive' ? 'inactive' : 'active',
       });
     } else {
       setEditingPlan(null);
@@ -83,6 +96,7 @@ export function Plans() {
     setEditingPlan(null);
     setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [] });
     setFeatureInput('');
+    setIsSubmitting(false);
   };
 
   const handleAddFeature = () => {
@@ -104,17 +118,23 @@ export function Plans() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingPlan) {
         await planService.update(editingPlan.id, formData);
+        showSuccess('Plano atualizado com sucesso');
       } else {
         await planService.create(formData);
+        showSuccess('Plano criado com sucesso');
       }
       handleCloseModal();
       loadPlans();
     } catch (error) {
       console.error('Error saving plan:', error);
       showError('Erro ao salvar plano');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -124,9 +144,10 @@ export function Plans() {
       title: 'Confirmar exclusão',
       message: 'Tem certeza que deseja excluir este plano? Esta ação não pode ser desfeita.',
       onConfirm: async () => {
-        setConfirmModal({ ...confirmModal, isOpen: false });
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await planService.delete(id);
+          showSuccess('Plano excluído');
           loadPlans();
         } catch (error) {
           console.error('Error deleting plan:', error);
@@ -167,7 +188,11 @@ export function Plans() {
                     {plan.isCustom && (
                       <Badge variant="info">Customizado</Badge>
                     )}
-                    <Badge variant="success">Ativo</Badge>
+                    {plan.status === 'inactive' ? (
+                      <Badge variant="default">Inativo</Badge>
+                    ) : (
+                      <Badge variant="success">Ativo</Badge>
+                    )}
                   </div>
                 </div>
 
@@ -290,21 +315,38 @@ export function Plans() {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Ciclo de Cobrança
-              </label>
-              <select
-                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                value={formData.billingCycle}
-                onChange={(e) =>
-                  setFormData({ ...formData, billingCycle: e.target.value as 'monthly' | 'yearly' })
-                }
-                required
-              >
-                <option value="monthly">Mensal</option>
-                <option value="yearly">Anual</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Ciclo de Cobrança
+                </label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  value={formData.billingCycle}
+                  onChange={(e) =>
+                    setFormData({ ...formData, billingCycle: e.target.value as 'monthly' | 'yearly' })
+                  }
+                  required
+                >
+                  <option value="monthly">Mensal</option>
+                  <option value="yearly">Anual</option>
+                </select>
+              </div>
+              {editingPlan && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    value={formData.status ?? 'active'}
+                    onChange={(e) =>
+                      setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })
+                    }
+                  >
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Recursos</label>
@@ -350,10 +392,21 @@ export function Plans() {
               </div>
             </div>
             <div className="flex space-x-3 pt-4">
-              <Button type="submit" variant="secondary" className="flex-1">
-                {editingPlan ? 'Salvar Alterações' : 'Criar Plano'}
+              <Button
+                type="submit"
+                variant="secondary"
+                className="flex-1"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Salvando...' : editingPlan ? 'Salvar Alterações' : 'Criar Plano'}
               </Button>
-              <Button type="button" variant="tertiary" onClick={handleCloseModal} className="flex-1">
+              <Button
+                type="button"
+                variant="tertiary"
+                onClick={handleCloseModal}
+                className="flex-1"
+                disabled={isSubmitting}
+              >
                 Cancelar
               </Button>
             </div>

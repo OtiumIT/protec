@@ -72,6 +72,16 @@ export const planService = {
     return response.data.plans.map(convertPlan);
   },
 
+  /** Listagem para gestão (admin): retorna todos os planos, incluindo inativos */
+  async listAdmin(): Promise<Plan[]> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: { plans: any[] } }>(
+      '/api/v1/plans/admin',
+      { method: 'GET', token, tenantId }
+    );
+    return response.data.plans.map(convertPlan);
+  },
+
   async getById(id: string): Promise<Plan | null> {
     try {
       const response = await apiRequest<{ data: { plan: any } }>(

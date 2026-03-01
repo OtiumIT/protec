@@ -27,22 +27,6 @@ planRoutes.get('/', async (c) => {
   }
 });
 
-/**
- * GET /plans/:id
- * Buscar plano por ID (público)
- */
-planRoutes.get('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const plan = await planService.getById(id);
-    return c.json({
-      data: { plan },
-    });
-  } catch (error) {
-    return errorHandler(error, c);
-  }
-});
-
 // Rotas protegidas (apenas admin ou super_admin)
 planRoutes.use('/admin/*', authMiddleware);
 
@@ -52,6 +36,22 @@ function canManagePlans(c: { get: (key: string) => unknown }): boolean {
   const role = (user?.role ?? jwt?.role ?? '').toString().trim().toLowerCase();
   return role === 'admin' || role === 'super_admin';
 }
+
+/**
+ * GET /plans/admin
+ * Listar todos os planos para gestão (ativos + inativos)
+ */
+planRoutes.get('/admin', async (c) => {
+  try {
+    if (!canManagePlans(c)) {
+      return c.json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } }, 403);
+    }
+    const plans = await planService.listForAdmin();
+    return c.json({ data: { plans } });
+  } catch (error) {
+    return errorHandler(error, c);
+  }
+});
 
 /**
  * POST /plans/admin
@@ -141,6 +141,22 @@ planRoutes.delete('/admin/:id', async (c) => {
 
     return c.json({
       data: { success: true },
+    });
+  } catch (error) {
+    return errorHandler(error, c);
+  }
+});
+
+/**
+ * GET /plans/:id
+ * Buscar plano por ID (público) - deve vir depois de /admin para não capturar "admin" como id
+ */
+planRoutes.get('/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const plan = await planService.getById(id);
+    return c.json({
+      data: { plan },
     });
   } catch (error) {
     return errorHandler(error, c);

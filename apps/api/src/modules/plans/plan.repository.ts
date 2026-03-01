@@ -60,7 +60,7 @@ export class PlanRepository extends BaseRepository {
   }
 
   /**
-   * Listar todos os planos
+   * Listar todos os planos (apenas ativos - listagem pública)
    * Usa DISTINCT ON para evitar duplicatas por nome (mantém o mais antigo)
    */
   async findAll(): Promise<Plan[]> {
@@ -74,6 +74,24 @@ export class PlanRepository extends BaseRepository {
       false // Planos não requerem filtro de tenant
     );
     // Converter features de JSONB para array
+    return result.rows.map((plan: any) => ({
+      ...plan,
+      features: Array.isArray(plan.features) ? plan.features : (plan.features ? Object.values(plan.features) : []),
+    })) as Plan[];
+  }
+
+  /**
+   * Listar todos os planos para admin (ativos + inativos - gestão)
+   */
+  async findAllForAdmin(): Promise<Plan[]> {
+    const result = await this.query<any>(
+      `SELECT DISTINCT ON (name) 
+        id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
+       FROM plans 
+       ORDER BY name, created_at ASC`,
+      [],
+      false
+    );
     return result.rows.map((plan: any) => ({
       ...plan,
       features: Array.isArray(plan.features) ? plan.features : (plan.features ? Object.values(plan.features) : []),

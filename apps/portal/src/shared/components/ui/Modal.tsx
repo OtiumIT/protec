@@ -33,16 +33,17 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        {/* Overlay */}
+        {/* Overlay - z-0 para ficar atrás do conteúdo do modal */}
         <div
-          className="fixed inset-0 transition-opacity bg-brand/20 backdrop-blur-sm"
+          className="fixed inset-0 z-0 transition-opacity bg-brand/20 backdrop-blur-sm"
           onClick={onClose}
           aria-hidden="true"
         />
 
-        {/* Modal */}
+        {/* Modal - z-10 para receber cliques (inputs e botões) */}
         <div
-          className={`inline-block align-bottom bg-white rounded-2xl shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} w-full border border-brand/20`}
+          className={`relative z-10 inline-block align-bottom bg-white rounded-2xl shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} w-full border border-brand/20`}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-brand/5">

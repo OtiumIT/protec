@@ -6,10 +6,17 @@ export class PlanService {
   constructor(private planRepo: PlanRepository) {}
 
   /**
-   * Listar todos os planos
+   * Listar todos os planos (apenas ativos)
    */
   async list(): Promise<Plan[]> {
     return this.planRepo.findAll();
+  }
+
+  /**
+   * Listar todos os planos para admin (ativos + inativos)
+   */
+  async listForAdmin(): Promise<Plan[]> {
+    return this.planRepo.findAllForAdmin();
   }
 
   /**
