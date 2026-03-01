@@ -1,6 +1,23 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  "globalEnv": [
+    "CORS_ORIGIN",
+    "CORS_ORIGIN_DOMAINS",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "REFRESH_TOKEN_SECRET",
+    "REFRESH_TOKEN_EXPIRES_IN",
+    "OPENAI_API_KEY",
+    "PORT",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_KEY",
+    "SUPABASE_ANON_KEY",
+    "VITE_API_URL",
+    "VITE_STRIPE_PUBLISHABLE_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

@@ -26,7 +26,7 @@ Somente o app **portal** (frontend React/Vite) é publicado no Cloudflare Pages.
 
 | Variável | Valor | Obrigatório |
 |----------|--------|-------------|
-| **NODE_VERSION** | `20` (ou `18`) | Recomendado |
+| **NODE_VERSION** | `24` | Recomendado |
 | **PNPM_VERSION** | `8` | Se usar pnpm |
 | **VITE_API_URL** | `https://protec-n05v.onrender.com` | **Sim** – para o login e as chamadas de API apontarem para o backend no Render em vez de localhost |
 
