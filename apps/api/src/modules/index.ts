@@ -21,11 +21,17 @@ import { errorHandler } from '../shared/utils/error-handler';
 
 const app = new Hono();
 
-// CORS: múltiplas origens (separadas por vírgula) ou em dev qualquer localhost
-// Normaliza: trim, remove trailing slash (Origin do browser nunca tem / no final)
+// CORS: múltiplas origens (separadas por vírgula) ou domínios (CORS_ORIGIN_DOMAINS)
+// CORS_ORIGIN: URLs exatas (ex: https://iataxsistemas.com.br)
+// CORS_ORIGIN_DOMAINS: domínios (ex: iataxsistemas.com.br) – aceita qualquer subdomínio
 const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
       .map((o) => o.trim().replace(/\/+$/, ''))
+      .filter(Boolean)
+  : [];
+const corsDomains = process.env.CORS_ORIGIN_DOMAINS
+  ? process.env.CORS_ORIGIN_DOMAINS.split(',')
+      .map((d) => d.trim().toLowerCase().replace(/^\./, ''))
       .filter(Boolean)
   : [];
 const isDev = process.env.NODE_ENV !== 'production';
@@ -33,15 +39,17 @@ const isDev = process.env.NODE_ENV !== 'production';
 function isOriginAllowed(origin: string | undefined): string | null {
   if (!origin) return null;
   const normalized = origin.replace(/\/+$/, '');
-  if (corsOrigins.length === 0) return origin;
+  if (corsOrigins.length === 0 && corsDomains.length === 0) return origin;
   if (corsOrigins.includes(normalized)) return origin;
-  // Permite www quando config tem non-www (e vice-versa): example.com <-> www.example.com
-  const originHost = normalized.replace(/^https?:\/\//, '');
+  const originHost = normalized.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+  const originBase = originHost.replace(/^www\./, '');
   for (const allowed of corsOrigins) {
-    const allowedHost = allowed.replace(/^https?:\/\//, '');
-    const originBase = originHost.replace(/^www\./, '');
+    const allowedHost = allowed.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
     const allowedBase = allowedHost.replace(/^www\./, '');
     if (originBase === allowedBase) return origin;
+  }
+  for (const domain of corsDomains) {
+    if (originBase === domain || originBase.endsWith('.' + domain)) return origin;
   }
   return null;
 }
@@ -54,6 +62,7 @@ app.use('/*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
   credentials: true,
+  maxAge: 86400,
 }));
 
 // Error handler global
