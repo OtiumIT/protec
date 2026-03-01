@@ -1,14 +1,16 @@
 /**
  * Entry point para Vercel Serverless.
- * Importa o app Hono compilado e exporta para o runtime.
+ * Usa handle do @hono/node-server/vercel para compatibilidade com o runtime.
  */
-import '../dist/dns-ipv4.js';
+import path from 'path';
 import { config } from 'dotenv';
-import { resolve } from 'path';
-import app from '../dist/modules/index.js';
+import { handle } from '@hono/node-server/vercel';
 
+// Carregar dns-ipv4 e dotenv antes do app
+require(path.join(__dirname, '../dist/dns-ipv4.js'));
 if (!process.env.DATABASE_URL) {
-  config({ path: resolve(process.cwd(), '../../.env') });
+  config({ path: path.resolve(process.cwd(), '../../.env') });
 }
 
-export default app;
+const app = require(path.join(__dirname, '../dist/modules/index.js')).default;
+export default handle(app);

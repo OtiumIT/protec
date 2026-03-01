@@ -9,5 +9,8 @@
       "memory": 1024,
       "maxDuration": 30
     }
+  },
+  "env": {
+    "NODEJS_HELPERS": "0"
   }
 }
