@@ -9,6 +9,67 @@ import { query } from '../../db/client';
 const debugRoutes = new Hono();
 
 /**
+ * GET /debug/cors?origin=https://iataxsistemas.com.br
+ * Valida se CORS_ORIGIN e CORS_ORIGIN_DOMAINS estão sendo lidos do ambiente.
+ * Não expõe os valores, só se estão configurados e se a origem seria aceita.
+ */
+debugRoutes.get('/cors', (c) => {
+  const corsOriginRaw = process.env.CORS_ORIGIN ?? '';
+  const corsDomainsRaw = process.env.CORS_ORIGIN_DOMAINS ?? '';
+  const corsOrigins = corsOriginRaw
+    ? corsOriginRaw.split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean)
+    : [];
+  const corsDomains = corsDomainsRaw
+    ? corsDomainsRaw.split(',').map((d) => d.trim().toLowerCase().replace(/^\./, '')).filter(Boolean)
+    : [];
+
+  const testOrigin = c.req.query('origin') ?? 'https://iataxsistemas.com.br';
+  const normalized = testOrigin.replace(/\/+$/, '');
+  let wouldAllow = false;
+
+  if (corsOrigins.length === 0 && corsDomains.length === 0) {
+    wouldAllow = true;
+  } else if (corsOrigins.includes(normalized)) {
+    wouldAllow = true;
+  } else {
+    const originHost = normalized.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+    const originBase = originHost.replace(/^www\./, '');
+    for (const allowed of corsOrigins) {
+      const allowedBase = allowed.replace(/^https?:\/\//, '').split('/')[0].toLowerCase().replace(/^www\./, '');
+      if (originBase === allowedBase) {
+        wouldAllow = true;
+        break;
+      }
+    }
+    if (!wouldAllow) {
+      for (const domain of corsDomains) {
+        if (originBase === domain || originBase.endsWith('.' + domain)) {
+          wouldAllow = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return c.json({
+    corsOrigin: {
+      configured: corsOriginRaw.length > 0,
+      rawLength: corsOriginRaw.length,
+      originsCount: corsOrigins.length,
+      firstChars: corsOriginRaw ? corsOriginRaw.substring(0, 50) + (corsOriginRaw.length > 50 ? '...' : '') : '(vazio)',
+    },
+    corsOriginDomains: {
+      configured: corsDomainsRaw.length > 0,
+      domainsCount: corsDomains.length,
+      values: corsDomains,
+    },
+    testOrigin,
+    wouldAllow,
+    nodeEnv: process.env.NODE_ENV,
+  });
+});
+
+/**
  * GET /debug/modules-db
  * Executa os SELECTs de diagnóstico (modules, companies, tenant_modules, simulador ativo).
  */
