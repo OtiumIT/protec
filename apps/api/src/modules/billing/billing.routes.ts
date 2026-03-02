@@ -75,11 +75,15 @@ billingApiRoutes.post('/checkout-session', zValidator('json', BillingCheckoutSes
       return c.json({ error: { message: 'Tenant required', code: 'TENANT_REQUIRED' } }, 400);
     }
     const body = c.req.valid('json');
+    // Fallback: usar e-mail do usuário autenticado se empresa não tiver e-mail
+    const user = c.get('user') as { email?: string } | undefined;
+    const userEmail = user?.email;
     const { url } = await billingService.createCheckoutSession(
       companyId,
       body.planId,
       body.successUrl,
-      body.cancelUrl
+      body.cancelUrl,
+      userEmail
     );
     return c.json({ data: { url } });
   } catch (error) {

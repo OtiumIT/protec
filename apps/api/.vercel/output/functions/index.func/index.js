@@ -76901,7 +76901,7 @@ var BillingService = class {
   /**
    * Cria sessão do Stripe Checkout para assinar um plano pago.
    */
-  async createCheckoutSession(companyId, planId, successUrl, cancelUrl) {
+  async createCheckoutSession(companyId, planId, successUrl, cancelUrl, fallbackEmail) {
     const plan = await this.planRepo.findById(planId);
     if (!plan) {
       throw new AppError("Plan not found", "PLAN_NOT_FOUND", 404);
@@ -76918,10 +76918,10 @@ var BillingService = class {
     if (!company) {
       throw new AppError("Company not found", "COMPANY_NOT_FOUND", 404);
     }
-    const email = company.email || company.contact_email || void 0;
+    const email = company.email || company.contact_email || fallbackEmail || void 0;
     if (!email) {
       throw new AppError(
-        "E-mail da empresa n\xE3o cadastrado. Atualize os dados da empresa.",
+        "E-mail n\xE3o encontrado. Atualize os dados da empresa ou entre em contato.",
         "COMPANY_EMAIL_REQUIRED",
         400
       );
@@ -77098,11 +77098,14 @@ billingApiRoutes.post("/checkout-session", zValidator("json", BillingCheckoutSes
       return c.json({ error: { message: "Tenant required", code: "TENANT_REQUIRED" } }, 400);
     }
     const body = c.req.valid("json");
+    const user = c.get("user");
+    const userEmail = user?.email;
     const { url } = await billingService.createCheckoutSession(
       companyId,
       body.planId,
       body.successUrl,
-      body.cancelUrl
+      body.cancelUrl,
+      userEmail
     );
     return c.json({ data: { url } });
   } catch (error) {

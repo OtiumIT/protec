@@ -89,7 +89,8 @@ export class BillingService {
     companyId: string,
     planId: string,
     successUrl: string,
-    cancelUrl: string
+    cancelUrl: string,
+    fallbackEmail?: string
   ): Promise<{ url: string }> {
     const plan = await this.planRepo.findById(planId);
     if (!plan) {
@@ -107,10 +108,10 @@ export class BillingService {
     if (!company) {
       throw new AppError('Company not found', 'COMPANY_NOT_FOUND', 404);
     }
-    const email = company.email || (company as any).contact_email || undefined;
+    const email = company.email || (company as any).contact_email || fallbackEmail || undefined;
     if (!email) {
       throw new AppError(
-        'E-mail da empresa não cadastrado. Atualize os dados da empresa.',
+        'E-mail não encontrado. Atualize os dados da empresa ou entre em contato.',
         'COMPANY_EMAIL_REQUIRED',
         400
       );
