@@ -1,0 +1,2 @@
+# Ignorar api/modules/* - artefatos antigos, excedem limite de 12 funções no Hobby
+apps/api/api/modules/
