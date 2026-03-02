@@ -66272,9 +66272,12 @@ if (!connectionString.startsWith("postgresql://") && !connectionString.startsWit
   console.error("\u274C DATABASE_URL deve come\xE7ar com postgresql:// ou postgres://");
   process.exit(1);
 }
+var cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, (match2) => {
+  return match2.startsWith("?") ? "" : "";
+}).replace(/\?$/, "").replace(/&$/, "");
 var isLocalhost = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
 var pool = new Pool({
-  connectionString,
+  connectionString: cleanConnectionString,
   max: 5,
   idleTimeoutMillis: 1e4,
   connectionTimeoutMillis: 3e4,
