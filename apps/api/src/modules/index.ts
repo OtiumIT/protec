@@ -19,7 +19,8 @@ import { propertyRoutes } from './properties/property.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 
-const app = new Hono();
+// basePath('/api') para Vercel: rewrite envia /health -> /api/health
+const app = new Hono().basePath('/api');
 
 // CORS: lê env em tempo de requisição (Vercel injeta em runtime)
 // CORS_ORIGIN: URLs exatas separadas por vírgula
@@ -71,7 +72,7 @@ app.onError((error, c) => {
   return errorHandler(error, c);
 });
 
-// Agregar rotas dos módulos
+// Agregar rotas dos módulos (basePath /api: /health->/api/health, /api/v1/*->/api/api/v1/*)
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/users', userRoutes);
 app.route('/api/v1/companies', companyRoutes);
@@ -93,6 +94,11 @@ app.route('/api/v1/debug', debugRoutes);
 
 // Health check
 app.get('/health', (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Root /api -> health
+app.get('/', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

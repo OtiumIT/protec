@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "cd ../.. && pnpm run build:vercel",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/$1" }],
   "env": {
     "NODEJS_HELPERS": "0"
   }
