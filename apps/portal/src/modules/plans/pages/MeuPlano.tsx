@@ -58,12 +58,25 @@ export function MeuPlano() {
     }
     setChangingPlanId(plan.id);
     try {
+      // Plano Free (preço = 0 ou nome "Free"): não usa Stripe — chama diretamente a API
+      const isFree = plan.price === 0 || plan.name.toLowerCase() === 'free';
+      if (isFree) {
+        if (subscription) {
+          await subscriptionService.updatePlan(plan.id);
+        } else {
+          await subscriptionService.createMySubscription(plan.id);
+        }
+        await load();
+        setChangingPlanId(null);
+        return;
+      }
+      // Plano pago: redirecionar para checkout do Stripe
       const returnUrl = `${window.location.origin}/meu-plano`;
       const { url } = await billingService.createCheckoutSession(plan.id, returnUrl, returnUrl);
       window.location.href = url;
     } catch (e: any) {
       console.error(e);
-      showError(e?.message || 'Erro ao abrir tela de pagamento.');
+      showError(e?.message || 'Erro ao alterar plano.');
       setChangingPlanId(null);
     }
   };
@@ -182,7 +195,11 @@ export function MeuPlano() {
                           disabled={isCurrent || isChanging}
                           onClick={() => handleAssinarOuMudar(plan)}
                         >
-                          {isChanging ? 'Abrindo pagamento...' : isCurrent ? 'Plano atual' : subscription ? 'Mudar para este plano' : 'Assinar'}
+                          {isChanging
+                            ? (plan.price === 0 || plan.name.toLowerCase() === 'free' ? 'Alterando...' : 'Abrindo pagamento...')
+                            : isCurrent ? 'Plano atual'
+                            : subscription ? 'Mudar para este plano'
+                            : 'Assinar'}
                         </Button>
                       </Card>
                     );
