@@ -37,15 +37,14 @@ if (!connectionString.startsWith('postgresql://') && !connectionString.startsWit
   process.exit(1);
 }
 
-// Supabase exige SSL; conexão direta sem SSL causa timeout
-const isSupabase = connectionString.includes('supabase.co');
-// Supabase free tier suporta ~60 conexões; manter pool pequeno para não esgotar
+// SSL: ativar para qualquer host remoto (não localhost)
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 const pool = new Pool({
   connectionString,
   max: 5,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 30000,
-  ...(isSupabase && {
+  ...(!isLocalhost && {
     ssl: { rejectUnauthorized: false },
   }),
 });

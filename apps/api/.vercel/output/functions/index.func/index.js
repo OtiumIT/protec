@@ -66272,13 +66272,13 @@ if (!connectionString.startsWith("postgresql://") && !connectionString.startsWit
   console.error("\u274C DATABASE_URL deve come\xE7ar com postgresql:// ou postgres://");
   process.exit(1);
 }
-var isSupabase = connectionString.includes("supabase.co");
+var isLocalhost = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
 var pool = new Pool({
   connectionString,
   max: 5,
   idleTimeoutMillis: 1e4,
   connectionTimeoutMillis: 3e4,
-  ...isSupabase && {
+  ...!isLocalhost && {
     ssl: { rejectUnauthorized: false }
   }
 });
