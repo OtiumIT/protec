@@ -6,7 +6,7 @@
 import * as esbuild from 'esbuild';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { mkdirSync, copyFileSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');

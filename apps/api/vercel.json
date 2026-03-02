@@ -3,7 +3,6 @@
   "framework": null,
   "installCommand": "pnpm install",
   "buildCommand": "cd ../.. && pnpm run build:vercel:output",
-  "outputDirectory": ".vercel/output",
   "env": {
     "NODEJS_HELPERS": "0"
   }
