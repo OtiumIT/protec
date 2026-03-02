@@ -37,10 +37,15 @@ if (!connectionString.startsWith('postgresql://') && !connectionString.startsWit
   process.exit(1);
 }
 
-// SSL: ativar para qualquer host remoto (não localhost)
+// SSL: remover sslmode da URL para evitar conflito com config do Pool
+const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, (match) => {
+  return match.startsWith('?') ? '' : '';
+}).replace(/\?$/, '').replace(/&$/, '');
+
+// Ativar SSL para qualquer host remoto (não localhost)
 const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 const pool = new Pool({
-  connectionString,
+  connectionString: cleanConnectionString,
   max: 5,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 30000,
