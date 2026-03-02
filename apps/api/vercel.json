@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "cd ../.. && pnpm install && pnpm run build:api",
+  "buildCommand": "cd ../.. && pnpm run build:vercel",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 30
     }

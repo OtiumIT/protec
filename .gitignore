@@ -5,6 +5,7 @@ node_modules/
 
 # Build outputs
 dist/
+apps/api/api/index.js
 build/
 .next/
 out/
