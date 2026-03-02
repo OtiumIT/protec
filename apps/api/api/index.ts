@@ -1,32 +1,17 @@
 /**
  * Entry point para Vercel Serverless.
  * api/ na raiz do projeto - Vercel encontra automaticamente.
- * Carrega app do dist (paths via process.cwd()).
+ * Usa __dirname para dist (api e dist são irmãos em apps/api).
  */
 import path from 'path';
-import fs from 'fs';
 import { config } from 'dotenv';
 import { handle } from '@hono/node-server/vercel';
 
-let app: ReturnType<typeof require>;
-
-try {
-  const root = process.cwd();
-  const distPath = path.join(root, 'dist');
-  const dnsPath = path.join(distPath, 'dns-ipv4.js');
-  const modulesPath = path.join(distPath, 'modules', 'index.js');
-
-  console.error('[Vercel API] cwd:', root, '| distPath:', distPath);
-  console.error('[Vercel API] dns exists:', fs.existsSync(dnsPath), '| modules exists:', fs.existsSync(modulesPath));
-
-  require(dnsPath);
-  if (!process.env.DATABASE_URL) {
-    config({ path: path.resolve(root, '../../.env') });
-  }
-  app = require(modulesPath).default;
-} catch (e) {
-  console.error('[Vercel API] Load error:', e);
-  throw e;
+// __dirname = .../apps/api/api, dist = .../apps/api/dist (irmão de api)
+const distPath = path.join(__dirname, '..', 'dist');
+require(path.join(distPath, 'dns-ipv4.js'));
+if (!process.env.DATABASE_URL) {
+  config({ path: path.resolve(__dirname, '../../../.env') });
 }
-
+const app = require(path.join(distPath, 'modules', 'index.js')).default;
 export default handle(app);
