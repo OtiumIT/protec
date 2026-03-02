@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:vercel": "node scripts/build-vercel.mjs",
+    "build:vercel:output": "node scripts/build-vercel-output.mjs",
     "start": "node dist/index.js",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",

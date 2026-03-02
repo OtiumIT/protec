@@ -2,11 +2,8 @@
   "version": 2,
   "framework": null,
   "installCommand": "pnpm install",
-  "buildCommand": "cd ../.. && pnpm run build:vercel",
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/:path*" },
-    { "source": "/:path*", "destination": "/api/:path*" }
-  ],
+  "buildCommand": "cd ../.. && pnpm run build:vercel:output",
+  "outputDirectory": ".vercel/output",
   "env": {
     "NODEJS_HELPERS": "0"
   }

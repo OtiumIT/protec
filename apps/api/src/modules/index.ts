@@ -19,8 +19,7 @@ import { propertyRoutes } from './properties/property.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 
-// basePath /api: rewrite envia /health->/api/health, /api/v1/*->/api/api/v1/*
-const app = new Hono().basePath('/api');
+const app = new Hono();
 
 // CORS: lê env em tempo de requisição (Vercel injeta em runtime)
 // CORS_ORIGIN: URLs exatas separadas por vírgula
@@ -72,27 +71,27 @@ app.onError((error, c) => {
   return errorHandler(error, c);
 });
 
-// Rotas (basePath /api já aplicado)
-app.route('/v1/auth', authRoutes);
-app.route('/v1/users', userRoutes);
-app.route('/v1/companies', companyRoutes);
-app.route('/v1/clients', clientRoutes);
-app.route('/v1/plans', planRoutes);
-app.route('/v1/modules', featureToggleRoutes);
-app.route('/v1/subscriptions', subscriptionRoutes);
-app.route('/v1/webhooks', billingWebhookRoutes);
-app.route('/v1/billing', billingApiRoutes);
-app.route('/v1/fiscal-files', fiscalFileRoutes);
-app.route('/v1/system', systemRoutes);
-app.route('/v1/rating-validator', ratingValidatorRoutes);
-app.route('/v1/editais', editalRoutes);
-app.route('/v1/judicial-processes', judicialProcessRoutes);
-app.route('/v1/simulador-in-2306', simuladorIN2306Routes);
-app.route('/v1/irpf-alta-renda', irpfAltaRendaRoutes);
-app.route('/v1/properties', propertyRoutes);
-app.route('/v1/debug', debugRoutes);
+// Rotas
+app.route('/api/v1/auth', authRoutes);
+app.route('/api/v1/users', userRoutes);
+app.route('/api/v1/companies', companyRoutes);
+app.route('/api/v1/clients', clientRoutes);
+app.route('/api/v1/plans', planRoutes);
+app.route('/api/v1/modules', featureToggleRoutes);
+app.route('/api/v1/subscriptions', subscriptionRoutes);
+app.route('/api/v1/webhooks', billingWebhookRoutes);
+app.route('/api/v1/billing', billingApiRoutes);
+app.route('/api/v1/fiscal-files', fiscalFileRoutes);
+app.route('/api/v1/system', systemRoutes);
+app.route('/api/v1/rating-validator', ratingValidatorRoutes);
+app.route('/api/v1/editais', editalRoutes);
+app.route('/api/v1/judicial-processes', judicialProcessRoutes);
+app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
+app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
+app.route('/api/v1/properties', propertyRoutes);
+app.route('/api/v1/debug', debugRoutes);
 
-// Health: /health -> /api/health, / -> /api/
+// Health
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
