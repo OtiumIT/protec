@@ -13,9 +13,10 @@ const root = join(__dirname, '..');
 const outputDir = join(root, '.vercel', 'output');
 const funcDir = join(outputDir, 'functions', 'index.func');
 
+// dotenv removido: bundlar (Vercel .func não inclui node_modules)
 const external = [
   'pg', 'bcrypt', 'pdf-parse', 'pdfjs-dist',
-  '@supabase/supabase-js', 'stripe', 'openai', 'jsonwebtoken', 'dotenv',
+  '@supabase/supabase-js', 'stripe', 'openai', 'jsonwebtoken',
 ];
 
 mkdirSync(funcDir, { recursive: true });
