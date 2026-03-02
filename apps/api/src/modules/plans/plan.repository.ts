@@ -22,6 +22,7 @@ export interface UpdatePlanData {
   isCustom?: boolean;
   isManaged?: boolean;
   status?: 'active' | 'inactive';
+  stripePriceId?: string | null;
 }
 
 export class PlanRepository extends BaseRepository {
@@ -179,6 +180,10 @@ export class PlanRepository extends BaseRepository {
       updates.push(`status = $${paramIndex++}`);
       params.push(data.status);
     }
+    if (data.stripePriceId !== undefined) {
+      updates.push(`stripe_price_id = $${paramIndex++}`);
+      params.push(data.stripePriceId);
+    }
 
     if (updates.length === 0) {
       return this.findById(id) as Promise<Plan>;
@@ -189,7 +194,7 @@ export class PlanRepository extends BaseRepository {
       `UPDATE plans 
        SET ${updates.join(', ')}, updated_at = NOW() 
        WHERE id = $${paramIndex++} 
-       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, created_at, updated_at`,
+       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at`,
       params,
       false
     );

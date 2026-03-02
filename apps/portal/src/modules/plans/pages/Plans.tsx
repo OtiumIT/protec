@@ -40,6 +40,7 @@ export function Plans() {
     price: 0,
     billingCycle: 'monthly',
     features: [],
+    stripePriceId: null,
   });
 
   const [featureInput, setFeatureInput] = useState('');
@@ -82,10 +83,11 @@ export function Plans() {
         billingCycle: plan.billingCycle,
         features: plan.features,
         status: plan.status === 'inactive' ? 'inactive' : 'active',
+        stripePriceId: plan.stripePriceId ?? null,
       });
     } else {
       setEditingPlan(null);
-      setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [] });
+      setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [], stripePriceId: null });
     }
     setFeatureInput('');
     setIsModalOpen(true);
@@ -94,7 +96,7 @@ export function Plans() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingPlan(null);
-    setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [] });
+    setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [], stripePriceId: null });
     setFeatureInput('');
     setIsSubmitting(false);
   };
@@ -214,6 +216,11 @@ export function Plans() {
                         ].join('')
                     }
                   </p>
+                  {plan.stripePriceId && (
+                    <p className="text-xs text-slate-400 mt-1 font-mono truncate" title={plan.stripePriceId}>
+                      Stripe: {plan.stripePriceId}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mb-6">
@@ -348,6 +355,12 @@ export function Plans() {
                 </div>
               )}
             </div>
+            <Input
+              label="Stripe Price ID (opcional)"
+              placeholder="price_1ABC... (deixe vazio para plano gratuito)"
+              value={formData.stripePriceId ?? ''}
+              onChange={(e) => setFormData({ ...formData, stripePriceId: e.target.value.trim() || null })}
+            />
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Recursos</label>
               <div className="flex space-x-2 mb-2">

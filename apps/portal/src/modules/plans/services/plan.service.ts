@@ -12,6 +12,7 @@ export interface Plan {
   isCustom?: boolean;
   isManaged?: boolean;
   status?: 'active' | 'inactive';
+  stripePriceId?: string | null;
 }
 
 export interface CreatePlanData {
@@ -23,6 +24,7 @@ export interface CreatePlanData {
   features: string[];
   isCustom?: boolean;
   isManaged?: boolean;
+  stripePriceId?: string | null;
 }
 
 export interface UpdatePlanData {
@@ -35,6 +37,7 @@ export interface UpdatePlanData {
   isCustom?: boolean;
   isManaged?: boolean;
   status?: 'active' | 'inactive';
+  stripePriceId?: string | null;
 }
 
 function getAuthHeaders() {
@@ -59,6 +62,7 @@ function convertPlan(plan: any): Plan {
     isCustom: plan.is_custom || plan.isCustom,
     isManaged: plan.is_managed || plan.isManaged,
     status: plan.status || 'active',
+    stripePriceId: plan.stripe_price_id ?? plan.stripePriceId ?? null,
   };
 }
 
@@ -132,6 +136,7 @@ export const planService = {
           billingCycle: data.billingCycle,
           features: data.features,
           status: data.status,
+          stripePriceId: data.stripePriceId,
         }),
         token,
         tenantId,

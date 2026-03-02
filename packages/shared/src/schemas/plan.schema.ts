@@ -23,6 +23,7 @@ export const CreatePlanSchema = z.object({
   features: z.array(z.string()),
   isCustom: z.boolean().optional(),
   isManaged: z.boolean().optional(),
+  stripePriceId: z.string().nullable().optional(),
 });
 
 export const UpdatePlanSchema = z.object({
@@ -35,4 +36,5 @@ export const UpdatePlanSchema = z.object({
   isCustom: z.boolean().optional(),
   isManaged: z.boolean().optional(),
   status: z.enum(['active', 'inactive']).optional(),
+  stripePriceId: z.string().nullable().optional(),
 });

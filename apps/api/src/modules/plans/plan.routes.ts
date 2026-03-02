@@ -115,6 +115,7 @@ planRoutes.put(
         isCustom: data.isCustom,
         isManaged: data.isManaged,
         status: data.status,
+        stripePriceId: data.stripePriceId,
       });
 
       return c.json({
