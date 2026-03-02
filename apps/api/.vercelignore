@@ -1,2 +1,5 @@
 # Excluir api/modules - artefatos antigos, excedem limite de 12 funções no Hobby
 api/modules/
+
+# Forçar uso do bundle api/index.js - NÃO compilar api/index.ts (preserva imports e quebra @shared/core)
+api/index.ts
