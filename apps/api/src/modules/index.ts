@@ -19,8 +19,7 @@ import { propertyRoutes } from './properties/property.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 
-// basePath('/api') para Vercel: rewrite envia /health -> /api/health
-const app = new Hono().basePath('/api');
+const app = new Hono();
 
 // CORS: lê env em tempo de requisição (Vercel injeta em runtime)
 // CORS_ORIGIN: URLs exatas separadas por vírgula
@@ -72,7 +71,7 @@ app.onError((error, c) => {
   return errorHandler(error, c);
 });
 
-// Agregar rotas dos módulos (basePath /api: /health->/api/health, /api/v1/*->/api/api/v1/*)
+// Agregar rotas dos módulos
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/users', userRoutes);
 app.route('/api/v1/companies', companyRoutes);
@@ -97,12 +96,11 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Root /api -> health
-app.get('/', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Root e /api (rewrite envia tudo para /api; handler pode receber path original)
+app.get('/', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// 404 handler (rota não encontrada) - retorna JSON para facilitar debug
+// 404 handler - inclui path e url para debug do rewrite
 app.notFound((c) => {
   return c.json(
     {
@@ -110,6 +108,7 @@ app.notFound((c) => {
         message: 'Route not found',
         code: 'NOT_FOUND',
         path: c.req.path,
+        url: c.req.url,
         method: c.req.method,
       },
     },

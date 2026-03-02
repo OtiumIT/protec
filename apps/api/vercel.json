@@ -1,7 +1,16 @@
 {
   "version": 2,
+  "framework": null,
+  "installCommand": "pnpm install",
   "buildCommand": "cd ../.. && pnpm run build:vercel",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/$1" }],
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
   "env": {
     "NODEJS_HELPERS": "0"
   }

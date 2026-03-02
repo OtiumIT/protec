@@ -28,7 +28,7 @@ await esbuild.build({
   outfile: join(root, 'api', 'index.js'),
   platform: 'node',
   format: 'cjs',
-  target: 'node18',
+  target: 'node20',
   external,
   alias: {
     '@shared/core': join(root, '..', '..', 'packages', 'shared', 'src', 'index.ts'),
