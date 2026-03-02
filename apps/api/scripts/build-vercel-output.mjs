@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build usando Vercel Build Output API v3.
- * Controle total: função index em /, sem rewrites.
+ * Módulos puramente JS são bundlados.
+ * Módulos nativos (bcrypt) são copiados para .func/node_modules.
  */
 import * as esbuild from 'esbuild';
 import { join, dirname } from 'path';
@@ -13,15 +14,12 @@ const root = join(__dirname, '..');
 const outputDir = join(root, '.vercel', 'output');
 const funcDir = join(outputDir, 'functions', 'index.func');
 
-// dotenv removido: bundlar (Vercel .func não inclui node_modules)
-const external = [
-  'pg', 'bcrypt', 'pdf-parse', 'pdfjs-dist',
-  '@supabase/supabase-js', 'stripe', 'openai', 'jsonwebtoken',
-];
+// Nenhum módulo externo: tudo bundlado (bcryptjs é pure JS)
+const external = [];
 
 mkdirSync(funcDir, { recursive: true });
 
-// 1. Bundle
+// 1. Bundle (inclui pg, supabase, stripe, openai, jsonwebtoken, pdf-parse, pdfjs-dist, dotenv)
 await esbuild.build({
   entryPoints: [join(root, 'api', 'index.ts')],
   bundle: true,
@@ -53,11 +51,11 @@ writeFileSync(join(outputDir, 'config.json'), JSON.stringify({
   version: 3,
   routes: [
     { handle: 'filesystem' },
-    { src: '/(.*)', dest: '/' }
+    { src: '/(.*)', dest: '/' },
   ],
 }, null, 2));
 
-// 4. static vazio (obrigatório)
+// 4. static (obrigatório)
 const staticDir = join(outputDir, 'static');
 mkdirSync(staticDir, { recursive: true });
 if (!existsSync(join(staticDir, '.gitkeep'))) {
