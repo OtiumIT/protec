@@ -4,14 +4,20 @@ import { PlanRepository } from '../plans/plan.repository';
 import { CompanyRepository } from '../companies/company.repository';
 import { AppError } from '../../shared/utils/error-handler';
 
-const stripeSecret = process.env.STRIPE_SECRET_KEY;
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
 function getStripe(): Stripe {
-  if (!stripeSecret) {
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret) {
     throw new AppError('Stripe is not configured', 'STRIPE_NOT_CONFIGURED', 503);
   }
-  return new Stripe(stripeSecret);
+  return new Stripe(secret);
+}
+
+function getWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new AppError('Stripe webhook secret not configured', 'STRIPE_NOT_CONFIGURED', 503);
+  }
+  return secret;
 }
 
 export class BillingService {
@@ -140,16 +146,14 @@ export class BillingService {
    * Processa webhooks do Stripe (assinatura criada/atualizada/cancelada, falha de pagamento).
    */
   async handleWebhook(rawBody: string | Buffer, signature: string | null): Promise<void> {
-    if (!stripeWebhookSecret) {
-      throw new AppError('Stripe webhook secret not configured', 'STRIPE_NOT_CONFIGURED', 503);
-    }
+    const webhookSecret = getWebhookSecret();
     const stripe = getStripe();
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(
         rawBody,
         signature ?? '',
-        stripeWebhookSecret
+        webhookSecret
       );
     } catch (err: any) {
       throw new AppError(`Webhook signature verification failed: ${err.message}`, 'WEBHOOK_INVALID', 400);
