@@ -6,6 +6,8 @@ import { Input } from '../../../shared/components/ui/Input';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService } from '../services/property.service';
+import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { Modal } from '../../../shared/components/ui/Modal';
 import {
   BarChart,
   Bar,
@@ -16,7 +18,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma } from '@shared/core';
+import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma, PropertySimulation } from '@shared/core';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -146,6 +148,13 @@ export function SimuladorImoveis() {
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
   const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma | ''>('');
+  const [saveSimulation, setSaveSimulation] = useState(false);
+  const [saveClientId, setSaveClientId] = useState('');
+  const [saveTitle, setSaveTitle] = useState('');
+  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const [simulations, setSimulations] = useState<PropertySimulation[]>([]);
+  const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
+  const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultSectionRef = useRef<HTMLDivElement>(null);
 
   const updateMes = (idx: number, field: keyof MesFields, value: number) => {
@@ -208,54 +217,154 @@ export function SimuladorImoveis() {
   }, [fillDemo1]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [clientsResult, simResult] = await Promise.allSettled([
+        clientService.list(),
+        propertyService.listSimulations({ page: 1, limit: 20 }),
+      ]);
+      if (!cancelled) {
+        setClients(clientsResult.status === 'fulfilled' && Array.isArray(clientsResult.value) ? clientsResult.value : []);
+        setSimulations(simResult.status === 'fulfilled' ? (simResult.value?.simulations ?? []) : []);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (result) {
       resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [result]);
 
+  const buildMesesParaEnvio = (): SimulateStandaloneMesInput[] =>
+    meses.map((m, i) => {
+      const mesRef = m.mes_referencia || `${ano}-${String(i + 1).padStart(2, '0')}`;
+      return {
+        mes_referencia: mesRef,
+        receita_aluguel_tradicional: round2((m.receita_aluguel_tradicional ?? 0) as number),
+        receita_aluguel_curto: round2((m.receita_aluguel_curto ?? 0) as number),
+        receita_garagem: round2((m.receita_garagem ?? 0) as number),
+        receita_outras: round2((m.receita_outras ?? 0) as number),
+        iptu: round2((m.iptu ?? 0) as number),
+        condominio: round2((m.condominio ?? 0) as number),
+        seguro_imovel: round2((m.seguro_imovel ?? 0) as number),
+        juros_financiamento: round2((m.juros_financiamento ?? 0) as number),
+        manutencao_conservacao: round2((m.manutencao_conservacao ?? 0) as number),
+        outras_dedutiveis: round2((m.outras_dedutiveis ?? 0) as number),
+        reformas_melhorias: round2((m.reformas_melhorias ?? 0) as number),
+        mobilia_equipamentos: round2((m.mobilia_equipamentos ?? 0) as number),
+        limpeza_higienizacao: round2((m.limpeza_higienizacao ?? 0) as number),
+        comissao_corretagem: round2((m.comissao_corretagem ?? 0) as number),
+        taxa_plataforma: round2((m.taxa_plataforma ?? 0) as number),
+        outros_custos: round2((m.outros_custos ?? 0) as number),
+      };
+    });
+
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingSimulationId) {
+      setLoading(true);
+      setResult(null);
+      try {
+        const mesesParaEnvio = buildMesesParaEnvio();
+        const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
+          ano,
+          meses: mesesParaEnvio,
+          opcoes_reforma: {
+            aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
+            redutor_short_stay_pct: 50,
+            contrato_antes_16012025: contratoAntes16012025,
+            perfil_locacao: perfilLocacao || undefined,
+          },
+        });
+        setResult(res);
+        setEditingSimulationId(null);
+        success('Simulação atualizada.');
+        const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+        setSimulations(simRes.simulations);
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Erro ao atualizar');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
-      const mesesParaEnvio: SimulateStandaloneMesInput[] = meses.map((m, i) => {
-        const mesRef = m.mes_referencia || `${ano}-${String(i + 1).padStart(2, '0')}`;
-        const out: SimulateStandaloneMesInput = {
-          mes_referencia: mesRef,
-          receita_aluguel_tradicional: round2((m.receita_aluguel_tradicional ?? 0) as number),
-          receita_aluguel_curto: round2((m.receita_aluguel_curto ?? 0) as number),
-          receita_garagem: round2((m.receita_garagem ?? 0) as number),
-          receita_outras: round2((m.receita_outras ?? 0) as number),
-          iptu: round2((m.iptu ?? 0) as number),
-          condominio: round2((m.condominio ?? 0) as number),
-          seguro_imovel: round2((m.seguro_imovel ?? 0) as number),
-          juros_financiamento: round2((m.juros_financiamento ?? 0) as number),
-          manutencao_conservacao: round2((m.manutencao_conservacao ?? 0) as number),
-          outras_dedutiveis: round2((m.outras_dedutiveis ?? 0) as number),
-          reformas_melhorias: round2((m.reformas_melhorias ?? 0) as number),
-          mobilia_equipamentos: round2((m.mobilia_equipamentos ?? 0) as number),
-          limpeza_higienizacao: round2((m.limpeza_higienizacao ?? 0) as number),
-          comissao_corretagem: round2((m.comissao_corretagem ?? 0) as number),
-          taxa_plataforma: round2((m.taxa_plataforma ?? 0) as number),
-          outros_custos: round2((m.outros_custos ?? 0) as number),
-        };
-        return out;
-      });
-      const res = await propertyService.simulateStandalone({
-        ano,
-        meses: mesesParaEnvio,
-        opcoes_reforma: {
-          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
-          contrato_antes_16012025: contratoAntes16012025,
-          perfil_locacao: perfilLocacao || undefined,
-        },
-      });
-      setResult(res);
-      success('Simulação concluída.');
+      const mesesParaEnvio = buildMesesParaEnvio();
+      const opcoes = {
+        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
+        redutor_short_stay_pct: 50,
+        contrato_antes_16012025: contratoAntes16012025,
+        perfil_locacao: perfilLocacao || undefined,
+      };
+      if (saveSimulation && saveClientId) {
+        const { result: res } = await propertyService.simulateStandaloneAndSave({
+          ano,
+          meses: mesesParaEnvio,
+          opcoes_reforma: opcoes,
+          client_id: saveClientId,
+          title: saveTitle || undefined,
+        });
+        setResult(res);
+        success('Simulação salva.');
+        const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+        setSimulations(simRes.simulations);
+      } else {
+        const res = await propertyService.simulateStandalone({
+          ano,
+          meses: mesesParaEnvio,
+          opcoes_reforma: opcoes,
+        });
+        setResult(res);
+        success('Simulação concluída.');
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleView = async (id: string) => {
+    try {
+      const sim = await propertyService.getSimulationById(id);
+      setViewingSimulation(sim);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar');
+    }
+  };
+
+  const handleEdit = async (id: string) => {
+    try {
+      const sim = await propertyService.getSimulationById(id);
+      const input = sim.input_data as { ano?: number; meses?: SimulateStandaloneMesInput[]; opcoes_reforma?: { contrato_antes_16012025?: boolean; perfil_locacao?: PerfilLocacaoReforma } };
+      if (input?.ano) setAno(input.ano);
+      if (Array.isArray(input?.meses) && input.meses.length === 12) {
+        setMeses(input.meses.map((m) => ({ ...m })));
+      }
+      if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
+      if (input?.opcoes_reforma?.perfil_locacao) setPerfilLocacao(input.opcoes_reforma.perfil_locacao);
+      setEditingSimulationId(id);
+      setResult(null);
+      success('Simulação carregada. Edite e clique em Simular para atualizar.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Excluir esta simulação?')) return;
+    try {
+      await propertyService.deleteSimulation(id);
+      success('Simulação excluída.');
+      setSimulations((prev) => prev.filter((s) => s.id !== id));
+      if (viewingSimulation?.id === id) setViewingSimulation(null);
+      if (editingSimulationId === id) setEditingSimulationId(null);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao excluir');
     }
   };
 
@@ -289,9 +398,47 @@ export function SimuladorImoveis() {
                 className="w-28 h-10 text-center font-semibold text-slate-800 rounded-lg border-slate-300"
               />
             </div>
-            <Button type="submit" variant="primary" disabled={loading} className="min-w-[200px]">
-              {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma 2027'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-4">
+              <Button type="submit" variant="primary" disabled={loading} className="min-w-[200px]">
+                {loading ? 'Simulando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular PF vs PJ vs Reforma 2027'}
+              </Button>
+              {editingSimulationId && (
+                <Button type="button" variant="tertiary" size="sm" onClick={() => setEditingSimulationId(null)}>
+                  Cancelar edição
+                </Button>
+              )}
+              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveSimulation}
+                  onChange={(e) => setSaveSimulation(e.target.checked)}
+                  className="rounded border-slate-300"
+                  disabled={!!editingSimulationId}
+                />
+                Salvar simulação
+              </label>
+              {saveSimulation && !editingSimulationId && (
+                <>
+                  <Input
+                    placeholder="Título (opcional)"
+                    value={saveTitle}
+                    onChange={(e) => setSaveTitle(e.target.value)}
+                    className="w-40 h-9 text-sm"
+                  />
+                  <select
+                    className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
+                    value={saveClientId}
+                    onChange={(e) => setSaveClientId(e.target.value)}
+                    required={saveSimulation}
+                  >
+                    <option value="">Cliente *</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -827,6 +974,64 @@ export function SimuladorImoveis() {
 
         </div>
       )}
+
+      {/* Simulações salvas */}
+      <Card className="mt-6">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">Simulações salvas</h2>
+        {simulations.length === 0 ? (
+          <p className="text-slate-500">Nenhuma simulação salva.</p>
+        ) : (
+          <ul className="divide-y divide-slate-200">
+            {simulations.map((s) => (
+              <li key={s.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium text-slate-800">{s.title || `Simulação ${s.ano}`}</span>
+                  <span className="text-slate-500 text-sm ml-2">Ano {s.ano}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <Button variant="secondary" size="sm" onClick={() => handleView(s.id)}>Visualizar</Button>
+                  <Button variant="secondary" size="sm" onClick={() => handleEdit(s.id)}>Editar</Button>
+                  <Button variant="tertiary" size="sm" onClick={() => handleDelete(s.id)} className="text-red-600 border-red-200 hover:bg-red-50">Excluir</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Modal Visualizar Simulação */}
+      <Modal
+        isOpen={!!viewingSimulation}
+        onClose={() => setViewingSimulation(null)}
+        title={viewingSimulation ? (viewingSimulation.title || `Simulação ${viewingSimulation.ano}`) : ''}
+        size="xl"
+      >
+        {viewingSimulation && (() => {
+          const rd = viewingSimulation.result_data as PropertyTaxSimulationResponse;
+          const pf = rd?.cenarios?.pf;
+          const pj = rd?.cenarios?.pj;
+          const ref = rd?.cenarios?.reforma_2027_pf ?? rd?.cenarios?.reforma_2027;
+          return (
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              <p className="text-sm text-slate-600">Ano {viewingSimulation.ano}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <h4 className="text-sm font-bold text-slate-600 mb-2">Pessoa Física</h4>
+                  <p className="text-lg font-semibold">{pf ? formatMoney(pf.imposto_total) : '-'}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-bold text-slate-600 mb-2">Pessoa Jurídica</h4>
+                  <p className="text-lg font-semibold">{pj ? formatMoney(pj.imposto_total) : '-'}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-bold text-slate-600 mb-2">Reforma 2027</h4>
+                  <p className="text-lg font-semibold">{ref ? formatMoney(ref.imposto_total ?? 0) : '-'}</p>
+                </Card>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* Botão flutuante — Exportar PDF (impressão) */}
       {result && (

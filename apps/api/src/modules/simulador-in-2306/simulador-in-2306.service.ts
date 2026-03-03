@@ -13,6 +13,7 @@ import type {
   SimulateTributarioIN2306Input,
   CenarioAnual,
   SimuladorTributarioResponse,
+  UpdateIN2306SimulationInput,
 } from '@shared/core';
 import type { IN2306Simulation } from '@shared/core';
 
@@ -130,6 +131,91 @@ export class SimuladorIN2306Service {
   async delete(id: string, _userId?: string): Promise<void> {
     await this.getById(id);
     await this.repo.delete(id);
+  }
+
+  /**
+   * Atualiza simulação existente. Re-simula com os dados enviados.
+   * Determina o tipo (tributário ou parcelamento) pelo conteúdo do body.
+   */
+  async update(
+    id: string,
+    input: UpdateIN2306SimulationInput,
+    _userId?: string
+  ): Promise<{ simulation: IN2306Simulation; result_data: Record<string, unknown> }> {
+    const existing = await this.getById(id);
+    const existingInput = existing.input_data as Record<string, unknown>;
+
+    const isTributario =
+      typeof existingInput?.ano === 'number' && Array.isArray(existingInput?.trimestres);
+
+    if (isTributario) {
+      const tribInput = input as SimulateTributarioIN2306Input;
+      if (typeof tribInput.ano !== 'number' || !Array.isArray(tribInput.trimestres)) {
+        throw new AppError(
+          'Simulação é do tipo tributário. Envie ano e trimestres.',
+          'INVALID_UPDATE_PAYLOAD',
+          400
+        );
+      }
+      const result = await this.simulateTributario(
+        { ...tribInput, save_simulation: false },
+        _userId
+      );
+      const inputData = {
+        ano: tribInput.ano,
+        trimestres: tribInput.trimestres,
+        deducoes_trimestrais:
+          tribInput.deducoes_trimestrais ?? [
+            { pis_cofins_zero: 0, icms_destacado: 0 },
+            { pis_cofins_zero: 0, icms_destacado: 0 },
+            { pis_cofins_zero: 0, icms_destacado: 0 },
+            { pis_cofins_zero: 0, icms_destacado: 0 },
+          ],
+        retencoes_trimestrais:
+          tribInput.retencoes_trimestrais ?? [
+            { irrf: 0, orgaos_publicos: 0 },
+            { irrf: 0, orgaos_publicos: 0 },
+            { irrf: 0, orgaos_publicos: 0 },
+            { irrf: 0, orgaos_publicos: 0 },
+          ],
+        aplicar_equiparacao_hospitalar: tribInput.aplicar_equiparacao_hospitalar ?? false,
+      };
+      const updated = await this.repo.update(id, {
+        client_id: tribInput.client_id ?? existing.client_id,
+        competence: `${tribInput.ano}-12`,
+        input_data: inputData,
+        result_data: result as unknown as Record<string, unknown>,
+        title: tribInput.title ?? existing.title ?? null,
+      });
+      return {
+        simulation: updated,
+        result_data: result as unknown as Record<string, unknown>,
+      };
+    }
+
+    const parcInput = input as SimulateIN2306Input;
+    if (!parcInput.competence) {
+      throw new AppError(
+        'Simulação é do tipo parcelamento. Envie competence.',
+        'INVALID_UPDATE_PAYLOAD',
+        400
+      );
+    }
+    const simResult = await this.simulate(
+      { ...parcInput, save_simulation: false },
+      _userId
+    );
+    const updated = await this.repo.update(id, {
+      client_id: parcInput.client_id ?? existing.client_id,
+      competence: parcInput.competence,
+      input_data: simResult.input_data,
+      result_data: simResult.result_data as Record<string, unknown>,
+      title: parcInput.title ?? existing.title ?? null,
+    });
+    return {
+      simulation: updated,
+      result_data: simResult.result_data as Record<string, unknown>,
+    };
   }
 
   /**

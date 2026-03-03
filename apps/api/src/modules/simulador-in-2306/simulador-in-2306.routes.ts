@@ -11,6 +11,7 @@ import {
   SimulateTributarioIN2306InputSchema,
   ListIN2306SimulationsQuerySchema,
   IN2306SimulationIdParamSchema,
+  UpdateIN2306SimulationInputSchema,
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
@@ -104,6 +105,27 @@ simuladorIN2306Routes.get(
       const { id } = c.req.valid('param');
       const simulation = await simuladorService.getById(id);
       return c.json({ data: { simulation } });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/**
+ * PATCH /simulador-in-2306/:id
+ * Atualiza simulação existente. Re-simula com os dados enviados.
+ */
+simuladorIN2306Routes.patch(
+  '/:id',
+  zValidator('param', IN2306SimulationIdParamSchema),
+  zValidator('json', UpdateIN2306SimulationInputSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { simulation, result_data } = await simuladorService.update(id, input, userId);
+      return c.json({ data: { simulation, result_data } }, 200);
     } catch (err) {
       return errorHandler(err, c);
     }

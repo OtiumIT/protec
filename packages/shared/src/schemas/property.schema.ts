@@ -122,6 +122,13 @@ export const SimulateStandaloneInputSchema = z.object({
   opcoes_reforma: OpcoesReformaSchema.optional(),
 });
 
+/** Input para simular e salvar (persistir simulação standalone) */
+export const SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
+  client_id: z.string().uuid().optional(),
+  save_simulation: z.boolean().optional().default(false),
+  title: z.string().max(255).optional(),
+});
+
 export const SimulatePropertyTaxInputSchema = z.object({
   ano: z.number().int().min(2020).max(2030),
   property_ids: z.array(z.string().uuid()).min(1),
@@ -259,6 +266,19 @@ export const TransactionIdParamSchema = z.object({
   txId: z.string().uuid(),
 });
 
+export const PropertySimulationIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const ListPropertySimulationsQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
+  ano: z.coerce.number().int().min(2020).max(2035).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+
+export const UpdatePropertySimulationInputSchema = SimulateStandaloneInputSchema;
+
 export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
 export type PropertyMonthlyTotalInput = z.infer<typeof PropertyMonthlyTotalSchema>;
 export type UpsertMonthlyTotalsInput = z.infer<typeof UpsertMonthlyTotalsSchema>;
@@ -267,7 +287,21 @@ export type PropertyTransactionInput = z.infer<typeof PropertyTransactionSchema>
 export type BatchPropertyTransactionInput = z.infer<typeof BatchPropertyTransactionSchema>;
 export type SimulateStandaloneMesInput = z.infer<typeof SimulateStandaloneMesSchema>;
 export type SimulateStandaloneInput = z.infer<typeof SimulateStandaloneInputSchema>;
+export type SimulateStandaloneAndSaveInput = z.infer<typeof SimulateStandaloneAndSaveInputSchema>;
 export type SimulatePropertyTaxInput = z.infer<typeof SimulatePropertyTaxInputSchema>;
+export type UpdatePropertySimulationInput = z.infer<typeof UpdatePropertySimulationInputSchema>;
+
+export interface PropertySimulation {
+  id: string;
+  client_id: string | null;
+  ano: number;
+  input_data: Record<string, unknown>;
+  result_data: Record<string, unknown>;
+  title: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
 export type PropertyTaxSimulationResponse = z.infer<typeof PropertyTaxSimulationResponseSchema>;
 export type CenarioPF = z.infer<typeof CenarioPFSchema>;
 export type CenarioPJ = z.infer<typeof CenarioPJSchema>;

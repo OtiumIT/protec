@@ -1,4 +1,5 @@
 import { PropertyRepository } from './property.repository';
+import { PropertySimulationRepository } from './property-simulation.repository';
 import { ClientRepository } from '../clients/client.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import {
@@ -14,7 +15,10 @@ import type {
   PropertyTransactionInput,
   SimulatePropertyTaxInput,
   SimulateStandaloneInput,
+  SimulateStandaloneAndSaveInput,
+  UpdatePropertySimulationInput,
   PropertyTaxSimulationResponse,
+  PropertySimulation,
   FluxoCaixa,
   BreakEven,
   UpsertMonthlyTotalsInput,
@@ -88,7 +92,8 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
 export class PropertyService {
   constructor(
     private repo: PropertyRepository,
-    private clientRepo: ClientRepository
+    private clientRepo: ClientRepository,
+    private simulationRepo?: PropertySimulationRepository
   ) {}
 
   async create(data: CreatePropertyInput) {
@@ -598,5 +603,82 @@ export class PropertyService {
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
     };
+  }
+
+  /** Simular e salvar (persistir simulação standalone) */
+  async simulateStandaloneAndSave(
+    input: SimulateStandaloneAndSaveInput,
+    userId?: string
+  ): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
+    if (input.save_simulation && !input.client_id) {
+      throw new AppError('client_id é obrigatório ao salvar a simulação', 'CLIENT_REQUIRED', 400);
+    }
+    if (input.client_id && this.clientRepo) {
+      const client = await this.clientRepo.findById(input.client_id);
+      if (!client) {
+        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+    const result = await this.simulateStandalone(input);
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    const simulation = await this.simulationRepo.create({
+      client_id: input.client_id!,
+      ano: input.ano,
+      input_data: input as unknown as Record<string, unknown>,
+      result_data: result as unknown as Record<string, unknown>,
+      title: input.title ?? null,
+      created_by: userId ?? null,
+    });
+    return { simulation, result };
+  }
+
+  async listSimulations(options: {
+    client_id?: string;
+    ano?: number;
+    page?: number;
+    limit?: number;
+  }) {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    return this.simulationRepo.list(options);
+  }
+
+  async getSimulationById(id: string): Promise<PropertySimulation> {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    const sim = await this.simulationRepo.findById(id);
+    if (!sim) {
+      throw new AppError('Simulação não encontrada', 'SIMULATION_NOT_FOUND', 404);
+    }
+    return sim;
+  }
+
+  async updateSimulation(
+    id: string,
+    input: UpdatePropertySimulationInput
+  ): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    await this.getSimulationById(id);
+    const result = await this.simulateStandalone(input);
+    const simulation = await this.simulationRepo.update(id, {
+      ano: input.ano,
+      input_data: input as unknown as Record<string, unknown>,
+      result_data: result as unknown as Record<string, unknown>,
+    });
+    return { simulation, result };
+  }
+
+  async deleteSimulation(id: string): Promise<void> {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    await this.getSimulationById(id);
+    await this.simulationRepo.delete(id);
   }
 }

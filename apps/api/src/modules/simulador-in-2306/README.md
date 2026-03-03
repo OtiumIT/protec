@@ -24,8 +24,10 @@ Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2
 - **Exceção**: `client_id` é obrigatório ao salvar
 - **Validação**: Cliente deve existir no tenant
 
-### Regra 4: Listagem e exclusão
+### Regra 4: Listagem, visualização, edição e exclusão
 - Filtros opcionais: `client_id`, `competence`, paginação (`page`, `limit`)
+- `GET /:id` para visualizar detalhes
+- `PATCH /:id` para atualizar (re-simula com os dados enviados)
 - Delete por ID; apenas simulações do tenant (isoladas por schema)
 
 ## Dependências
@@ -52,6 +54,11 @@ Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2
 
 ### GET /simulador-in-2306/:id
 - Resposta: `{ data: { simulation } }`
+
+### PATCH /simulador-in-2306/:id
+- Atualiza simulação existente. Re-simula com os dados enviados.
+- Body: `UpdateIN2306SimulationInputSchema` (union: SimulateTributarioInput ou SimulateIN2306Input sem save_simulation)
+- Resposta: `{ data: { simulation, result_data } }`
 
 ### DELETE /simulador-in-2306/:id
 - Resposta: `{ data: { success: true } }`

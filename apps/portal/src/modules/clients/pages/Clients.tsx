@@ -275,7 +275,7 @@ export function Clients() {
             {formData.person_type === 'pj' ? (
               <Input
                 label="CNPJ"
-                value={formatCnpj(formData.cnpj)}
+                value={formatCnpj(formData.cnpj ?? '')}
                 onChange={(e) => {
                   const raw = parseDigits(e.target.value);
                   if (raw.length <= 14) setFormData({ ...formData, cnpj: raw });
@@ -287,7 +287,7 @@ export function Clients() {
             ) : (
               <Input
                 label="CPF"
-                value={formatCpf(formData.cpf)}
+                value={formatCpf(formData.cpf ?? '')}
                 onChange={(e) => {
                   const raw = parseDigits(e.target.value);
                   if (raw.length <= 11) setFormData({ ...formData, cpf: raw });

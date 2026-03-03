@@ -112,6 +112,29 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - Body: `SimulatePropertyTaxInputSchema` (ano, property_ids, aliquota_efetiva_dirpf?, aplicar_presuncao_16_servicos?, opcoes_reforma?)
 - Resposta: `{ data: PropertyTaxSimulationResponse }` (cenarios PF/PJ/Reforma, break_even, fluxo_caixa)
 
+### POST /properties/simulate-standalone-and-save
+
+- Simula e persiste a simulação no tenant. Exige `save_simulation: true` e `client_id`.
+- Body: `SimulateStandaloneAndSaveInputSchema` (extends SimulateStandaloneInput + client_id, title)
+- Resposta: `{ data: { simulation, result } }`
+
+### GET /properties/simulations
+
+- Lista simulações salvas. Query: `client_id?`, `ano?`, `page`, `limit`
+- Resposta: `{ data: { simulations, total, page, limit } }`
+
+### GET /properties/simulations/:id
+
+- Busca simulação por ID. Resposta: `{ data: { simulation } }`
+
+### PATCH /properties/simulations/:id
+
+- Atualiza simulação (re-simula com os dados enviados). Body: `SimulateStandaloneInputSchema`
+
+### DELETE /properties/simulations/:id
+
+- Exclui simulação.
+
 ### POST /properties/simulate-standalone
 
 - Simulação sem cadastro de imóveis. Recebe 12 meses com campos granulares.

@@ -9,6 +9,7 @@ import {
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
+import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
@@ -127,6 +128,10 @@ export function SimuladorIN2306() {
     save_simulation: false,
     title: '',
   });
+
+  const [viewingSimulation, setViewingSimulation] = useState<IN2306Simulation | null>(null);
+  const [viewLoadingId, setViewLoadingId] = useState<string | null>(null);
+  const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -298,14 +303,23 @@ export function SimuladorIN2306() {
         title: titleTrib || undefined,
         client_id: clientIdTrib || undefined,
       };
-      const res = await simuladorIN2306Service.simulateTributario(input);
-      setTributarioResult(res);
-      if (res.simulation_id) {
-        success('Simulação tributária salva.');
+      if (editingSimulationId) {
+        const { result_data } = await simuladorIN2306Service.update(editingSimulationId, input);
+        setTributarioResult(result_data as unknown as SimuladorTributarioResponse & { simulation_id?: string });
+        setEditingSimulationId(null);
+        success('Simulação atualizada.');
         const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
         setSimulations(listRes.simulations);
       } else {
-        success('Comparativo calculado.');
+        const res = await simuladorIN2306Service.simulateTributario(input);
+        setTributarioResult(res);
+        if (res.simulation_id) {
+          success('Simulação tributária salva.');
+          const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+          setSimulations(listRes.simulations);
+        } else {
+          success('Comparativo calculado.');
+        }
       }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
@@ -323,9 +337,28 @@ export function SimuladorIN2306() {
     setLoading(true);
     setParcelamentoResult(null);
     try {
-      const res = await simuladorIN2306Service.simulate(formParcel);
-      setParcelamentoResult(res);
-      success('Simulação concluída.');
+      if (editingSimulationId) {
+        const { result_data } = await simuladorIN2306Service.update(editingSimulationId, formParcel);
+        setParcelamentoResult({
+          input_data: formParcel as unknown as Record<string, unknown>,
+          result_data: result_data as IN2306SimulationResult['result_data'],
+          is_simulation: true,
+        });
+        setEditingSimulationId(null);
+        success('Simulação atualizada.');
+        const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+        setSimulations(listRes.simulations);
+      } else {
+        const res = await simuladorIN2306Service.simulate(formParcel);
+        setParcelamentoResult(res);
+        if (res.simulation_id) {
+          success('Simulação salva.');
+          const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+          setSimulations(listRes.simulations);
+        } else {
+          success('Simulação concluída.');
+        }
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
     } finally {
@@ -339,9 +372,83 @@ export function SimuladorIN2306() {
       await simuladorIN2306Service.delete(id);
       success('Simulação excluída.');
       setSimulations((prev) => prev.filter((s) => s.id !== id));
+      if (viewingSimulation?.id === id) setViewingSimulation(null);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao excluir');
     }
+  };
+
+  const handleView = async (id: string) => {
+    setViewLoadingId(id);
+    setViewingSimulation(null);
+    try {
+      const sim = await simuladorIN2306Service.getById(id);
+      setViewingSimulation(sim);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar simulação');
+    } finally {
+      setViewLoadingId(null);
+    }
+  };
+
+  const applySimulationToForm = (sim: IN2306Simulation) => {
+    const input = sim.input_data as Record<string, unknown>;
+    if (typeof input?.ano === 'number' && Array.isArray(input.trimestres)) {
+      setTab('tributario');
+      setAno(input.ano as number);
+      setTrimestres(
+        (input.trimestres as ReceitasTrimestre[]).map((t) => ({ ...EMPTY_TRIMESTRE, ...t }))
+      );
+      const ded = input.deducoes_trimestrais as { pis_cofins_zero: number; icms_destacado: number }[] | undefined;
+      setDeducoesTrimestrais(
+        ded?.length === 4
+          ? ded.map((d) => ({ ...EMPTY_DEDUCOES, ...d }))
+          : Array(4).fill(null).map(() => ({ ...EMPTY_DEDUCOES }))
+      );
+      const ret = input.retencoes_trimestrais as { irrf: number; orgaos_publicos: number }[] | undefined;
+      setRetencoesTrimestrais(
+        ret?.length === 4
+          ? ret.map((r) => ({ ...EMPTY_RETENCOES, ...r }))
+          : Array(4).fill(null).map(() => ({ ...EMPTY_RETENCOES }))
+      );
+      setEquiparacao(Boolean(input.aplicar_equiparacao_hospitalar));
+      setTitleTrib((sim.title as string) ?? '');
+      setClientIdTrib((sim.client_id as string) ?? '');
+      setModoAnual(false);
+      setTributarioResult(null);
+    } else if (input?.competence && typeof input.valor_total === 'number') {
+      setTab('parcelamento');
+      setFormParcel({
+        competence: input.competence as string,
+        valor_total: input.valor_total as number,
+        valor_entrada: (input.valor_entrada as number) ?? 0,
+        numero_parcelas: (input.numero_parcelas as number) ?? 12,
+        tipo_calculo: (input.tipo_calculo as 'parcelamento' | 'refinanciamento' | 'simulacao') ?? 'simulacao',
+        save_simulation: false,
+        title: (sim.title as string) ?? '',
+        client_id: (sim.client_id as string) ?? undefined,
+      });
+      setParcelamentoResult(null);
+    }
+  };
+
+  const handleEdit = async (id: string) => {
+    setViewLoadingId(id);
+    try {
+      const sim = await simuladorIN2306Service.getById(id);
+      applySimulationToForm(sim);
+      setEditingSimulationId(id);
+      success('Simulação carregada. Edite e clique em "Comparar cenários" ou "Simular" para atualizar.');
+      scrollToSimulacoesSalvas();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar simulação');
+    } finally {
+      setViewLoadingId(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSimulationId(null);
   };
 
   const formatMoney = (v: number) =>
@@ -726,8 +833,13 @@ export function SimuladorIN2306() {
 
               <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-100">
                 <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90 text-white font-medium">
-                  {loading ? 'Calculando...' : 'Comparar cenários'}
+                  {loading ? 'Calculando...' : editingSimulationId ? 'Atualizar simulação' : 'Comparar cenários'}
                 </Button>
+                {editingSimulationId && (
+                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit}>
+                    Cancelar edição
+                  </Button>
+                )}
                 <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={saveTrib} onChange={(e) => setSaveTrib(e.target.checked)} className="rounded border-slate-300" />
                   Salvar simulação
@@ -1155,13 +1267,52 @@ export function SimuladorIN2306() {
         <>
           <Card>
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Simulação de parcelamento</h2>
-            <form onSubmit={handleSimulateParcelamento} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Competência (YYYY-MM)" value={formParcel.competence} onChange={(e) => setFormParcel((f) => ({ ...f, competence: e.target.value }))} placeholder="2026-01" />
-              <MoneyInput label="Valor total (R$)" value={formParcel.valor_total ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_total: v }))} />
-              <MoneyInput label="Valor entrada (R$)" value={formParcel.valor_entrada ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_entrada: v }))} />
-              <Input label="Número de parcelas" type="number" min="1" max="360" value={formParcel.numero_parcelas ?? ''} onChange={(e) => setFormParcel((f) => ({ ...f, numero_parcelas: Number(e.target.value) || 1 }))} />
-              <div className="md:col-span-2">
-                <Button type="submit" disabled={loading}>{loading ? 'Calculando...' : 'Simular'}</Button>
+            <form onSubmit={handleSimulateParcelamento} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="Competência (YYYY-MM)" value={formParcel.competence} onChange={(e) => setFormParcel((f) => ({ ...f, competence: e.target.value }))} placeholder="2026-01" />
+                <MoneyInput label="Valor total (R$)" value={formParcel.valor_total ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_total: v }))} />
+                <MoneyInput label="Valor entrada (R$)" value={formParcel.valor_entrada ?? 0} onChange={(v) => setFormParcel((f) => ({ ...f, valor_entrada: v }))} />
+                <Input label="Número de parcelas" type="number" min="1" max="360" value={formParcel.numero_parcelas ?? ''} onChange={(e) => setFormParcel((f) => ({ ...f, numero_parcelas: Number(e.target.value) || 1 }))} />
+              </div>
+              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-100">
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Calculando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular'}
+                </Button>
+                {editingSimulationId && (
+                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit}>
+                    Cancelar edição
+                  </Button>
+                )}
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formParcel.save_simulation ?? false}
+                    onChange={(e) => setFormParcel((f) => ({ ...f, save_simulation: e.target.checked }))}
+                    className="rounded border-slate-300"
+                  />
+                  Salvar simulação
+                </label>
+                {(formParcel.save_simulation ?? false) && (
+                  <>
+                    <Input
+                      placeholder="Título (opcional)"
+                      value={formParcel.title ?? ''}
+                      onChange={(e) => setFormParcel((f) => ({ ...f, title: e.target.value }))}
+                      className="w-40 h-9 text-sm"
+                    />
+                    <select
+                      className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
+                      value={formParcel.client_id ?? ''}
+                      onChange={(e) => setFormParcel((f) => ({ ...f, client_id: e.target.value || undefined }))}
+                      required={formParcel.save_simulation}
+                    >
+                      <option value="">Cliente *</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
               </div>
             </form>
           </Card>
@@ -1188,13 +1339,121 @@ export function SimuladorIN2306() {
                   <span className="font-medium text-slate-800">{s.title || `Simulação ${s.competence}`}</span>
                   <span className="text-slate-500 text-sm ml-2">{s.competence}</span>
                 </div>
-                <Button variant="tertiary" size="sm" onClick={() => handleDelete(s.id)} className="text-red-600 border-red-200 hover:bg-red-50">Excluir</Button>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleView(s.id)}
+                    disabled={viewLoadingId === s.id}
+                  >
+                    {viewLoadingId === s.id ? 'Carregando...' : 'Visualizar'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleEdit(s.id)}
+                    disabled={viewLoadingId === s.id}
+                  >
+                    Editar
+                  </Button>
+                  <Button variant="tertiary" size="sm" onClick={() => handleDelete(s.id)} className="text-red-600 border-red-200 hover:bg-red-50">
+                    Excluir
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </Card>
       </div>
+
+      {/* Modal Visualizar Simulação */}
+      <Modal
+        isOpen={!!viewingSimulation}
+        onClose={() => setViewingSimulation(null)}
+        title={viewingSimulation ? (viewingSimulation.title || `Simulação ${viewingSimulation.competence}`) : ''}
+        size="xl"
+      >
+        {viewingSimulation && (() => {
+          const rd = viewingSimulation.result_data as Record<string, unknown>;
+          const isTributario = rd && 'cenario_2025' in rd;
+          if (isTributario) {
+            const c25 = rd.cenario_2025 as { receita_bruta_total: number; irpj_a_rec_total: number; csll_a_rec_total: number };
+            const c26 = rd.cenario_2026 as { receita_bruta_total: number; irpj_a_rec_total: number; csll_a_rec_total: number };
+            const comp = rd.comparativo as { imposto_a_maior_2026_vs_2025: number; economia_equiparacao_vs_2026?: number };
+            const cEq = rd.cenario_equiparacao as { receita_bruta_total: number; irpj_a_rec_total: number; csll_a_rec_total: number } | undefined;
+            const impostoClass = (comp?.imposto_a_maior_2026_vs_2025 ?? 0) >= 0 ? 'text-red-700' : 'text-indigo-600';
+            return (
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                <p className="text-sm text-slate-600">Ano {String(rd.ano ?? '')} · Competência {viewingSimulation.competence}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Card className="p-4 border-l-4 border-l-slate-500">
+                    <h4 className="text-sm font-bold text-slate-600 mb-2">Cálculo 2025</h4>
+                    <p className="text-xs text-slate-500">Receita: {formatMoney(c25?.receita_bruta_total ?? 0)}</p>
+                    <p className="text-sm">IRPJ a rec.: {formatMoney(c25?.irpj_a_rec_total ?? 0)}</p>
+                    <p className="text-sm">CSLL a rec.: {formatMoney(c25?.csll_a_rec_total ?? 0)}</p>
+                  </Card>
+                  <Card className="p-4 border-l-4 border-l-amber-500">
+                    <h4 className="text-sm font-bold text-amber-800 mb-2">Projeção 2026</h4>
+                    <p className="text-xs text-slate-500">Receita: {formatMoney(c26?.receita_bruta_total ?? 0)}</p>
+                    <p className="text-sm">IRPJ a rec.: {formatMoney(c26?.irpj_a_rec_total ?? 0)}</p>
+                    <p className="text-sm">CSLL a rec.: {formatMoney(c26?.csll_a_rec_total ?? 0)}</p>
+                  </Card>
+                  {cEq && (
+                    <Card className="p-4 border-l-4 border-l-violet-500">
+                      <h4 className="text-sm font-bold text-violet-800 mb-2">Equiparação</h4>
+                      <p className="text-xs text-slate-500">Receita: {formatMoney(cEq.receita_bruta_total)}</p>
+                      <p className="text-sm">IRPJ a rec.: {formatMoney(cEq.irpj_a_rec_total)}</p>
+                      <p className="text-sm">CSLL a rec.: {formatMoney(cEq.csll_a_rec_total)}</p>
+                    </Card>
+                  )}
+                </div>
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Comparativo</h4>
+                  <p className="text-sm">Imposto a maior (2026 vs 2025): <strong className={impostoClass}>{formatMoney(comp?.imposto_a_maior_2026_vs_2025 ?? 0)}</strong></p>
+                  {comp?.economia_equiparacao_vs_2026 != null && comp.economia_equiparacao_vs_2026 !== 0 && (
+                    <p className="text-sm mt-1">Economia equiparação: <strong className="text-indigo-600">{formatMoney(comp.economia_equiparacao_vs_2026)}</strong></p>
+                  )}
+                </Card>
+                {(c25 as { trimestres?: TrimestreCenario[] })?.trimestres && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-2">Memória de Cálculo – Cálculo 2025</h4>
+                    <div className="overflow-x-auto">{renderMemoriaTabela(c25 as Parameters<typeof renderMemoriaTabela>[0])}</div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+          const vFin = rd.valor_financiado as number;
+          const vParc = rd.valor_parcela as number | undefined;
+          const nParc = rd.numero_parcelas as number;
+          const vTot = rd.valor_total as number;
+          const vEnt = rd.valor_entrada as number;
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">Competência {viewingSimulation.competence}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <p className="text-sm text-slate-600">Valor total</p>
+                  <p className="text-lg font-semibold">{formatMoney(vTot ?? 0)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-slate-600">Valor entrada</p>
+                  <p className="text-lg font-semibold">{formatMoney(vEnt ?? 0)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-slate-600">Valor financiado</p>
+                  <p className="text-lg font-semibold">{formatMoney(vFin ?? 0)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-sm text-slate-600">Parcela ({nParc ?? 0}x)</p>
+                  <p className="text-lg font-semibold">{vParc != null ? formatMoney(vParc) : '-'}</p>
+                </Card>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       <Card className="mt-6 bg-amber-50/80 border-amber-200">
         <p className="text-sm text-slate-700 mb-1">

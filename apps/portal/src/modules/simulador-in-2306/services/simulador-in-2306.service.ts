@@ -140,6 +140,22 @@ export const simuladorIN2306Service = {
     return response.data.simulation;
   },
 
+  async update(
+    id: string,
+    input: SimulateTributarioInput | SimulateIN2306Input
+  ): Promise<{ simulation: IN2306Simulation; result_data: Record<string, unknown> }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { simulation: IN2306Simulation; result_data: Record<string, unknown> };
+    }>(`/api/v1/simulador-in-2306/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+      token,
+      tenantId,
+    });
+    return response.data;
+  },
+
   async delete(id: string): Promise<void> {
     const { token, tenantId } = getAuthHeaders();
     await apiRequest(`/api/v1/simulador-in-2306/${id}`, {

@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { PropertyService } from './property.service';
 import { PropertyRepository } from './property.repository';
+import { PropertySimulationRepository } from './property-simulation.repository';
 import { ClientRepository } from '../clients/client.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
@@ -13,10 +14,14 @@ import {
   PropertyTransactionSchema,
   SimulatePropertyTaxInputSchema,
   SimulateStandaloneInputSchema,
+  SimulateStandaloneAndSaveInputSchema,
+  UpdatePropertySimulationInputSchema,
   UpsertMonthlyTotalsSchema,
   ListPropertiesQuerySchema,
   ListTransactionsQuerySchema,
+  ListPropertySimulationsQuerySchema,
   PropertyIdParamSchema,
+  PropertySimulationIdParamSchema,
   TransactionIdParamSchema,
   PropertyTaxSimulationResponseSchema,
 } from '@shared/core';
@@ -36,7 +41,8 @@ propertyRoutes.use('/*', requireModule('GESTAO_IMOVEIS'));
 
 const propertyRepo = new PropertyRepository();
 const clientRepo = new ClientRepository();
-const propertyService = new PropertyService(propertyRepo, clientRepo);
+const simulationRepo = new PropertySimulationRepository();
+const propertyService = new PropertyService(propertyRepo, clientRepo, simulationRepo);
 
 /** POST /properties/simulate - Simular carga tributária PF vs PJ vs Reforma (deve vir antes de /:id) */
 propertyRoutes.post(
@@ -48,6 +54,94 @@ propertyRoutes.post(
       const result = await propertyService.simulate(input);
       const data = PropertyTaxSimulationResponseSchema.parse(result);
       return c.json({ data }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** POST /properties/simulate-standalone-and-save - Simular e salvar (persistir) */
+propertyRoutes.post(
+  '/simulate-standalone-and-save',
+  zValidator('json', SimulateStandaloneAndSaveInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      if (!input.save_simulation || !input.client_id) {
+        return c.json({ error: { message: 'save_simulation e client_id são obrigatórios', code: 'VALIDATION_ERROR' } }, 400);
+      }
+      const userId = c.get('user')?.id;
+      const { simulation, result } = await propertyService.simulateStandaloneAndSave(input, userId);
+      const data = PropertyTaxSimulationResponseSchema.parse(result);
+      return c.json({ data: { simulation, result: data } }, 201);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** GET /properties/simulations - Listar simulações salvas (deve vir antes de /:id) */
+propertyRoutes.get(
+  '/simulations',
+  zValidator('query', ListPropertySimulationsQuerySchema),
+  async (c) => {
+    try {
+      const query = c.req.valid('query');
+      const { simulations, total } = await propertyService.listSimulations({
+        client_id: query.client_id,
+        ano: query.ano,
+        page: query.page,
+        limit: query.limit,
+      });
+      return c.json({ data: { simulations, total, page: query.page, limit: query.limit } });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** GET /properties/simulations/:id - Buscar simulação por ID */
+propertyRoutes.get(
+  '/simulations/:id',
+  zValidator('param', PropertySimulationIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const simulation = await propertyService.getSimulationById(id);
+      return c.json({ data: { simulation } });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** PATCH /properties/simulations/:id - Atualizar simulação */
+propertyRoutes.patch(
+  '/simulations/:id',
+  zValidator('param', PropertySimulationIdParamSchema),
+  zValidator('json', UpdatePropertySimulationInputSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const input = c.req.valid('json');
+      const { simulation, result } = await propertyService.updateSimulation(id, input);
+      const data = PropertyTaxSimulationResponseSchema.parse(result);
+      return c.json({ data: { simulation, result: data } }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** DELETE /properties/simulations/:id - Excluir simulação */
+propertyRoutes.delete(
+  '/simulations/:id',
+  zValidator('param', PropertySimulationIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      await propertyService.deleteSimulation(id);
+      return c.json({ data: { success: true } });
     } catch (err) {
       return errorHandler(err, c);
     }

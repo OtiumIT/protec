@@ -134,6 +134,15 @@ export const IN2306SimulationIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+/**
+ * Input para PATCH (atualizar simulação existente). Aceita dados de tributário ou parcelamento.
+ * Re-simula com os dados enviados e atualiza o registro.
+ */
+export const UpdateIN2306SimulationInputSchema = z.union([
+  SimulateTributarioIN2306InputSchema.omit({ save_simulation: true }),
+  SimulateIN2306InputSchema.omit({ save_simulation: true }),
+]);
+
 export type ReceitasTrimestre = z.infer<typeof ReceitasTrimestreSchema>;
 export type DeducoesTrimestre = z.infer<typeof DeducoesTrimestreSchema>;
 export type RetencoesTrimestre = z.infer<typeof RetencoesTrimestreSchema>;
@@ -143,3 +152,4 @@ export type CenarioTrimestre = z.infer<typeof CenarioTrimestreSchema>;
 export type CenarioAnual = z.infer<typeof CenarioAnualSchema>;
 export type SimuladorTributarioResponse = z.infer<typeof SimuladorTributarioResponseSchema>;
 export type IN2306SimulationResponse = z.infer<typeof IN2306SimulationResponseSchema>;
+export type UpdateIN2306SimulationInput = z.infer<typeof UpdateIN2306SimulationInputSchema>;
