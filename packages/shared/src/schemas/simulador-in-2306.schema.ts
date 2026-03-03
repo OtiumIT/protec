@@ -24,7 +24,7 @@ export const DeducoesTrimestreSchema = z.object({
 }).optional().default({});
 
 /**
- * Retenções no trimestre (IRRF, Órgãos Públicos 4,65%)
+ * Retenções no trimestre (IRRF e demais retenções, ex.: 4,65% órgãos públicos, Lei 10.833/03)
  */
 export const RetencoesTrimestreSchema = z.object({
   irrf: monetaryValue.optional().default(0),

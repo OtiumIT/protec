@@ -472,6 +472,36 @@ export function SimuladorIN2306() {
     ].filter((d) => d.value > 0);
   }, [modoAnual, receitaAnual, trimestres]);
 
+  const totaisReceitaPorTrimestre = useMemo(
+    () =>
+      [0, 1, 2, 3].map((i) => {
+        const t = trimestres[i];
+        return (
+          (t?.produtos_mercadorias ?? 0) +
+          (t?.servicos ?? 0) +
+          (t?.servicos_favorecida ?? 0) +
+          (t?.servicos_hospitalares ?? 0) +
+          (t?.demais_receitas ?? 0)
+        );
+      }),
+    [trimestres]
+  );
+
+  const totaisDeducoesRetencoesPorTrimestre = useMemo(
+    () =>
+      [0, 1, 2, 3].map((i) => {
+        const d = deducoesTrimestrais[i];
+        const r = retencoesTrimestrais[i];
+        return (
+          (d?.pis_cofins_zero ?? 0) +
+          (d?.icms_destacado ?? 0) +
+          (r?.irrf ?? 0) +
+          (r?.orgaos_publicos ?? 0)
+        );
+      }),
+    [deducoesTrimestrais, retencoesTrimestrais]
+  );
+
   return (
     <Layout>
       <ToastContainer />
@@ -547,8 +577,13 @@ export function SimuladorIN2306() {
                     <MoneyInput label="PIS/COFINS alíq. zero" value={deducoesAnual.pis_cofins_zero ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, pis_cofins_zero: v }))} />
                     <MoneyInput label="ICMS destacado" value={deducoesAnual.icms_destacado ?? 0} onChange={(v) => setDeducoesAnual((d) => ({ ...d, icms_destacado: v }))} />
                     <MoneyInput label="IRRF" value={retencoesAnual.irrf ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, irrf: v }))} />
-                    <MoneyInput label="Órgãos públicos 4,65%" value={retencoesAnual.orgaos_publicos ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, orgaos_publicos: v }))} />
+                    <MoneyInput label="Retenções" value={retencoesAnual.orgaos_publicos ?? 0} onChange={(v) => setRetencoesAnual((r) => ({ ...r, orgaos_publicos: v }))} />
                   </div>
+                  <p className="text-sm font-medium text-slate-700 pt-2 border-t border-slate-200">
+                    Total receita: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receitaTotalInformada)} · Deduções + retenções: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      (deducoesAnual.pis_cofins_zero ?? 0) + (deducoesAnual.icms_destacado ?? 0) + (retencoesAnual.irrf ?? 0) + (retencoesAnual.orgaos_publicos ?? 0)
+                    )}
+                  </p>
                 </div>
               ) : (
               <>
@@ -605,6 +640,14 @@ export function SimuladorIN2306() {
                           </td>
                         ))}
                       </tr>
+                      <tr className="bg-slate-50 font-medium">
+                        <td className="py-2 px-3 text-slate-700">Total</td>
+                        {[0, 1, 2, 3].map((i) => (
+                          <td key={i} className="py-1.5 px-2 text-right text-slate-800">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totaisReceitaPorTrimestre[i] ?? 0)}
+                          </td>
+                        ))}
+                      </tr>
                     </tbody>
                   </table>
                   <p className="text-xs text-slate-400 px-3 py-2 bg-slate-50/80 border-t border-slate-100">Limite isento: R$ 1.250.000/trim (R$ 5 MM/ano). Acréscimo 10% sobre o excedente (LC 224/2025).</p>
@@ -658,10 +701,18 @@ export function SimuladorIN2306() {
                             ))}
                           </tr>
                           <tr>
-                            <td className="py-1 px-3 text-slate-600">Órgãos públicos 4,65%</td>
+                            <td className="py-1 px-3 text-slate-600">Retenções</td>
                             {[0, 1, 2, 3].map((i) => (
                               <td key={i} className="py-1 px-2">
                                 <MoneyInput value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0} onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)} className="text-right text-sm" />
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="bg-slate-50 font-medium">
+                            <td className="py-1 px-3 text-slate-700">Total</td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1 px-2 text-right text-slate-800">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totaisDeducoesRetencoesPorTrimestre[i] ?? 0)}
                               </td>
                             ))}
                           </tr>
@@ -967,6 +1018,77 @@ export function SimuladorIN2306() {
                           </div>
                         );
                       })}
+                    </div>
+                  );
+                })()}
+
+                {/* Rateio do Adicional de IRPJ */}
+                {(() => {
+                  const rateioObj = tributarioResult.memoria_calculo?.rateio_adicional_irpj as
+                    | { cenario_2025?: unknown[]; cenario_2026?: unknown[]; cenario_equiparacao?: unknown[] }
+                    | undefined;
+                  if (!rateioObj) return null;
+                  const tabKeys = ['cenario_2025', 'cenario_2026', 'cenario_equiparacao'] as const;
+                  const tabLabels = ['Cálculo 2025 (sem aumento)', 'Projeção 2026 (LC 224/2025)', 'Cenário Equiparação'] as const;
+                  const activeKey = tabKeys[Math.min(memoriaTab, 2)];
+                  const rateioArr = (rateioObj[activeKey] ?? []) as Array<{
+                    trimestre: number;
+                    base_total: number;
+                    adicional_total: number;
+                    atividades: Array<{
+                      label: string;
+                      receita: number;
+                      base_irpj: number;
+                      participacao_pct: number;
+                      adicional_proporcional: number;
+                    }>;
+                  }>;
+                  if (rateioArr.length === 0) return null;
+                  return (
+                    <div className="mb-6 p-4 rounded-lg bg-slate-50 border border-slate-200">
+                      <h4 className="font-semibold text-slate-800 mb-2">Rateio do Adicional de IRPJ</h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        Quando a base de cálculo IRPJ do trimestre excede R$ 60.000, incide o adicional de 10%. O valor é rateado proporcionalmente conforme a participação de cada tipo de receita na base.
+                      </p>
+                      <p className="text-xs text-slate-500 mb-3">Cenário: {tabLabels[Math.min(memoriaTab, 2)]}</p>
+                      {rateioArr.map((rt) => (
+                        <div key={rt.trimestre} className="mb-4 last:mb-0">
+                          <h5 className="text-sm font-medium text-slate-700 mb-2">
+                            {rt.trimestre}º trimestre — Base IRPJ: {formatMoney(rt.base_total)} · Adicional total: {formatMoney(rt.adicional_total)}
+                          </h5>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden bg-white">
+                              <thead className="bg-slate-100 text-slate-700">
+                                <tr>
+                                  <th className="px-3 py-2 text-left">Atividade</th>
+                                  <th className="px-3 py-2 text-right">Receita</th>
+                                  <th className="px-3 py-2 text-right">Base IRPJ</th>
+                                  <th className="px-3 py-2 text-right">% Composição</th>
+                                  <th className="px-3 py-2 text-right">Adicional proporcional</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rt.atividades?.map((a, i) => (
+                                  <tr key={i} className="border-t border-slate-200">
+                                    <td className="px-3 py-2 text-slate-700">{a.label}</td>
+                                    <td className="px-3 py-2 text-right">{formatMoney(a.receita)}</td>
+                                    <td className="px-3 py-2 text-right">{formatMoney(a.base_irpj)}</td>
+                                    <td className="px-3 py-2 text-right">{a.participacao_pct.toFixed(1)}%</td>
+                                    <td className="px-3 py-2 text-right">{formatMoney(a.adicional_proporcional)}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t-2 border-slate-300 bg-slate-50 font-medium">
+                                  <td className="px-3 py-2 text-slate-800">Total</td>
+                                  <td className="px-3 py-2 text-right">{formatMoney(rt.atividades?.reduce((s, a) => s + a.receita, 0) ?? 0)}</td>
+                                  <td className="px-3 py-2 text-right">{formatMoney(rt.base_total)}</td>
+                                  <td className="px-3 py-2 text-right">100%</td>
+                                  <td className="px-3 py-2 text-right">{formatMoney(rt.adicional_total)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   );
                 })()}

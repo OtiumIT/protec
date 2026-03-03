@@ -6,6 +6,7 @@ import {
   calcularAno2026,
   agregarAnual,
   detalheProporcaoTrimestre,
+  rateioAdicionalIrpjPorTrimestre,
 } from './calculations';
 import type {
   SimulateIN2306Input,
@@ -215,6 +216,12 @@ export class SimuladorIN2306Service {
       if (detalhe) proporcaoTrimestres.push(detalhe);
     }
 
+    const rateio2025 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, false, input.ano);
+    const rateio2026 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, true, input.ano);
+    const rateioEquiparacao = input.aplicar_equiparacao_hospitalar
+      ? rateioAdicionalIrpjPorTrimestre(input.trimestres, true, false, input.ano)
+      : [];
+
     const result: SimuladorTributarioResponse = {
       ano: input.ano,
       cenario_2025,
@@ -229,6 +236,11 @@ export class SimuladorIN2306Service {
           ? 'Serviços tributados com 8% IRPJ e 12% CSLL'
           : 'Não aplicada',
         proporcao_trimestres: proporcaoTrimestres,
+        rateio_adicional_irpj: {
+          cenario_2025: rateio2025,
+          cenario_2026: rateio2026,
+          cenario_equiparacao: rateioEquiparacao,
+        },
       },
     };
 

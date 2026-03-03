@@ -264,6 +264,142 @@ function adicionalIRPJ(baseCalculoIrpjTrimestre: number): number {
   return round2(baseAdicional * ALIQ_IRPJ_ADICIONAL);
 }
 
+/** Retorna a base IRPJ por atividade para um trimestre (usado no rateio do adicional) */
+function basesIrpjPorAtividade(
+  r: ReceitasTrimestre,
+  equiparacao: boolean,
+  _numTrimestre: number,
+  ano: number,
+  usarAcrescimoIN2306: boolean
+): { baseTotal: number; porAtividade: Array<{ chave: keyof ReceitasTrimestre; receita: number; baseIrpj: number }> } {
+  const presServicos = equiparacao
+    ? { irpj: PRESUMICAO.servicos_hospitalares.irpj }
+    : { irpj: PRESUMICAO.servicos.irpj };
+  const presMap: Record<keyof ReceitasTrimestre, number> = {
+    produtos_mercadorias: PRESUMICAO.produtos_mercadorias.irpj,
+    servicos: presServicos.irpj,
+    servicos_favorecida: PRESUMICAO.servicos_favorecida.irpj,
+    servicos_hospitalares: PRESUMICAO.servicos_hospitalares.irpj,
+    demais_receitas: PRESUMICAO.demais_receitas.irpj,
+  };
+  const keys: (keyof ReceitasTrimestre)[] = [
+    'produtos_mercadorias',
+    'servicos',
+    'servicos_favorecida',
+    'servicos_hospitalares',
+    'demais_receitas',
+  ];
+  let baseTotal = 0;
+  const porAtividade: Array<{ chave: keyof ReceitasTrimestre; receita: number; baseIrpj: number }> = [];
+
+  if (!usarAcrescimoIN2306) {
+    for (const key of keys) {
+      const val = r[key] ?? 0;
+      const baseA = round2(val * presMap[key]);
+      if (val > 0) {
+        porAtividade.push({ chave: key, receita: round2(val), baseIrpj: baseA });
+        baseTotal += baseA;
+      }
+    }
+    return { baseTotal: round2(baseTotal), porAtividade };
+  }
+
+  const total = receitaBrutaTrimestre(r);
+  const aplicarAcrescimoIrpj = ano >= 2026;
+  if (total <= LIMITE_TRIMESTRAL || !aplicarAcrescimoIrpj) {
+    for (const key of keys) {
+      const val = r[key] ?? 0;
+      const baseA = round2(val * presMap[key]);
+      if (val > 0) {
+        porAtividade.push({ chave: key, receita: round2(val), baseIrpj: baseA });
+        baseTotal += baseA;
+      }
+    }
+    return { baseTotal: round2(baseTotal), porAtividade };
+  }
+
+  for (const key of keys) {
+    const val = r[key] ?? 0;
+    if (val <= 0) continue;
+    const prop = val / total;
+    const limiteAtividade = LIMITE_TRIMESTRAL * prop;
+    const excedenteAtividade = Math.max(0, val - limiteAtividade);
+    const pres = presMap[key];
+    const fatorIrpj = 1.1;
+    const baseA = round2(limiteAtividade * pres + excedenteAtividade * pres * fatorIrpj);
+    porAtividade.push({ chave: key, receita: round2(val), baseIrpj: baseA });
+    baseTotal += baseA;
+  }
+  return { baseTotal: round2(baseTotal), porAtividade };
+}
+
+export interface RateioAdicionalAtividade {
+  chave: keyof ReceitasTrimestre;
+  label: string;
+  receita: number;
+  base_irpj: number;
+  participacao_pct: number;
+  adicional_proporcional: number;
+}
+
+export interface RateioAdicionalTrimestre {
+  trimestre: number;
+  base_total: number;
+  adicional_total: number;
+  atividades: RateioAdicionalAtividade[];
+}
+
+/**
+ * Rateio proporcional do Adicional de IRPJ por tipo de receita.
+ * Fórmula: Adicional_A = (Base_IRPJ_A / Base_IRPJ_Total) × Adicional_Total
+ */
+export function rateioAdicionalIrpjPorTrimestre(
+  trimestres: ReceitasTrimestre[],
+  equiparacao: boolean,
+  usarBaseComAcrescimoIN2306: boolean,
+  ano: number
+): RateioAdicionalTrimestre[] {
+  const results: RateioAdicionalTrimestre[] = [];
+  for (let t = 0; t < 4; t++) {
+    const r = trimestres[t] ?? {
+      produtos_mercadorias: 0,
+      servicos: 0,
+      servicos_favorecida: 0,
+      servicos_hospitalares: 0,
+      demais_receitas: 0,
+    };
+    const { baseTotal, porAtividade } = basesIrpjPorAtividade(
+      r,
+      equiparacao,
+      t + 1,
+      ano,
+      usarBaseComAcrescimoIN2306
+    );
+    const adicionalTotal = adicionalIRPJ(baseTotal);
+    if (adicionalTotal <= 0 || baseTotal <= 0) continue;
+
+    const atividades: RateioAdicionalAtividade[] = porAtividade.map(({ chave, receita, baseIrpj }) => {
+      const participacao_pct = round2((baseIrpj / baseTotal) * 100);
+      const adicional_proporcional = round2((baseIrpj / baseTotal) * adicionalTotal);
+      return {
+        chave,
+        label: LABEL_ATIVIDADE[chave],
+        receita,
+        base_irpj: baseIrpj,
+        participacao_pct,
+        adicional_proporcional,
+      };
+    });
+    results.push({
+      trimestre: t + 1,
+      base_total: baseTotal,
+      adicional_total: adicionalTotal,
+      atividades,
+    });
+  }
+  return results;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
