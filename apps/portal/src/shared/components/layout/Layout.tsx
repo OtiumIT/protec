@@ -65,8 +65,8 @@ export function Layout({ children }: LayoutProps) {
                     user?.role === 'admin' ? 'Administrador' : 'Usuário'}
                   </p>
                 </div>
-                <Button variant="tertiary" size="sm" onClick={logout} className="h-9 px-3 py-0 text-sm bg-transparent border-brand/40 text-brand hover:bg-brand/5">
-                  <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Button variant="tertiary" size="sm" onClick={logout} className="inline-flex items-center justify-center gap-1.5 h-9 min-h-[36px] px-3 py-2 text-sm bg-transparent border-brand/40 text-brand hover:bg-brand/5">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   <span className="hidden sm:inline">Sair</span>
