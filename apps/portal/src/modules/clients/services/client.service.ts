@@ -13,13 +13,17 @@ export interface ClientWithCreatedAt extends Omit<Client, 'created_at' | 'update
 
 export interface CreateClientData {
   name: string;
-  cnpj?: string; // Opcional para super_admin criar empresa
+  person_type?: 'pf' | 'pj';
+  cnpj?: string;
+  cpf?: string;
   email?: string;
 }
 
 export interface UpdateClientData {
   name?: string;
+  person_type?: 'pf' | 'pj';
   cnpj?: string;
+  cpf?: string;
   email?: string;
   status?: 'active' | 'inactive';
 }
@@ -53,7 +57,9 @@ function convertClient(client: any): ClientWithCreatedAt {
   return {
     id: client.id,
     name: client.name,
+    person_type: client.person_type,
     cnpj: client.cnpj,
+    cpf: client.cpf,
     email: client.email || '',
     status: client.status || 'active', // Default para 'active' se não tiver status
     tax_regime: client.tax_regime,

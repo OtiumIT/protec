@@ -5,12 +5,14 @@ export interface LoginData {
   password: string;
 }
 
-/** Dados para cadastro de escritório de contabilidade (tenant) + usuário responsável */
+/** Dados para cadastro de escritório (tenant) + usuário responsável - suporta PF e PJ */
 export interface RegisterData {
   company: {
+    person_type: 'pf' | 'pj';
     legal_name: string;
     trade_name?: string;
-    cnpj: string;
+    cnpj?: string;
+    cpf?: string;
     phone?: string;
   };
   user: {

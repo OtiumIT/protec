@@ -5,7 +5,9 @@ import type { PoolClient } from 'pg';
 export interface CreateCompanyData {
   name: string;
   domain?: string;
+  person_type?: 'pf' | 'pj';
   cnpj?: string;
+  cpf?: string;
   legal_name?: string;
   trade_name?: string;
   email?: string;
@@ -36,7 +38,7 @@ export class CompanyRepository extends BaseRepository {
    */
   async findById(id: string): Promise<Company | null> {
     const result = await this.query<Company>(
-      `SELECT id, name, domain, cnpj, legal_name, trade_name, email, phone,
+      `SELECT id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
               contact_name, contact_email, contact_phone, tax_regime,
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
@@ -54,7 +56,7 @@ export class CompanyRepository extends BaseRepository {
    */
   async findByDomain(domain: string): Promise<Company | null> {
     const result = await this.query<Company>(
-      `SELECT id, name, domain, cnpj, legal_name, trade_name, email, phone,
+      `SELECT id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
               contact_name, contact_email, contact_phone, tax_regime,
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
@@ -72,7 +74,7 @@ export class CompanyRepository extends BaseRepository {
    */
   async findByCnpj(cnpj: string): Promise<Company | null> {
     const result = await this.query<Company>(
-      `SELECT id, name, domain, cnpj, legal_name, trade_name, email, phone,
+      `SELECT id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
               contact_name, contact_email, contact_phone, tax_regime,
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
@@ -86,23 +88,41 @@ export class CompanyRepository extends BaseRepository {
   }
 
   /**
+   * Buscar empresa por CPF
+   */
+  async findByCpf(cpf: string): Promise<Company | null> {
+    const result = await this.query<Company>(
+      `SELECT id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
+              contact_name, contact_email, contact_phone, tax_regime,
+              state_registration, municipal_registration, cnae,
+              zip_code, address_street, address_number, address_complement,
+              address_neighborhood, address_city, address_state, notes,
+              created_at, updated_at 
+       FROM companies WHERE cpf = $1`,
+      [cpf],
+      false
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
    * Criar empresa
    * @param data - Dados da empresa
    * @param client - Client opcional para usar em transação
    */
   async create(data: CreateCompanyData, client?: PoolClient): Promise<Company> {
     const sql = `INSERT INTO companies (
-                   name, domain, cnpj, legal_name, trade_name, email, phone,
+                   name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
                    contact_name, contact_email, contact_phone, tax_regime,
                    state_registration, municipal_registration, cnae,
                    zip_code, address_street, address_number, address_complement,
                    address_neighborhood, address_city, address_state, notes
                  ) 
                  VALUES (
-                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                   $15, $16, $17, $18, $19, $20, $21, $22
+                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                   $16, $17, $18, $19, $20, $21, $22, $23, $24
                  ) 
-                 RETURNING id, name, domain, cnpj, legal_name, trade_name, email, phone,
+                 RETURNING id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
                            contact_name, contact_email, contact_phone, tax_regime,
                            state_registration, municipal_registration, cnae,
                            zip_code, address_street, address_number, address_complement,
@@ -111,7 +131,9 @@ export class CompanyRepository extends BaseRepository {
     const params = [
       data.name,
       data.domain || null,
+      data.person_type || 'pj',
       data.cnpj || null,
+      data.cpf || null,
       data.legal_name || null,
       data.trade_name || null,
       data.email || null,
@@ -147,7 +169,7 @@ export class CompanyRepository extends BaseRepository {
    */
   async findAll(): Promise<Company[]> {
     const result = await this.query<Company>(
-      `SELECT id, name, domain, cnpj, legal_name, trade_name, email, phone,
+      `SELECT id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
               contact_name, contact_email, contact_phone, tax_regime,
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
@@ -169,7 +191,7 @@ export class CompanyRepository extends BaseRepository {
     let paramIndex = 1;
 
     const fields: Array<keyof UpdateCompanyData> = [
-      'name', 'domain', 'cnpj', 'legal_name', 'trade_name', 'email', 'phone',
+      'name', 'domain', 'person_type', 'cnpj', 'cpf', 'legal_name', 'trade_name', 'email', 'phone',
       'contact_name', 'contact_email', 'contact_phone', 'tax_regime',
       'state_registration', 'municipal_registration', 'cnae',
       'zip_code', 'address_street', 'address_number', 'address_complement',
@@ -192,7 +214,7 @@ export class CompanyRepository extends BaseRepository {
       `UPDATE companies 
        SET ${updates.join(', ')}, updated_at = NOW() 
        WHERE id = $${paramIndex++} 
-       RETURNING id, name, domain, cnpj, legal_name, trade_name, email, phone,
+       RETURNING id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
                  contact_name, contact_email, contact_phone, tax_regime,
                  state_registration, municipal_registration, cnae,
                  zip_code, address_street, address_number, address_complement,

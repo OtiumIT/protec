@@ -16,10 +16,12 @@ export interface ApiError {
 export function errorHandler(error: unknown, c: Context): Response {
   // Erro de validação Zod
   if (error instanceof ZodError) {
+    const firstError = error.errors[0];
+    const message = firstError?.message ?? 'Erro de validação. Verifique os campos e tente novamente.';
     return c.json<ApiError>(
       {
         error: {
-          message: 'Validation error',
+          message,
           code: 'VALIDATION_ERROR',
           details: error.errors,
         },
@@ -135,6 +137,9 @@ function getStatusCodeFromErrorCode(code: string): number {
     SUBSCRIPTION_INACTIVE: 402,
     USER_LIMIT_REACHED: 409,
     EMAIL_ALREADY_EXISTS: 409,
+    CNPJ_ALREADY_EXISTS: 409,
+    CPF_ALREADY_EXISTS: 409,
+    DOMAIN_ALREADY_EXISTS: 409,
     SUBSCRIPTION_NOT_FOUND: 402,
   };
 

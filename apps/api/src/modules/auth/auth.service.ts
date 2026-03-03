@@ -14,12 +14,14 @@ export interface AuthTokens {
   refresh: string;
 }
 
-/** Dados para cadastro de escritório de contabilidade (tenant) + usuário responsável */
+/** Dados para cadastro de escritório (tenant) + usuário responsável - suporta PF e PJ */
 export interface RegisterData {
   company: {
+    person_type: 'pf' | 'pj';
     legal_name: string;
     trade_name?: string;
-    cnpj: string;
+    cnpj?: string;
+    cpf?: string;
     phone?: string;
   };
   user: {
@@ -60,16 +62,19 @@ export class AuthService {
       );
     }
 
-    // Nome de exibição: nome fantasia ou razão social
+    // Nome de exibição: nome fantasia ou razão social/nome completo
     const name = (data.company.trade_name?.trim() || data.company.legal_name.trim()).slice(0, 255);
-    const cnpjNormalized = data.company.cnpj.replace(/\D/g, '');
+    const cnpjNormalized = data.company.cnpj ? data.company.cnpj.replace(/\D/g, '') : undefined;
+    const cpfNormalized = data.company.cpf ? data.company.cpf.replace(/\D/g, '') : undefined;
 
     // Criar tenant (empresa + schema tenant + migrations)
     const company = await this.companyService.create({
       name,
+      person_type: data.company.person_type,
       legal_name: data.company.legal_name,
       trade_name: data.company.trade_name || undefined,
       cnpj: cnpjNormalized,
+      cpf: cpfNormalized,
       phone: data.company.phone || undefined,
       contact_email: data.user.email,
       contact_name: data.user.name,

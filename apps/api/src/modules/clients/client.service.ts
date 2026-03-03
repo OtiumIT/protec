@@ -6,17 +6,33 @@ export class ClientService {
   constructor(private clientRepo: ClientRepository) {}
 
   /**
-   * Criar cliente com validação de CNPJ único
+   * Criar cliente com validação de CNPJ/CPF único
    * NOTA: Schema já isola por tenant, não precisa companyId
    */
   async create(data: CreateClientData): Promise<Client> {
-    // Verificar se CNPJ já existe no tenant (schema já isola)
-    const existing = await this.clientRepo.findByCnpj(data.cnpj);
-    if (existing) {
-      throw new AppError('CNPJ already exists', 'CNPJ_ALREADY_EXISTS', 409);
+    const personType = data.person_type || 'pj';
+    const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
+    const cpfDigits = (data.cpf || '').replace(/\D/g, '');
+
+    if (personType === 'pj' && cnpjDigits) {
+      const existing = await this.clientRepo.findByCnpj(cnpjDigits);
+      if (existing) {
+        throw new AppError('CNPJ já cadastrado', 'CNPJ_ALREADY_EXISTS', 409);
+      }
+    }
+    if (personType === 'pf' && cpfDigits) {
+      const existing = await this.clientRepo.findByCpf(cpfDigits);
+      if (existing) {
+        throw new AppError('CPF já cadastrado', 'CPF_ALREADY_EXISTS', 409);
+      }
     }
 
-    return this.clientRepo.create(data);
+    const normalized = {
+      ...data,
+      cnpj: cnpjDigits || undefined,
+      cpf: cpfDigits || undefined,
+    };
+    return this.clientRepo.create(normalized);
   }
 
   /**
@@ -30,15 +46,25 @@ export class ClientService {
       throw new AppError('Client not found', 'CLIENT_NOT_FOUND', 404);
     }
 
-    // Se CNPJ está sendo alterado, verificar se já existe
-    if (data.cnpj && data.cnpj !== client.cnpj) {
-      const existing = await this.clientRepo.findByCnpj(data.cnpj);
+    const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
+    const cpfDigits = (data.cpf || '').replace(/\D/g, '');
+    if (cnpjDigits && cnpjDigits !== (client.cnpj || '').replace(/\D/g, '')) {
+      const existing = await this.clientRepo.findByCnpj(cnpjDigits);
       if (existing) {
-        throw new AppError('CNPJ already exists', 'CNPJ_ALREADY_EXISTS', 409);
+        throw new AppError('CNPJ já cadastrado', 'CNPJ_ALREADY_EXISTS', 409);
+      }
+    }
+    if (cpfDigits && cpfDigits !== (client.cpf || '').replace(/\D/g, '')) {
+      const existing = await this.clientRepo.findByCpf(cpfDigits);
+      if (existing) {
+        throw new AppError('CPF já cadastrado', 'CPF_ALREADY_EXISTS', 409);
       }
     }
 
-    return this.clientRepo.update(id, data);
+    const normalized: UpdateClientData = { ...data };
+    if (data.cnpj !== undefined) normalized.cnpj = cnpjDigits || undefined;
+    if (data.cpf !== undefined) normalized.cpf = cpfDigits || undefined;
+    return this.clientRepo.update(id, normalized);
   }
 
   /**

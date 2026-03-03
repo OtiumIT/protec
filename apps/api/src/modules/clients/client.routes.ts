@@ -45,8 +45,10 @@ clientRoutes.get('/', async (c) => {
           id: company.id,
           name: company.name,
           domain: company.domain,
+          person_type: company.person_type,
           cnpj: company.cnpj || null,
-          email: company.email || null,
+          cpf: company.cpf || null,
+          email: company.email || company.contact_email || null,
           status: 'active', // Todas as empresas são consideradas ativas
           created_at, // Usar snake_case para compatibilidade
         };
@@ -116,7 +118,9 @@ clientRoutes.get('/:id', async (c) => {
         client: {
           id: client.id,
           name: client.name,
+          person_type: client.person_type,
           cnpj: client.cnpj,
+          cpf: client.cpf,
           email: client.email,
           status: client.status,
           tax_regime: client.tax_regime,
@@ -183,29 +187,20 @@ clientRoutes.post(
           );
         }
         data = result.data;
-        
-        // Validar CNPJ para admin normal
-        if (!data.cnpj) {
-          return c.json(
-            {
-              error: {
-                message: 'CNPJ is required',
-                code: 'VALIDATION_ERROR',
-              },
-            },
-            400
-          );
-        }
       }
 
       // Se for super_admin e não tiver companyId, criar empresa/tenant automaticamente
       if (currentUser.role === 'super_admin' && !companyId) {
         try {
-          // Criar empresa com todos os dados fornecidos
-          // O CompanyService já tem proteção contra race conditions com SELECT FOR UPDATE
+          const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
+          const cpfDigits = (data.cpf || '').replace(/\D/g, '');
           const company = await companyService.create({
             ...data,
-            domain: data.email ? data.email.split('@')[1] : data.domain,
+            person_type: data.person_type || 'pj',
+            cnpj: cnpjDigits || undefined,
+            cpf: cpfDigits || undefined,
+            contact_email: data.contact_email || data.email,
+            domain: (data.contact_email || data.email) ? (data.contact_email || data.email).split('@')[1] : data.domain,
           });
           companyId = company.id;
           
@@ -220,7 +215,9 @@ clientRoutes.post(
                   id: company.id,
                   name: company.name,
                   domain: company.domain,
+                  person_type: company.person_type,
                   cnpj: company.cnpj,
+                  cpf: company.cpf,
                   status: 'active',
                   createdAt: company.created_at,
                 },
@@ -230,8 +227,7 @@ clientRoutes.post(
             201
           );
         } catch (error: any) {
-          // Se for erro de duplicata, retornar erro amigável
-          if (error.code === 'CNPJ_ALREADY_EXISTS' || error.code === 'DOMAIN_ALREADY_EXISTS') {
+          if (error.code === 'CNPJ_ALREADY_EXISTS' || error.code === 'CPF_ALREADY_EXISTS' || error.code === 'DOMAIN_ALREADY_EXISTS') {
             return c.json(
               {
                 error: {
@@ -261,10 +257,13 @@ clientRoutes.post(
       const schemaName = `tenant_${companyId.replace(/-/g, '_')}`;
       await query(`SET search_path TO "${schemaName}", public`);
 
-      // Criar cliente no schema do tenant (apenas para admin normal)
+      const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
+      const cpfDigits = (data.cpf || '').replace(/\D/g, '');
       const client = await clientService.create({
         name: data.name,
-        cnpj: data.cnpj!,
+        person_type: data.person_type || 'pj',
+        cnpj: cnpjDigits || undefined,
+        cpf: cpfDigits || undefined,
         email: data.email,
         tax_regime: data.tax_regime,
         cnae: data.cnae,

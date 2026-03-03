@@ -36,26 +36,39 @@ export class CompanyService {
         );
         if (existingCnpj.rows.length > 0) {
           await client.query('ROLLBACK');
-          throw new AppError('CNPJ already exists', 'CNPJ_ALREADY_EXISTS', 409);
+          throw new AppError('CNPJ já cadastrado', 'CNPJ_ALREADY_EXISTS', 409);
         }
-      } else {
-        // Se não há CNPJ, usar advisory lock baseado no nome+email para prevenir race conditions
-        // Isso garante que apenas uma requisição por vez possa criar empresa com mesmo nome+email
-        const lockKey = `company_${data.name}_${data.email || ''}`.substring(0, 100);
+      }
+
+      if (data.cpf) {
+        const existingCpf = await client.query<Company>(
+          'SELECT id FROM companies WHERE cpf = $1 FOR UPDATE',
+          [data.cpf]
+        );
+        if (existingCpf.rows.length > 0) {
+          await client.query('ROLLBACK');
+          throw new AppError('CPF já cadastrado', 'CPF_ALREADY_EXISTS', 409);
+        }
+      }
+
+      if (!data.cnpj) {
+        // PF ou empresa sem CNPJ: usar advisory lock baseado no nome+email para prevenir race conditions
+        const contactEmail = data.contact_email || data.email || '';
+        const lockKey = `company_${data.name}_${contactEmail}`.substring(0, 100);
         await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [lockKey]);
-        
+
         try {
-          // Verificar se já existe empresa com mesmo nome e email (sem CNPJ)
           const existingByName = await client.query<Company>(
-            'SELECT id FROM companies WHERE name = $1 AND (email = $2 OR ($2 IS NULL AND email IS NULL)) AND (cnpj IS NULL OR cnpj = \'\') FOR UPDATE',
-            [data.name, data.email || null]
+            `SELECT id FROM companies WHERE name = $1 
+             AND (contact_email = $2 OR email = $2 OR ($2 = '' AND contact_email IS NULL AND email IS NULL)) 
+             AND (cnpj IS NULL OR cnpj = '') FOR UPDATE`,
+            [data.name, contactEmail || null]
           );
           if (existingByName.rows.length > 0) {
             await client.query('ROLLBACK');
-            throw new AppError('Company with same name and email already exists', 'COMPANY_ALREADY_EXISTS', 409);
+            throw new AppError('Empresa com mesmo nome e e-mail já existe', 'COMPANY_ALREADY_EXISTS', 409);
           }
         } finally {
-          // Liberar advisory lock
           await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey]);
         }
       }
@@ -89,12 +102,15 @@ export class CompanyService {
       console.error('❌ Erro ao criar company:', error);
       
       // Se for erro de constraint única, retornar erro mais amigável
-      if (error.code === '23505') { // PostgreSQL unique violation
+      if (error.code === '23505') {
         if (error.constraint?.includes('cnpj')) {
-          throw new AppError('CNPJ already exists', 'CNPJ_ALREADY_EXISTS', 409);
+          throw new AppError('CNPJ já cadastrado', 'CNPJ_ALREADY_EXISTS', 409);
+        }
+        if (error.constraint?.includes('cpf')) {
+          throw new AppError('CPF já cadastrado', 'CPF_ALREADY_EXISTS', 409);
         }
         if (error.constraint?.includes('domain')) {
-          throw new AppError('Domain already exists', 'DOMAIN_ALREADY_EXISTS', 409);
+          throw new AppError('Domínio já cadastrado', 'DOMAIN_ALREADY_EXISTS', 409);
         }
       }
       

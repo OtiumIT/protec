@@ -12,6 +12,7 @@ import {
   type ClientWithCreatedAt as Client,
   type CreateClientData,
 } from '../services/client.service';
+import { formatCnpj, formatCpf, parseDigits } from '../../../shared/utils/masks';
 
 export function Clients() {
   const { error: showError, ToastContainer } = useToast();
@@ -35,7 +36,9 @@ export function Clients() {
 
   const [formData, setFormData] = useState<CreateClientData>({
     name: '',
+    person_type: 'pj',
     cnpj: '',
+    cpf: '',
     email: '',
   });
 
@@ -58,14 +61,17 @@ export function Clients() {
   const handleOpenModal = (client?: Client) => {
     if (client) {
       setEditingClient(client);
+      const isPf = !!client.cpf;
       setFormData({
         name: client.name,
-        cnpj: client.cnpj,
+        person_type: isPf ? 'pf' : 'pj',
+        cnpj: client.cnpj ? parseDigits(client.cnpj) : '',
+        cpf: client.cpf ? parseDigits(client.cpf) : '',
         email: client.email,
       });
     } else {
       setEditingClient(null);
-      setFormData({ name: '', cnpj: '', email: '' });
+      setFormData({ name: '', person_type: 'pj', cnpj: '', cpf: '', email: '' });
     }
     setIsModalOpen(true);
   };
@@ -73,16 +79,21 @@ export function Clients() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingClient(null);
-    setFormData({ name: '', cnpj: '', email: '' });
+    setFormData({ name: '', person_type: 'pj', cnpj: '', cpf: '', email: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        cnpj: formData.cnpj ? parseDigits(formData.cnpj) : undefined,
+        cpf: formData.cpf ? parseDigits(formData.cpf) : undefined,
+      };
       if (editingClient) {
-        await clientService.update(editingClient.id, formData);
+        await clientService.update(editingClient.id, payload);
       } else {
-        await clientService.create(formData);
+        await clientService.create(payload);
       }
       handleCloseModal();
       loadClients();
@@ -111,9 +122,10 @@ export function Clients() {
   };
 
   const filteredClients = clients.filter((client) => {
+    const doc = client.cnpj || client.cpf || '';
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.cnpj && client.cnpj.includes(searchTerm));
+      doc.replace(/\D/g, '').includes(searchTerm.replace(/\D/g, ''));
     const matchesStatus = !statusFilter || client.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -133,7 +145,7 @@ export function Clients() {
         <Card className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
-              placeholder="Buscar por nome ou CNPJ..."
+              placeholder="Buscar por nome, CNPJ ou CPF..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -171,7 +183,7 @@ export function Clients() {
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Nome</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">CNPJ</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">CNPJ/CPF</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Data</th>
@@ -184,7 +196,9 @@ export function Clients() {
                       <td className="py-3 px-4">
                         <span className="font-medium text-slate-900">{client.name}</span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-slate-600">{client.cnpj}</td>
+                      <td className="py-3 px-4 text-sm text-slate-600">
+                        {client.cnpj ? formatCnpj(client.cnpj) : client.cpf ? formatCpf(client.cpf) : '-'}
+                      </td>
                       <td className="py-3 px-4 text-sm text-slate-600">{client.email || '-'}</td>
                       <td className="py-3 px-4">
                         <Badge variant={client.status === 'active' ? 'success' : 'default'}>
@@ -225,18 +239,64 @@ export function Clients() {
           title={editingClient ? 'Editar Cliente' : 'Novo Cliente'}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pessoa</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="personType"
+                    value="pj"
+                    checked={formData.person_type === 'pj'}
+                    onChange={() => setFormData({ ...formData, person_type: 'pj', cpf: '' })}
+                    className="rounded border-slate-300"
+                  />
+                  <span>PJ</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="personType"
+                    value="pf"
+                    checked={formData.person_type === 'pf'}
+                    onChange={() => setFormData({ ...formData, person_type: 'pf', cnpj: '' })}
+                    className="rounded border-slate-300"
+                  />
+                  <span>PF</span>
+                </label>
+              </div>
+            </div>
             <Input
               label="Nome"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-            <Input
-              label="CNPJ"
-              value={formData.cnpj}
-              onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-              required
-            />
+            {formData.person_type === 'pj' ? (
+              <Input
+                label="CNPJ"
+                value={formatCnpj(formData.cnpj)}
+                onChange={(e) => {
+                  const raw = parseDigits(e.target.value);
+                  if (raw.length <= 14) setFormData({ ...formData, cnpj: raw });
+                }}
+                placeholder="00.000.000/0001-00"
+                required
+                maxLength={18}
+              />
+            ) : (
+              <Input
+                label="CPF"
+                value={formatCpf(formData.cpf)}
+                onChange={(e) => {
+                  const raw = parseDigits(e.target.value);
+                  if (raw.length <= 11) setFormData({ ...formData, cpf: raw });
+                }}
+                placeholder="000.000.000-00"
+                required
+                maxLength={14}
+              />
+            )}
             <Input
               label="Email"
               type="email"

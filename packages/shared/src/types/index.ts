@@ -16,7 +16,9 @@ export type Company = {
   id: string;
   name: string;
   domain?: string;
+  person_type?: 'pf' | 'pj';
   cnpj?: string;
+  cpf?: string;
   legal_name?: string;
   trade_name?: string;
   email?: string;
@@ -98,7 +100,9 @@ export type RefreshToken = {
 export type Client = {
   id: string;
   name: string;
-  cnpj: string;
+  person_type?: 'pf' | 'pj';
+  cnpj?: string;
+  cpf?: string;
   email?: string;
   status: 'active' | 'inactive';
   tax_regime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'outros';
