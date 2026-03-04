@@ -1,5 +1,9 @@
 # Deploy API no Vercel
 
+A API em produção roda na **Vercel** (não mais no Render). A URL base é obtida após o primeiro deploy (ex: `https://protec-api.vercel.app` ou domínio customizado).
+
+**Importante:** O portal (Cloudflare Pages) deve ter `VITE_API_URL` apontando para a URL da API na Vercel.
+
 ## Configuração obrigatória no painel Vercel
 
 ### 1. Root Directory

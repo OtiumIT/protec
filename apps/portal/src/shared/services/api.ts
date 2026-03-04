@@ -1,4 +1,4 @@
-const PRODUCTION_API_URL = 'https://protec-n05v.onrender.com';
+const PRODUCTION_API_URL = 'https://protec-api.vercel.app';
 const DEV_API_URL = 'http://localhost:3001';
 
 /** Base URL da API. Avaliada em tempo de requisição para garantir uso correto em produção (Cloudflare, etc.). */
