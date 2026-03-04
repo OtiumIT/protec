@@ -18,6 +18,7 @@ import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
 import { propertyRoutes } from './properties/property.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
+import { API_VERSION, API_UPDATED_AT } from '../version';
 
 const app = new Hono();
 
@@ -94,6 +95,14 @@ app.route('/api/v1/debug', debugRoutes);
 // Health
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// Versão da API (para acompanhamento no frontend)
+app.get('/api/v1/version', (c) =>
+  c.json({
+    version: API_VERSION,
+    updatedAt: API_UPDATED_AT ?? undefined,
+  })
+);
 
 // 404 handler - inclui path e url para debug do rewrite
 app.notFound((c) => {

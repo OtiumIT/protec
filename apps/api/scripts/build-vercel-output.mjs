@@ -7,10 +7,21 @@
 import * as esbuild from 'esbuild';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
+
+// Gera version.generated.ts com versão e data de atualização
+const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const version = pkg.version ?? '0.0.0';
+const updatedAt = process.env.VERCEL_GIT_COMMIT_TIMESTAMP ?? new Date().toISOString();
+writeFileSync(join(root, 'src', 'version.generated.ts'), `/**
+ * Gerado em tempo de build por scripts/build-vercel-output.mjs
+ */
+export const API_VERSION = '${version}';
+export const API_UPDATED_AT = '${updatedAt}';
+`);
 const outputDir = join(root, '.vercel', 'output');
 const funcDir = join(outputDir, 'functions', 'index.func');
 

@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
+import { ApiVersionBadge } from '../ApiVersionBadge';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -37,7 +38,7 @@ export function Layout({ children }: LayoutProps) {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((c) => !c)}
       />
-      <div className="flex-1 h-screen min-h-0 flex flex-col min-w-0">
+      <div className="flex-1 h-screen min-h-0 flex flex-col min-w-0 relative">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" data-private-scroll-container="true">
           {/* Header */}
           <header className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 sticky top-0 z-30 shadow-sm h-[72px]">
@@ -79,6 +80,9 @@ export function Layout({ children }: LayoutProps) {
           <main className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4">
             {children}
           </main>
+          <div className="absolute bottom-2 right-4 pointer-events-none">
+            <ApiVersionBadge />
+          </div>
         </div>
       </div>
     </div>
