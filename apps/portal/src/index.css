@@ -32,6 +32,10 @@
 
 /* Impressão: apenas o resultado do simulador tributário (Exportar PDF) */
 @media print {
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
   body * {
     visibility: hidden;
   }
@@ -39,14 +43,71 @@
   #simulador-tributario-resultado-print * {
     visibility: visible;
   }
+  /* Evitar corte de conteúdo: ancestrais sem restrição de altura/overflow */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+  }
+  body > *,
+  [data-private-scroll-container="true"] {
+    overflow: visible !important;
+    min-height: unset !important;
+    height: auto !important;
+  }
   #simulador-tributario-resultado-print {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    max-width: 100%;
-    padding: 1rem;
+    right: 0;
+    width: auto;
+    padding: 0.75rem 1rem;
     background: white;
+    overflow: visible;
+    min-height: 0 !important;
+    box-sizing: border-box;
+  }
+  #simulador-tributario-resultado-print * {
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  /* Tabelas: usar toda a largura disponível, fonte legível */
+  #simulador-tributario-resultado-print table {
+    width: 100% !important;
+    table-layout: fixed;
+    page-break-inside: auto;
+    font-size: 0.75rem;
+  }
+  #simulador-tributario-resultado-print th,
+  #simulador-tributario-resultado-print td {
+    padding: 0.25rem 0.4rem !important;
+    word-break: break-word;
+  }
+  #simulador-tributario-resultado-print .overflow-x-auto {
+    overflow-x: visible !important;
+  }
+  #simulador-tributario-resultado-print tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  #simulador-tributario-resultado-print thead {
+    display: table-header-group;
+  }
+  /* Cards dos cenários: evitar corte, manter cada card íntegro */
+  #simulador-tributario-resultado-print .grid > *,
+  #simulador-tributario-resultado-print .rounded-xl,
+  #simulador-tributario-resultado-print .rounded-2xl {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Garantir que cabeçalho e primeiros cards não sejam cortados */
+  #simulador-tributario-resultado-print > *:first-child {
+    page-break-after: avoid;
+  }
+  /* Cada card de cenário mantém-se íntegro (não quebra no meio) */
+  #simulador-tributario-resultado-print .grid:first-of-type > * {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* Impressão: resultado do Rating Validator (Transação Tributária) */

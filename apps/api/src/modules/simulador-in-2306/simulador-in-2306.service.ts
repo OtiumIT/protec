@@ -249,7 +249,7 @@ export class SimuladorIN2306Service {
     ];
 
     const tri2025 = calcularCenario2025(input.trimestres, ded, ret, false);
-    const tri2026 = calcularAno2026(input.trimestres, ded, ret, false);
+    const { resultados: tri2026, ajusteAnual } = calcularAno2026(input.trimestres, ded, ret, false);
     const triEquip = calcularCenario2025(input.trimestres, ded, ret, true);
 
     const toCenarioAnual = (trimestres: ReturnType<typeof calcularCenario2025>): CenarioAnual => {
@@ -327,6 +327,9 @@ export class SimuladorIN2306Service {
           cenario_2026: rateio2026,
           cenario_equiparacao: rateioEquiparacao,
         },
+        ajuste_anual_aplicado: ajusteAnual.aplicado,
+        ajuste_anual_compensacao_irpj: ajusteAnual.compensacao_irpj,
+        ajuste_anual_compensacao_csll: ajusteAnual.compensacao_csll,
       },
     };
 
