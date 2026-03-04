@@ -458,7 +458,7 @@ export function SimuladorIN2306() {
     cenario: { trimestres?: unknown; receita_bruta_total: number; irpj_total: number; irpj_adicional_total?: number; csll_total: number; irpj_a_rec_total: number; csll_a_rec_total: number },
     destaqueT4Ajuste?: boolean
   ) => (
-    <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+    <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
       <thead className="bg-slate-100 text-slate-700">
         <tr>
           <th className="px-3 py-2 text-left">Trim.</th>
@@ -1106,7 +1106,7 @@ export function SimuladorIN2306() {
                               {pt.aplica_acrescimo_csll && <span className="text-amber-700 ml-1">(acréscimo 10% CSLL)</span>}
                             </h5>
                             <div className="overflow-x-auto">
-                              <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden bg-white">
+                              <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden bg-white">
                                 <thead className="bg-slate-100 text-slate-700">
                                   <tr>
                                     <th className="px-3 py-2 text-left">Atividade</th>
@@ -1197,7 +1197,7 @@ export function SimuladorIN2306() {
                             {rt.trimestre}º trimestre — Base IRPJ: {formatMoney(rt.base_total)} · Adicional total: {formatMoney(rt.adicional_total)}
                           </h5>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden bg-white">
+                            <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden bg-white">
                               <thead className="bg-slate-100 text-slate-700">
                                 <tr>
                                   <th className="px-3 py-2 text-left">Atividade</th>

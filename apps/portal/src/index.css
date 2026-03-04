@@ -71,17 +71,16 @@
     overflow: visible !important;
     box-sizing: border-box;
   }
-  /* Tabelas: usar toda a largura disponível, fonte legível */
+  /* Tabelas: fonte menor para caber nas colunas sem quebrar linha */
   #simulador-tributario-resultado-print table {
     width: 100% !important;
     table-layout: fixed;
     page-break-inside: auto;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
   }
   #simulador-tributario-resultado-print th,
   #simulador-tributario-resultado-print td {
-    padding: 0.25rem 0.4rem !important;
-    word-break: break-word;
+    padding: 0.2rem 0.3rem !important;
   }
   #simulador-tributario-resultado-print .overflow-x-auto {
     overflow-x: visible !important;
