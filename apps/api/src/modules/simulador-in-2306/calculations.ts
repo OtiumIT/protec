@@ -515,6 +515,11 @@ export interface AjusteAnualMetadata {
   aplicado: boolean;
   compensacao_irpj: number;
   compensacao_csll: number;
+  /** Valor compensado por trimestre (T1, T2, T3) — origem da compensação deduzida no T4 */
+  compensacao_por_trimestre?: {
+    irpj: [number, number, number];
+    csll: [number, number, number];
+  };
 }
 
 /** Calcula os 4 trimestres para 2026 COM acréscimo IN 2.306 e aplica ajuste anual (§ 5º) */
@@ -581,34 +586,49 @@ export function calcularAno2026(
     }),
     { irpj: 0, csll: 0 }
   );
-  const valoresSemAcrescimoT1T3 = [0, 1, 2].reduce(
-    (acc, i) => {
-      const { baseIrpj, baseCsll } = basesTrimestreSemAcrescimo(trimestres[i]!, equiparacao);
-      return {
-        irpj: acc.irpj + round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj),
-        csll: acc.csll + round2(baseCsll * ALIQ_CSLL),
-      };
-    },
-    { irpj: 0, csll: 0 }
-  );
+  const valoresSemAcrescimoPorTrimestre: { irpj: number[]; csll: number[] } = {
+    irpj: [0, 0, 0],
+    csll: [0, 0, 0],
+  };
+  for (let i = 0; i < 3; i++) {
+    const { baseIrpj, baseCsll } = basesTrimestreSemAcrescimo(trimestres[i]!, equiparacao);
+    valoresSemAcrescimoPorTrimestre.irpj[i] = round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj);
+    valoresSemAcrescimoPorTrimestre.csll[i] = round2(baseCsll * ALIQ_CSLL);
+  }
+  const valoresSemAcrescimoT1T3 = {
+    irpj: valoresSemAcrescimoPorTrimestre.irpj.reduce((a, b) => a + b, 0),
+    csll: valoresSemAcrescimoPorTrimestre.csll.reduce((a, b) => a + b, 0),
+  };
 
   let compensacaoIrpj = 0;
   let compensacaoCsll = 0;
+  const compensacaoPorTrimestre: { irpj: [number, number, number]; csll: [number, number, number] } = {
+    irpj: [0, 0, 0],
+    csll: [0, 0, 0],
+  };
 
   if (receitaAnual <= LIMITE_ANUAL) {
     // § 5º I IRPJ: receita anual ≤ 5M → não incide acréscimo; deduzir diferença do T4
+    for (let i = 0; i < 3; i++) {
+      const pago = resultados[i]!.irpj + (resultados[i]!.irpj_adicional ?? 0);
+      compensacaoPorTrimestre.irpj[i] = round2(Math.max(0, pago - valoresSemAcrescimoPorTrimestre.irpj[i]));
+    }
     compensacaoIrpj = round2(valoresComAcrescimo.irpj - valoresSemAcrescimoT1T3.irpj);
     resultadoT4.irpj_a_rec = Math.max(0, resultadoT4.irpj_a_rec - compensacaoIrpj);
   }
   if (receitaAnual <= LIMITE_ANUAL_CSLL_2026) {
     // § 5º I CSLL (Pergunta 13): receita anual ≤ 3,75M → não incide acréscimo
+    for (let i = 0; i < 3; i++) {
+      const pago = resultados[i]!.csll;
+      compensacaoPorTrimestre.csll[i] = round2(Math.max(0, pago - valoresSemAcrescimoPorTrimestre.csll[i]));
+    }
     compensacaoCsll = round2(valoresComAcrescimo.csll - valoresSemAcrescimoT1T3.csll);
     resultadoT4.csll_a_rec = Math.max(0, resultadoT4.csll_a_rec - compensacaoCsll);
   }
 
   if (receitaAnual > LIMITE_ANUAL && excedenteAnualIrpj < somaExcedentesAntesDoUltimo && somaExcedentesAntesDoUltimo > 0) {
     // § 5º II IRPJ: IN 2306 procedimento literal - razão × excedente anual → recálculo
-    let valoresRecalculadosIrpj = 0;
+    const valoresRecalculadosIrpjPorTrimestre: number[] = [0, 0, 0];
     for (let i = 0; i < 3; i++) {
       const excedI = parcelasExcedentesTrimestres[i] ?? 0;
       if (excedI <= 0) continue;
@@ -622,14 +642,17 @@ export function calcularAno2026(
         2026,
         fatorEscala
       );
-      valoresRecalculadosIrpj += round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj);
+      const recalc = round2(baseIrpj * ALIQ_IRPJ) + adicionalIRPJ(baseIrpj);
+      valoresRecalculadosIrpjPorTrimestre[i] = recalc;
+      const pago = resultados[i]!.irpj + (resultados[i]!.irpj_adicional ?? 0);
+      compensacaoPorTrimestre.irpj[i] = round2(Math.max(0, pago - recalc));
     }
-    compensacaoIrpj = round2(valoresComAcrescimo.irpj - valoresRecalculadosIrpj);
+    compensacaoIrpj = round2(valoresComAcrescimo.irpj - valoresRecalculadosIrpjPorTrimestre.reduce((a, b) => a + b, 0));
     resultadoT4.irpj_a_rec = Math.max(0, resultadoT4.irpj_a_rec - compensacaoIrpj);
   }
   if (receitaAnual > LIMITE_ANUAL_CSLL_2026 && excedenteAnualCsll < somaExcedentesAntesDoUltimo && somaExcedentesAntesDoUltimo > 0) {
     // § 5º II CSLL: mesma lógica
-    let valoresRecalculadosCsll = 0;
+    const valoresRecalculadosCsllPorTrimestre: number[] = [0, 0, 0];
     for (let i = 0; i < 3; i++) {
       const excedI = parcelasExcedentesTrimestres[i] ?? 0;
       if (excedI <= 0) continue;
@@ -643,9 +666,12 @@ export function calcularAno2026(
         2026,
         fatorEscala
       );
-      valoresRecalculadosCsll += round2(baseCsll * ALIQ_CSLL);
+      const recalc = round2(baseCsll * ALIQ_CSLL);
+      valoresRecalculadosCsllPorTrimestre[i] = recalc;
+      const pago = resultados[i]!.csll;
+      compensacaoPorTrimestre.csll[i] = round2(Math.max(0, pago - recalc));
     }
-    compensacaoCsll = round2(valoresComAcrescimo.csll - valoresRecalculadosCsll);
+    compensacaoCsll = round2(valoresComAcrescimo.csll - valoresRecalculadosCsllPorTrimestre.reduce((a, b) => a + b, 0));
     resultadoT4.csll_a_rec = Math.max(0, resultadoT4.csll_a_rec - compensacaoCsll);
   }
 
@@ -653,6 +679,7 @@ export function calcularAno2026(
     aplicado: compensacaoIrpj > 0 || compensacaoCsll > 0,
     compensacao_irpj: compensacaoIrpj,
     compensacao_csll: compensacaoCsll,
+    compensacao_por_trimestre: compensacaoPorTrimestre,
   };
 
   return { resultados, ajusteAnual };

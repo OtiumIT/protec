@@ -1151,14 +1151,56 @@ export function SimuladorIN2306() {
                     <p className="text-sm text-slate-600 mb-3">
                       No 4º trimestre aplica-se o ajuste anual conforme art. 15, § 5º da IN 2.306/2026. Os valores abaixo foram deduzidos (compensação das antecipações T1–T3):
                     </p>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <span className="text-slate-700">
-                        <strong>Compensação IRPJ:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)}
-                      </span>
-                      <span className="text-slate-700">
-                        <strong>Compensação CSLL:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)}
-                      </span>
-                    </div>
+                    {(() => {
+                      const porTrimestre = tributarioResult.memoria_calculo?.ajuste_anual_compensacao_por_trimestre as
+                        | { irpj: [number, number, number]; csll: [number, number, number] }
+                        | undefined;
+                      if (porTrimestre?.irpj || porTrimestre?.csll) {
+                        const temIrpj = (porTrimestre?.irpj?.reduce((a, b) => a + b, 0) ?? 0) > 0;
+                        const temCsll = (porTrimestre?.csll?.reduce((a, b) => a + b, 0) ?? 0) > 0;
+                        return (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden bg-white mb-3">
+                              <thead className="bg-amber-100/80 text-slate-700">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-medium">Trimestre</th>
+                                  {temIrpj && <th className="px-3 py-2 text-right font-medium">Compensação IRPJ</th>}
+                                  {temCsll && <th className="px-3 py-2 text-right font-medium">Compensação CSLL</th>}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[0, 1, 2].map((i) => (
+                                  <tr key={i} className="border-t border-slate-200">
+                                    <td className="px-3 py-2 text-slate-700">{i + 1}º trimestre</td>
+                                    {temIrpj && <td className="px-3 py-2 text-right">{formatMoney(porTrimestre?.irpj?.[i] ?? 0)}</td>}
+                                    {temCsll && <td className="px-3 py-2 text-right">{formatMoney(porTrimestre?.csll?.[i] ?? 0)}</td>}
+                                  </tr>
+                                ))}
+                                <tr className="border-t-2 border-amber-200 bg-amber-50/50 font-medium">
+                                  <td className="px-3 py-2 text-slate-800">Total (deduzido no T4)</td>
+                                  {temIrpj && (
+                                    <td className="px-3 py-2 text-right">{formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)}</td>
+                                  )}
+                                  {temCsll && (
+                                    <td className="px-3 py-2 text-right">{formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)}</td>
+                                  )}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          <span className="text-slate-700">
+                            <strong>Compensação IRPJ:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)}
+                          </span>
+                          <span className="text-slate-700">
+                            <strong>Compensação CSLL:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

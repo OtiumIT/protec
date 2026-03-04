@@ -330,6 +330,7 @@ export class SimuladorIN2306Service {
         ajuste_anual_aplicado: ajusteAnual.aplicado,
         ajuste_anual_compensacao_irpj: ajusteAnual.compensacao_irpj,
         ajuste_anual_compensacao_csll: ajusteAnual.compensacao_csll,
+        ajuste_anual_compensacao_por_trimestre: ajusteAnual.compensacao_por_trimestre,
       },
     };
 
