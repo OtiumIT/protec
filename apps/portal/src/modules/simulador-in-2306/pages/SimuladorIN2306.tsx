@@ -927,9 +927,9 @@ export function SimuladorIN2306() {
                   </Card>
                   <Card className="border-l-4 border-l-amber-500 bg-amber-50/30 p-5 shadow-sm">
                     <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-3">Projeção 2026 (LC 224/2025)</h3>
-                    {tributarioResult.memoria_calculo?.ajuste_anual_aplicado && (
+                    {tributarioResult.memoria_calculo?.ajuste_anual_aplicado ? (
                       <p className="text-xs text-amber-700 mb-2">Inclui compensação no 4º trimestre (ajuste anual § 5º).</p>
-                    )}
+                    ) : null}
                     <p className="text-xs text-slate-500 mb-3">Receita bruta: {formatMoney(tributarioResult.cenario_2026.receita_bruta_total)}</p>
                     <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2026.irpj_a_rec_total)}</strong></p>
                     <p className="text-slate-700 text-sm">CSLL a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_2026.csll_a_rec_total)}</strong></p>
@@ -1065,7 +1065,7 @@ export function SimuladorIN2306() {
                 </p>
 
                 {/* Demonstração do cálculo por proporção (Receita Federal – Perguntas e Respostas) */}
-                {(() => {
+                {((): React.ReactNode => {
                   const proporcaoTrimestres = tributarioResult.memoria_calculo?.proporcao_trimestres;
                   const arr = Array.isArray(proporcaoTrimestres) ? proporcaoTrimestres : [];
                   if (arr.length === 0) return null;
@@ -1145,7 +1145,7 @@ export function SimuladorIN2306() {
                 })()}
 
                 {/* Ajuste anual § 5º - compensação no 4º trimestre */}
-                {tributarioResult.memoria_calculo?.ajuste_anual_aplicado && (
+                {tributarioResult.memoria_calculo?.ajuste_anual_aplicado ? (
                   <div className="mb-6 p-4 rounded-lg bg-amber-50/50 border border-amber-200">
                     <h4 className="font-semibold text-slate-800 mb-2">Ajuste anual § 5º (IN RFB 2.306/2026)</h4>
                     <p className="text-sm text-slate-600 mb-3">
@@ -1179,10 +1179,10 @@ export function SimuladorIN2306() {
                                 <tr className="border-t-2 border-amber-200 bg-amber-50/50 font-medium">
                                   <td className="px-3 py-2 text-slate-800">Total (deduzido no T4)</td>
                                   {temIrpj && (
-                                    <td className="px-3 py-2 text-right">{formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)}</td>
+                                    <td className="px-3 py-2 text-right">{formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0))}</td>
                                   )}
                                   {temCsll && (
-                                    <td className="px-3 py-2 text-right">{formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)}</td>
+                                    <td className="px-3 py-2 text-right">{formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0))}</td>
                                   )}
                                 </tr>
                               </tbody>
@@ -1193,16 +1193,16 @@ export function SimuladorIN2306() {
                       return (
                         <div className="flex flex-wrap gap-4 text-sm">
                           <span className="text-slate-700">
-                            <strong>Compensação IRPJ:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)}
+                            <strong>Compensação IRPJ:</strong> {formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0))}
                           </span>
                           <span className="text-slate-700">
-                            <strong>Compensação CSLL:</strong> {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)}
+                            <strong>Compensação CSLL:</strong> {formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0))}
                           </span>
                         </div>
                       );
                     })()}
                   </div>
-                )}
+                ) : null}
 
                 {/* Rateio do Adicional de IRPJ */}
                 {(() => {
@@ -1353,11 +1353,11 @@ export function SimuladorIN2306() {
 
               {/* Rodapé para PDF: compensação + base legal + disclaimer */}
               <div className="mt-6 pt-4 border-t border-slate-200 text-xs text-slate-600 space-y-2">
-                {tributarioResult.memoria_calculo?.ajuste_anual_aplicado && (
+                {tributarioResult.memoria_calculo?.ajuste_anual_aplicado ? (
                   <p>
-                    <strong>Compensação § 5º:</strong> IRPJ {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0)} · CSLL {formatMoney(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0)} deduzidos no 4º trimestre.
+                    <strong>Compensação § 5º:</strong> IRPJ {formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_irpj ?? 0))} · CSLL {formatMoney(Number(tributarioResult.memoria_calculo?.ajuste_anual_compensacao_csll ?? 0))} deduzidos no 4º trimestre.
                   </p>
-                )}
+                ) : null}
                 <p>
                   <strong>Base legal:</strong> LC 224/2025, IN RFB 2.306/2026, Lei 9.249/95, Leis 10.637/02 e 10.833/03.
                 </p>
