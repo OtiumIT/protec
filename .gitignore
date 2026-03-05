@@ -6,8 +6,7 @@ node_modules/
 # Build outputs
 dist/
 .vercel/output/
-apps/api/.vercel/output/functions/
-apps/api/.vercel/output/config.json
+apps/api/.vercel/
 apps/api/api/index.js
 apps/api/api/modules/
 build/
