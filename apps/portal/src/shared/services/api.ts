@@ -1,4 +1,4 @@
-const PRODUCTION_API_URL = 'https://protec-api.vercel.app';
+const PRODUCTION_API_URL = 'https://api.iataxsistemas.com.br';
 const DEV_API_URL = 'http://localhost:3001';
 
 /** Base URL da API. Avaliada em tempo de requisição para garantir uso correto em produção (Cloudflare, etc.). */
@@ -122,10 +122,19 @@ export async function apiRequest<T>(
     throw new Error(`Invalid URL constructed: ${url}`);
   }
 
-  let response = await fetch(url, {
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch (fetchError: unknown) {
+    const msg = fetchError instanceof Error ? fetchError.message : '';
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      throw new Error('Não foi possível conectar ao servidor. Verifique sua internet ou tente novamente mais tarde.');
+    }
+    throw fetchError;
+  }
 
   // Se receber 401 e tiver refresh token, tentar fazer refresh (sem deslogar em erro de rede)
   if (response.status === 401 && !options.token && localStorage.getItem('refreshToken')) {
