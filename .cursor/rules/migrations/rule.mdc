@@ -16,6 +16,7 @@ Migrations de tenant **nunca** rodam no public. O script `migrate.ts` pula essas
 - **Arquivo**: `apps/api/src/db/tenant-migrations.ts`
 - Contém `TENANT_MIGRATION_FILES`: array ordenado dos arquivos `.sql` de tenant.
 - Usado por: `scripts/migrate.ts` (não rodar no public + aplicar em tenants existentes) e `db/schema-manager.ts` (aplicar em novo tenant na criação).
+- **Vercel/serverless**: O build `build:vercel:output` embute o SQL das migrations em `migrations-embedded.ts` (o schema-manager usa isso em produção, pois arquivos `.sql` não existem no bundle).
 
 Ao adicionar nova migration de tenant, **sempre** incluir o filename nesse array, na ordem numérica.
 

@@ -4,7 +4,7 @@ import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { Card } from '../../../shared/components/ui/Card';
-import { formatCnpj, formatCpf, formatPhoneBR, parseDigits } from '../../../shared/utils/masks';
+import { formatCnpj, formatCpf, formatPhoneBR, parseDigits, isValidCpf, isValidCnpj } from '../../../shared/utils/masks';
 
 export function Register() {
   const navigate = useNavigate();
@@ -40,6 +40,32 @@ export function Register() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+
+    const cnpjDigits = parseDigits(cnpj);
+    const cpfDigits = parseDigits(cpf);
+    if (personType === 'pj') {
+      if (cnpjDigits.length !== 14) {
+        setError('CNPJ deve ter 14 dígitos.');
+        setIsLoading(false);
+        return;
+      }
+      if (!isValidCnpj(cnpjDigits)) {
+        setError('CNPJ inválido. Verifique os dígitos.');
+        setIsLoading(false);
+        return;
+      }
+    } else {
+      if (cpfDigits.length !== 11) {
+        setError('CPF deve ter 11 dígitos.');
+        setIsLoading(false);
+        return;
+      }
+      if (!isValidCpf(cpfDigits)) {
+        setError('CPF inválido. Verifique os dígitos.');
+        setIsLoading(false);
+        return;
+      }
+    }
 
     try {
       const userNameValue = personType === 'pf' ? legalName.trim() : userName.trim();

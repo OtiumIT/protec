@@ -3,9 +3,16 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import type { PoolClient } from 'pg';
 import { TENANT_MIGRATION_FILES, getTenantMigrationVersion } from './tenant-migrations';
+import { EMBEDDED_TENANT_MIGRATIONS } from './migrations-embedded';
 
 // Em CommonJS __dirname já existe; evita import.meta (incompatível com module: CommonJS)
 const MIGRATIONS_DIR = join(__dirname, 'migrations');
+
+async function getMigrationSql(filename: string): Promise<string> {
+  const embedded = EMBEDDED_TENANT_MIGRATIONS[filename];
+  if (embedded && embedded.length > 0) return embedded;
+  return readFile(join(MIGRATIONS_DIR, filename), 'utf-8');
+}
 
 /**
  * Schema Manager
@@ -69,7 +76,7 @@ export async function applyTenantMigrations(companyId: string, client?: PoolClie
     for (const file of TENANT_MIGRATION_FILES) {
       const version = getTenantMigrationVersion(file);
       if (!executedVersions.has(version)) {
-        const sql = await readFile(join(MIGRATIONS_DIR, file), 'utf-8');
+        const sql = await getMigrationSql(file);
         tenantMigrations.push({ filename: file, version, sql });
       }
     }
@@ -173,9 +180,8 @@ export async function applyTenantMigrationToAll(migrationFile: string): Promise<
 
   console.log(`📦 Aplicando migration ${migrationFile} em ${schemas.length} schema(s) de tenant`);
 
-  const migrationPath = join(MIGRATIONS_DIR, migrationFile);
-  const sql = await readFile(migrationPath, 'utf-8');
-  const version = parseInt(migrationFile.split('_')[0]);
+  const sql = await getMigrationSql(migrationFile);
+  const version = parseInt(migrationFile.split('_')[0], 10);
 
   const client = await getClient();
   

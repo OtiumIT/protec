@@ -22,6 +22,28 @@ writeFileSync(join(root, 'src', 'version.generated.ts'), `/**
 export const API_VERSION = '${version}';
 export const API_UPDATED_AT = '${updatedAt}';
 `);
+
+// Embutir SQL das migrations de tenant no bundle (Vercel não inclui arquivos .sql)
+const migrationsDir = join(root, 'src', 'db', 'migrations');
+const tenantMigrationsContent = readFileSync(join(root, 'src', 'db', 'tenant-migrations.ts'), 'utf8');
+const tenantFiles = [...tenantMigrationsContent.matchAll(/'([^']+\.sql)'/g)].map((m) => m[1]);
+const migrationsEmbedded = {};
+for (const file of tenantFiles) {
+  const p = join(migrationsDir, file);
+  if (existsSync(p)) {
+    migrationsEmbedded[file] = readFileSync(p, 'utf8');
+  }
+}
+writeFileSync(
+  join(root, 'src', 'db', 'migrations-embedded.ts'),
+  `/**
+ * Gerado em tempo de build - migrations de tenant embutidas (para Vercel/serverless).
+ * NÃO editar manualmente.
+ */
+export const EMBEDDED_TENANT_MIGRATIONS: Record<string, string> = ${JSON.stringify(migrationsEmbedded, null, 2)};
+`
+);
+
 const outputDir = join(root, '.vercel', 'output');
 const funcDir = join(outputDir, 'functions', 'index.func');
 

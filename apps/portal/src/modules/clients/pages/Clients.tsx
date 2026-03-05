@@ -12,7 +12,7 @@ import {
   type ClientWithCreatedAt as Client,
   type CreateClientData,
 } from '../services/client.service';
-import { formatCnpj, formatCpf, parseDigits } from '../../../shared/utils/masks';
+import { formatCnpj, formatCpf, parseDigits, isValidCpf, isValidCnpj } from '../../../shared/utils/masks';
 
 export function Clients() {
   const { error: showError, ToastContainer } = useToast();
@@ -84,6 +84,28 @@ export function Clients() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cnpjDigits = formData.cnpj ? parseDigits(formData.cnpj) : '';
+    const cpfDigits = formData.cpf ? parseDigits(formData.cpf) : '';
+    if (formData.person_type === 'pj' && cnpjDigits) {
+      if (cnpjDigits.length !== 14) {
+        showError('CNPJ deve ter 14 dígitos.');
+        return;
+      }
+      if (!isValidCnpj(cnpjDigits)) {
+        showError('CNPJ inválido. Verifique os dígitos.');
+        return;
+      }
+    }
+    if (formData.person_type === 'pf' && cpfDigits) {
+      if (cpfDigits.length !== 11) {
+        showError('CPF deve ter 11 dígitos.');
+        return;
+      }
+      if (!isValidCpf(cpfDigits)) {
+        showError('CPF inválido. Verifique os dígitos.');
+        return;
+      }
+    }
     try {
       const payload = {
         ...formData,
