@@ -87404,7 +87404,7 @@ function extractAnoFromFilename(name) {
   const match2 = name.match(/_(20\d{2})_IRPF/i) || name.match(/(20\d{2})[-_]?(20\d{2})?/i) || name.match(/(20\d{2})/);
   return match2 ? parseInt(match2[1], 10) : null;
 }
-var DEC_DBK_PARSER_VERSION = 3;
+var DEC_DBK_PARSER_VERSION = 4;
 var CODIGO_ISENTO_DESCRICAO = {
   "01": "Transferencias patrimoniais (heranca/doacao)",
   "03": "Transferencias patrimoniais entre conjuges/dependentes",
@@ -87568,6 +87568,19 @@ function parseFixedWidth(lines, filename) {
   if (impostoPagoRetencao === 0 && impostoPagoCarneLeao === 0) {
     avisos.push("Imposto j\xE1 pago por reten\xE7\xE3o/carn\xEA-le\xE3o n\xE3o identificado automaticamente no arquivo. Confirme estes campos antes de simular.");
   }
+  const tot06 = codigosValor["06"] ?? 0;
+  const tot10 = codigosValor["10"] ?? 0;
+  if (tot06 > 0 || tot10 > 0) {
+    avisos.push(
+      "Rendimentos de aplica\xE7\xF5es (c\xF3d. 06) ou JCP (c\xF3d. 10) encontrados. O IR pago sobre estes foi estimado (15% do valor bruto). Confirme imposto_ja_pago_aplicacoes antes de simular."
+    );
+  }
+  const somaDividendos = tot09 + tot13;
+  if (somaDividendos > 6e5) {
+    avisos.push(
+      "Dividendos anuais superiores a R$ 600.000. Verifique se h\xE1 reten\xE7\xE3o 10% na fonte (Art. 6\xBA-A Lei 15.270/2025) a informar em imposto_antecipado_dividendos."
+    );
+  }
   if (!nome && cpf) nome = "Contribuinte (importado)";
   if (!nome && !cpf) nome = "Contribuinte (verifique os dados)";
   if (!cpf) cpf = "00000000000";
@@ -87596,6 +87609,21 @@ function parseFixedWidth(lines, filename) {
       avisos
     }
   );
+}
+function estimarIrAplicacoes(itens) {
+  let total = 0;
+  for (const i of itens ?? []) {
+    const bruto = i.valor_bruto ?? 0;
+    if (bruto <= 0) continue;
+    const irrf = i.irrf ?? 0;
+    if (irrf > 0) {
+      total += irrf;
+    } else {
+      const aliq = (i.aliquota_irrf_percentual ?? 15) / 100;
+      total += round27(bruto * aliq);
+    }
+  }
+  return total;
 }
 function buildResult(ano, nome, cpf, totalRendPj, totalRendPf, itensPj, itensPf, itensIsentos09, itensIsentos13, itensIsentosOutros, baseCalculoIr, impostoDevido, impostoPagoRetencao, impostoPagoCarneLeao, tot09 = 0, tot13 = 0, dependentes = [], bensDireitos = [], diagnostico) {
   const t09 = round27(tot09 > 0 ? tot09 : itensIsentos09.reduce((s, i) => s + i.valor, 0));
@@ -87681,7 +87709,9 @@ function buildResult(ano, nome, cpf, totalRendPj, totalRendPf, itensPj, itensPf,
     rendimentos_tributados_exclusivamente_lei_7713: classificacaoIsentos.rendimentos_tributados_exclusivamente_lei_7713,
     imposto_ja_pago_retencao_fonte: round27(impostoPagoRetencao),
     imposto_ja_pago_carne_leao: round27(impostoPagoCarneLeao),
-    imposto_ja_pago_aplicacoes: 0,
+    imposto_ja_pago_aplicacoes: round27(
+      estimarIrAplicacoes(classificacaoIsentos.rendimentos_tributados_exclusivamente_lei_7713)
+    ),
     imposto_antecipado_dividendos: 0,
     lucros_aprovados_ate_31dez2025: classificacaoIsentos.lucros_aprovados_ate_31dez2025,
     ganho_capital_excluido: classificacaoIsentos.ganho_capital_excluido,
@@ -89588,7 +89618,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-06T11:16:41.088Z";
+var API_UPDATED_AT = "2026-03-06T12:56:10.257Z";
 
 // src/modules/index.ts
 var app = new Hono2();

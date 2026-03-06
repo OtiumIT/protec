@@ -52,8 +52,8 @@ function extractAnoFromFilename(name: string): number | null {
   return match ? parseInt(match[1], 10) : null;
 }
 
-/** Versão do parser (3 = tipo 24 posições corrigidas, tipo 19 imposto pago, códigos 06/10/11/12 classificados) */
-export const DEC_DBK_PARSER_VERSION = 3;
+/** Versão do parser (4 = imposto_ja_pago_aplicacoes estimado de 06/10, avisos aplicações/dividendos) */
+export const DEC_DBK_PARSER_VERSION = 4;
 
 export type ParseDecDbkResult = {
   ano: number;
@@ -260,6 +260,19 @@ function parseFixedWidth(
   if (impostoPagoRetencao === 0 && impostoPagoCarneLeao === 0) {
     avisos.push('Imposto já pago por retenção/carnê-leão não identificado automaticamente no arquivo. Confirme estes campos antes de simular.');
   }
+  const tot06 = codigosValor['06'] ?? 0;
+  const tot10 = codigosValor['10'] ?? 0;
+  if (tot06 > 0 || tot10 > 0) {
+    avisos.push(
+      'Rendimentos de aplicações (cód. 06) ou JCP (cód. 10) encontrados. O IR pago sobre estes foi estimado (15% do valor bruto). Confirme imposto_ja_pago_aplicacoes antes de simular.'
+    );
+  }
+  const somaDividendos = tot09 + tot13;
+  if (somaDividendos > 600_000) {
+    avisos.push(
+      'Dividendos anuais superiores a R$ 600.000. Verifique se há retenção 10% na fonte (Art. 6º-A Lei 15.270/2025) a informar em imposto_antecipado_dividendos.'
+    );
+  }
 
   if (!nome && cpf) nome = 'Contribuinte (importado)';
   if (!nome && !cpf) nome = 'Contribuinte (verifique os dados)';
@@ -290,6 +303,28 @@ function parseFixedWidth(
       avisos,
     }
   );
+}
+
+/**
+ * Estima IR já pago sobre aplicações (códigos 06/10 - tributação exclusiva) quando não extraído do DBK.
+ * Usa irrf informado quando disponível; senão estima com 15% (típico CDB curto/JCP).
+ */
+function estimarIrAplicacoes(
+  itens: Array<{ valor_bruto?: number; irrf?: number; aliquota_irrf_percentual?: number }>
+): number {
+  let total = 0;
+  for (const i of itens ?? []) {
+    const bruto = i.valor_bruto ?? 0;
+    if (bruto <= 0) continue;
+    const irrf = i.irrf ?? 0;
+    if (irrf > 0) {
+      total += irrf;
+    } else {
+      const aliq = (i.aliquota_irrf_percentual ?? 15) / 100;
+      total += round2(bruto * aliq);
+    }
+  }
+  return total;
 }
 
 function buildResult(
@@ -401,7 +436,9 @@ function buildResult(
     rendimentos_tributados_exclusivamente_lei_7713: classificacaoIsentos.rendimentos_tributados_exclusivamente_lei_7713,
     imposto_ja_pago_retencao_fonte: round2(impostoPagoRetencao),
     imposto_ja_pago_carne_leao: round2(impostoPagoCarneLeao),
-    imposto_ja_pago_aplicacoes: 0,
+    imposto_ja_pago_aplicacoes: round2(
+      estimarIrAplicacoes(classificacaoIsentos.rendimentos_tributados_exclusivamente_lei_7713)
+    ),
     imposto_antecipado_dividendos: 0,
     lucros_aprovados_ate_31dez2025: classificacaoIsentos.lucros_aprovados_ate_31dez2025,
     ganho_capital_excluido: classificacaoIsentos.ganho_capital_excluido,

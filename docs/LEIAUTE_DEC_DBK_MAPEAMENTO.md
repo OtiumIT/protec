@@ -24,9 +24,16 @@ Baseado na documentação da Receita Federal. O parser suporta dois formatos:
 - **13 dígitos** (11 inteiros + 2 decimais): tipo 20, 21, 23
 - **15 dígitos** (13 inteiros + 2 decimais): tipo 22 (outros códigos)
 
+### Tipo 19 – Resumo de impostos pagos (IRPFM)
+- **Layout**: Após "19"+CPF(11)+spaces, sequência de blocos de 13 dígitos (11 inteiros + 2 decimais).
+- **Blocos extraídos** (validação empírica com DBKs 2024/2025; confirmar no leiaute oficial):
+  - **Índice 5**: IR carnê-leão (Art. 16-A § 3º III)
+  - **Índice 11**: IR retido na fonte — pró-labore, salários (Art. 16-A § 3º II)
+- **Não mapeados no parser**: IR sobre aplicações (trib. exclusiva), retenção 10% dividendos. O `imposto_ja_pago_aplicacoes` é estimado a partir dos itens código 06/10 quando não houver bloco específico no tipo 19.
+
 ### Tipos de registro (2 primeiros chars)
 - **16**: endereço
-- **19**: resumo (não usar primeiro número = 19+CPF)
+- **19**: resumo de impostos pagos (ver seção Tipo 19 acima)
 - **20**: totais oficiais — 13-26 total PJ, 26-39 total PF, 64-77 imposto, 78-91 base
 - **21**: sócio PJ (rendimentos) — nome 24-74, primeiro bloco 13 dígitos após o nome = lucros
 - **22**: resumo por código (cód. 25-27, valor 36-51); para 09/13 não usar (usar tipo 23)
@@ -46,6 +53,10 @@ Baseado na documentação da Receita Federal. O parser suporta dois formatos:
 | RTIRF  | Imposto retido na fonte |
 | BPFDEC | Beneficiário PF |
 | IDREC  | Código de receita |
+
+## Registros não mapeados (tipos 84 e T9)
+- **Tipo 84**: Ex.: `8475865823949T75865823949...` — possivelmente resumo por empresa/fonte. Não parseado; requer consulta ao leiaute oficial.
+- **Tipo T9**: Ex.: `T975865823949000028000010000000...` — possivelmente totais/fechamento. Não parseado; requer consulta ao leiaute oficial.
 
 ## Campos extraídos (parser atual)
 - **Identificação**: nome, CPF, exercício (cabeçalho ou nome do arquivo)
