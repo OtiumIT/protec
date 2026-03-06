@@ -206,3 +206,117 @@
   word-break: break-word;
   overflow-wrap: break-word;
 }
+
+/* PDF export - layout denso e elegante (menos espaço em branco) */
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado,
+#irpf-pdf-content #irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado {
+  margin-top: 0;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado > * + * {
+  margin-top: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .flex.p-5 {
+  padding: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .flex.p-5 h2 {
+  font-size: 0.9rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .flex.p-5 p {
+  font-size: 0.75rem !important;
+  margin-top: 0.125rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-xl {
+  padding: 0.75rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-2xl,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado [class*="shadow-lg"] {
+  padding: 1rem !important;
+  border-radius: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado h2 {
+  margin-bottom: 0.5rem !important;
+  font-size: 0.95rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid {
+  gap: 0.75rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid.grid-cols-1 {
+  grid-template-columns: 1fr 1fr !important;
+  gap: 0.75rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid .space-y-4 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid .space-y-4 > * + * {
+  margin-top: 0 !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid .space-y-4 > :nth-child(n+3) {
+  grid-column: 1 / -1 !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .flex.flex-col.gap-6 {
+  gap: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .gap-6 {
+  gap: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .gap-3 {
+  gap: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .pt-4 {
+  padding-top: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .mb-4 {
+  margin-bottom: 0.25rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .mt-4 {
+  margin-top: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado td,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado th {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.8rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border .bg-emerald-600,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border .bg-red-600 {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.75rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid.grid-cols-1.md\:grid-cols-4 {
+  gap: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid.grid-cols-1.md\:grid-cols-4 > div {
+  padding: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .grid.grid-cols-1.md\:grid-cols-4 p.text-lg {
+  font-size: 0.95rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.border-amber-300 {
+  margin-bottom: 0.25rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.border-slate-200.p-4 {
+  padding: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.border-slate-200.p-4 h4 {
+  margin-bottom: 0.25rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-lg.border,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.amber-200,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.emerald-200,
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .rounded-md.border.indigo-200 {
+  padding: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense .irpf-pdf-resultado .border-t.border-slate-200 {
+  padding-top: 0.5rem !important;
+  margin-top: 0.5rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense > .keep.space-y-4 {
+  margin-bottom: 0.75rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense > .keep.space-y-4 .space-y-4 > * + * {
+  margin-top: 0.25rem !important;
+}
+#irpf-pdf-export-root.irpf-pdf-dense > .keep.space-y-4 .grid {
+  gap: 0.5rem !important;
+}

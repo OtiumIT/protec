@@ -470,7 +470,7 @@ export function IrpfAltaRenda() {
       await new Promise((r) => setTimeout(r, 250));
       try {
         const opt = {
-          margin: 10,
+          margin: 8,
           filename: `IRPF-Alta-Renda-${ano}-${contribuinteNome || 'simulacao'}.pdf`.replace(/[^a-zA-Z0-9.-]/g, '_'),
           image: { type: 'jpeg' as const, quality: 0.95 },
           html2canvas: {
@@ -1471,23 +1471,13 @@ export function IrpfAltaRenda() {
             className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-slate-200/90 p-6 text-slate-900"
             style={{ boxSizing: 'border-box' }}
           >
-            <div ref={pdfContentRef} className="bg-white shadow-xl p-6" style={{ width: '190mm', maxWidth: '190mm', boxSizing: 'border-box' }}>
-            <div className="keep space-y-3 mb-4 pb-3 border-b border-slate-200">
-              <p className="text-[10px] text-slate-500">
-                Simulado em{' '}
-                {new Date().toLocaleString('pt-BR', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+            <div ref={pdfContentRef} id="irpf-pdf-export-root" className="bg-white shadow-xl p-4 irpf-pdf-dense" style={{ width: '194mm', maxWidth: '194mm', boxSizing: 'border-box' }}>
+            <div className="keep space-y-1 mb-2 pb-2 border-b border-slate-200 text-xs">
+              <p className="text-[10px] text-slate-500 leading-tight">
+                Simulado em {new Date().toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · Base legal: Lei 15.270/2025 – Art. 16-A
               </p>
-              <p className="text-[10px] text-slate-600 italic">
+              <p className="text-[10px] text-slate-600 italic leading-tight">
                 Simulação para fins de planejamento tributário. Não substitui a apuração oficial da DAA. Consulte seu contador ou advogado.
-              </p>
-              <p className="text-[10px] text-slate-600">
-                Base legal: Lei 15.270/2025 – Art. 16-A
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                 <span>
