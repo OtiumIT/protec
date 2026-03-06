@@ -89,7 +89,7 @@ export function IrpfComparativoChart({ atual, otimizado }: Props) {
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 16, right: 24, left: 56, bottom: 16 }}
+            margin={{ top: 16, right: 24, left: 56, bottom: 48 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis
@@ -99,7 +99,7 @@ export function IrpfComparativoChart({ atual, otimizado }: Props) {
             />
             <YAxis type="category" dataKey="metrica" width={80} tick={{ fontSize: 13 }} />
             <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-            <Legend />
+            <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 8 }} />
             <Bar dataKey="atual" fill="#0ea5e9" name="Situação atual" radius={[0, 4, 4, 0]} />
             <Bar dataKey="otimizado" fill="#22c55e" name="Situação otimizada" radius={[0, 4, 4, 0]} />
           </BarChart>

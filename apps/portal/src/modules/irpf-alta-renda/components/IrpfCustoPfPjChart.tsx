@@ -52,7 +52,7 @@ export function IrpfCustoPfPjChart({ comparativo }: Props) {
       </p>
       <div className="h-64 min-h-[256px] w-full" role="img" aria-label="Comparativo custo tributário PF vs PJ">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 16, right: 24, left: 24, bottom: 16 }}>
+          <BarChart data={data} margin={{ top: 16, right: 24, left: 24, bottom: 48 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="cenario" tick={{ fontSize: 11 }} />
             <YAxis
@@ -69,7 +69,11 @@ export function IrpfCustoPfPjChart({ comparativo }: Props) {
               formatter={(v: number) => formatCurrency(v)}
               contentStyle={{ fontSize: 12 }}
             />
-            <Legend />
+            <Legend
+              verticalAlign="bottom"
+              align="center"
+              wrapperStyle={{ paddingTop: 8 }}
+            />
             <Bar dataKey="imposto" fill="#dc2626" name="Imposto total" radius={[4, 4, 0, 0]} />
             <Bar dataKey="liquido" fill="#16a34a" name="Rendimento líquido" radius={[4, 4, 0, 0]} />
           </BarChart>
