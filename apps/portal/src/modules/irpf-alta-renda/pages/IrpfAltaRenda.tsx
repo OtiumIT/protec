@@ -2075,8 +2075,8 @@ export function IrpfAltaRenda() {
               riscoRetencaoMensal={result.risco_retencao_mensal}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-              {/* Painel esquerdo: tabelas Rendimentos + IRPFM (estilo modelo) */}
+            <div className="grid grid-cols-1 gap-6 pt-4">
+              {/* Painel: tabelas Rendimentos + IRPFM (estilo modelo) */}
               <div className="space-y-4">
                 <div className="rounded-md border border-emerald-200 overflow-hidden">
                   <div className="bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Rendimentos</div>
@@ -2196,7 +2196,7 @@ export function IrpfAltaRenda() {
               {(() => {
                 const comparativo = (result as IrpfAltaRendaSimulacaoResponse & { comparativo_pf_pj?: ComparativoPfPj }).comparativo_pf_pj;
                 return comparativo && comparativo.diferenca_percentual_pj_mais_caro > 0 ? (
-                  <div key="estrategico-pj" className="lg:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 keep">
+                  <div key="estrategico-pj" className="rounded-md border border-amber-200 bg-amber-50 p-3 keep">
                     <p className="text-sm font-semibold text-amber-900">Relatório estratégico (PF vs PJ)</p>
                     <p className="text-sm text-amber-800 mt-1">
                       Seu cliente está pagando{' '}
@@ -2212,7 +2212,7 @@ export function IrpfAltaRenda() {
                 ) : null;
               })()}
               {result.otimizacao_isento_vs_tributado && result.otimizacao_isento_vs_tributado.irrf_compensavel_estimado > 0 && (
-                <div className="lg:col-span-2 rounded-md border border-indigo-200 bg-indigo-50 p-3 keep">
+                <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 keep">
                   <p className="text-sm font-semibold text-indigo-900">Otimização: migração LCI/CDB</p>
                   <p className="text-sm text-indigo-800 mt-1">
                     Migrar de LCI para CDB (ou ativo tributado com IRRF) pode gerar crédito estimado de{' '}
@@ -2223,14 +2223,14 @@ export function IrpfAltaRenda() {
                 </div>
               )}
               {result.otimizacao_isento_vs_tributado && (
-                <div className="lg:col-span-2 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                   <p className="text-sm font-semibold text-emerald-800">Simulador de otimização (Isento vs Tributado)</p>
                   <p className="text-sm text-emerald-700 mt-1">
                     Migração simulada: {formatCurrency(result.otimizacao_isento_vs_tributado.valor_migrado)} | IRRF compensável:{' '}
                     {formatCurrency(result.otimizacao_isento_vs_tributado.irrf_compensavel_estimado)} | Ganho líquido estimado:{' '}
                     {formatCurrency(result.otimizacao_isento_vs_tributado.ganho_liquido_estimado)}
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                  <div className="grid grid-cols-1 gap-2 mt-3">
                     <div className="rounded border border-emerald-200 bg-white p-2">
                       <p className="text-xs text-slate-500">Antes (ativo isento que entra na base)</p>
                       <p className="text-sm text-slate-700">BCC: {formatCurrency(result.otimizacao_isento_vs_tributado.bcc_cenario_atual)}</p>
@@ -2251,7 +2251,7 @@ export function IrpfAltaRenda() {
               )}
 
               {Array.isArray(result.impacto_incremental_base) && result.impacto_incremental_base.length > 0 && (
-                <div className="lg:col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-sm font-semibold text-slate-800 mb-1">Drivers do imposto (top 3)</p>
                   <ul className="text-sm text-slate-700 list-disc list-inside">
                     {result.impacto_incremental_base
@@ -2267,7 +2267,7 @@ export function IrpfAltaRenda() {
                 </div>
               )}
 
-              <div className="lg:col-span-2 mt-4 pt-4 border-t border-slate-200 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-4 pt-4 border-t border-slate-200 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="text-sm font-semibold text-slate-800 mb-2">Possíveis soluções para redução da tributação</h4>
                 <p className="text-sm text-slate-700 mb-2">
                   Sugestões de planejamento com base nos dados da simulação:

@@ -19,7 +19,7 @@ export function IrpfComparativoChart({ atual, otimizado }: Props) {
     return (
       <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-3">
         <p className="text-xs font-medium text-slate-600 mb-2">Situação atual</p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 gap-2 text-sm">
           <div>
             <span className="text-slate-500">Base:</span>
             <span className="ml-1 font-mono font-medium text-slate-800">{formatCurrency(atual.base)}</span>
@@ -56,7 +56,7 @@ export function IrpfComparativoChart({ atual, otimizado }: Props) {
   ];
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="rounded-md border border-slate-200 bg-slate-50/50 px-4 py-3">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Situação atual</p>
           <div className="space-y-1 text-sm">

@@ -165,5 +165,37 @@
     max-width: 100%;
     padding: 1.5rem 2rem;
     background: white;
+    overflow: visible !important;
   }
+  #irpf-alta-renda-resultado-print * {
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  #irpf-alta-renda-resultado-print .overflow-x-auto {
+    overflow-x: visible !important;
+  }
+  #irpf-alta-renda-resultado-print table {
+    width: 100% !important;
+    table-layout: auto;
+  }
+  #irpf-alta-renda-resultado-print .rounded-md,
+  #irpf-alta-renda-resultado-print .rounded-lg,
+  #irpf-alta-renda-resultado-print .rounded-xl {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* Estilos para exportação PDF (html2pdf) - IRPF Alta Renda - evitar corte */
+#irpf-alta-renda-resultado-print .overflow-x-auto,
+#irpf-pdf-content .overflow-x-auto {
+  overflow-x: visible !important;
+}
+#irpf-alta-renda-resultado-print .overflow-hidden,
+#irpf-pdf-content .overflow-hidden {
+  overflow: visible !important;
+}
+#irpf-alta-renda-resultado-print table,
+#irpf-pdf-content table {
+  width: 100% !important;
 }

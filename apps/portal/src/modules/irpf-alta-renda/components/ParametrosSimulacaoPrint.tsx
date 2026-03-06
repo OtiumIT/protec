@@ -62,7 +62,7 @@ export function ParametrosSimulacaoPrint({
         Parâmetros da simulação (Etapa 2)
       </h3>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 gap-3 text-sm">
         <div>
           <p className="text-slate-500 text-xs">Contribuinte</p>
           <p className="font-medium text-slate-800">{contribuinteNome || '—'}</p>
@@ -114,7 +114,7 @@ export function ParametrosSimulacaoPrint({
         </table>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+      <div className="grid grid-cols-1 gap-2 text-sm">
         <div>
           <p className="text-slate-500 text-xs">Lucros aprovados até 31/12/2025</p>
           <p className="font-mono text-slate-800">{formatCurrency(lucrosAprovadosAte31dez2025)}</p>
@@ -203,7 +203,7 @@ export function ParametrosSimulacaoPrint({
 
       <div>
         <p className="text-slate-600 text-xs font-medium mb-2">IR já pago (deduções)</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 gap-2 text-sm">
           <div>
             <span className="text-slate-500">Retenção na fonte:</span>{' '}
             <span className="font-mono">{formatCurrency(impostoJaPagoRetencao)}</span>
