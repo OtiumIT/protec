@@ -105,8 +105,25 @@ export function SimuladorIN2306() {
   const [refNormativaExpanded, setRefNormativaExpanded] = useState(false);
   const [memoriaTab, setMemoriaTab] = useState<0 | 1 | 2>(0);
   const [detalhesAbertos, setDetalhesAbertos] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
   const resultadoTributarioRef = useRef<HTMLDivElement>(null);
+
+  const handlePrintPdf = useCallback((resumida: boolean) => {
+    setPrintModalOpen(false);
+    const el = resultadoTributarioRef.current;
+    if (el) {
+      el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
+    }
+    const cleanup = () => {
+      if (el) el.removeAttribute('data-print-resumida');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    requestAnimationFrame(() => {
+      setTimeout(() => window.print(), 100);
+    });
+  }, []);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -895,7 +912,7 @@ export function SimuladorIN2306() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => window.print()}
+                    onClick={() => setPrintModalOpen(true)}
                     className="print:hidden shrink-0 inline-flex items-center gap-2"
                     aria-label="Exportar resultado para PDF"
                   >
@@ -1055,7 +1072,7 @@ export function SimuladorIN2306() {
                 </div>
               </Card>
 
-              <Card>
+              <Card className="print-memoria-calculo">
                 <h3 className="font-semibold text-slate-800 mb-2">Memória de Cálculo</h3>
                 <p className="text-sm text-slate-600 mb-2">
                   Limite isento: R$ 1.250.000/trimestre (R$ 5 MM/ano). O acréscimo de 10% na presunção incide apenas sobre a parcela da receita que exceder o limite (LC 224/2025 – IN 2.306/2026). No 4º trimestre aplica-se o ajuste anual (§ 5º).
@@ -1366,6 +1383,52 @@ export function SimuladorIN2306() {
                 </p>
               </div>
               </div>
+
+              {/* Modal de opções de impressão */}
+              <Modal
+                isOpen={printModalOpen}
+                onClose={() => setPrintModalOpen(false)}
+                title="Exportar para PDF"
+                size="md"
+              >
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Escolha o formato da impressão:
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handlePrintPdf(true)}
+                      className="flex items-start gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors text-left"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900">Impressão resumida</h4>
+                        <p className="text-sm text-slate-600 mt-0.5">Cenários, comparativo e gráficos. Sem a memória de cálculo detalhada.</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePrintPdf(false)}
+                      className="flex items-start gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors text-left"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900">Impressão completa</h4>
+                        <p className="text-sm text-slate-600 mt-0.5">Inclui cenários, comparativo, memória de cálculo e base legal.</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </Modal>
             </>
           )}
         </>

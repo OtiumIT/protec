@@ -38,7 +38,7 @@ try {
 }
 
 console.log('3/4 Committando...');
-execSync('git', ['commit', '-m', message], { cwd: root, stdio: 'inherit' });
+execSync(`git commit -m ${JSON.stringify(message)}`, { cwd: root, stdio: 'inherit', shell: true });
 
 console.log('4/4 Fazendo push...');
 execSync('git push', { cwd: root, stdio: 'inherit' });

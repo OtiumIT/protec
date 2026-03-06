@@ -34,7 +34,13 @@
 @media print {
   @page {
     size: A4;
-    margin: 1cm;
+    margin: 1.2cm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   body * {
     visibility: hidden;
@@ -42,6 +48,10 @@
   #simulador-tributario-resultado-print,
   #simulador-tributario-resultado-print * {
     visibility: visible;
+  }
+  /* Impressão resumida: esconder Memória de Cálculo */
+  #simulador-tributario-resultado-print[data-print-resumida="true"] .print-memoria-calculo {
+    display: none !important;
   }
   /* Evitar corte de conteúdo: ancestrais sem restrição de altura/overflow */
   html, body {
@@ -61,26 +71,29 @@
     top: 0;
     right: 0;
     width: auto;
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     background: white;
     overflow: visible;
     min-height: 0 !important;
     box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   #simulador-tributario-resultado-print * {
     overflow: visible !important;
     box-sizing: border-box;
   }
-  /* Tabelas: fonte menor para caber nas colunas sem quebrar linha */
+  /* Tabelas: fonte legível e estrutura preservada */
   #simulador-tributario-resultado-print table {
     width: 100% !important;
     table-layout: fixed;
     page-break-inside: auto;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    border-collapse: collapse;
   }
   #simulador-tributario-resultado-print th,
   #simulador-tributario-resultado-print td {
-    padding: 0.2rem 0.3rem !important;
+    padding: 0.3rem 0.4rem !important;
   }
   #simulador-tributario-resultado-print .overflow-x-auto {
     overflow-x: visible !important;
