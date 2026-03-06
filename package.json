@@ -21,7 +21,8 @@
     "type-check": "turbo run type-check",
     "dev:api": "turbo run dev --filter=api",
     "dev:portal": "turbo run dev --filter=portal",
-    "dev:workers": "turbo run dev --filter=workers"
+    "dev:workers": "turbo run dev --filter=workers",
+    "push": "node scripts/push-with-build.mjs"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

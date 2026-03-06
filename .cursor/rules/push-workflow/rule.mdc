@@ -1,0 +1,33 @@
+---
+description: "Workflow de push: build da API + commit + push"
+globs: []
+alwaysApply: true
+---
+
+# Workflow de Push
+
+Quando o usuário pedir para fazer **push** (ou "dar push", "commitar e dar push", etc.), seguir este fluxo:
+
+## Comando único (recomendado)
+
+```bash
+pnpm run push "feat: descrição da alteração"
+```
+
+Isso executa automaticamente:
+1. `pnpm run build:vercel:output` (reconstrói bundle da API)
+2. `git add` de alterações (inclui apps/api/.vercel/, version.generated.ts, migrations-embedded.ts)
+3. `git commit -m "<mensagem>"`
+4. `git push`
+
+## Uso
+
+- Substituir a mensagem entre aspas: `pnpm run push "fix: corrige validação de CPF"`
+- A mensagem deve descrever as alterações (ex: `feat:`, `fix:`, `chore:`)
+
+## Arquivos incluídos no commit
+
+- Código alterado
+- `apps/api/.vercel/output/` (bundle da API)
+- `apps/api/src/version.generated.ts`
+- `apps/api/src/db/migrations-embedded.ts`
