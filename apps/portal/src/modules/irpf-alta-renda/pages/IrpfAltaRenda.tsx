@@ -2121,16 +2121,16 @@ export function IrpfAltaRenda() {
                         <td className="py-2 px-3 text-right font-mono tabular-nums">{typeof result.aliquota_percentual === 'number' ? result.aliquota_percentual.toFixed(2) : result.aliquota_percentual}%</td>
                       </tr>
                       {result.imposto_minimo != null && result.imposto_minimo > 0 && (
-                        <tr className="border-b border-slate-200 hover:bg-slate-50">
-                          <td className="py-2 px-3 text-slate-700">Imposto mínimo devido</td>
-                          <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.imposto_minimo)}</td>
-                        </tr>
-                      )}
-                      {result.deducoes_imposto_ja_pago != null && result.deducoes_imposto_ja_pago > 0 && (
-                        <tr className="border-b border-slate-200 hover:bg-slate-50">
-                          <td className="py-2 px-3 text-slate-700">Total de IR já recolhido/retido</td>
-                          <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.deducoes_imposto_ja_pago)}</td>
-                        </tr>
+                        <>
+                          <tr className="border-b border-slate-200 hover:bg-slate-50">
+                            <td className="py-2 px-3 text-slate-700">Imposto mínimo devido</td>
+                            <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.imposto_minimo)}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 hover:bg-slate-50">
+                            <td className="py-2 px-3 text-slate-700">Imposto de renda já recolhido</td>
+                            <td className="py-2 px-3 text-right font-mono tabular-nums">{formatCurrency(result.deducoes_imposto_ja_pago ?? 0)}</td>
+                          </tr>
+                        </>
                       )}
                       <tr className="bg-amber-50 border-t-2 border-amber-300">
                         <td className="py-3 px-3 font-semibold text-amber-900">Valor a complementar</td>
