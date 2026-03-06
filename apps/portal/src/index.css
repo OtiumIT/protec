@@ -199,3 +199,10 @@
 #irpf-pdf-content table {
   width: 100% !important;
 }
+#irpf-alta-renda-resultado-print td,
+#irpf-alta-renda-resultado-print th,
+#irpf-pdf-content td,
+#irpf-pdf-content th {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}

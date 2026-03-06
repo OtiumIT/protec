@@ -473,7 +473,13 @@ export function IrpfAltaRenda() {
           margin: 10,
           filename: `IRPF-Alta-Renda-${ano}-${contribuinteNome || 'simulacao'}.pdf`.replace(/[^a-zA-Z0-9.-]/g, '_'),
           image: { type: 'jpeg' as const, quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            width: contentEl.scrollWidth,
+            windowWidth: contentEl.scrollWidth,
+          },
           jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
           pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
         };
@@ -1465,7 +1471,7 @@ export function IrpfAltaRenda() {
             className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-slate-200/90 p-6 text-slate-900"
             style={{ boxSizing: 'border-box' }}
           >
-            <div ref={pdfContentRef} className="bg-white shadow-xl p-6" style={{ width: '210mm', maxWidth: '210mm' }}>
+            <div ref={pdfContentRef} className="bg-white shadow-xl p-6" style={{ width: '190mm', maxWidth: '190mm', boxSizing: 'border-box' }}>
             <div className="keep space-y-3 mb-4 pb-3 border-b border-slate-200">
               <p className="text-[10px] text-slate-500">
                 Simulado em{' '}

@@ -52,10 +52,13 @@ export function IrpfComposicaoChart({ composicao }: Props) {
     .reduce((acc, item) => acc + item.value, 0);
   const data = residual > 0 ? [...principal, { name: 'Outros (<2%)', value: residual }] : principal;
 
+  const formatCurrency = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(v);
+
   return (
-    <div className="h-80 min-h-[320px] w-full" role="img" aria-label="Gráfico de composição da renda para base de cálculo">
+    <div className="h-80 min-h-[320px] w-full flex" role="img" aria-label="Gráfico de composição da renda para base de cálculo">
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+        <PieChart margin={{ left: 140, right: 20, top: 10, bottom: 10 }}>
           <Pie
             data={data}
             dataKey="value"
@@ -69,8 +72,21 @@ export function IrpfComposicaoChart({ composicao }: Props) {
               <Cell key={index} fill={COLOR_BY_NAME[entry.name] ?? '#64748b'} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))} />
-          <Legend />
+          <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+          <Legend
+            layout="vertical"
+            align="left"
+            verticalAlign="middle"
+            formatter={(value, entry) => {
+              const val = (entry?.payload as { value?: number })?.value ?? 0;
+              const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
+              return (
+                <span className="text-xs">
+                  {value} – {formatCurrency(val)} ({pct}%)
+                </span>
+              );
+            }}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>
