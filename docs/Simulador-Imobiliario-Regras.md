@@ -63,6 +63,18 @@ Cada elemento deve ter `mes_referencia` no formato `YYYY-MM` (ex.: `2025-01`) e 
 | **taxa_plataforma** | Taxa de plataforma (Airbnb, Booking etc.) | Idem. |
 | **outros_custos** | Outros custos operacionais | Idem. |
 
+#### 2.1.2 Preenchimento rápido – Valores anuais (distribuição igualitária)
+
+A interface oferece opções de **rateio anual** para reduzir o preenchimento manual mês a mês:
+
+- **Receita anual**: radio "Mensal" vs "Anual". No modo Anual, o usuário informa aluguel tradicional e curto prazo anuais; ao clicar em "Aplicar rateio", o sistema divide por 12 e popula `receita_aluguel_tradicional` e `receita_aluguel_curto` de cada mês.
+- **Despesas dedutíveis anuais**: checkbox "Despesas dedutíveis anuais (distribuição igualitária em todos os meses)". Quando marcado, o usuário informa o valor total anual; ao aplicar, divide por 12 e popula `outras_dedutiveis` de cada mês.
+- **Custos operacionais / Créditos IBS/CBS anuais**: checkbox "Custos operacionais / Créditos IBS/CBS anuais (distribuição igualitária em todos os meses)". Quando marcado, o usuário informa o valor total anual; ao aplicar, divide por 12 e popula `outros_custos` de cada mês.
+
+Em todos os casos, os valores mensais permanecem editáveis manualmente após o rateio. O rateio é puramente de interface; o payload enviado à API continua sendo o array de 12 objetos por mês.
+
+A mesma funcionalidade está disponível na tela de **Detalhe do Imóvel** (modo reduzido), onde os totais mensais usam `receita_longa`, `receita_short`, `despesas_dedutiveis` e `custos_operacionais`.
+
 ### 2.2 Modo com imóveis cadastrados
 
 Endpoint: `POST /api/v1/properties/simulate`.

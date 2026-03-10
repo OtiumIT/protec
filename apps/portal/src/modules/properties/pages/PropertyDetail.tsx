@@ -71,6 +71,10 @@ export function PropertyDetail() {
   const [modoAluguel, setModoAluguel] = useState<'mensal' | 'anual'>('mensal');
   const [aluguelAnualLonga, setAluguelAnualLonga] = useState<number>(0);
   const [aluguelAnualShort, setAluguelAnualShort] = useState<number>(0);
+  const [modoDespesaAnual, setModoDespesaAnual] = useState(false);
+  const [despesaAnualTotal, setDespesaAnualTotal] = useState<number>(0);
+  const [modoCustoAnual, setModoCustoAnual] = useState(false);
+  const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [formTx, setFormTx] = useState<{
     mes_referencia: string;
     tipo: 'receita' | 'despesa_dedutivel' | 'custo_operacional';
@@ -227,8 +231,9 @@ export function PropertyDetail() {
     });
   };
 
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
   const aplicarAluguelAnual = () => {
-    const round2 = (n: number) => Math.round(n * 100) / 100;
     const mensalLonga = round2((aluguelAnualLonga ?? 0) / 12);
     const mensalShort = round2((aluguelAnualShort ?? 0) / 12);
     setMonthlyTotals((prev) =>
@@ -240,6 +245,32 @@ export function PropertyDetail() {
     );
     if (aluguelAnualLonga > 0 || aluguelAnualShort > 0) {
       success('Aluguel anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+    }
+  };
+
+  const aplicarDespesaAnual = () => {
+    const valorMensal = round2((despesaAnualTotal ?? 0) / 12);
+    setMonthlyTotals((prev) =>
+      prev.map((m) => ({
+        ...m,
+        despesas_dedutiveis: valorMensal,
+      }))
+    );
+    if (despesaAnualTotal > 0) {
+      success('Despesas anuais rateadas nos 12 meses. Ajuste manualmente se necessário.');
+    }
+  };
+
+  const aplicarCustoAnual = () => {
+    const valorMensal = round2((custoAnualTotal ?? 0) / 12);
+    setMonthlyTotals((prev) =>
+      prev.map((m) => ({
+        ...m,
+        custos_operacionais: valorMensal,
+      }))
+    );
+    if (custoAnualTotal > 0) {
+      success('Custos operacionais anuais rateados nos 12 meses. Ajuste manualmente se necessário.');
     }
   };
 
@@ -321,43 +352,93 @@ export function PropertyDetail() {
                     </Button>
                   </div>
                 </div>
-                <div className="mb-4 p-4 rounded-lg bg-emerald-50/60 border border-emerald-200">
-                  <p className="text-sm font-medium text-slate-700 mb-2">Preenchimento rápido – Aluguel anual</p>
-                  <div className="flex flex-wrap items-end gap-4">
+                <div className="mb-4 p-4 rounded-lg bg-slate-50/80 border border-slate-200 space-y-4">
+                  <p className="text-sm font-semibold text-slate-800">Preenchimento rápido – Valores anuais (distribuição igualitária)</p>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-600">Receita anual (distribuição igualitária em todos os meses)</p>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="modoAluguel"
+                          checked={modoAluguel === 'mensal'}
+                          onChange={() => setModoAluguel('mensal')}
+                          className="text-brand focus:ring-brand"
+                        />
+                        <span className="text-sm text-slate-700">Mensal</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="modoAluguel"
+                          checked={modoAluguel === 'anual'}
+                          onChange={() => setModoAluguel('anual')}
+                          className="text-brand focus:ring-brand"
+                        />
+                        <span className="text-sm text-slate-700">Anual (ratear)</span>
+                      </label>
+                      {modoAluguel === 'anual' && (
+                        <>
+                          <div className="flex flex-col gap-1 min-w-[160px]">
+                            <label className="text-xs font-medium text-slate-600">Loc. longa anual</label>
+                            <MoneyInput value={aluguelAnualLonga} onChange={setAluguelAnualLonga} className="!py-1.5 text-sm" />
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-[160px]">
+                            <label className="text-xs font-medium text-slate-600">Short anual</label>
+                            <MoneyInput value={aluguelAnualShort} onChange={setAluguelAnualShort} className="!py-1.5 text-sm" />
+                          </div>
+                          <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
+                            Aplicar rateio
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200 space-y-2">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
-                        type="radio"
-                        name="modoAluguel"
-                        checked={modoAluguel === 'mensal'}
-                        onChange={() => setModoAluguel('mensal')}
-                        className="text-brand focus:ring-brand"
+                        type="checkbox"
+                        checked={modoDespesaAnual}
+                        onChange={(e) => setModoDespesaAnual(e.target.checked)}
+                        className="rounded border-slate-300 text-brand focus:ring-brand"
                       />
-                      <span className="text-sm text-slate-700">Mensal</span>
+                      <span className="text-xs font-medium text-slate-600">Despesas dedutíveis anuais (distribuição igualitária em todos os meses)</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="modoAluguel"
-                        checked={modoAluguel === 'anual'}
-                        onChange={() => setModoAluguel('anual')}
-                        className="text-brand focus:ring-brand"
-                      />
-                      <span className="text-sm text-slate-700">Anual (ratear)</span>
-                    </label>
-                    {modoAluguel === 'anual' && (
-                      <>
+                    {modoDespesaAnual && (
+                      <div className="flex flex-wrap items-end gap-4 mt-2">
                         <div className="flex flex-col gap-1 min-w-[160px]">
-                          <label className="text-xs font-medium text-slate-600">Loc. longa anual</label>
-                          <MoneyInput value={aluguelAnualLonga} onChange={setAluguelAnualLonga} className="!py-1.5 text-sm" />
+                          <label className="text-xs font-medium text-slate-600">Valor total anual</label>
+                          <MoneyInput value={despesaAnualTotal} onChange={setDespesaAnualTotal} className="!py-1.5 text-sm" />
                         </div>
-                        <div className="flex flex-col gap-1 min-w-[160px]">
-                          <label className="text-xs font-medium text-slate-600">Short anual</label>
-                          <MoneyInput value={aluguelAnualShort} onChange={setAluguelAnualShort} className="!py-1.5 text-sm" />
-                        </div>
-                        <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
+                        <Button type="button" variant="secondary" size="sm" onClick={aplicarDespesaAnual}>
                           Aplicar rateio
                         </Button>
-                      </>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modoCustoAnual}
+                        onChange={(e) => setModoCustoAnual(e.target.checked)}
+                        className="rounded border-slate-300 text-brand focus:ring-brand"
+                      />
+                      <span className="text-xs font-medium text-slate-600">Custos operacionais / Créditos IBS/CBS anuais (distribuição igualitária em todos os meses)</span>
+                    </label>
+                    {modoCustoAnual && (
+                      <div className="flex flex-wrap items-end gap-4 mt-2">
+                        <div className="flex flex-col gap-1 min-w-[160px]">
+                          <label className="text-xs font-medium text-slate-600">Valor total anual</label>
+                          <MoneyInput value={custoAnualTotal} onChange={setCustoAnualTotal} className="!py-1.5 text-sm" />
+                        </div>
+                        <Button type="button" variant="secondary" size="sm" onClick={aplicarCustoAnual}>
+                          Aplicar rateio
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
