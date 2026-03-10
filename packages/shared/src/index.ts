@@ -8,3 +8,4 @@ export * from './schemas/index.js';
 // Exportar utilitários
 export * from './utils/index.js';
 export * from './utils/edital-calculations.js';
+export * from './utils/transicao-ibs.js';

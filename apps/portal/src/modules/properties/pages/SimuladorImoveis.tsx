@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma, PropertySimulation } from '@shared/core';
+import { calcularTransicaoIBS, type TransicaoIBSResult } from '@shared/core';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -156,6 +157,29 @@ export function SimuladorImoveis() {
   const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultSectionRef = useRef<HTMLDivElement>(null);
+  const [modoAluguel, setModoAluguel] = useState<'mensal' | 'anual'>('mensal');
+  const [aluguelAnualTradicional, setAluguelAnualTradicional] = useState<number>(0);
+  const [aluguelAnualCurto, setAluguelAnualCurto] = useState<number>(0);
+  const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
+
+  const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS);
+
+  const aplicarAluguelAnual = useCallback(() => {
+    const valTrad = round2(aluguelAnualTradicional ?? 0);
+    const valCurto = round2(aluguelAnualCurto ?? 0);
+    const mensalTrad = round2(valTrad / 12);
+    const mensalCurto = round2(valCurto / 12);
+    setMeses((prev) =>
+      prev.map((m) => ({
+        ...m,
+        receita_aluguel_tradicional: mensalTrad,
+        receita_aluguel_curto: mensalCurto,
+      }))
+    );
+    if (valTrad > 0 || valCurto > 0) {
+      success('Aluguel anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+    }
+  }, [aluguelAnualTradicional, aluguelAnualCurto, success]);
 
   const updateMes = (idx: number, field: keyof MesFields, value: number) => {
     setMeses((prev) => {
@@ -471,6 +495,101 @@ export function SimuladorImoveis() {
           </div>
         </Card>
 
+        {/* Transição IBS vs ICMS/ISS (2029-2033) */}
+        <Card className="p-5 border-violet-200/80 bg-violet-50/20">
+          <h3 className="font-semibold text-slate-800 mb-2">Transição IBS vs ICMS/ISS (2029-2033)</h3>
+          <p className="text-xs text-amber-800 bg-amber-100/80 rounded px-3 py-2 mb-4">
+            As alíquotas de IBS e CBS são estimadas; os valores definitivos dependem de regulamentação complementar.
+          </p>
+          <div className="flex flex-wrap items-end gap-4 mb-4">
+            <div className="flex flex-col gap-1 min-w-[200px]">
+              <label className="text-sm font-medium text-slate-700">Alíquota plena estimada (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={aliquotaPlenaIBS}
+                onChange={(e) => setAliquotaPlenaIBS(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+              />
+              <span className="text-xs text-slate-500">Ex.: 19% para ICMS típico</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 font-semibold">Ano</th>
+                  <th className="text-right py-2 px-3 font-semibold">IBS (% alíq. plena)</th>
+                  <th className="text-right py-2 px-3 font-semibold">ICMS/ISS residual</th>
+                  <th className="text-right py-2 px-3 font-semibold">IBS efetivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transicaoIBSResult.map((r: TransicaoIBSResult) => (
+                  <tr key={r.ano} className="border-b border-slate-100">
+                    <td className="py-2 px-3">{r.ano}</td>
+                    <td className="text-right py-2 px-3">{r.ibsPct}%</td>
+                    <td className="text-right py-2 px-3">{r.icmsIssPct}%</td>
+                    <td className="text-right py-2 px-3 font-medium">{r.aliquotaEfetivaIBS.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Aluguel Anual - preenchimento rápido */}
+        <Card className="p-5 border-emerald-200/80 bg-emerald-50/20">
+          <h3 className="font-semibold text-slate-800 mb-3">Preenchimento rápido – Receita de aluguel</h3>
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="modoAluguel"
+                checked={modoAluguel === 'mensal'}
+                onChange={() => setModoAluguel('mensal')}
+                className="text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Mensal (preencher mês a mês)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="modoAluguel"
+                checked={modoAluguel === 'anual'}
+                onChange={() => setModoAluguel('anual')}
+                className="text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Aluguel anual (ratear em 12 meses)</span>
+            </label>
+            {modoAluguel === 'anual' && (
+              <>
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-medium text-slate-600">Aluguel tradicional anual</label>
+                  <MoneyInput
+                    value={aluguelAnualTradicional}
+                    onChange={setAluguelAnualTradicional}
+                    className="!py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-medium text-slate-600">Aluguel curto prazo anual</label>
+                  <MoneyInput
+                    value={aluguelAnualCurto}
+                    onChange={setAluguelAnualCurto}
+                    className="!py-1.5 text-sm"
+                  />
+                </div>
+                <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
+                  Aplicar rateio
+                </Button>
+              </>
+            )}
+          </div>
+        </Card>
+
         {/* Seções por categoria */}
         {(['receita', 'despesa', 'custo'] as SectionKey[]).map((sectionKey) => {
           const config = SECTION_CONFIG[sectionKey];
@@ -583,7 +702,7 @@ export function SimuladorImoveis() {
               return (
                 <p className="text-xs text-slate-500 mt-1">
                   {pres16
-                    ? 'Elegível 16% (serviços, rec. acum. ≤ R$ 120k por trimestre)'
+                    ? 'Elegível 16% (serviços; rec. acum. no ano ≤ R$ 120k até o trimestre)'
                     : 'Presunção 32% (locação de imóveis)'}
                 </p>
               );
@@ -595,7 +714,7 @@ export function SimuladorImoveis() {
             )}
             {(result.cenarios.pj.irpj_postergado ?? 0) > 0 && (
               <p className="text-xs text-amber-700 mt-1 font-medium">
-                Recolhimento da diferença postergada (16% → 32%): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano; a diferença de imposto dos trimestres que usaram 16% foi recolhida.
+                Recolhimento da diferença postergada (16% → 32%): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano; a diferença foi recolhida no trimestre em que ocorreu o excesso.
               </p>
             )}
             {(result.memoria_calculo as { cenario_32_fixo_imposto?: number } | undefined)?.cenario_32_fixo_imposto !== undefined && (
@@ -672,8 +791,8 @@ export function SimuladorImoveis() {
                 </>
               );
             })()}
-            <p className="text-xs text-amber-800/90 mt-1">
-              Se tiver mais de 3 imóveis e receita &gt; R$ 240 mil/ano (ajustado IPCA), a PF pode ser tributada pelo IBS/CBS.
+            <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
+              A obrigatoriedade de IBS/CBS para PF depende de receita &gt; R$ 240k e mais de 3 imóveis (ou &gt; R$ 288k, conforme interpretação em discussão). O regulamento definirá os critérios.
             </p>
           </Card>
           <Card>

@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import {
   propertyService,
   type PropertyWithClient,
@@ -67,6 +68,9 @@ export function PropertyDetail() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [modoAluguel, setModoAluguel] = useState<'mensal' | 'anual'>('mensal');
+  const [aluguelAnualLonga, setAluguelAnualLonga] = useState<number>(0);
+  const [aluguelAnualShort, setAluguelAnualShort] = useState<number>(0);
   const [formTx, setFormTx] = useState<{
     mes_referencia: string;
     tipo: 'receita' | 'despesa_dedutivel' | 'custo_operacional';
@@ -223,6 +227,22 @@ export function PropertyDetail() {
     });
   };
 
+  const aplicarAluguelAnual = () => {
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const mensalLonga = round2((aluguelAnualLonga ?? 0) / 12);
+    const mensalShort = round2((aluguelAnualShort ?? 0) / 12);
+    setMonthlyTotals((prev) =>
+      prev.map((m) => ({
+        ...m,
+        receita_longa: mensalLonga,
+        receita_short: mensalShort,
+      }))
+    );
+    if (aluguelAnualLonga > 0 || aluguelAnualShort > 0) {
+      success('Aluguel anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+    }
+  };
+
   const handleSimulate = async () => {
     if (!id) return;
     setIsSimulating(true);
@@ -299,6 +319,46 @@ export function PropertyDetail() {
                     >
                       {savingTotals ? 'Salvando...' : 'Salvar'}
                     </Button>
+                  </div>
+                </div>
+                <div className="mb-4 p-4 rounded-lg bg-emerald-50/60 border border-emerald-200">
+                  <p className="text-sm font-medium text-slate-700 mb-2">Preenchimento rápido – Aluguel anual</p>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="modoAluguel"
+                        checked={modoAluguel === 'mensal'}
+                        onChange={() => setModoAluguel('mensal')}
+                        className="text-brand focus:ring-brand"
+                      />
+                      <span className="text-sm text-slate-700">Mensal</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="modoAluguel"
+                        checked={modoAluguel === 'anual'}
+                        onChange={() => setModoAluguel('anual')}
+                        className="text-brand focus:ring-brand"
+                      />
+                      <span className="text-sm text-slate-700">Anual (ratear)</span>
+                    </label>
+                    {modoAluguel === 'anual' && (
+                      <>
+                        <div className="flex flex-col gap-1 min-w-[160px]">
+                          <label className="text-xs font-medium text-slate-600">Loc. longa anual</label>
+                          <MoneyInput value={aluguelAnualLonga} onChange={setAluguelAnualLonga} className="!py-1.5 text-sm" />
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-[160px]">
+                          <label className="text-xs font-medium text-slate-600">Short anual</label>
+                          <MoneyInput value={aluguelAnualShort} onChange={setAluguelAnualShort} className="!py-1.5 text-sm" />
+                        </div>
+                        <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
+                          Aplicar rateio
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -451,7 +511,7 @@ export function PropertyDetail() {
                       checked={aplicarPresuncao16}
                       onChange={(e) => setAplicarPresuncao16(e.target.checked)}
                     />
-                    <span className="text-sm">Presunção 16% (receita &lt; R$ 120k)</span>
+                    <span className="text-sm">Presunção 16% (rec. acum. no ano ≤ R$ 120k até o trimestre)</span>
                   </label>
                 </div>
               </div>
@@ -506,8 +566,8 @@ export function PropertyDetail() {
                     <p className="text-sm text-slate-600 mt-1">
                       Alíquota: {(simulation.cenarios.reforma_2027_pf ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
                     </p>
-                    <p className="text-xs text-amber-800/90 mt-1">
-                      Se &gt;3 imóveis e receita &gt; R$ 240 mil/ano (IPCA), PF pode ser tributada pelo IBS/CBS.
+                    <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1">
+                      A obrigatoriedade de IBS/CBS para PF depende de receita &gt; R$ 240k e mais de 3 imóveis (ou &gt; R$ 288k, conforme interpretação em discussão). O regulamento definirá os critérios.
                     </p>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg">
