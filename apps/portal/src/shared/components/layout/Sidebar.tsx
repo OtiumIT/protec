@@ -6,6 +6,15 @@ import { moduleService, type ActiveModule } from '../../../modules/modules/servi
 /** Forçar exibir todos os itens de módulo no menu (Simulador, IRPF, etc.) sem depender de /modules/active. No publicado (Cloudflare) evita que o menu fique vazio se a API no Render não retornar todos os módulos. */
 const FORCE_SHOW_ALL_MODULES = true;
 
+/** Nomes de exibição dos módulos (mesmas categorias originais) */
+const MODULE_DISPLAY_NAMES: Record<string, string> = {
+  FISCAL_FILES: 'Arquivos Fiscais',
+  RATING_VALIDATOR: 'Análise de Capacidade',
+  SIMULADOR_IN_2306: 'Simulador LC 224/2025',
+  IRPF_ALTA_RENDA: 'Tributação de Dividendos',
+  GESTAO_IMOVEIS: 'Gestão Imobiliária',
+};
+
 interface MenuItem {
   name: string;
   path?: string;
@@ -20,6 +29,8 @@ interface MenuCategory {
   name: string;
   icon: React.ReactNode;
   items: MenuItem[];
+  /** Quando definido, a categoria é um link direto (clique navega, sem submenu) */
+  directLink?: string;
 }
 
 /** Ícones de categoria (SVG inline, w-5 h-5) */
@@ -388,16 +399,15 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
   /** Retorna o id da categoria que contém a rota ativa (para auto-expansão) */
   const getCategoryIdForPath = (pathname: string): string | null => {
-    if (pathname === '/dashboard') return 'inicio';
+    if (pathname === '/dashboard') return null;
     if (isSuperAdmin) {
-      if (pathname === '/tenants') return 'clientes';
-      if (pathname === '/plans' || pathname === '/modules') return 'planos_modulos';
-      if (pathname === '/editais') return 'editais';
+      if (['/tenants', '/plans', '/modules', '/editais'].includes(pathname)) return 'administrativo';
       if (pathname === '/administrators' || pathname === '/users') return 'administracao';
     } else {
-      if (pathname === '/meu-plano' || pathname === '/gestao-assinatura') return 'assinatura';
-      if (pathname === '/clients') return 'clientes';
-      if (pathname === '/rating-validator' || pathname === '/simulador-in-2306' || pathname === '/irpf-alta-renda') return 'simulacoes';
+      if (pathname === '/meu-plano' || pathname === '/gestao-assinatura' || pathname === '/clients') return 'administrativo';
+      if (pathname === '/rating-validator') return 'rating_validator';
+      if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
+      if (pathname === '/irpf-alta-renda') return 'irpf_alta_renda';
       if (pathname.startsWith('/properties')) return 'gestao_imoveis';
       if (pathname === '/users') return 'administracao';
     }
@@ -428,36 +438,35 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         isParentActive(item) || (item.children?.some((c) => isActive(c.path)) ?? false)
     );
 
-  /** Constrói categorias ordenadas (Administração sempre por último) */
+  /** Constrói categorias (originais: Administrativo + módulos + Administração por último) */
   const buildCategories = (items: MenuItem[]): MenuCategory[] => {
+    const categories: MenuCategory[] = [];
+
+    // Início: link direto para /dashboard (sem submenu)
+    categories.push({ id: 'inicio', name: 'Início', icon: CATEGORY_ICONS.home, items: [], directLink: '/dashboard' });
+
     if (isSuperAdmin) {
       const get = (path?: string, name?: string) =>
         items.find((i) => (path && i.path === path) || (name && i.name === name));
-      const dash = get('/dashboard');
       const tenants = get('/tenants');
       const plans = get('/plans');
       const modules = get('/modules');
       const editais = get('/editais');
       const gestaoUsuarios = get(undefined, 'Gestão de Usuários');
 
-      const categories: MenuCategory[] = [];
-      if (dash) categories.push({ id: 'inicio', name: 'Início', icon: CATEGORY_ICONS.home, items: [dash] });
-      if (tenants) categories.push({ id: 'clientes', name: 'Clientes', icon: CATEGORY_ICONS.building, items: [tenants] });
-      const planosItems = [plans, modules].filter(Boolean) as MenuItem[];
-      if (planosItems.length)
-        categories.push({ id: 'planos_modulos', name: 'Planos e Módulos', icon: CATEGORY_ICONS.shield, items: planosItems });
-      if (editais) categories.push({ id: 'editais', name: 'Editais', icon: CATEGORY_ICONS.document, items: [editais] });
+      const adminItems = [tenants, plans, modules, editais].filter(Boolean) as MenuItem[];
+      if (adminItems.length)
+        categories.push({ id: 'administrativo', name: 'Administração Global', icon: CATEGORY_ICONS.shield, items: adminItems });
       if (gestaoUsuarios) {
-        const adminItems = gestaoUsuarios.children ?? [gestaoUsuarios];
-        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminItems });
+        const adminUsersItems = gestaoUsuarios.children ?? [gestaoUsuarios];
+        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminUsersItems });
       }
       return categories;
     }
 
-    // Admin de tenant
+    // Admin de tenant: Administrativo (Meu plano, Faturas, Gestão de Clientes) + módulos + Administração
     const get = (path?: string, name?: string, moduleKey?: string) =>
       items.find((i) => (path && i.path === path) || (name && i.name === name) || (moduleKey && i.moduleKey === moduleKey));
-    const dash = get('/dashboard');
     const meuPlano = get('/meu-plano');
     const faturas = get('/gestao-assinatura');
     const clientes = get('/clients');
@@ -467,19 +476,31 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
 
-    const categories: MenuCategory[] = [];
-    if (dash) categories.push({ id: 'inicio', name: 'Início', icon: CATEGORY_ICONS.home, items: [dash] });
-    const assinaturaItems = [meuPlano, faturas].filter(Boolean) as MenuItem[];
-    if (assinaturaItems.length)
-      categories.push({ id: 'assinatura', name: 'Assinatura', icon: CATEGORY_ICONS.creditCard, items: assinaturaItems });
-    if (clientes) categories.push({ id: 'clientes', name: 'Clientes', icon: CATEGORY_ICONS.building, items: [clientes] });
-    const simItems = [rating, simulador, irpf].filter(Boolean) as MenuItem[];
-    if (simItems.length)
-      categories.push({ id: 'simulacoes', name: 'Simulações Tributárias', icon: CATEGORY_ICONS.calculator, items: simItems });
-    if (gestaoImoveis)
-      categories.push({ id: 'gestao_imoveis', name: 'Gestão Imobiliária', icon: CATEGORY_ICONS.homeAlt, items: [gestaoImoveis] });
+    const adminItems = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];
+    if (adminItems.length)
+      categories.push({ id: 'administrativo', name: 'Administrativo', icon: CATEGORY_ICONS.cog, items: adminItems });
+
+    const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
+      { key: 'RATING_VALIDATOR', item: rating },
+      { key: 'SIMULADOR_IN_2306', item: simulador },
+      { key: 'IRPF_ALTA_RENDA', item: irpf },
+      { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
+    ];
+    const moduleIcons: Record<string, React.ReactNode> = {
+      RATING_VALIDATOR: CATEGORY_ICONS.calculator,
+      SIMULADOR_IN_2306: CATEGORY_ICONS.calculator,
+      IRPF_ALTA_RENDA: CATEGORY_ICONS.calculator,
+      GESTAO_IMOVEIS: CATEGORY_ICONS.homeAlt,
+    };
+    moduleOrder.forEach(({ key, item }) => {
+      if (item) {
+        const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
+        categories.push({ id: key.toLowerCase(), name: moduleName, icon: moduleIcons[key] ?? item.icon, items: [item] });
+      }
+    });
+
     if (gestaoUsuarios)
-      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cog, items: [gestaoUsuarios] });
+      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: [gestaoUsuarios] });
     return categories;
   };
 
@@ -703,9 +724,35 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             </div>
           )}
           {isAdmin && (FORCE_SHOW_ALL_MODULES || !isLoadingModules) && categories.map((cat) => {
+            const hasActive = cat.directLink ? isActive(cat.directLink) : categoryHasActiveItem(cat);
+
+            if (cat.directLink) {
+              return (
+                <div key={cat.id} className="mb-2">
+                  <Link
+                    to={cat.directLink}
+                    title={cat.name}
+                    className={`
+                      w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
+                      group relative
+                      ${hasActive ? 'bg-brand/5 text-brand' : 'text-slate-700 hover:bg-slate-50 hover:text-brand'}
+                      ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}
+                      focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                    `}
+                  >
+                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                      {cat.icon}
+                    </span>
+                    {!isCollapsed && (
+                      <span className="text-sm font-semibold break-words text-left leading-snug">{cat.name}</span>
+                    )}
+                  </Link>
+                </div>
+              );
+            }
+
             if (cat.items.length === 0) return null;
             const isExpanded = expandedCategory === cat.id;
-            const hasActive = categoryHasActiveItem(cat);
             const panelId = `category-panel-${cat.id}`;
             const buttonId = `category-btn-${cat.id}`;
 
