@@ -6,15 +6,6 @@ import { moduleService, type ActiveModule } from '../../../modules/modules/servi
 /** Forçar exibir todos os itens de módulo no menu (Simulador, IRPF, etc.) sem depender de /modules/active. No publicado (Cloudflare) evita que o menu fique vazio se a API no Render não retornar todos os módulos. */
 const FORCE_SHOW_ALL_MODULES = true;
 
-/** Nomes de exibição quando módulo não vem da API (modo FORCE_SHOW_ALL_MODULES) */
-const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  FISCAL_FILES: 'Arquivos Fiscais',
-  RATING_VALIDATOR: 'Transação Tributária',
-  SIMULADOR_IN_2306: 'Simulador LC 224/2025',
-  IRPF_ALTA_RENDA: 'IRPF Alta Renda',
-  GESTAO_IMOVEIS: 'Gestão Imobiliária',
-};
-
 interface MenuItem {
   name: string;
   path?: string;
@@ -23,6 +14,63 @@ interface MenuItem {
   badge?: string | number;
   moduleKey?: string; // Chave do módulo para verificar se está ativo
 }
+
+interface MenuCategory {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  items: MenuItem[];
+}
+
+/** Ícones de categoria (SVG inline, w-5 h-5) */
+const CATEGORY_ICONS = {
+  home: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  creditCard: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  ),
+  building: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  ),
+  calculator: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+  ),
+  homeAlt: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+    </svg>
+  ),
+  cog: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  document: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
+  shield: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  ),
+  users: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  ),
+};
 
 // Menu Super Admin (gestão global do sistema)
 const superAdminMenuItems: MenuItem[] = [
@@ -245,7 +293,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
   const { user, tenantId } = useAuth();
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [activeModules, setActiveModules] = useState<Map<string, ActiveModule>>(new Map());
@@ -322,28 +370,6 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     previousPathRef.current = currentPath;
   }, [location.pathname, isSuperAdmin, tenantId]);
 
-  // Expandir automaticamente menus que têm rotas filhas ativas
-  useEffect(() => {
-    const activeMenus = new Set<string>();
-    const allMenuItems = isSuperAdmin ? superAdminMenuItems : adminMenuItems;
-    
-    allMenuItems.forEach(item => {
-      if (item.children) {
-        const hasActiveChild = item.children.some(child => {
-          if (!child.path) return false;
-          return location.pathname === child.path;
-        });
-        if (hasActiveChild) {
-          activeMenus.add(item.name);
-        }
-      }
-    });
-    
-    if (activeMenus.size > 0) {
-      setExpandedMenus(activeMenus);
-    }
-  }, [location.pathname, isSuperAdmin]);
-
   // Atalho de teclado para busca (Cmd/Ctrl + K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -356,15 +382,32 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const toggleMenu = (menuName: string) => {
-    const newExpanded = new Set(expandedMenus);
-    if (newExpanded.has(menuName)) {
-      newExpanded.delete(menuName);
-    } else {
-      newExpanded.add(menuName);
-    }
-    setExpandedMenus(newExpanded);
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategory((prev) => (prev === categoryId ? null : categoryId));
   };
+
+  /** Retorna o id da categoria que contém a rota ativa (para auto-expansão) */
+  const getCategoryIdForPath = (pathname: string): string | null => {
+    if (pathname === '/dashboard') return 'inicio';
+    if (isSuperAdmin) {
+      if (pathname === '/tenants') return 'clientes';
+      if (pathname === '/plans' || pathname === '/modules') return 'planos_modulos';
+      if (pathname === '/editais') return 'editais';
+      if (pathname === '/administrators' || pathname === '/users') return 'administracao';
+    } else {
+      if (pathname === '/meu-plano' || pathname === '/gestao-assinatura') return 'assinatura';
+      if (pathname === '/clients') return 'clientes';
+      if (pathname === '/rating-validator' || pathname === '/simulador-in-2306' || pathname === '/irpf-alta-renda') return 'simulacoes';
+      if (pathname.startsWith('/properties')) return 'gestao_imoveis';
+      if (pathname === '/users') return 'administracao';
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    const categoryId = getCategoryIdForPath(location.pathname);
+    if (categoryId) setExpandedCategory(categoryId);
+  }, [location.pathname, isSuperAdmin]);
 
   const isActive = (path?: string) => {
     if (!path) return false;
@@ -379,25 +422,65 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     return false;
   };
 
-  // Separar itens administrativos dos itens de módulos
-  const separateMenuItems = (items: MenuItem[]) => {
-    const administrativeItems: MenuItem[] = [];
-    const moduleItemsMap = new Map<string, MenuItem[]>();
+  const categoryHasActiveItem = (cat: MenuCategory): boolean =>
+    cat.items.some(
+      (item) =>
+        isParentActive(item) || (item.children?.some((c) => isActive(c.path)) ?? false)
+    );
 
-    items.forEach((item) => {
-      if (item.moduleKey) {
-        // Item pertence a um módulo
-        if (!moduleItemsMap.has(item.moduleKey)) {
-          moduleItemsMap.set(item.moduleKey, []);
-        }
-        moduleItemsMap.get(item.moduleKey)!.push(item);
-      } else {
-        // Item administrativo (sem moduleKey)
-        administrativeItems.push(item);
+  /** Constrói categorias ordenadas (Administração sempre por último) */
+  const buildCategories = (items: MenuItem[]): MenuCategory[] => {
+    if (isSuperAdmin) {
+      const get = (path?: string, name?: string) =>
+        items.find((i) => (path && i.path === path) || (name && i.name === name));
+      const dash = get('/dashboard');
+      const tenants = get('/tenants');
+      const plans = get('/plans');
+      const modules = get('/modules');
+      const editais = get('/editais');
+      const gestaoUsuarios = get(undefined, 'Gestão de Usuários');
+
+      const categories: MenuCategory[] = [];
+      if (dash) categories.push({ id: 'inicio', name: 'Início', icon: CATEGORY_ICONS.home, items: [dash] });
+      if (tenants) categories.push({ id: 'clientes', name: 'Clientes', icon: CATEGORY_ICONS.building, items: [tenants] });
+      const planosItems = [plans, modules].filter(Boolean) as MenuItem[];
+      if (planosItems.length)
+        categories.push({ id: 'planos_modulos', name: 'Planos e Módulos', icon: CATEGORY_ICONS.shield, items: planosItems });
+      if (editais) categories.push({ id: 'editais', name: 'Editais', icon: CATEGORY_ICONS.document, items: [editais] });
+      if (gestaoUsuarios) {
+        const adminItems = gestaoUsuarios.children ?? [gestaoUsuarios];
+        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminItems });
       }
-    });
+      return categories;
+    }
 
-    return { administrativeItems, moduleItemsMap };
+    // Admin de tenant
+    const get = (path?: string, name?: string, moduleKey?: string) =>
+      items.find((i) => (path && i.path === path) || (name && i.name === name) || (moduleKey && i.moduleKey === moduleKey));
+    const dash = get('/dashboard');
+    const meuPlano = get('/meu-plano');
+    const faturas = get('/gestao-assinatura');
+    const clientes = get('/clients');
+    const gestaoUsuarios = get('/users', 'Gestão de Usuários');
+    const rating = get(undefined, undefined, 'RATING_VALIDATOR');
+    const simulador = get(undefined, undefined, 'SIMULADOR_IN_2306');
+    const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
+    const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
+
+    const categories: MenuCategory[] = [];
+    if (dash) categories.push({ id: 'inicio', name: 'Início', icon: CATEGORY_ICONS.home, items: [dash] });
+    const assinaturaItems = [meuPlano, faturas].filter(Boolean) as MenuItem[];
+    if (assinaturaItems.length)
+      categories.push({ id: 'assinatura', name: 'Assinatura', icon: CATEGORY_ICONS.creditCard, items: assinaturaItems });
+    if (clientes) categories.push({ id: 'clientes', name: 'Clientes', icon: CATEGORY_ICONS.building, items: [clientes] });
+    const simItems = [rating, simulador, irpf].filter(Boolean) as MenuItem[];
+    if (simItems.length)
+      categories.push({ id: 'simulacoes', name: 'Simulações Tributárias', icon: CATEGORY_ICONS.calculator, items: simItems });
+    if (gestaoImoveis)
+      categories.push({ id: 'gestao_imoveis', name: 'Gestão Imobiliária', icon: CATEGORY_ICONS.homeAlt, items: [gestaoImoveis] });
+    if (gestaoUsuarios)
+      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cog, items: [gestaoUsuarios] });
+    return categories;
   };
 
   // Filtrar itens do menu baseado na busca e módulos ativos
@@ -439,126 +522,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     });
   };
 
-  const renderMenuItem = (item: MenuItem, level: number = 0) => {
-    const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedMenus.has(item.name);
-    const active = isParentActive(item);
-    const isChild = level > 0;
-
-    if (hasChildren) {
-      return (
-        <li key={item.name}>
-          <button
-            onClick={() => {
-              if (isCollapsed && onToggleCollapse) {
-                onToggleCollapse();
-              } else {
-                toggleMenu(item.name);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleMenu(item.name);
-              }
-            }}
-            title={item.name}
-            className={`
-              w-full flex items-center gap-2 rounded-lg transition-all duration-200
-              group relative
-              ${active 
-                ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
-                : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
-              }
-              ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start justify-between px-4 py-3'}
-              ${isChild ? 'ml-2 text-sm' : ''}
-              focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
-            `}
-            aria-expanded={isExpanded}
-            aria-label={`${item.name} menu`}
-          >
-            <div className={`flex min-w-0 flex-1 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'items-start gap-3'}`}>
-              <span className={`
-                flex-shrink-0 transition-colors duration-200 mt-0.5
-                ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
-                ${isCollapsed ? 'lg:mt-0' : ''}
-              `}>
-                {item.icon}
-              </span>
-              {!isCollapsed && <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>}
-              {item.badge && (
-                <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </div>
-            {!isCollapsed && (
-            <svg
-              className={`
-                w-4 h-4 flex-shrink-0 self-center transition-transform duration-200 ml-2
-                ${isExpanded ? 'rotate-90' : ''}
-                ${active ? 'text-brand' : 'text-slate-400'}
-              `}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            )}
-          </button>
-          {!isCollapsed && (
-          <div
-            className={`
-              overflow-hidden transition-all duration-300 ease-in-out
-              ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
-            `}
-          >
-            <ul className="mt-1.5 ml-4 space-y-0.5 border-l-2 border-slate-200 pl-4">
-              {item.children?.map((child) => {
-                const childActive = isActive(child.path);
-                return (
-                  <li key={child.name}>
-                    <Link
-                      to={child.path || '#'}
-                      className={`
-                        flex items-start gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-sm
-                        group relative
-                        ${childActive 
-                          ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-brand'
-                        }
-                        focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
-                      `}
-                      aria-current={childActive ? 'page' : undefined}
-                    >
-                      <span className={`
-                        flex-shrink-0 transition-colors duration-200 mt-0.5
-                        ${childActive ? 'text-brand' : 'text-slate-400 group-hover:text-brand'}
-                      `}>
-                        {child.icon}
-                      </span>
-                      <span className="break-words min-w-0 flex-1 text-left leading-snug">{child.name}</span>
-                      {child.badge && (
-                        <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
-                          {child.badge}
-                        </span>
-                      )}
-                      {childActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 bg-brand rounded-full" aria-hidden="true" />
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          )}
-        </li>
-      );
-    }
-
+  /** Renderiza um link de item do menu */
+  const renderMenuLink = (item: MenuItem, isChild = false) => {
+    const active = item.path ? isActive(item.path) : false;
     return (
       <li key={item.name}>
         <Link
@@ -602,30 +568,22 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     );
   };
 
+  /** Renderiza os itens de uma categoria (links ou filhos de itens com children) */
+  const renderCategoryItems = (cat: MenuCategory) => {
+    const itemsToRender: MenuItem[] = [];
+    cat.items.forEach((item) => {
+      if (item.children && item.children.length > 0 && !item.path) {
+        itemsToRender.push(...item.children);
+      } else {
+        itemsToRender.push(item);
+      }
+    });
+    return itemsToRender.map((item) => renderMenuLink(item, false));
+  };
+
   const menuItems = isSuperAdmin ? superAdminMenuItems : adminMenuItems;
   const filteredMenuItems = filterMenuItems(menuItems);
-  
-  // Separar itens administrativos dos itens de módulos
-  const { administrativeItems, moduleItemsMap } = separateMenuItems(filteredMenuItems);
-  
-  // Criar seções de módulos ordenadas por nome do módulo
-  const moduleSections = Array.from(moduleItemsMap.entries())
-    .filter(([moduleKey]) => {
-      if (isSuperAdmin) return true;
-      if (FORCE_SHOW_ALL_MODULES) return true; // forçar exibir todos; depois religar verificação por banco
-      return activeModules.has(moduleKey);
-    })
-    .map(([moduleKey, items]) => {
-      const module = activeModules.get(moduleKey);
-      const moduleName = module?.name || MODULE_DISPLAY_NAMES[moduleKey] || moduleKey;
-      return {
-        moduleKey,
-        moduleName,
-        items: filterMenuItems(items),
-      };
-    })
-    .filter(({ items }) => items.length > 0) // Remover seções vazias
-    .sort((a, b) => a.moduleName.localeCompare(b.moduleName));
+  const categories = buildCategories(filteredMenuItems);
 
   return (
     <>
@@ -653,7 +611,11 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       >
         {/* Logo e botão de colapsar */}
         <div className={`border-b border-slate-200 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-4 flex-row justify-between'}`}>
-          <div className={`flex items-center min-w-0 flex-1 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}>
+          <Link
+            to="/dashboard"
+            aria-label="Ir para início"
+            className={`flex items-center min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}
+          >
             <img
               src="/logo-iatax.png"
               alt="IATax"
@@ -667,7 +629,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                 <p className="text-xs text-slate-500 break-words leading-tight">Soluções Inteligentes</p>
               </div>
             )}
-          </div>
+          </Link>
           <div className="flex items-center gap-1">
             {onToggleCollapse && (
               <button
@@ -733,73 +695,77 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         </div>
         )}
 
-        {/* Menu */}
+        {/* Menu - Categorias em accordion (1 expandida por vez) */}
         <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-2 lg:px-2' : 'p-4'}`}>
-          {/* Seção Administrativo - sempre visível quando há itens (não depende da carga de módulos) */}
-          {isAdmin && administrativeItems.length > 0 && (
-            <div className="mb-6">
-              {!isCollapsed && (
-              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-600 uppercase tracking-wider break-words">
-                {isSuperAdmin ? 'Administração Global' : 'Administrativo'}
-              </h3>
-              )}
-              <ul className="space-y-1">
-                {administrativeItems.map((item) => renderMenuItem(item))}
-              </ul>
-            </div>
-          )}
-
-          {/* Seções de Módulos - uma seção para cada módulo ativo (depende de /modules/active) */}
           {isLoadingModules && !FORCE_SHOW_ALL_MODULES && (
             <div className="px-4 py-2 text-center">
               <p className="text-xs text-slate-400">Carregando módulos...</p>
             </div>
           )}
-          {(FORCE_SHOW_ALL_MODULES || !isLoadingModules) && moduleSections.map(({ moduleKey, moduleName, items }) => {
-            if (items.length === 0) return null;
-            // Um único item com o mesmo nome do módulo e com filhos: exibir só o título da seção + filhos (evita "Gestão Imobiliária" 2x)
-            const single: MenuItem | undefined = items.length === 1 ? items[0] : undefined;
-            const collapseParent =
-              single != null &&
-              single.children != null &&
-              single.children.length > 0 &&
-              single.name === moduleName;
+          {isAdmin && (FORCE_SHOW_ALL_MODULES || !isLoadingModules) && categories.map((cat) => {
+            if (cat.items.length === 0) return null;
+            const isExpanded = expandedCategory === cat.id;
+            const hasActive = categoryHasActiveItem(cat);
+            const panelId = `category-panel-${cat.id}`;
+            const buttonId = `category-btn-${cat.id}`;
+
             return (
-              <div key={moduleKey} className="mb-6">
-                {!isCollapsed && (
-              <h3 className="px-4 mb-3 text-xs font-semibold text-slate-600 uppercase tracking-wider break-words">
-                  {moduleName}
-                </h3>
-                )}
-                <ul className="space-y-1">
-                  {collapseParent && single.children
-                    ? single.children.map((child: MenuItem) => (
-                        <li key={child.name}>
-                          <Link
-                            to={child.path || '#'}
-                            className={`
-                              flex items-start gap-3 px-4 py-3 rounded-lg transition-all duration-200
-                              group relative text-slate-700 hover:bg-slate-50 hover:text-brand
-                              ${isActive(child.path) ? 'bg-brand/10 text-brand font-semibold shadow-sm' : ''}
-                              focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
-                            `}
-                            aria-current={isActive(child.path) ? 'page' : undefined}
-                          >
-                            <span className={`flex-shrink-0 mt-0.5 ${isActive(child.path) ? 'text-brand' : 'text-slate-400 group-hover:text-brand'}`}>
-                              {child.icon}
-                            </span>
-                            <span className="break-words min-w-0 flex-1 text-left leading-snug">{child.name}</span>
-                          </Link>
-                        </li>
-                      ))
-                    : items.map((item) => renderMenuItem(item))}
-                </ul>
+              <div key={cat.id} className="mb-2">
+                <button
+                  id={buttonId}
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
+                  onClick={() => {
+                    if (isCollapsed && onToggleCollapse) onToggleCollapse();
+                    toggleCategory(cat.id);
+                  }}
+                  title={cat.name}
+                  className={`
+                    w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
+                    group relative
+                    ${hasActive ? 'bg-brand/5 text-brand' : 'text-slate-700 hover:bg-slate-50 hover:text-brand'}
+                    ${isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'}
+                    focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                  `}
+                >
+                  <div className={`flex items-center min-w-0 flex-1 gap-3 ${isCollapsed ? 'lg:justify-center' : ''}`}>
+                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                      {cat.icon}
+                    </span>
+                    {!isCollapsed && (
+                      <span className="text-sm font-semibold break-words text-left leading-snug">{cat.name}</span>
+                    )}
+                  </div>
+                  {!isCollapsed && (
+                    <svg
+                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''} ${hasActive ? 'text-brand' : 'text-slate-400'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </button>
+                <div
+                  id={panelId}
+                  role="region"
+                  aria-labelledby={buttonId}
+                  className={`
+                    overflow-hidden transition-all duration-300 ease-in-out
+                    ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
+                  `}
+                >
+                  <ul className={`mt-1 space-y-0.5 ${!isCollapsed ? 'pl-1' : ''}`}>
+                    {renderCategoryItems(cat)}
+                  </ul>
+                </div>
               </div>
             );
           })}
 
-          {/* Mensagem quando não há resultados na busca */}
-          {searchQuery && administrativeItems.length === 0 && moduleSections.every(s => s.items.length === 0) && (
+          {searchQuery && categories.length === 0 && (
             <div className="px-4 py-8 text-center">
               <svg className="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

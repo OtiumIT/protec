@@ -4,7 +4,7 @@ Rode estes SELECTs no **SQL Editor** do Supabase para entender o estado de `modu
 
 ---
 
-## 1. Módulos cadastrados (e a key exata do Simulador)a[-]= q
+## 1. Módulos cadastrados (e a key exata do Simulador)
 
 ```sql
 SELECT id, name, key, description
