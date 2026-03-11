@@ -172,7 +172,11 @@ export async function extractEcdFromPdf(pdfBuffer: Buffer): Promise<ExtractEcdPd
   }
 
   if (!rawContent) {
-    throw new Error('Resposta vazia da extração. Verifique se o PDF é um Recibo de Entrega ECD válido e tente novamente.');
+    throw new AppError(
+      'Resposta vazia da extração. Verifique se o PDF é um Recibo de Entrega ECD válido e tente novamente.',
+      'ECD_PDF_EMPTY_RESPONSE',
+      400
+    );
   }
 
   let parsed: unknown;
@@ -180,14 +184,22 @@ export async function extractEcdFromPdf(pdfBuffer: Buffer): Promise<ExtractEcdPd
     const cleaned = rawContent.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/m, '$1');
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error('Resposta da extração em formato inválido. Verifique o PDF e preencha os dados manualmente se necessário.');
+    throw new AppError(
+      'Resposta da extração em formato inválido. Verifique o PDF e preencha os dados manualmente se necessário.',
+      'ECD_PDF_INVALID_RESPONSE',
+      400
+    );
   }
 
   const parsedEcd = EcdExtractedSchema.safeParse(parsed);
   if (!parsedEcd.success) {
     const firstError = parsedEcd.error.flatten().fieldErrors;
     const msg = Object.keys(firstError).length ? JSON.stringify(firstError).slice(0, 200) : 'estrutura inválida';
-    throw new Error('Dados extraídos não correspondem ao schema da ECD. Ajuste o PDF ou preencha manualmente. ' + msg);
+    throw new AppError(
+      'Dados extraídos não correspondem ao schema da ECD. Ajuste o PDF ou preencha manualmente. ' + msg,
+      'ECD_PDF_SCHEMA_MISMATCH',
+      400
+    );
   }
 
   const ecd = parsedEcd.data;

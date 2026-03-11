@@ -1,4 +1,5 @@
 import apiRequest, { getApiUrl } from '../../../shared/services/api';
+import { logClientError } from '../../../shared/services/error-logger';
 import type { RatingValidation } from '@shared/core';
 
 // Helper para obter token e tenantId do localStorage
@@ -229,8 +230,30 @@ export const ratingValidatorService = {
       body: formData,
     });
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: { message: 'Falha na extração do PDF da ECD' } }));
-      throw new Error(err.error?.message ?? 'Falha na extração do PDF da ECD');
+      const err = await response.json().catch(() => ({ error: { message: 'Falha na extração do PDF da ECD', code: 'UNKNOWN' } }));
+      const code = err.error?.code;
+      const msg = err.error?.message ?? 'Falha na extração do PDF da ECD';
+
+      logClientError({
+        endpoint: '/api/v1/rating-validator/extract-from-ecd-pdf',
+        status: response.status,
+        code,
+        message: msg,
+        meta: { fileName: file.name, fileSize: file.size },
+      });
+
+      const friendlyMessage =
+        code === 'FILE_REQUIRED'
+          ? 'Nenhum arquivo foi enviado. Selecione o PDF da ECD e tente novamente.'
+          : code === 'INVALID_FILE_TYPE'
+            ? 'O arquivo deve ser um PDF. Verifique o formato e tente novamente.'
+            : code === 'TENANT_REQUIRED'
+              ? 'Sessão inválida. Faça login novamente.'
+              : code === 'FILE_TOO_LARGE'
+                ? 'O arquivo é muito grande. O limite é 15 MB.'
+                : msg;
+
+      throw new Error(friendlyMessage);
     }
     const result = await response.json();
     return result.data;

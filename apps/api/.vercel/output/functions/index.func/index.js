@@ -65992,11 +65992,169 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// src/db/client.ts
+var import_dotenv = __toESM(require_main());
+var import_path = require("path");
+var import_async_hooks = require("async_hooks");
+var import_node_dns2 = __toESM(require("node:dns"));
+
+// ../../node_modules/.pnpm/pg@8.17.2/node_modules/pg/esm/index.mjs
+var import_lib = __toESM(require_lib2(), 1);
+var Client = import_lib.default.Client;
+var Pool = import_lib.default.Pool;
+var Connection = import_lib.default.Connection;
+var types = import_lib.default.types;
+var Query = import_lib.default.Query;
+var DatabaseError = import_lib.default.DatabaseError;
+var escapeIdentifier = import_lib.default.escapeIdentifier;
+var escapeLiteral = import_lib.default.escapeLiteral;
+var Result = import_lib.default.Result;
+var TypeOverrides = import_lib.default.TypeOverrides;
+var defaults = import_lib.default.defaults;
+
+// src/db/client.ts
+import_node_dns2.default.setDefaultResultOrder("ipv4first");
+if (!process.env.DATABASE_URL) {
+  const envPath = (0, import_path.resolve)(process.cwd(), "../../.env");
+  (0, import_dotenv.config)({ path: envPath });
+}
+var connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("\u274C DATABASE_URL n\xE3o est\xE1 configurado!");
+  console.error("\u{1F4A1} Configure no arquivo .env:");
+  console.error("   DATABASE_URL=postgresql://postgres:SENHA@db.PROJECT_REF.supabase.co:5432/postgres");
+  process.exit(1);
+}
+if (!connectionString.startsWith("postgresql://") && !connectionString.startsWith("postgres://")) {
+  console.error("\u274C DATABASE_URL deve come\xE7ar com postgresql:// ou postgres://");
+  process.exit(1);
+}
+var cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, (match2) => {
+  return match2.startsWith("?") ? "" : "";
+}).replace(/\?$/, "").replace(/&$/, "");
+var isLocalhost = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
+var pool = new Pool({
+  connectionString: cleanConnectionString,
+  max: 5,
+  idleTimeoutMillis: 1e4,
+  connectionTimeoutMillis: 3e4,
+  ...!isLocalhost && {
+    ssl: { rejectUnauthorized: false }
+  }
+});
+pool.on("error", (err) => {
+  console.error("\u274C Erro inesperado no pool de conex\xF5es:", err.message);
+  console.error("   Tipo:", err.constructor.name);
+  if (err.code === "EHOSTUNREACH" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT" || err.code === "ECONNREFUSED") {
+    console.error("\n\u{1F4A1} Poss\xEDveis solu\xE7\xF5es:");
+    console.error("   1. Verifique sua conex\xE3o com a internet");
+    console.error("   2. Verifique se a DATABASE_URL est\xE1 correta no .env");
+    console.error("   3. Se estiver usando Supabase, verifique se o projeto est\xE1 ativo");
+    console.error("   4. Tente usar IPv4 ao inv\xE9s de IPv6 (verifique a connection string)");
+    console.error("   5. Verifique se h\xE1 firewall bloqueando a conex\xE3o");
+  }
+  if (process.env.NODE_ENV !== "production") {
+    console.error("\n\u26A0\uFE0F  Continuando, mas conex\xF5es podem falhar...");
+  }
+});
+var tenantSchemaStorage = new import_async_hooks.AsyncLocalStorage();
+async function runWithTenantClient(companyId, fn) {
+  const schemaName = `tenant_${companyId.replace(/-/g, "_")}`;
+  return tenantSchemaStorage.run(schemaName, fn);
+}
+async function query(text, params) {
+  const start = Date.now();
+  const schemaName = tenantSchemaStorage.getStore();
+  if (schemaName) {
+    const client = await pool.connect();
+    try {
+      await client.query(`SET search_path TO "${schemaName}", public`);
+      const result = await client.query(text, params);
+      const duration = Date.now() - start;
+      if (process.env.NODE_ENV === "development" && duration > 1e3) {
+        console.log("Slow query:", { text, duration, rows: result.rowCount });
+      }
+      return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+    } finally {
+      await client.query("RESET search_path").catch(() => {
+      });
+      client.release();
+    }
+  }
+  try {
+    const result = await pool.query(text, params);
+    const duration = Date.now() - start;
+    if (process.env.NODE_ENV === "development" && duration > 1e3) {
+      console.log("Slow query:", { text, duration, rows: result.rowCount });
+    }
+    return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+  } catch (error) {
+    if (error.code === "EHOSTUNREACH" || error.code === "ENOTFOUND" || error.code === "ETIMEDOUT" || error.code === "ECONNREFUSED") {
+      const maskedUrl = connectionString?.replace(/:\/\/[^:]+:[^@]+@/, "://***:***@") || "connection string n\xE3o dispon\xEDvel";
+      console.error("\u274C Erro de conex\xE3o com o banco de dados:");
+      console.error(`   C\xF3digo: ${error.code}`);
+      console.error(`   Mensagem: ${error.message}`);
+      console.error(`   Connection String (mascarada): ${maskedUrl}`);
+      console.error("\n\u{1F4A1} Poss\xEDveis solu\xE7\xF5es:");
+      console.error("   1. Verifique sua conex\xE3o com a internet");
+      console.error("   2. Verifique se a DATABASE_URL est\xE1 correta no arquivo .env");
+      console.error("   3. Se estiver usando Supabase, verifique se o projeto est\xE1 ativo");
+      console.error("   4. Tente usar a connection string do pooler (porta 6543) ao inv\xE9s da direta");
+      console.error("   5. Verifique se h\xE1 firewall ou proxy bloqueando a conex\xE3o");
+      console.error("   6. Se o erro mencionar IPv6, tente usar IPv4 ou o pooler do Supabase");
+      console.error("\n\u{1F4D6} Veja COMO_ENCONTRAR_CONNECTION_STRING.md para mais informa\xE7\xF5es");
+      const friendlyError = new Error(
+        `N\xE3o foi poss\xEDvel conectar ao banco de dados. Verifique a configura\xE7\xE3o de DATABASE_URL no arquivo .env. Erro: ${error.code || error.message}`
+      );
+      friendlyError.code = error.code || "DATABASE_CONNECTION_ERROR";
+      throw friendlyError;
+    }
+    console.error("Database query error:", {
+      code: error.code,
+      message: error.message,
+      query: text.substring(0, 100),
+      paramsCount: params?.length || 0
+    });
+    throw error;
+  }
+}
+function getClient() {
+  return pool.connect();
+}
+
+// src/shared/utils/error-logger.ts
+async function logApiError(c, statusCode, errorCode, errorMessage, meta) {
+  try {
+    const endpoint = c.req.path;
+    const method = c.req.method;
+    let companyId = null;
+    let userId = null;
+    try {
+      companyId = c.get("companyId") ?? null;
+      const user = c.get("user");
+      userId = user?.id ?? null;
+    } catch {
+    }
+    await query(
+      `INSERT INTO public.api_error_logs (endpoint, method, status_code, error_code, error_message, company_id, user_id, meta, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'api')`,
+      [endpoint, method, statusCode, errorCode, errorMessage, companyId, userId, meta ? JSON.stringify(meta) : null]
+    );
+  } catch (e) {
+    console.error("[logApiError] Falha ao gravar log:", e);
+  }
+}
+
 // src/shared/utils/error-handler.ts
 function errorHandler2(error, c) {
+  const doLog = (statusCode, code, msg) => {
+    logApiError(c, statusCode, code, msg).catch(() => {
+    });
+  };
   if (error instanceof ZodError) {
     const firstError = error.errors[0];
     const message = firstError?.message ?? "Erro de valida\xE7\xE3o. Verifique os campos e tente novamente.";
+    doLog(400, "VALIDATION_ERROR", message);
     return c.json(
       {
         error: {
@@ -66011,10 +66169,12 @@ function errorHandler2(error, c) {
   if (error instanceof Error && "code" in error) {
     const errorCode = error.code;
     if (errorCode === "EHOSTUNREACH" || errorCode === "ENOTFOUND" || errorCode === "ETIMEDOUT" || errorCode === "ECONNREFUSED" || errorCode === "DATABASE_CONNECTION_ERROR") {
+      const dbMsg = "N\xE3o foi poss\xEDvel conectar ao banco de dados. Verifique a configura\xE7\xE3o de DATABASE_URL no arquivo .env";
+      doLog(500, "DATABASE_CONNECTION_ERROR", dbMsg);
       return c.json(
         {
           error: {
-            message: "N\xE3o foi poss\xEDvel conectar ao banco de dados. Verifique a configura\xE7\xE3o de DATABASE_URL no arquivo .env",
+            message: dbMsg,
             code: "DATABASE_CONNECTION_ERROR",
             details: process.env.NODE_ENV === "development" ? error.message : void 0
           }
@@ -66026,6 +66186,7 @@ function errorHandler2(error, c) {
   if (error instanceof Error && (error.message.includes("does not exist") || error.message.includes("relation") && error.message.includes("not found"))) {
     const tableHint = error.message.match(/relation "([^"]+)"/)?.[1] ?? error.message.match(/relation '([^']+)'/)?.[1] ?? error.message.match(/"([^"]+)" does not exist/)?.[1] ?? error.message.match(/'([^']+)' does not exist/)?.[1];
     const message = tableHint ? `Tabela "${tableHint}" n\xE3o encontrada. Execute: pnpm run migrate (em apps/api).` : "Tabela n\xE3o encontrada no banco de dados. Execute: pnpm run migrate (em apps/api).";
+    doLog(500, "TABLE_NOT_FOUND", message);
     return c.json(
       {
         error: {
@@ -66038,10 +66199,12 @@ function errorHandler2(error, c) {
     );
   }
   if (error instanceof Error && error.message.includes("company_id")) {
+    const isoMsg = "Tenant isolation violation";
+    doLog(500, "TENANT_ISOLATION_ERROR", isoMsg);
     return c.json(
       {
         error: {
-          message: "Tenant isolation violation",
+          message: isoMsg,
           code: "TENANT_ISOLATION_ERROR",
           details: error.message
         }
@@ -66052,20 +66215,24 @@ function errorHandler2(error, c) {
   if (error instanceof Error && "code" in error) {
     const err = error;
     const statusCode = typeof err.statusCode === "number" ? err.statusCode : getStatusCodeFromErrorCode(err.code);
+    const code = error.code || "UNKNOWN_ERROR";
+    doLog(statusCode, code, error.message);
     return c.json(
       {
         error: {
           message: error.message,
-          code: error.code || "UNKNOWN_ERROR"
+          code
         }
       },
       statusCode
     );
   }
+  const genericMsg = error instanceof Error ? error.message : "Internal server error";
+  doLog(500, "INTERNAL_ERROR", genericMsg);
   console.error("Unhandled error:", error);
   console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
   console.error("Error details:", {
-    message: error instanceof Error ? error.message : String(error),
+    message: genericMsg,
     name: error instanceof Error ? error.name : typeof error
   });
   return c.json(
@@ -66085,6 +66252,12 @@ function getStatusCodeFromErrorCode(code) {
     UNAUTHORIZED: 401,
     FORBIDDEN: 403,
     VALIDATION_ERROR: 400,
+    ECD_PDF_INVALID: 400,
+    ECD_PDF_PARSE_FAILED: 400,
+    ECD_PDF_EMPTY_RESPONSE: 400,
+    ECD_PDF_INVALID_RESPONSE: 400,
+    ECD_PDF_SCHEMA_MISMATCH: 400,
+    FILE_TOO_LARGE: 400,
     CONFLICT: 409,
     PAYMENT_REQUIRED: 402,
     MODULE_NOT_ACTIVE: 402,
@@ -66242,136 +66415,6 @@ var AuthService = class {
     };
   }
 };
-
-// src/db/client.ts
-var import_dotenv = __toESM(require_main());
-var import_path = require("path");
-var import_async_hooks = require("async_hooks");
-var import_node_dns2 = __toESM(require("node:dns"));
-
-// ../../node_modules/.pnpm/pg@8.17.2/node_modules/pg/esm/index.mjs
-var import_lib = __toESM(require_lib2(), 1);
-var Client = import_lib.default.Client;
-var Pool = import_lib.default.Pool;
-var Connection = import_lib.default.Connection;
-var types = import_lib.default.types;
-var Query = import_lib.default.Query;
-var DatabaseError = import_lib.default.DatabaseError;
-var escapeIdentifier = import_lib.default.escapeIdentifier;
-var escapeLiteral = import_lib.default.escapeLiteral;
-var Result = import_lib.default.Result;
-var TypeOverrides = import_lib.default.TypeOverrides;
-var defaults = import_lib.default.defaults;
-
-// src/db/client.ts
-import_node_dns2.default.setDefaultResultOrder("ipv4first");
-if (!process.env.DATABASE_URL) {
-  const envPath = (0, import_path.resolve)(process.cwd(), "../../.env");
-  (0, import_dotenv.config)({ path: envPath });
-}
-var connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error("\u274C DATABASE_URL n\xE3o est\xE1 configurado!");
-  console.error("\u{1F4A1} Configure no arquivo .env:");
-  console.error("   DATABASE_URL=postgresql://postgres:SENHA@db.PROJECT_REF.supabase.co:5432/postgres");
-  process.exit(1);
-}
-if (!connectionString.startsWith("postgresql://") && !connectionString.startsWith("postgres://")) {
-  console.error("\u274C DATABASE_URL deve come\xE7ar com postgresql:// ou postgres://");
-  process.exit(1);
-}
-var cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, (match2) => {
-  return match2.startsWith("?") ? "" : "";
-}).replace(/\?$/, "").replace(/&$/, "");
-var isLocalhost = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
-var pool = new Pool({
-  connectionString: cleanConnectionString,
-  max: 5,
-  idleTimeoutMillis: 1e4,
-  connectionTimeoutMillis: 3e4,
-  ...!isLocalhost && {
-    ssl: { rejectUnauthorized: false }
-  }
-});
-pool.on("error", (err) => {
-  console.error("\u274C Erro inesperado no pool de conex\xF5es:", err.message);
-  console.error("   Tipo:", err.constructor.name);
-  if (err.code === "EHOSTUNREACH" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT" || err.code === "ECONNREFUSED") {
-    console.error("\n\u{1F4A1} Poss\xEDveis solu\xE7\xF5es:");
-    console.error("   1. Verifique sua conex\xE3o com a internet");
-    console.error("   2. Verifique se a DATABASE_URL est\xE1 correta no .env");
-    console.error("   3. Se estiver usando Supabase, verifique se o projeto est\xE1 ativo");
-    console.error("   4. Tente usar IPv4 ao inv\xE9s de IPv6 (verifique a connection string)");
-    console.error("   5. Verifique se h\xE1 firewall bloqueando a conex\xE3o");
-  }
-  if (process.env.NODE_ENV !== "production") {
-    console.error("\n\u26A0\uFE0F  Continuando, mas conex\xF5es podem falhar...");
-  }
-});
-var tenantSchemaStorage = new import_async_hooks.AsyncLocalStorage();
-async function runWithTenantClient(companyId, fn) {
-  const schemaName = `tenant_${companyId.replace(/-/g, "_")}`;
-  return tenantSchemaStorage.run(schemaName, fn);
-}
-async function query(text, params) {
-  const start = Date.now();
-  const schemaName = tenantSchemaStorage.getStore();
-  if (schemaName) {
-    const client = await pool.connect();
-    try {
-      await client.query(`SET search_path TO "${schemaName}", public`);
-      const result = await client.query(text, params);
-      const duration = Date.now() - start;
-      if (process.env.NODE_ENV === "development" && duration > 1e3) {
-        console.log("Slow query:", { text, duration, rows: result.rowCount });
-      }
-      return { rows: result.rows, rowCount: result.rowCount ?? 0 };
-    } finally {
-      await client.query("RESET search_path").catch(() => {
-      });
-      client.release();
-    }
-  }
-  try {
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-    if (process.env.NODE_ENV === "development" && duration > 1e3) {
-      console.log("Slow query:", { text, duration, rows: result.rowCount });
-    }
-    return { rows: result.rows, rowCount: result.rowCount ?? 0 };
-  } catch (error) {
-    if (error.code === "EHOSTUNREACH" || error.code === "ENOTFOUND" || error.code === "ETIMEDOUT" || error.code === "ECONNREFUSED") {
-      const maskedUrl = connectionString?.replace(/:\/\/[^:]+:[^@]+@/, "://***:***@") || "connection string n\xE3o dispon\xEDvel";
-      console.error("\u274C Erro de conex\xE3o com o banco de dados:");
-      console.error(`   C\xF3digo: ${error.code}`);
-      console.error(`   Mensagem: ${error.message}`);
-      console.error(`   Connection String (mascarada): ${maskedUrl}`);
-      console.error("\n\u{1F4A1} Poss\xEDveis solu\xE7\xF5es:");
-      console.error("   1. Verifique sua conex\xE3o com a internet");
-      console.error("   2. Verifique se a DATABASE_URL est\xE1 correta no arquivo .env");
-      console.error("   3. Se estiver usando Supabase, verifique se o projeto est\xE1 ativo");
-      console.error("   4. Tente usar a connection string do pooler (porta 6543) ao inv\xE9s da direta");
-      console.error("   5. Verifique se h\xE1 firewall ou proxy bloqueando a conex\xE3o");
-      console.error("   6. Se o erro mencionar IPv6, tente usar IPv4 ou o pooler do Supabase");
-      console.error("\n\u{1F4D6} Veja COMO_ENCONTRAR_CONNECTION_STRING.md para mais informa\xE7\xF5es");
-      const friendlyError = new Error(
-        `N\xE3o foi poss\xEDvel conectar ao banco de dados. Verifique a configura\xE7\xE3o de DATABASE_URL no arquivo .env. Erro: ${error.code || error.message}`
-      );
-      friendlyError.code = error.code || "DATABASE_CONNECTION_ERROR";
-      throw friendlyError;
-    }
-    console.error("Database query error:", {
-      code: error.code,
-      message: error.message,
-      query: text.substring(0, 100),
-      paramsCount: params?.length || 0
-    });
-    throw error;
-  }
-}
-function getClient() {
-  return pool.connect();
-}
 
 // src/shared/repositories/base.repository.ts
 var BaseRepository = class {
@@ -69893,7 +69936,7 @@ async function tenantMiddleware(c, next) {
     return c.json(
       {
         error: {
-          message: "Tenant not identified",
+          message: "N\xE3o foi poss\xEDvel identificar a empresa. Verifique se est\xE1 logado e tente novamente.",
           code: "TENANT_REQUIRED"
         }
       },
@@ -83147,6 +83190,31 @@ systemRoutes.get("/tenants", async (c) => {
     return errorHandler2(error, c);
   }
 });
+systemRoutes.post("/log-client-error", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return c.body(null, 204);
+    }
+    const endpoint = typeof body.endpoint === "string" ? body.endpoint : "";
+    const status = typeof body.status === "number" ? body.status : 0;
+    const code = typeof body.code === "string" ? body.code : null;
+    const message = typeof body.message === "string" ? body.message : null;
+    const meta = body.meta && typeof body.meta === "object" ? JSON.stringify(body.meta) : null;
+    if (!endpoint) {
+      return c.body(null, 204);
+    }
+    const user = c.get("user");
+    const companyId = c.req.header("X-Tenant-ID") || null;
+    await query(
+      `INSERT INTO public.api_error_logs (endpoint, method, status_code, error_code, error_message, company_id, user_id, meta, source)
+       VALUES ($1, 'POST', $2, $3, $4, $5, $6, $7, 'client')`,
+      [endpoint, status, code, message, companyId || null, user?.id ?? null, meta]
+    );
+  } catch {
+  }
+  return c.body(null, 204);
+});
 
 // src/modules/rating-validator/rating-validator.service.ts
 var RatingValidatorService = class _RatingValidatorService {
@@ -83841,20 +83909,32 @@ Analise o PDF anexo (ECD/SPED).` }
     }
   }
   if (!rawContent) {
-    throw new Error("Resposta vazia da extra\xE7\xE3o. Verifique se o PDF \xE9 um Recibo de Entrega ECD v\xE1lido e tente novamente.");
+    throw new AppError(
+      "Resposta vazia da extra\xE7\xE3o. Verifique se o PDF \xE9 um Recibo de Entrega ECD v\xE1lido e tente novamente.",
+      "ECD_PDF_EMPTY_RESPONSE",
+      400
+    );
   }
   let parsed;
   try {
     const cleaned = rawContent.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/m, "$1");
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error("Resposta da extra\xE7\xE3o em formato inv\xE1lido. Verifique o PDF e preencha os dados manualmente se necess\xE1rio.");
+    throw new AppError(
+      "Resposta da extra\xE7\xE3o em formato inv\xE1lido. Verifique o PDF e preencha os dados manualmente se necess\xE1rio.",
+      "ECD_PDF_INVALID_RESPONSE",
+      400
+    );
   }
   const parsedEcd = EcdExtractedSchema.safeParse(parsed);
   if (!parsedEcd.success) {
     const firstError = parsedEcd.error.flatten().fieldErrors;
     const msg = Object.keys(firstError).length ? JSON.stringify(firstError).slice(0, 200) : "estrutura inv\xE1lida";
-    throw new Error("Dados extra\xEDdos n\xE3o correspondem ao schema da ECD. Ajuste o PDF ou preencha manualmente. " + msg);
+    throw new AppError(
+      "Dados extra\xEDdos n\xE3o correspondem ao schema da ECD. Ajuste o PDF ou preencha manualmente. " + msg,
+      "ECD_PDF_SCHEMA_MISMATCH",
+      400
+    );
   }
   const ecd = parsedEcd.data;
   const prefill = ecdExtractedToSimulateRatingInput(ecd);
@@ -83939,6 +84019,7 @@ ratingValidatorRoutes.post("/simulate", async (c) => {
     return errorHandler2(error, c);
   }
 });
+var MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 ratingValidatorRoutes.post("/extract-from-ecd-pdf", async (c) => {
   try {
     const formData = await c.req.formData();
@@ -83951,6 +84032,12 @@ ratingValidatorRoutes.post("/extract-from-ecd-pdf", async (c) => {
     }
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length > MAX_FILE_SIZE_BYTES) {
+      return c.json(
+        { error: { message: "O arquivo \xE9 muito grande. O limite \xE9 15 MB.", code: "FILE_TOO_LARGE" } },
+        400
+      );
+    }
     const result = await extractEcdFromPdf(buffer);
     return c.json({ data: result }, 200);
   } catch (err) {
@@ -89646,7 +89733,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-11T14:43:02.381Z";
+var API_UPDATED_AT = "2026-03-11T22:44:54.232Z";
 
 // src/modules/index.ts
 var app = new Hono2();

@@ -1,5 +1,6 @@
 import { Context } from 'hono';
 import { ZodError } from 'zod';
+import { logApiError } from './error-logger';
 
 export interface ApiError {
   error: {
@@ -14,10 +15,15 @@ export interface ApiError {
  * Trata diferentes tipos de erros e retorna resposta padronizada
  */
 export function errorHandler(error: unknown, c: Context): Response {
+  const doLog = (statusCode: number, code: string, msg: string) => {
+    logApiError(c, statusCode, code, msg).catch(() => {});
+  };
+
   // Erro de validação Zod
   if (error instanceof ZodError) {
     const firstError = error.errors[0];
     const message = firstError?.message ?? 'Erro de validação. Verifique os campos e tente novamente.';
+    doLog(400, 'VALIDATION_ERROR', message);
     return c.json<ApiError>(
       {
         error: {
@@ -34,10 +40,12 @@ export function errorHandler(error: unknown, c: Context): Response {
   if (error instanceof Error && ('code' in error)) {
     const errorCode = (error as any).code;
     if (errorCode === 'EHOSTUNREACH' || errorCode === 'ENOTFOUND' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED' || errorCode === 'DATABASE_CONNECTION_ERROR') {
+      const dbMsg = 'Não foi possível conectar ao banco de dados. Verifique a configuração de DATABASE_URL no arquivo .env';
+      doLog(500, 'DATABASE_CONNECTION_ERROR', dbMsg);
       return c.json<ApiError>(
         {
           error: {
-            message: 'Não foi possível conectar ao banco de dados. Verifique a configuração de DATABASE_URL no arquivo .env',
+            message: dbMsg,
             code: 'DATABASE_CONNECTION_ERROR',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined,
           },
@@ -60,6 +68,7 @@ export function errorHandler(error: unknown, c: Context): Response {
     const message = tableHint
       ? `Tabela "${tableHint}" não encontrada. Execute: pnpm run migrate (em apps/api).`
       : 'Tabela não encontrada no banco de dados. Execute: pnpm run migrate (em apps/api).';
+    doLog(500, 'TABLE_NOT_FOUND', message);
     return c.json<ApiError>(
       {
         error: {
@@ -74,10 +83,12 @@ export function errorHandler(error: unknown, c: Context): Response {
 
   // Erro de banco de dados
   if (error instanceof Error && error.message.includes('company_id')) {
+    const isoMsg = 'Tenant isolation violation';
+    doLog(500, 'TENANT_ISOLATION_ERROR', isoMsg);
     return c.json<ApiError>(
       {
         error: {
-          message: 'Tenant isolation violation',
+          message: isoMsg,
           code: 'TENANT_ISOLATION_ERROR',
           details: error.message,
         },
@@ -90,11 +101,13 @@ export function errorHandler(error: unknown, c: Context): Response {
   if (error instanceof Error && 'code' in error) {
     const err = error as { code: string; statusCode?: number };
     const statusCode = typeof err.statusCode === 'number' ? err.statusCode : getStatusCodeFromErrorCode(err.code);
+    const code = (error as any).code || 'UNKNOWN_ERROR';
+    doLog(statusCode, code, error.message);
     return c.json<ApiError>(
       {
         error: {
           message: error.message,
-          code: (error as any).code || 'UNKNOWN_ERROR',
+          code,
         },
       },
       statusCode as 200 | 201 | 400 | 401 | 403 | 404 | 409 | 422 | 500
@@ -102,10 +115,12 @@ export function errorHandler(error: unknown, c: Context): Response {
   }
 
   // Erro genérico
+  const genericMsg = error instanceof Error ? error.message : 'Internal server error';
+  doLog(500, 'INTERNAL_ERROR', genericMsg);
   console.error('Unhandled error:', error);
   console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
   console.error('Error details:', {
-    message: error instanceof Error ? error.message : String(error),
+    message: genericMsg,
     name: error instanceof Error ? error.name : typeof error,
   });
   return c.json<ApiError>(
@@ -131,6 +146,12 @@ function getStatusCodeFromErrorCode(code: string): number {
     UNAUTHORIZED: 401,
     FORBIDDEN: 403,
     VALIDATION_ERROR: 400,
+    ECD_PDF_INVALID: 400,
+    ECD_PDF_PARSE_FAILED: 400,
+    ECD_PDF_EMPTY_RESPONSE: 400,
+    ECD_PDF_INVALID_RESPONSE: 400,
+    ECD_PDF_SCHEMA_MISMATCH: 400,
+    FILE_TOO_LARGE: 400,
     CONFLICT: 409,
     PAYMENT_REQUIRED: 402,
     MODULE_NOT_ACTIVE: 402,

@@ -258,8 +258,18 @@ export function RatingValidator() {
 
   const handleEcdPdfUpload = useCallback(
     async (file: File) => {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        showError('Selecione um arquivo PDF.');
+      if (!file || file.size === 0) {
+        showError('Selecione um arquivo PDF válido.');
+        return;
+      }
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        showError('O arquivo deve ser um PDF (Recibo de Entrega da ECD).');
+        return;
+      }
+      const MAX_SIZE_MB = 15;
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        showError(`O arquivo deve ter no máximo ${MAX_SIZE_MB} MB.`);
         return;
       }
       setIsExtractingEcdPdf(true);
@@ -278,7 +288,16 @@ export function RatingValidator() {
       const progressInterval = window.setInterval(updateProgress, 1200);
       try {
         updateProgress();
-        const result: ExtractEcdPdfResult = await ratingValidatorService.extractFromEcdPdf(file);
+        let result: ExtractEcdPdfResult;
+        try {
+          result = await ratingValidatorService.extractFromEcdPdf(file);
+        } catch (authErr) {
+          if (authErr instanceof Error && authErr.message === 'Not authenticated') {
+            showError('Sessão inválida. Faça login novamente.');
+            return;
+          }
+          throw authErr;
+        }
         const prefill = result.simulação_prefill;
         setEcdProcessingStage('Finalizando...');
         setEcdProcessingDetail('Aplicando dados extraídos na simulação.');

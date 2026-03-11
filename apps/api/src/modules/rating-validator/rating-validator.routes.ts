@@ -105,6 +105,8 @@ ratingValidatorRoutes.post('/simulate', async (c) => {
  * Extrai dados do PDF da ECD (SPED Contábil) via OCR e retorna JSON estruturado + dados para preencher a simulação.
  * Body: multipart/form-data com campo "file" (arquivo PDF).
  */
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+
 ratingValidatorRoutes.post('/extract-from-ecd-pdf', async (c) => {
   try {
     const formData = await c.req.formData();
@@ -117,6 +119,12 @@ ratingValidatorRoutes.post('/extract-from-ecd-pdf', async (c) => {
     }
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length > MAX_FILE_SIZE_BYTES) {
+      return c.json(
+        { error: { message: 'O arquivo é muito grande. O limite é 15 MB.', code: 'FILE_TOO_LARGE' } },
+        400
+      );
+    }
     const result = await extractEcdFromPdf(buffer);
     return c.json({ data: result }, 200);
   } catch (err) {

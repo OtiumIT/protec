@@ -82,7 +82,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     return c.json(
       {
         error: {
-          message: 'Tenant not identified',
+          message: 'Não foi possível identificar a empresa. Verifique se está logado e tente novamente.',
           code: 'TENANT_REQUIRED',
         },
       },
