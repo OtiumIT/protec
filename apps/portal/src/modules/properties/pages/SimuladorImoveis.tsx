@@ -265,6 +265,29 @@ export function SimuladorImoveis() {
     success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
 
+  const handlePrintPdf = useCallback(() => {
+    const el = document.getElementById('simulador-imoveis-resultado-print');
+    if (!el) return;
+    const parent = el.parentElement;
+    const placeholder = document.createElement('div');
+    placeholder.id = 'simulador-imoveis-print-placeholder';
+    if (parent) {
+      parent.insertBefore(placeholder, el);
+      document.body.appendChild(el);
+      el.setAttribute('data-print-moved', 'true');
+    }
+    const cleanup = () => {
+      el.removeAttribute('data-print-moved');
+      if (parent && placeholder.parentElement && el.parentElement === document.body) {
+        document.body.removeChild(el);
+        parent.replaceChild(el, placeholder);
+      }
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(() => window.print(), 150);
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (waitingDemoDigitRef.current && e.key === '1') {
@@ -789,7 +812,7 @@ export function SimuladorImoveis() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => window.print()}
+              onClick={handlePrintPdf}
               className="print:hidden shrink-0 inline-flex items-center gap-2"
               aria-label="Exportar resultado para PDF"
             >
@@ -1278,7 +1301,7 @@ export function SimuladorImoveis() {
       {result && (
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={handlePrintPdf}
           aria-label="Exportar resultado para PDF"
           title="Exportar para PDF"
           className="print:hidden fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand/40"

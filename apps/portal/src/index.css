@@ -50,7 +50,7 @@
     visibility: visible;
   }
   /* Quando movido para body: esconder irmãos (Layout) para evitar páginas em branco */
-  body > *:not(#simulador-tributario-resultado-print) {
+  body > *:not(#simulador-tributario-resultado-print):not(#simulador-imoveis-resultado-print) {
     display: none !important;
   }
   /* Impressão resumida: esconder Memória de Cálculo */
@@ -171,6 +171,29 @@
     max-width: 100%;
     padding: 1rem;
     background: white;
+    overflow: visible;
+  }
+  /* Quando movido para body: fluxo normal para impressão multi-página */
+  #simulador-imoveis-resultado-print[data-print-moved="true"] {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+  #simulador-imoveis-resultado-print * {
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  #simulador-imoveis-resultado-print .overflow-x-auto {
+    overflow-x: visible !important;
+  }
+  #simulador-imoveis-resultado-print table {
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+  #simulador-imoveis-resultado-print tr {
+    page-break-inside: avoid;
   }
 
   /* Impressão: resultado da simulação IRPF Alta Renda */
