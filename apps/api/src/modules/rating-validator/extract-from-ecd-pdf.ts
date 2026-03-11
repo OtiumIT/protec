@@ -13,6 +13,7 @@ import {
   type EcdExtracted,
 } from '@shared/core';
 import type { z } from 'zod';
+import { AppError } from '../../shared/utils/error-handler';
 
 type SimulateRatingInput = z.infer<typeof SimulateRatingSchema>;
 
@@ -86,14 +87,44 @@ export async function extractEcdFromPdf(pdfBuffer: Buffer): Promise<ExtractEcdPd
     throw new Error('OPENAI_API_KEY não configurada. Não é possível extrair dados do PDF da ECD.');
   }
 
+  // Validação básica: magic bytes %PDF e tamanho mínimo
+  const minSize = 100;
+  if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length < minSize) {
+    throw new AppError(
+      'Arquivo inválido ou vazio. Envie um PDF da ECD com tamanho adequado.',
+      'ECD_PDF_INVALID',
+      400
+    );
+  }
+  const header = pdfBuffer.subarray(0, 5).toString('ascii');
+  if (header !== '%PDF-') {
+    throw new AppError(
+      'O arquivo não parece ser um PDF válido. Verifique se o arquivo é um Recibo de Entrega da ECD (SPED).',
+      'ECD_PDF_INVALID',
+      400
+    );
+  }
+
   let text: string;
   try {
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: pdfBuffer });
-    const result = await parser.getText();
+    let result: { text?: string } | null;
+    try {
+      result = await (parser as { getText: (opts?: { preserveStructure?: boolean }) => Promise<{ text?: string }> }).getText({
+        preserveStructure: true,
+      });
+    } catch {
+      result = await parser.getText();
+    }
     text = typeof result?.text === 'string' ? result.text : String(result ?? '');
-  } catch {
-    throw new Error('Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido da ECD.');
+  } catch (err) {
+    console.error('[extractEcdFromPdf] Falha ao extrair texto do PDF:', err);
+    throw new AppError(
+      'Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido da ECD.',
+      'ECD_PDF_PARSE_FAILED',
+      400
+    );
   }
 
   const openai = new OpenAI({ apiKey });

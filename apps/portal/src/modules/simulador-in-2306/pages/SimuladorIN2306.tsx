@@ -111,18 +111,18 @@ export function SimuladorIN2306() {
 
   const handlePrintPdf = useCallback((resumida: boolean) => {
     setPrintModalOpen(false);
-    const el = resultadoTributarioRef.current;
-    if (el) {
-      el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
-    }
     const cleanup = () => {
+      const el = document.getElementById('simulador-tributario-resultado-print');
       if (el) el.removeAttribute('data-print-resumida');
       window.removeEventListener('afterprint', cleanup);
     };
     window.addEventListener('afterprint', cleanup);
-    requestAnimationFrame(() => {
-      setTimeout(() => window.print(), 100);
-    });
+    const delay = 200;
+    setTimeout(() => {
+      const el = document.getElementById('simulador-tributario-resultado-print');
+      if (el) el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
+      requestAnimationFrame(() => window.print());
+    }, delay);
   }, []);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -157,7 +157,7 @@ export function SimuladorImoveis() {
   const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultSectionRef = useRef<HTMLDivElement>(null);
-  const [modoAluguel, setModoAluguel] = useState<'mensal' | 'anual'>('mensal');
+  const [modoReceitaAnual, setModoReceitaAnual] = useState(false);
   const [aluguelAnualTradicional, setAluguelAnualTradicional] = useState<number>(0);
   const [aluguelAnualCurto, setAluguelAnualCurto] = useState<number>(0);
   const [modoDespesaAnual, setModoDespesaAnual] = useState(false);
@@ -191,6 +191,11 @@ export function SimuladorImoveis() {
     setMeses((prev) =>
       prev.map((m) => ({
         ...m,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
         outras_dedutiveis: valorMensal,
       }))
     );
@@ -574,56 +579,42 @@ export function SimuladorImoveis() {
 
         {/* Preenchimento rápido – Rateio anual */}
         <Card className="p-5 border-slate-200 bg-slate-50/50">
-          <h3 className="font-semibold text-slate-800 mb-4">Preenchimento rápido – Valores anuais (distribuição igualitária)</h3>
+          <h3 className="font-semibold text-slate-800 mb-4">Preenchimento rápido – Valores anuais</h3>
 
           {/* Bloco Receitas */}
           <div className="mb-4 pb-4 border-b border-slate-200 last:border-b-0 last:mb-0 last:pb-0">
-            <h4 className="text-sm font-medium text-slate-700 mb-2">Receita anual (distribuição igualitária em todos os meses)</h4>
-            <div className="flex flex-wrap items-end gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="modoAluguel"
-                  checked={modoAluguel === 'mensal'}
-                  onChange={() => setModoAluguel('mensal')}
-                  className="text-brand focus:ring-brand"
-                />
-                <span className="text-sm text-slate-700">Mensal (preencher mês a mês)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="modoAluguel"
-                  checked={modoAluguel === 'anual'}
-                  onChange={() => setModoAluguel('anual')}
-                  className="text-brand focus:ring-brand"
-                />
-                <span className="text-sm text-slate-700">Anual (ratear em 12 meses)</span>
-              </label>
-              {modoAluguel === 'anual' && (
-                <>
-                  <div className="flex flex-col gap-1 min-w-[180px]">
-                    <label className="text-xs font-medium text-slate-600">Aluguel tradicional anual</label>
-                    <MoneyInput
-                      value={aluguelAnualTradicional}
-                      onChange={setAluguelAnualTradicional}
-                      className="!py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 min-w-[180px]">
-                    <label className="text-xs font-medium text-slate-600">Aluguel curto prazo anual</label>
-                    <MoneyInput
-                      value={aluguelAnualCurto}
-                      onChange={setAluguelAnualCurto}
-                      className="!py-1.5 text-sm"
-                    />
-                  </div>
-                  <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
-                    Aplicar rateio
-                  </Button>
-                </>
-              )}
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                checked={modoReceitaAnual}
+                onChange={(e) => setModoReceitaAnual(e.target.checked)}
+                className="rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Receitas</span>
+            </label>
+            {modoReceitaAnual && (
+              <div className="flex flex-wrap items-end gap-4 mt-2">
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-medium text-slate-600">Aluguel tradicional anual</label>
+                  <MoneyInput
+                    value={aluguelAnualTradicional}
+                    onChange={setAluguelAnualTradicional}
+                    className="!py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-xs font-medium text-slate-600">Aluguel curto prazo anual</label>
+                  <MoneyInput
+                    value={aluguelAnualCurto}
+                    onChange={setAluguelAnualCurto}
+                    className="!py-1.5 text-sm"
+                  />
+                </div>
+                <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
+                  Aplicar rateio
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Bloco Despesas dedutíveis */}
@@ -635,7 +626,7 @@ export function SimuladorImoveis() {
                 onChange={(e) => setModoDespesaAnual(e.target.checked)}
                 className="rounded border-slate-300 text-brand focus:ring-brand"
               />
-              <span className="text-sm font-medium text-slate-700">Despesas dedutíveis anuais (distribuição igualitária em todos os meses)</span>
+              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Despesas dedutíveis</span>
             </label>
             {modoDespesaAnual && (
               <div className="flex flex-wrap items-end gap-4 mt-2">
@@ -663,7 +654,7 @@ export function SimuladorImoveis() {
                 onChange={(e) => setModoCustoAnual(e.target.checked)}
                 className="rounded border-slate-300 text-brand focus:ring-brand"
               />
-              <span className="text-sm font-medium text-slate-700">Custos operacionais / Créditos IBS/CBS anuais (distribuição igualitária em todos os meses)</span>
+              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Créditos IBS/CBS</span>
             </label>
             {modoCustoAnual && (
               <div className="flex flex-wrap items-end gap-4 mt-2">

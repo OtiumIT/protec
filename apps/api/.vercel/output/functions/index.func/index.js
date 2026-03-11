@@ -83753,14 +83753,42 @@ async function extractEcdFromPdf(pdfBuffer) {
   if (!apiKey?.trim()) {
     throw new Error("OPENAI_API_KEY n\xE3o configurada. N\xE3o \xE9 poss\xEDvel extrair dados do PDF da ECD.");
   }
+  const minSize = 100;
+  if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length < minSize) {
+    throw new AppError(
+      "Arquivo inv\xE1lido ou vazio. Envie um PDF da ECD com tamanho adequado.",
+      "ECD_PDF_INVALID",
+      400
+    );
+  }
+  const header = pdfBuffer.subarray(0, 5).toString("ascii");
+  if (header !== "%PDF-") {
+    throw new AppError(
+      "O arquivo n\xE3o parece ser um PDF v\xE1lido. Verifique se o arquivo \xE9 um Recibo de Entrega da ECD (SPED).",
+      "ECD_PDF_INVALID",
+      400
+    );
+  }
   let text;
   try {
     const { PDFParse: PDFParse2 } = await Promise.resolve().then(() => (init_esm(), esm_exports));
     const parser = new PDFParse2({ data: pdfBuffer });
-    const result = await parser.getText();
+    let result;
+    try {
+      result = await parser.getText({
+        preserveStructure: true
+      });
+    } catch {
+      result = await parser.getText();
+    }
     text = typeof result?.text === "string" ? result.text : String(result ?? "");
-  } catch {
-    throw new Error("N\xE3o foi poss\xEDvel ler o PDF. Verifique se o arquivo \xE9 um PDF v\xE1lido da ECD.");
+  } catch (err) {
+    console.error("[extractEcdFromPdf] Falha ao extrair texto do PDF:", err);
+    throw new AppError(
+      "N\xE3o foi poss\xEDvel ler o PDF. Verifique se o arquivo \xE9 um PDF v\xE1lido da ECD.",
+      "ECD_PDF_PARSE_FAILED",
+      400
+    );
   }
   const openai = new OpenAI({ apiKey });
   const cleanText = text.replace(/--\s*\d+\s*of\s*\d+\s*--/gi, "").trim();
@@ -89618,7 +89646,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-10T22:52:35.874Z";
+var API_UPDATED_AT = "2026-03-11T01:32:17.574Z";
 
 // src/modules/index.ts
 var app = new Hono2();
