@@ -135,9 +135,11 @@ export function Login() {
           {/* Logo and Header */}
           <div className="mb-8 text-center lg:text-left">
             <div className="flex items-center justify-center lg:justify-start mb-6 gap-3">
-              <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">IA</span>
-              </div>
+              <img
+                src="/logo-iatax.png"
+                alt="IATax"
+                className="w-10 h-10 flex-shrink-0 object-contain rounded-lg"
+              />
               <h1 className="text-xl font-bold text-slate-900">
                 IATax Soluções Inteligentes
               </h1>

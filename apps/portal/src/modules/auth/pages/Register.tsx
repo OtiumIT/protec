@@ -102,6 +102,13 @@ export function Register() {
             </svg>
             Voltar ao início
           </Link>
+          <div className="flex justify-center mt-6">
+            <img
+              src="/logo-iatax.png"
+              alt="IATax"
+              className="h-12 w-12 object-contain"
+            />
+          </div>
         </div>
         <h1 className="text-3xl font-bold text-otium-black mb-2">
           {personType === 'pf' ? 'Criar conta' : 'Cadastrar escritório'}

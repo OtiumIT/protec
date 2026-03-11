@@ -654,15 +654,17 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         {/* Logo e botão de colapsar */}
         <div className={`border-b border-slate-200 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-4 flex-row justify-between'}`}>
           <div className={`flex items-center min-w-0 flex-1 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-brand to-brand/80 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-              <span className="text-white font-bold text-xl">O</span>
-            </div>
+            <img
+              src="/logo-iatax.png"
+              alt="IATax"
+              className="w-10 h-10 flex-shrink-0 object-contain rounded-lg"
+            />
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
-                  Otium<span className="text-brand">IT</span>
+                  IATax
                 </h1>
-                <p className="text-xs text-slate-500 break-words leading-tight">Protec</p>
+                <p className="text-xs text-slate-500 break-words leading-tight">Soluções Inteligentes</p>
               </div>
             )}
           </div>
