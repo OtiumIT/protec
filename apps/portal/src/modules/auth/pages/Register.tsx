@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
+import { PasswordInput } from '../../../shared/components/ui/PasswordInput';
 import { Card } from '../../../shared/components/ui/Card';
 import { formatCnpj, formatCpf, formatPhoneBR, parseDigits, isValidCpf, isValidCnpj } from '../../../shared/utils/masks';
 
@@ -207,9 +208,8 @@ export function Register() {
             required
             autoComplete="email"
           />
-          <Input
+          <PasswordInput
             label="Senha"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

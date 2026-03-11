@@ -165,8 +165,25 @@ export function SimuladorImoveis() {
   const [modoCustoAnual, setModoCustoAnual] = useState(false);
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
+  const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS);
+
+  const aplicarRateioAnual = useCallback(
+    (field: keyof MesFields) => {
+      const val = round2(valoresAnuais[field] ?? 0);
+      if (val <= 0) return;
+      const valorMensal = round2(val / 12);
+      setMeses((prev) =>
+        prev.map((m) => ({
+          ...m,
+          [field]: valorMensal,
+        }))
+      );
+      success('Valor anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+    },
+    [valoresAnuais, success]
+  );
 
   const aplicarAluguelAnual = useCallback(() => {
     const valTrad = round2(aluguelAnualTradicional ?? 0);
@@ -691,14 +708,17 @@ export function SimuladorImoveis() {
                 </div>
               </div>
               <div className="-mx-2 overflow-x-auto px-2 py-3">
-                <table className="w-full text-sm min-w-[1800px]">
+                <table className="w-full text-sm min-w-[2600px]">
                   <thead>
                     <tr className="border-b border-slate-200/80">
                       <th className="sticky left-0 z-10 min-w-[260px] py-2.5 px-3 text-left font-medium text-slate-600 bg-slate-50/80">
                         Item
                       </th>
+                      <th className="min-w-[220px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                        Anual
+                      </th>
                       {MESES.map((nome, i) => (
-                        <th key={i} className="min-w-[140px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                        <th key={i} className="min-w-[180px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
                           {nome}
                         </th>
                       ))}
@@ -710,12 +730,31 @@ export function SimuladorImoveis() {
                         <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
                           {row.label}
                         </td>
+                        <td className="py-1.5 px-2 min-w-[220px]">
+                          <div className="flex items-center gap-1.5">
+                            <MoneyInput
+                              value={valoresAnuais[row.field] ?? 0}
+                              onChange={(v) => setValoresAnuais((prev) => ({ ...prev, [row.field]: v }))}
+                              className="!py-1.5 text-sm min-w-[11rem] flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => aplicarRateioAnual(row.field)}
+                              title="Dividir valor anual por 12 e preencher todos os meses desta linha"
+                              className="shrink-0 !py-1 !px-2 text-xs"
+                            >
+                              Distribuir
+                            </Button>
+                          </div>
+                        </td>
                         {meses.map((m, i) => (
-                          <td key={i} className="py-1.5 px-2 min-w-[140px]">
+                          <td key={i} className="py-1.5 px-2 min-w-[180px]">
                             <MoneyInput
                               value={(m[row.field] as number) ?? 0}
                               onChange={(v) => updateMes(i, row.field, v)}
-                              className="!py-1.5 text-sm min-w-[7.5rem]"
+                              className="!py-1.5 text-sm min-w-[11rem]"
                             />
                           </td>
                         ))}

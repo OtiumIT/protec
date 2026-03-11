@@ -111,18 +111,30 @@ export function SimuladorIN2306() {
 
   const handlePrintPdf = useCallback((resumida: boolean) => {
     setPrintModalOpen(false);
+    const el = document.getElementById('simulador-tributario-resultado-print');
+    if (!el) return;
+    el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
+
+    // Move o bloco para o body temporariamente (evita corte pelo Layout com altura fixa)
+    const parent = el.parentElement;
+    const placeholder = document.createElement('div');
+    placeholder.id = 'simulador-tributario-print-placeholder';
+    if (parent) {
+      parent.insertBefore(placeholder, el);
+      document.body.appendChild(el);
+      el.setAttribute('data-print-moved', 'true');
+    }
     const cleanup = () => {
-      const el = document.getElementById('simulador-tributario-resultado-print');
-      if (el) el.removeAttribute('data-print-resumida');
+      el.removeAttribute('data-print-moved');
+      if (parent && placeholder.parentElement && el.parentElement === document.body) {
+        document.body.removeChild(el);
+        parent.replaceChild(el, placeholder);
+      }
+      el.removeAttribute('data-print-resumida');
       window.removeEventListener('afterprint', cleanup);
     };
     window.addEventListener('afterprint', cleanup);
-    const delay = 200;
-    setTimeout(() => {
-      const el = document.getElementById('simulador-tributario-resultado-print');
-      if (el) el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
-      requestAnimationFrame(() => window.print());
-    }, delay);
+    setTimeout(() => window.print(), 150);
   }, []);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +147,45 @@ export function SimuladorIN2306() {
   );
   const [deducoesAnual, setDeducoesAnual] = useState(EMPTY_DEDUCOES);
   const [retencoesAnual, setRetencoesAnual] = useState(EMPTY_RETENCOES);
+  const [valoresAnuaisReceita, setValoresAnuaisReceita] = useState<Partial<Record<keyof ReceitasTrimestre, number>>>({});
+  const [valoresAnuaisDeducoesRetencoes, setValoresAnuaisDeducoesRetencoes] = useState<
+    Partial<Record<'pis_cofins_zero' | 'icms_destacado' | 'irrf' | 'orgaos_publicos', number>>
+  >({});
+
+  const aplicarRateioAnualReceita = useCallback(
+    (field: keyof ReceitasTrimestre) => {
+      const val = round2(valoresAnuaisReceita[field] ?? 0);
+      if (val <= 0) return;
+      const valorTrimestral = round2(val / 4);
+      setTrimestres((prev) =>
+        prev.map((t) => ({
+          ...t,
+          [field]: valorTrimestral,
+        }))
+      );
+      success('Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.');
+    },
+    [valoresAnuaisReceita, success]
+  );
+
+  const aplicarRateioAnualDeducoesRetencoes = useCallback(
+    (field: 'pis_cofins_zero' | 'icms_destacado' | 'irrf' | 'orgaos_publicos') => {
+      const val = round2(valoresAnuaisDeducoesRetencoes[field] ?? 0);
+      if (val <= 0) return;
+      const valorTrimestral = round2(val / 4);
+      if (field === 'pis_cofins_zero' || field === 'icms_destacado') {
+        setDeducoesTrimestrais((prev) =>
+          prev.map((d) => ({ ...d, [field]: valorTrimestral }))
+        );
+      } else {
+        setRetencoesTrimestrais((prev) =>
+          prev.map((r) => ({ ...r, [field]: valorTrimestral }))
+        );
+      }
+      success('Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.');
+    },
+    [valoresAnuaisDeducoesRetencoes, success]
+  );
 
   const [formParcel, setFormParcel] = useState<SimulateIN2306Input>({
     competence: '',
@@ -718,61 +769,62 @@ export function SimuladorIN2306() {
                 </div>
               ) : (
               <>
-                {/* Tabela: uma linha por tipo de receita, colunas = T1..T4 */}
+                {/* Tabela: uma linha por tipo de receita, colunas = Anual, T1..T4 */}
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[900px]">
                     <thead>
                       <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                         <th className="text-left py-2.5 px-3 font-medium w-48">Receita</th>
-                        <th className="text-right py-2.5 px-2 font-medium">1º Trim</th>
-                        <th className="text-right py-2.5 px-2 font-medium">2º Trim</th>
-                        <th className="text-right py-2.5 px-2 font-medium">3º Trim</th>
-                        <th className="text-right py-2.5 px-2 font-medium">4º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium min-w-[220px]">Anual</th>
+                        <th className="text-right py-2.5 px-2 font-medium min-w-[11rem]">1º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium min-w-[11rem]">2º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium min-w-[11rem]">3º Trim</th>
+                        <th className="text-right py-2.5 px-2 font-medium min-w-[11rem]">4º Trim</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      <tr>
-                        <td className="py-2 px-3 text-slate-600">Produtos / Mercadorias</td>
-                        {[0, 1, 2, 3].map((i) => (
-                          <td key={i} className="py-1.5 px-2">
-                            <MoneyInput value={trimestres[i]?.produtos_mercadorias ?? 0} onChange={(v) => updateTrimestre(i, 'produtos_mercadorias', v)} className="text-right text-sm" />
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 text-slate-600">Serviços (geral)</td>
-                        {[0, 1, 2, 3].map((i) => (
-                          <td key={i} className="py-1.5 px-2">
-                            <MoneyInput value={trimestres[i]?.servicos ?? 0} onChange={(v) => updateTrimestre(i, 'servicos', v)} className="text-right text-sm" />
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 text-slate-600">Serv. favorecida</td>
-                        {[0, 1, 2, 3].map((i) => (
-                          <td key={i} className="py-1.5 px-2">
-                            <MoneyInput value={trimestres[i]?.servicos_favorecida ?? 0} onChange={(v) => updateTrimestre(i, 'servicos_favorecida', v)} className="text-right text-sm" />
-                          </td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 text-slate-600">Serv. hospitalares</td>
-                        {[0, 1, 2, 3].map((i) => (
-                          <td key={i} className="py-1.5 px-2">
-                            <MoneyInput value={trimestres[i]?.servicos_hospitalares ?? 0} onChange={(v) => updateTrimestre(i, 'servicos_hospitalares', v)} className="text-right text-sm" />
-                          </td>
-                        ))}
-                      </tr>
-                      <tr className="border-b border-slate-200">
-                        <td className="py-2 px-3 text-slate-600">Demais receitas</td>
-                        {[0, 1, 2, 3].map((i) => (
-                          <td key={i} className="py-1.5 px-2">
-                            <MoneyInput value={trimestres[i]?.demais_receitas ?? 0} onChange={(v) => updateTrimestre(i, 'demais_receitas', v)} className="text-right text-sm" />
-                          </td>
-                        ))}
-                      </tr>
+                      {(['produtos_mercadorias', 'servicos', 'servicos_favorecida', 'servicos_hospitalares', 'demais_receitas'] as const).map((field) => {
+                        const labels: Record<typeof field, string> = {
+                          produtos_mercadorias: 'Produtos / Mercadorias',
+                          servicos: 'Serviços (geral)',
+                          servicos_favorecida: 'Serv. favorecida',
+                          servicos_hospitalares: 'Serv. hospitalares',
+                          demais_receitas: 'Demais receitas',
+                        };
+                        return (
+                          <tr key={field} className={field === 'demais_receitas' ? 'border-b border-slate-200' : ''}>
+                            <td className="py-2 px-3 text-slate-600">{labels[field]}</td>
+                            <td className="py-1.5 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <MoneyInput
+                                  value={valoresAnuaisReceita[field] ?? 0}
+                                  onChange={(v) => setValoresAnuaisReceita((prev) => ({ ...prev, [field]: v }))}
+                                  className="text-right text-sm min-w-[11rem]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnualReceita(field)}
+                                  title="Dividir valor anual por 4 e preencher os trimestres"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
+                            {[0, 1, 2, 3].map((i) => (
+                              <td key={i} className="py-1.5 px-2 min-w-[11rem]">
+                                <MoneyInput value={trimestres[i]?.[field] ?? 0} onChange={(v) => updateTrimestre(i, field, v)} className="text-right text-sm min-w-[11rem]" />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
                       <tr className="bg-slate-50 font-medium">
                         <td className="py-2 px-3 text-slate-700">Total</td>
+                        <td className="py-1.5 px-2" />
                         {[0, 1, 2, 3].map((i) => (
                           <td key={i} className="py-1.5 px-2 text-right text-slate-800">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totaisReceitaPorTrimestre[i] ?? 0)}
@@ -780,7 +832,8 @@ export function SimuladorIN2306() {
                         ))}
                       </tr>
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                   <p className="text-xs text-slate-400 px-3 py-2 bg-slate-50/80 border-t border-slate-100">Limite isento: R$ 1.250.000/trim (R$ 5 MM/ano). Acréscimo 10% sobre o excedente (LC 224/2025).</p>
                 </div>
 
@@ -795,52 +848,130 @@ export function SimuladorIN2306() {
                     <span className="text-slate-400">{detalhesAbertos ? '▲' : '▼'}</span>
                   </button>
                   {detalhesAbertos && (
-                    <div className="p-3 bg-white border-t border-slate-100">
-                      <table className="w-full text-sm">
+                    <div className="p-3 bg-white border-t border-slate-100 overflow-x-auto">
+                      <table className="w-full text-sm min-w-[900px]">
                         <thead>
                           <tr className="text-slate-500 text-left">
                             <th className="py-1.5 px-3 font-normal w-44"></th>
-                            <th className="text-right py-1.5 px-2 font-normal">1º</th>
-                            <th className="text-right py-1.5 px-2 font-normal">2º</th>
-                            <th className="text-right py-1.5 px-2 font-normal">3º</th>
-                            <th className="text-right py-1.5 px-2 font-normal">4º</th>
+                            <th className="text-right py-1.5 px-2 font-normal min-w-[220px]">Anual</th>
+                            <th className="text-right py-1.5 px-2 font-normal min-w-[11rem]">1º</th>
+                            <th className="text-right py-1.5 px-2 font-normal min-w-[11rem]">2º</th>
+                            <th className="text-right py-1.5 px-2 font-normal min-w-[11rem]">3º</th>
+                            <th className="text-right py-1.5 px-2 font-normal min-w-[11rem]">4º</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           <tr>
                             <td className="py-1 px-3 text-slate-600">PIS/COFINS alíq. zero</td>
+                            <td className="py-1 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <MoneyInput
+                                  value={valoresAnuaisDeducoesRetencoes.pis_cofins_zero ?? 0}
+                                  onChange={(v) => setValoresAnuaisDeducoesRetencoes((prev) => ({ ...prev, pis_cofins_zero: v }))}
+                                  className="text-right text-sm min-w-[11rem]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnualDeducoesRetencoes('pis_cofins_zero')}
+                                  title="Dividir valor anual por 4 e preencher os trimestres"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
                             {[0, 1, 2, 3].map((i) => (
-                              <td key={i} className="py-1 px-2">
-                                <MoneyInput value={deducoesTrimestrais[i]?.pis_cofins_zero ?? 0} onChange={(v) => updateDeducoes(i, 'pis_cofins_zero', v)} className="text-right text-sm" />
+                              <td key={i} className="py-1 px-2 min-w-[11rem]">
+                                <MoneyInput value={deducoesTrimestrais[i]?.pis_cofins_zero ?? 0} onChange={(v) => updateDeducoes(i, 'pis_cofins_zero', v)} className="text-right text-sm min-w-[11rem]" />
                               </td>
                             ))}
                           </tr>
                           <tr>
                             <td className="py-1 px-3 text-slate-600">ICMS destacado</td>
+                            <td className="py-1 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <MoneyInput
+                                  value={valoresAnuaisDeducoesRetencoes.icms_destacado ?? 0}
+                                  onChange={(v) => setValoresAnuaisDeducoesRetencoes((prev) => ({ ...prev, icms_destacado: v }))}
+                                  className="text-right text-sm min-w-[11rem]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnualDeducoesRetencoes('icms_destacado')}
+                                  title="Dividir valor anual por 4 e preencher os trimestres"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
                             {[0, 1, 2, 3].map((i) => (
-                              <td key={i} className="py-1 px-2">
-                                <MoneyInput value={deducoesTrimestrais[i]?.icms_destacado ?? 0} onChange={(v) => updateDeducoes(i, 'icms_destacado', v)} className="text-right text-sm" />
+                              <td key={i} className="py-1 px-2 min-w-[11rem]">
+                                <MoneyInput value={deducoesTrimestrais[i]?.icms_destacado ?? 0} onChange={(v) => updateDeducoes(i, 'icms_destacado', v)} className="text-right text-sm min-w-[11rem]" />
                               </td>
                             ))}
                           </tr>
                           <tr>
                             <td className="py-1 px-3 text-slate-600">IRRF</td>
+                            <td className="py-1 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <MoneyInput
+                                  value={valoresAnuaisDeducoesRetencoes.irrf ?? 0}
+                                  onChange={(v) => setValoresAnuaisDeducoesRetencoes((prev) => ({ ...prev, irrf: v }))}
+                                  className="text-right text-sm min-w-[11rem]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnualDeducoesRetencoes('irrf')}
+                                  title="Dividir valor anual por 4 e preencher os trimestres"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
                             {[0, 1, 2, 3].map((i) => (
-                              <td key={i} className="py-1 px-2">
-                                <MoneyInput value={retencoesTrimestrais[i]?.irrf ?? 0} onChange={(v) => updateRetencoes(i, 'irrf', v)} className="text-right text-sm" />
+                              <td key={i} className="py-1 px-2 min-w-[11rem]">
+                                <MoneyInput value={retencoesTrimestrais[i]?.irrf ?? 0} onChange={(v) => updateRetencoes(i, 'irrf', v)} className="text-right text-sm min-w-[11rem]" />
                               </td>
                             ))}
                           </tr>
                           <tr>
                             <td className="py-1 px-3 text-slate-600">Retenções</td>
+                            <td className="py-1 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <MoneyInput
+                                  value={valoresAnuaisDeducoesRetencoes.orgaos_publicos ?? 0}
+                                  onChange={(v) => setValoresAnuaisDeducoesRetencoes((prev) => ({ ...prev, orgaos_publicos: v }))}
+                                  className="text-right text-sm min-w-[11rem]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnualDeducoesRetencoes('orgaos_publicos')}
+                                  title="Dividir valor anual por 4 e preencher os trimestres"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
                             {[0, 1, 2, 3].map((i) => (
-                              <td key={i} className="py-1 px-2">
-                                <MoneyInput value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0} onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)} className="text-right text-sm" />
+                              <td key={i} className="py-1 px-2 min-w-[11rem]">
+                                <MoneyInput value={retencoesTrimestrais[i]?.orgaos_publicos ?? 0} onChange={(v) => updateRetencoes(i, 'orgaos_publicos', v)} className="text-right text-sm min-w-[11rem]" />
                               </td>
                             ))}
                           </tr>
                           <tr className="bg-slate-50 font-medium">
                             <td className="py-1 px-3 text-slate-700">Total</td>
+                            <td className="py-1 px-2" />
                             {[0, 1, 2, 3].map((i) => (
                               <td key={i} className="py-1 px-2 text-right text-slate-800">
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totaisDeducoesRetencoesPorTrimestre[i] ?? 0)}

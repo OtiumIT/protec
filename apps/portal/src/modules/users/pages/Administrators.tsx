@@ -4,6 +4,7 @@ import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
+import { PasswordInput } from '../../../shared/components/ui/PasswordInput';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ConfirmModal } from '../../../shared/components/ui/ConfirmModal';
 import { useToast } from '../../../shared/components/ui/Toast';
@@ -401,11 +402,8 @@ export function Administrators() {
             </div>
             {!editingUser && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Senha
-                </label>
-                <Input
-                  type="password"
+                <PasswordInput
+                  label="Senha"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required

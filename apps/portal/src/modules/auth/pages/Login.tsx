@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Button } from '../../../shared/components/ui/Button';
+import { PasswordInput } from '../../../shared/components/ui/PasswordInput';
 
 export function Login() {
   const navigate = useNavigate();
@@ -176,20 +177,15 @@ export function Login() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Senha
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
+              <PasswordInput
+                label="Senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="rounded-lg py-3"
+                placeholder="••••••••"
+              />
 
               <Button type="submit" variant="secondary" className="w-full" size="lg" disabled={isLoading}>
                 {isLoading ? (

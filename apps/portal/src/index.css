@@ -49,9 +49,23 @@
   #simulador-tributario-resultado-print * {
     visibility: visible;
   }
+  /* Quando movido para body: esconder irmãos (Layout) para evitar páginas em branco */
+  body > *:not(#simulador-tributario-resultado-print) {
+    display: none !important;
+  }
   /* Impressão resumida: esconder Memória de Cálculo */
   #simulador-tributario-resultado-print[data-print-resumida="true"] .print-memoria-calculo {
     display: none !important;
+  }
+  /* Impressão completa: Memória de Cálculo deve quebrar em múltiplas páginas */
+  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo,
+  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo * {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  /* Manter tabelas íntegras (não quebrar linha no meio) mas permitir que seções quebrem */
+  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo tr {
+    page-break-inside: avoid;
   }
   /* Evitar corte de conteúdo: ancestrais sem restrição de altura/overflow */
   html, body {
@@ -71,13 +85,20 @@
     top: 0;
     right: 0;
     width: auto;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
     padding: 1rem 1.25rem;
     background: white;
     overflow: visible;
-    min-height: 0 !important;
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* Quando movido para body: fluxo normal para impressão multi-página */
+  #simulador-tributario-resultado-print[data-print-moved="true"] {
+    position: static !important;
+    width: 100% !important;
   }
   #simulador-tributario-resultado-print * {
     overflow: visible !important;

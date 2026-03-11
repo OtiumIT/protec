@@ -4,6 +4,7 @@ import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
+import { PasswordInput } from '../../../shared/components/ui/PasswordInput';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ConfirmModal } from '../../../shared/components/ui/ConfirmModal';
 import { TenantSelector } from '../../../shared/components/ui/TenantSelector';
@@ -652,9 +653,8 @@ export function Users() {
             />
             {!editingUser && (
               <div>
-                <Input
+                <PasswordInput
                   label="Senha"
-                  type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
