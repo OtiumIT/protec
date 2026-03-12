@@ -560,7 +560,7 @@ export function SimuladorImoveis() {
         {/* Opções da Reforma 2027 */}
         <Card className="p-5 border-amber-200/80 bg-amber-50/30">
           <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma 2027 (IBS/CBS)</h3>
-          <div className="flex flex-wrap gap-6 items-start">
+          <div className="flex flex-col gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
