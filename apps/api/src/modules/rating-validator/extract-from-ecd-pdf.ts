@@ -111,20 +111,20 @@ export async function extractEcdFromPdf(pdfBuffer: Buffer): Promise<ExtractEcdPd
     const parser = new PDFParse({ data: pdfBuffer });
     let result: { text?: string } | null;
     try {
-      result = await (parser as { getText: (opts?: { preserveStructure?: boolean }) => Promise<{ text?: string }> }).getText({
-        preserveStructure: true,
-      });
-    } catch {
       result = await parser.getText();
+    } catch {
+      try {
+        result = await (parser as { getText: (opts?: { preserveStructure?: boolean }) => Promise<{ text?: string }> }).getText({
+          preserveStructure: true,
+        });
+      } catch {
+        result = null;
+      }
     }
     text = typeof result?.text === 'string' ? result.text : String(result ?? '');
   } catch (err) {
-    console.error('[extractEcdFromPdf] Falha ao extrair texto do PDF:', err);
-    throw new AppError(
-      'Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido da ECD.',
-      'ECD_PDF_PARSE_FAILED',
-      400
-    );
+    console.error('[extractEcdFromPdf] Falha ao extrair texto (tentando via Files API como PDF escaneado):', err);
+    text = '';
   }
 
   const openai = new OpenAI({ apiKey });

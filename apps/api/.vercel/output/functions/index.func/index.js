@@ -83843,20 +83843,20 @@ async function extractEcdFromPdf(pdfBuffer) {
     const parser = new PDFParse2({ data: pdfBuffer });
     let result;
     try {
-      result = await parser.getText({
-        preserveStructure: true
-      });
-    } catch {
       result = await parser.getText();
+    } catch {
+      try {
+        result = await parser.getText({
+          preserveStructure: true
+        });
+      } catch {
+        result = null;
+      }
     }
     text = typeof result?.text === "string" ? result.text : String(result ?? "");
   } catch (err) {
-    console.error("[extractEcdFromPdf] Falha ao extrair texto do PDF:", err);
-    throw new AppError(
-      "N\xE3o foi poss\xEDvel ler o PDF. Verifique se o arquivo \xE9 um PDF v\xE1lido da ECD.",
-      "ECD_PDF_PARSE_FAILED",
-      400
-    );
+    console.error("[extractEcdFromPdf] Falha ao extrair texto (tentando via Files API como PDF escaneado):", err);
+    text = "";
   }
   const openai = new OpenAI({ apiKey });
   const cleanText = text.replace(/--\s*\d+\s*of\s*\d+\s*--/gi, "").trim();
@@ -89733,7 +89733,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-11T23:59:57.204Z";
+var API_UPDATED_AT = "2026-03-12T00:11:44.327Z";
 
 // src/modules/index.ts
 var app = new Hono2();
