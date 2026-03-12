@@ -168,7 +168,7 @@ export function SimuladorImoveis() {
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
-  const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS);
+  const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
   const aplicarRateioAnual = useCallback(
     (field: keyof MesFields) => {
