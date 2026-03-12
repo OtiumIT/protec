@@ -401,10 +401,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
   const getCategoryIdForPath = (pathname: string): string | null => {
     if (pathname === '/dashboard') return null;
     if (isSuperAdmin) {
-      if (['/tenants', '/plans', '/modules', '/editais'].includes(pathname)) return 'administrativo';
-      if (pathname === '/administrators' || pathname === '/users') return 'administracao';
+      if (['/tenants', '/plans', '/modules', '/editais', '/administrators', '/users'].includes(pathname)) return 'administracao';
     } else {
-      if (pathname === '/meu-plano' || pathname === '/gestao-assinatura' || pathname === '/clients') return 'administrativo';
+      if (pathname === '/meu-plano' || pathname === '/gestao-assinatura' || pathname === '/clients') return 'administracao';
       if (pathname === '/rating-validator') return 'rating_validator';
       if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
       if (pathname === '/irpf-alta-renda') return 'irpf_alta_renda';
@@ -438,7 +437,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         isParentActive(item) || (item.children?.some((c) => isActive(c.path)) ?? false)
     );
 
-  /** Constrói categorias (originais: Administrativo + módulos + Administração por último) */
+  /** Constrói categorias (Início + módulos + Administração por último) */
   const buildCategories = (items: MenuItem[]): MenuCategory[] => {
     const categories: MenuCategory[] = [];
 
@@ -454,17 +453,16 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       const editais = get('/editais');
       const gestaoUsuarios = get(undefined, 'Gestão de Usuários');
 
-      const adminItems = [tenants, plans, modules, editais].filter(Boolean) as MenuItem[];
-      if (adminItems.length)
-        categories.push({ id: 'administrativo', name: 'Administração Global', icon: CATEGORY_ICONS.shield, items: adminItems });
+      const adminItems: MenuItem[] = [tenants, plans, modules, editais].filter(Boolean) as MenuItem[];
       if (gestaoUsuarios) {
-        const adminUsersItems = gestaoUsuarios.children ?? [gestaoUsuarios];
-        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminUsersItems });
+        adminItems.push(...(gestaoUsuarios.children ?? [gestaoUsuarios]));
       }
+      if (adminItems.length)
+        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminItems });
       return categories;
     }
 
-    // Admin de tenant: Administrativo (Meu plano, Faturas, Gestão de Clientes) + módulos + Administração
+    // Admin de tenant: módulos primeiro, Administração por último
     const get = (path?: string, name?: string, moduleKey?: string) =>
       items.find((i) => (path && i.path === path) || (name && i.name === name) || (moduleKey && i.moduleKey === moduleKey));
     const meuPlano = get('/meu-plano');
@@ -475,10 +473,6 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const simulador = get(undefined, undefined, 'SIMULADOR_IN_2306');
     const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
-
-    const adminItems = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];
-    if (adminItems.length)
-      categories.push({ id: 'administrativo', name: 'Administrativo', icon: CATEGORY_ICONS.cog, items: adminItems });
 
     const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
       { key: 'RATING_VALIDATOR', item: rating },
@@ -499,8 +493,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       }
     });
 
-    if (gestaoUsuarios)
-      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: [gestaoUsuarios] });
+    const adminItems: MenuItem[] = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];
+    if (gestaoUsuarios) adminItems.push(gestaoUsuarios);
+    if (adminItems.length)
+      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cog, items: adminItems });
     return categories;
   };
 
