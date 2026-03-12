@@ -374,6 +374,7 @@ export function SimuladorImoveis() {
           ano,
           meses: mesesParaEnvio,
           opcoes_reforma: {
+            aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
             aliquota_ibs_plena: aliquotaPlenaIBS,
             aliquota_cbs_estimada: aliquotaCBS,
             redutor_short_stay_pct: 50,
@@ -398,6 +399,7 @@ export function SimuladorImoveis() {
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
       const opcoes = {
+        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
         aliquota_ibs_plena: aliquotaPlenaIBS,
         aliquota_cbs_estimada: aliquotaCBS,
         redutor_short_stay_pct: 50,
