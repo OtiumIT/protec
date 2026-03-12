@@ -33,37 +33,60 @@ interface MenuCategory {
   directLink?: string;
 }
 
-/** Ícones de categoria (SVG inline, w-5 h-5) */
+/** Ícones de categoria (SVG inline, w-5 h-5) - conforme design IATax */
 const CATEGORY_ICONS = {
+  /** Início: grade 2x2 (dashboard) */
   home: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth={2} />
+      <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth={2} />
+      <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth={2} />
+      <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth={2} />
+    </svg>
+  ),
+  /** Transação Tributária: balança de pratos */
+  balanceScale: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v5M12 8v9M4 8h16M8 8l2 4 2-4M8 17l2-4 2 4M6 12H4a1 1 0 000 2h2a1 1 0 100-2zM20 12h-2a1 1 0 100 2h2a1 1 0 100-2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 14v4M18 14v4M6 18h12" />
+    </svg>
+  ),
+  /** Simulador LC 224: cavalete com gráfico de tendência */
+  chartEasel: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 18v-4h16v4M4 18h16M6 18v4M18 18v4M12 5v9M10 14l2-2 2 2" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10l2 2 2-2 2 2" />
+    </svg>
+  ),
+  /** IRPF Alta Renda: diamante (Font Awesome fa-diamond) */
+  diamond: (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 512 512" aria-hidden="true">
+      <path d="M284.3 11.7c-15.6-15.6-40.9-15.6-56.6 0l-216 216c-15.6 15.6-15.6 40.9 0 56.6l216 216c15.6 15.6 40.9 15.6 56.6 0l216-216c15.6-15.6 15.6-40.9 0-56.6l-216-216z" />
+    </svg>
+  ),
+  /** Gestão Imobiliária: prédio com janelas */
+  building: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      <rect x="8" y="9" width="2" height="2" strokeWidth={2} />
+      <rect x="14" y="9" width="2" height="2" strokeWidth={2} />
+      <rect x="8" y="14" width="2" height="2" strokeWidth={2} />
+      <rect x="14" y="14" width="2" height="2" strokeWidth={2} />
+    </svg>
+  ),
+  /** Administração: engrenagem + sliders verticais */
+  cogSliders: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 6v2m0 8v2M19 7h-3m0 10h-3M19 17h-3m0-10h-3" />
+      <circle cx="19" cy="7" r="1" fill="currentColor" />
+      <circle cx="19" cy="17" r="1" fill="currentColor" />
     </svg>
   ),
   creditCard: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-    </svg>
-  ),
-  building: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-    </svg>
-  ),
-  calculator: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-    </svg>
-  ),
-  homeAlt: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-    </svg>
-  ),
-  cog: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
   document: (
@@ -234,11 +257,7 @@ const adminMenuItems: MenuItem[] = [
     name: 'Tributação de Dividendos',
     moduleKey: 'IRPF_ALTA_RENDA',
     path: '/irpf-alta-renda',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
+    icon: CATEGORY_ICONS.diamond,
   },
   {
     name: 'Gestão Imobiliária',
@@ -458,7 +477,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         adminItems.push(...(gestaoUsuarios.children ?? [gestaoUsuarios]));
       }
       if (adminItems.length)
-        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.users, items: adminItems });
+        categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
       return categories;
     }
 
@@ -481,10 +500,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
     ];
     const moduleIcons: Record<string, React.ReactNode> = {
-      RATING_VALIDATOR: CATEGORY_ICONS.calculator,
-      SIMULADOR_IN_2306: CATEGORY_ICONS.calculator,
-      IRPF_ALTA_RENDA: CATEGORY_ICONS.calculator,
-      GESTAO_IMOVEIS: CATEGORY_ICONS.homeAlt,
+      RATING_VALIDATOR: CATEGORY_ICONS.balanceScale,
+      SIMULADOR_IN_2306: CATEGORY_ICONS.chartEasel,
+      IRPF_ALTA_RENDA: CATEGORY_ICONS.diamond,
+      GESTAO_IMOVEIS: CATEGORY_ICONS.building,
     };
     moduleOrder.forEach(({ key, item }) => {
       if (item) {
@@ -496,7 +515,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const adminItems: MenuItem[] = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];
     if (gestaoUsuarios) adminItems.push(gestaoUsuarios);
     if (adminItems.length)
-      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cog, items: adminItems });
+      categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
     return categories;
   };
 

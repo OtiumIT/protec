@@ -70,12 +70,14 @@ await esbuild.build({
 }).catch(() => process.exit(1));
 
 // 2. .vc-config.json
+// maxDuration 120s: rating-validator/extract-from-ecd-pdf precisa de tempo para pdf-parse + OpenAI
+// (planos Hobby: limitado a 10s; Pro: até 300s)
 writeFileSync(join(funcDir, '.vc-config.json'), JSON.stringify({
   runtime: 'nodejs20.x',
   handler: 'index.js',
   launcherType: 'Nodejs',
   shouldAddHelpers: false,
-  maxDuration: 30,
+  maxDuration: 120,
   memory: 1024,
 }, null, 2));
 
