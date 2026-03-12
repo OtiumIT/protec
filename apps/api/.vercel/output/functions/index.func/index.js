@@ -69290,15 +69290,19 @@ var BatchPropertyTransactionSchema = external_exports.object({
 });
 var PerfilLocacaoReformaSchema = external_exports.enum(["residencial_comum", "hospedagem_temporada"]);
 var OpcoesReformaSchema = external_exports.object({
-  /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. */
+  /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. Mantido para compatibilidade. */
   aliquota_ibs_cbs_estimada: external_exports.number().min(0).max(100).optional().default(26.5),
+  /** Alíquota plena IBS (%) para transição 2029+. Usado na tabela e no cálculo. Default 19. */
+  aliquota_ibs_plena: external_exports.number().min(0).max(100).optional().default(19),
+  /** Alíquota CBS estimada (%). Em 2027/2028 e 2029+ somada ao IBS. Default 9. */
+  aliquota_cbs_estimada: external_exports.number().min(0).max(100).optional().default(9),
   /** Redutor para locação residencial (reforma): 70 = alíquota efetiva = nominal × 30%. Padrão 70. */
   redutor_locacao_pct: external_exports.number().min(0).max(100).optional(),
-  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem ou quando receita curto > longo. */
+  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem. */
   redutor_short_stay_pct: external_exports.number().min(0).max(100).optional().default(50),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: external_exports.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Se não informado, deriva de receita curto vs longo. */
+  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
   perfil_locacao: PerfilLocacaoReformaSchema.optional()
 });
 var SimulateStandaloneMesSchema = external_exports.object({
@@ -88316,14 +88320,26 @@ function calcularPJ(aggregated, elegivelPresuncao16) {
     trimestres
   };
 }
-var ALIQUOTA_CBS_2027_2028 = 9;
+var ALIQUOTA_IBS_2027_2028 = 0.1;
+var ALIQUOTA_CBS_DEFAULT = 9;
 var REDUTOR_LOCACAO_RESIDENCIAL = 70;
 var REDUTOR_SHORT_STAY = 50;
 var ALIQUOTA_TRANSICAO_ART487 = 3.65;
 function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoPct, opcoes) {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
   const ano = opcoes?.ano ?? aggAno ?? 2027;
-  const aliquotaNominal = aliquotaIbsCbsOverride ?? (ano >= 2027 && ano <= 2028 ? ALIQUOTA_CBS_2027_2028 : 26.5);
+  const aliquotaCBS = opcoes?.aliquota_cbs_estimada ?? ALIQUOTA_CBS_DEFAULT;
+  const aliquotaIbsPlena = opcoes?.aliquota_ibs_plena ?? 19;
+  let aliquotaNominal;
+  if (aliquotaIbsCbsOverride != null) {
+    aliquotaNominal = aliquotaIbsCbsOverride;
+  } else if (ano >= 2027 && ano <= 2028) {
+    aliquotaNominal = ALIQUOTA_IBS_2027_2028 + aliquotaCBS;
+  } else {
+    const dadosTransicao = TRANSICAO_IBS_ANOS[ano];
+    const ibsEfetivo = dadosTransicao ? round28(aliquotaIbsPlena / 100 * (dadosTransicao.ibsPct / 100) * 100) : aliquotaIbsPlena;
+    aliquotaNominal = ibsEfetivo + aliquotaCBS;
+  }
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;
   const usarRedutorDiferenciado = opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga && receita_total > 0;
@@ -88374,6 +88390,13 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
     ...usarRedutorDiferenciado && { redutor_diferenciado_short: true }
   };
 }
+var TRANSICAO_IBS_ANOS = {
+  2029: { ibsPct: 10, icmsIssPct: 90 },
+  2030: { ibsPct: 20, icmsIssPct: 80 },
+  2031: { ibsPct: 30, icmsIssPct: 70 },
+  2032: { ibsPct: 40, icmsIssPct: 60 },
+  2033: { ibsPct: 100, icmsIssPct: 0 }
+};
 function calcularBreakEven(cargaPFPercentual, cargaPJPercentual) {
   if (cargaPJPercentual >= cargaPFPercentual) return null;
   const diferenca = cargaPFPercentual - cargaPJPercentual;
@@ -88602,12 +88625,14 @@ var PropertyService = class {
     const opcoesReformaSimulate = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
+      aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacaoSimulate,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      void 0,
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
@@ -88750,10 +88775,12 @@ var PropertyService = class {
     const cenarioPJ = calcularPJ(aggregatedTotal, aplicarPresuncao16);
     const cenarioPJ32Fixo = aplicarPresuncao16 ? calcularPJ(aggregatedTotal, false) : null;
     const redutorLocacao = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
-    const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" || receitaShortTotal > receitaLongaTotal;
+    const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada";
     const opcoesReformaStandalone = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
+      aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacao,
       redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
@@ -88763,7 +88790,7 @@ var PropertyService = class {
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      void 0,
       redutorLocacao,
       opcoesReformaStandalone
     );
@@ -89733,7 +89760,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-12T12:04:54.011Z";
+var API_UPDATED_AT = "2026-03-12T13:00:16.077Z";
 
 // src/modules/index.ts
 var app = new Hono2();

@@ -312,8 +312,10 @@ export function calcularPJ(
   };
 }
 
-/** Alíquota só CBS em 2027/2028 (IBS inicia 2029) – Transição Reforma */
-const ALIQUOTA_CBS_2027_2028 = 9;
+/** Alíquota IBS fixa em 2027/2028 – Transição Reforma (LC 214/2025) */
+const ALIQUOTA_IBS_2027_2028 = 0.1;
+/** Alíquota CBS default em 2027/2028 quando não informada */
+const ALIQUOTA_CBS_DEFAULT = 9;
 /** Redutor locação residencial comum (LC 214/2025 Art. 261) */
 const REDUTOR_LOCACAO_RESIDENCIAL = 70;
 /** Redutor hospedagem / curta temporada */
@@ -323,8 +325,12 @@ const ALIQUOTA_TRANSICAO_ART487 = 3.65;
 
 export interface OpcoesReformaCalculo {
   ano: number;
-  /** Override da alíquota nominal; se não informado, 2027/2028 = 9% (CBS), 2029+ = 26,5% */
+  /** Override da alíquota nominal total (compatibilidade). Se informado, prevalece sobre aliquota_ibs_plena/aliquota_cbs_estimada. */
   aliquota_ibs_cbs_estimada?: number;
+  /** Alíquota plena IBS (%) para 2029+ (transição). Default 19. */
+  aliquota_ibs_plena?: number;
+  /** Alíquota CBS estimada (%). Em 2027/2028 e 2029+. Default 9. */
+  aliquota_cbs_estimada?: number;
   redutor_locacao_pct?: number;
   redutor_short_stay_pct?: number;
   /** Regime transição: 3,65% sobre receita; resultado = min(3,65%, regime normal) */
@@ -337,8 +343,8 @@ export interface OpcoesReformaCalculo {
 
 /**
  * Cenário Reforma: IBS/CBS com créditos sobre custos.
- * 2027/2028: apenas CBS (~9%); 2029+: IBS+CBS (26,5% a 28%).
- * Redutor 70% locação residencial; 50% curta temporada quando dominante (Art. 261 e redutor diferenciado).
+ * 2027/2028: IBS 0,1% (fixo) + CBS (editável); 2029+: IBS (transição) + CBS (editável).
+ * Redutor 70% locação residencial; 50% curta temporada quando dominante (Art. 261).
  * Regime transição Art. 487: opção 3,65% sobre faturamento (contratos antes 16/01/2025).
  */
 export function calcularReforma2027(
@@ -364,11 +370,22 @@ export function calcularReforma2027(
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
   const ano = opcoes?.ano ?? aggAno ?? 2027;
+  const aliquotaCBS = opcoes?.aliquota_cbs_estimada ?? ALIQUOTA_CBS_DEFAULT;
+  const aliquotaIbsPlena = opcoes?.aliquota_ibs_plena ?? 19;
 
-  /** Escalonamento: 2027/2028 só CBS (9%); 2029+ IBS+CBS (26,5% padrão) */
-  const aliquotaNominal =
-    aliquotaIbsCbsOverride ??
-    ((ano >= 2027 && ano <= 2028) ? ALIQUOTA_CBS_2027_2028 : 26.5);
+  /** Escalonamento: 2027/2028 IBS 0,1% + CBS; 2029+ IBS (transição) + CBS. Override prevalece para compatibilidade. */
+  let aliquotaNominal: number;
+  if (aliquotaIbsCbsOverride != null) {
+    aliquotaNominal = aliquotaIbsCbsOverride;
+  } else if (ano >= 2027 && ano <= 2028) {
+    aliquotaNominal = ALIQUOTA_IBS_2027_2028 + aliquotaCBS;
+  } else {
+    const dadosTransicao = TRANSICAO_IBS_ANOS[ano];
+    const ibsEfetivo = dadosTransicao
+      ? round2((aliquotaIbsPlena / 100) * (dadosTransicao.ibsPct / 100) * 100)
+      : aliquotaIbsPlena;
+    aliquotaNominal = ibsEfetivo + aliquotaCBS;
+  }
 
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;

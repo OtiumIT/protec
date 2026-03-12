@@ -238,6 +238,8 @@ export const propertyService = {
     }>;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
+      aliquota_ibs_plena?: number;
+      aliquota_cbs_estimada?: number;
       redutor_locacao_pct?: number;
       redutor_short_stay_pct?: number;
       contrato_antes_16012025?: boolean;
@@ -333,6 +335,8 @@ export const propertyService = {
     }>;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
+      aliquota_ibs_plena?: number;
+      aliquota_cbs_estimada?: number;
       redutor_locacao_pct?: number;
       redutor_short_stay_pct?: number;
       contrato_antes_16012025?: boolean;
@@ -359,6 +363,8 @@ export const propertyService = {
     aplicar_presuncao_16_servicos?: boolean;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
+      aliquota_ibs_plena?: number;
+      aliquota_cbs_estimada?: number;
       redutor_locacao_pct?: number;
       contrato_antes_16012025?: boolean;
       perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';

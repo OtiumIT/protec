@@ -165,6 +165,7 @@ export function SimuladorImoveis() {
   const [modoCustoAnual, setModoCustoAnual] = useState(false);
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
+  const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS);
@@ -373,7 +374,8 @@ export function SimuladorImoveis() {
           ano,
           meses: mesesParaEnvio,
           opcoes_reforma: {
-            aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
+            aliquota_ibs_plena: aliquotaPlenaIBS,
+            aliquota_cbs_estimada: aliquotaCBS,
             redutor_short_stay_pct: 50,
             contrato_antes_16012025: contratoAntes16012025,
             perfil_locacao: perfilLocacao,
@@ -396,7 +398,8 @@ export function SimuladorImoveis() {
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
       const opcoes = {
-        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
+        aliquota_ibs_plena: aliquotaPlenaIBS,
+        aliquota_cbs_estimada: aliquotaCBS,
         redutor_short_stay_pct: 50,
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
@@ -441,13 +444,24 @@ export function SimuladorImoveis() {
   const handleEdit = async (id: string) => {
     try {
       const sim = await propertyService.getSimulationById(id);
-      const input = sim.input_data as { ano?: number; meses?: SimulateStandaloneMesInput[]; opcoes_reforma?: { contrato_antes_16012025?: boolean; perfil_locacao?: PerfilLocacaoReforma } };
+      const input = sim.input_data as {
+        ano?: number;
+        meses?: SimulateStandaloneMesInput[];
+        opcoes_reforma?: {
+          contrato_antes_16012025?: boolean;
+          perfil_locacao?: PerfilLocacaoReforma;
+          aliquota_ibs_plena?: number;
+          aliquota_cbs_estimada?: number;
+        };
+      };
       if (input?.ano) setAno(input.ano);
       if (Array.isArray(input?.meses) && input.meses.length === 12) {
         setMeses(input.meses.map((m) => ({ ...m })));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
+      if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
+      if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
       setEditingSimulationId(id);
       setResult(null);
       success('Simulação carregada. Edite e clique em Simular para atualizar.');
@@ -563,23 +577,26 @@ export function SimuladorImoveis() {
                 onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[220px]"
               >
-                <option value="residencial_comum">Locação residencial comum (Redutor 70%)</option>
-                <option value="hospedagem_temporada">Hospedagem / Temporada (Redutor 50%)</option>
+                <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
+                <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
               </select>
-              <span className="text-xs text-slate-500">Em 2027/2028 usa-se só CBS (9%); a partir de 2029, IBS+CBS (26,5%).</span>
+              <span className="text-xs text-slate-500">Em 2027/2028 incide IBS e CBS; a partir de 2029, IBS + CBS.</span>
             </div>
           </div>
         </Card>
 
-        {/* Transição IBS vs ICMS/ISS (2029-2033) */}
+        {/* Transição IBS vs ICMS/ISS (2027-2033) */}
         <Card className="p-5 border-violet-200/80 bg-violet-50/20">
-          <h3 className="font-semibold text-slate-800 mb-2">Transição IBS vs ICMS/ISS (2029-2033)</h3>
-          <p className="text-xs text-amber-800 bg-amber-100/80 rounded px-3 py-2 mb-4">
-            As alíquotas de IBS e CBS são estimadas; os valores definitivos dependem de regulamentação complementar.
+          <h3 className="font-semibold text-slate-800 mb-2">Transição IBS vs ICMS/ISS (2027-2033)</h3>
+          <p className="text-xs text-amber-800 bg-amber-100/80 rounded px-3 py-2 mb-2">
+            Valores estimados; alíquotas sujeitas a regulamentação (previsão fim de 2026).
+          </p>
+          <p className="text-xs text-slate-600 mb-4">
+            Em 2027 e 2028 o IBS incide à alíquota fixa de 0,1%, que se soma à CBS.
           </p>
           <div className="flex flex-wrap items-end gap-4 mb-4">
             <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700">Alíquota plena estimada (%)</label>
+              <label className="text-sm font-medium text-slate-700">Alíquota plena IBS (%)</label>
               <input
                 type="number"
                 min={0}
@@ -587,6 +604,18 @@ export function SimuladorImoveis() {
                 step={0.1}
                 value={aliquotaPlenaIBS}
                 onChange={(e) => setAliquotaPlenaIBS(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1 min-w-[200px]">
+              <label className="text-sm font-medium text-slate-700">Alíquota CBS estimada (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={aliquotaCBS}
+                onChange={(e) => setAliquotaCBS(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
                 className="border border-slate-200 rounded-md px-3 py-2 text-sm"
               />
             </div>
@@ -605,8 +634,8 @@ export function SimuladorImoveis() {
                 {transicaoIBSResult.map((r: TransicaoIBSResult) => (
                   <tr key={r.ano} className="border-b border-slate-100">
                     <td className="py-2 px-3">{r.ano}</td>
-                    <td className="text-right py-2 px-3">{r.ibsPct}%</td>
-                    <td className="text-right py-2 px-3">{r.icmsIssPct}%</td>
+                    <td className="text-right py-2 px-3">{r.ibsFixo ? 'fixo' : `${r.ibsPct}%`}</td>
+                    <td className="text-right py-2 px-3">{r.ibsFixo ? '—' : `${r.icmsIssPct}%`}</td>
                     <td className="text-right py-2 px-3 font-medium">{r.aliquotaEfetivaIBS.toFixed(2)}%</td>
                   </tr>
                 ))}

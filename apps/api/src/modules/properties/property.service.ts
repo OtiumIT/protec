@@ -284,12 +284,14 @@ export class PropertyService {
     const opcoesReformaSimulate: OpcoesReformaCalculo = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
+      aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacaoSimulate,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      undefined,
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
@@ -478,11 +480,12 @@ export class PropertyService {
         ? 50
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
     const usarRedutorDiferenciado =
-      input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada' ||
-      receitaShortTotal > receitaLongaTotal;
+      input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
     const opcoesReformaStandalone: OpcoesReformaCalculo = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
+      aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacao,
       redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
@@ -492,7 +495,7 @@ export class PropertyService {
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
-      input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
+      undefined,
       redutorLocacao,
       opcoesReformaStandalone
     );

@@ -79,15 +79,19 @@ export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedag
 export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
 
 export const OpcoesReformaSchema = z.object({
-  /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. */
+  /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. Mantido para compatibilidade. */
   aliquota_ibs_cbs_estimada: z.number().min(0).max(100).optional().default(26.5),
+  /** Alíquota plena IBS (%) para transição 2029+. Usado na tabela e no cálculo. Default 19. */
+  aliquota_ibs_plena: z.number().min(0).max(100).optional().default(19),
+  /** Alíquota CBS estimada (%). Em 2027/2028 e 2029+ somada ao IBS. Default 9. */
+  aliquota_cbs_estimada: z.number().min(0).max(100).optional().default(9),
   /** Redutor para locação residencial (reforma): 70 = alíquota efetiva = nominal × 30%. Padrão 70. */
   redutor_locacao_pct: z.number().min(0).max(100).optional(),
-  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem ou quando receita curto > longo. */
+  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem. */
   redutor_short_stay_pct: z.number().min(0).max(100).optional().default(50),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: z.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Se não informado, deriva de receita curto vs longo. */
+  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
 });
 
