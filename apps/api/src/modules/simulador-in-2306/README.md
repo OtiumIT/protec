@@ -3,7 +3,7 @@
 ## Descrição
 Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2.306/2026:
 
-1. **Comparativo tributário (Lucro Presumido)**: entrada de receitas por trimestre (produtos/mercadorias, serviços, serviços favorecida, serviços hospitalares, demais receitas); cálculo em 3 cenários (Cálculo 2025, Projeção 2026 com acréscimo IN 2.306, Cenário Equiparação Hospitalar); ajuste anual (§ 5º); adicional de IRPJ 10% sobre lucro presumido > R$ 60.000/trimestre.
+1. **Comparativo tributário (Lucro Presumido)**: entrada de receitas por trimestre (produtos/mercadorias, serviços, serviços favorecida, serviços hospitalares, demais receitas); cálculo em 3 cenários (Cálculo 2025, Projeção 2026 com acréscimo IN 2.306, Cenário Equiparação Hospitalar (8% IRPJ/12% CSLL nos serviços) com regras LC 224/2025 — projeção 2026); ajuste anual (§ 5º); adicional de IRPJ 10% sobre lucro presumido > R$ 60.000/trimestre.
 2. **Parcelamento simples**: simulação de valor financiado e parcelas (legado).
 
 ## Regras de Negócio
@@ -38,7 +38,7 @@ Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2
 ## Fluxos e Endpoints
 
 ### POST /simulador-in-2306/simulate-tributario
-- **Descrição**: Simulação tributária comparativa (2025 x 2026 IN 2.306 x Equiparação Hospitalar).
+- **Descrição**: Simulação tributária comparativa (2025 x 2026 IN 2.306 x Equiparação Hospitalar com LC 224 — projeção 2026).
 - **Body**: `SimulateTributarioIN2306InputSchema` (ano, trimestres[4] com receitas por tipo, deducoes_trimestrais?, retencoes_trimestrais?, aplicar_equiparacao_hospitalar?, save_simulation?, client_id?, title?).
 - **Resposta**: `SimuladorTributarioResponse` (cenario_2025, cenario_2026, cenario_equiparacao, comparativo.imposto_a_maior_2026_vs_2025, economia_equiparacao_vs_2026, memoria_calculo).
 - **Regras**: Limite trimestral R$ 1.250.000; acréscimo 10% na presunção sobre o excedente; ajuste anual § 5º; adicional IRPJ 10% sobre base > R$ 60.000/trimestre.

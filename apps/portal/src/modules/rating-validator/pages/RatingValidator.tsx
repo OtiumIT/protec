@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   ratingValidatorService,
@@ -14,7 +15,9 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { Badge } from '../../../shared/components/ui/Badge';
+import { Modal } from '../../../shared/components/ui/Modal';
 import { useToast } from '../../../shared/components/ui/Toast';
+import type { RatingValidation } from '@shared/core';
 
 type Tab = 'simulation' | 'scenarios' | 'real' | 'history';
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -107,7 +110,6 @@ function getDemoBToC(clientId: string): SimulateRatingInput {
 }
 
 export function RatingValidator() {
-  const navigate = useNavigate();
   const { state: locationState } = useLocation();
   const { success, error: showError, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('simulation');
@@ -116,6 +118,11 @@ export function RatingValidator() {
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<RatingSimulationResult | null>(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [validations, setValidations] = useState<RatingValidation[]>([]);
+  const [validationsLoading, setValidationsLoading] = useState(false);
+  const [viewingValidation, setViewingValidation] = useState<RatingValidation | null>(null);
+  const [viewLoadingId, setViewLoadingId] = useState<string | null>(null);
 
   // Simulador de parcelamento
   const [debtAmount, setDebtAmount] = useState<number>(0);
@@ -407,6 +414,129 @@ export function RatingValidator() {
     };
   }, [fillDemoBToC]);
 
+  const handleExportPdf = useCallback(() => {
+    const el = document.getElementById('rating-validator-resultado-print');
+    if (!el) return;
+    setPdfExporting(true);
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('[data-pdf-exclude]').forEach((n) => n.remove());
+    const placeholder = document.createElement('div');
+    placeholder.style.position = 'fixed';
+    placeholder.style.left = '-9999px';
+    placeholder.style.top = '0';
+    placeholder.style.width = '210mm';
+    placeholder.appendChild(clone);
+    document.body.appendChild(placeholder);
+    const run = async () => {
+      try {
+        const opt = {
+          margin: 8,
+          filename: `IATax-Transacao-Tributaria-${new Date().toISOString().slice(0, 10)}.pdf`,
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+          pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
+        };
+        await html2pdf().set(opt as any).from(clone).save();
+        success('PDF exportado com sucesso.');
+      } catch (e) {
+        console.error(e);
+        showError('Falha ao exportar PDF. Tente novamente.');
+      } finally {
+        document.body.removeChild(placeholder);
+        setPdfExporting(false);
+      }
+    };
+    run();
+  }, [success, showError]);
+
+  const loadValidations = useCallback(async () => {
+    setValidationsLoading(true);
+    try {
+      const res = await ratingValidatorService.list({ is_simulation: true, page: 1, limit: 50 });
+      setValidations(res.validations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar histórico');
+    } finally {
+      setValidationsLoading(false);
+    }
+  }, [showError]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadValidations();
+    }
+  }, [activeTab, loadValidations]);
+
+  const handleViewValidation = async (id: string) => {
+    setViewLoadingId(id);
+    setViewingValidation(null);
+    try {
+      const v = await ratingValidatorService.getById(id);
+      setViewingValidation(v);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar validação');
+    } finally {
+      setViewLoadingId(null);
+    }
+  };
+
+  const applyValidationToForm = useCallback((v: RatingValidation) => {
+    const input = v.input_data as SimulateRatingInput | undefined;
+    if (!input) return;
+    const defaultAc = { caixa_equivalentes: 0, aplicacoes_financeiras: 0, contas_receber: 0, estoques: 0, tributos_recuperar: 0, despesas_antecipadas: 0, outros_ativos_circulantes: 0 };
+    const defaultRlp = { contas_receber_lp: 0, emprestimos_concedidos: 0, outros_creditos_lp: 0 };
+    const defaultPc = { fornecedores: 0, emprestimos_financiamentos: 0, obrigacoes_trabalhistas: 0, tributos_pagar: 0, contas_pagar: 0, provisoes: 0, outros_passivos_circulantes: 0 };
+    const defaultPnc = { emprestimos_financiamentos_lp: 0, obrigacoes_trabalhistas_lp: 0, tributos_pagar_lp: 0, provisoes_lp: 0, outros_passivos_nao_circulantes: 0 };
+    const defaultPl = { capital_social: 0, reservas_capital: 0, reservas_lucros: 0, lucros_prejuizos_acumulados: 0, outros_ajustes: 0 };
+    setFormData({
+      ativo_circulante: { ...defaultAc, ...input.ativo_circulante },
+      ativo_nao_circulante: {
+        realizavel_longo_prazo: { ...defaultRlp, ...input.ativo_nao_circulante?.realizavel_longo_prazo },
+        investimentos: input.ativo_nao_circulante?.investimentos ?? 0,
+        imobilizado: input.ativo_nao_circulante?.imobilizado ?? 0,
+        intangivel: input.ativo_nao_circulante?.intangivel ?? 0,
+        outros_ativos_nao_circulantes: input.ativo_nao_circulante?.outros_ativos_nao_circulantes ?? 0,
+      },
+      passivo_circulante: { ...defaultPc, ...input.passivo_circulante },
+      passivo_nao_circulante: { ...defaultPnc, ...input.passivo_nao_circulante },
+      patrimonio_liquido: { ...defaultPl, ...input.patrimonio_liquido },
+      dre: input.dre,
+      competencia: input.competencia ?? v.competence,
+      client_id: v.client_id,
+      save_simulation: false,
+      rating_real: input.rating_real ?? v.rating_real ?? undefined,
+    });
+    setCurrentStep(1);
+    setSimulationResult(null);
+    setActiveTab('simulation');
+  }, []);
+
+  const handleEditValidation = async (id: string) => {
+    setViewLoadingId(id);
+    try {
+      const v = await ratingValidatorService.getById(id);
+      applyValidationToForm(v);
+      success('Validação carregada. Edite os dados e clique em "Calcular classificação" para recalcular.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar validação');
+    } finally {
+      setViewLoadingId(null);
+    }
+  };
+
+  const handleDeleteValidation = async (id: string) => {
+    if (!window.confirm('Excluir esta validação?')) return;
+    try {
+      await ratingValidatorService.delete(id);
+      success('Validação excluída.');
+      setValidations((prev) => prev.filter((v) => v.id !== id));
+      if (viewingValidation?.id === id) setViewingValidation(null);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao excluir');
+    }
+  };
+
   const handleSimulate = async () => {
     if (!formData.competencia) {
       showError('Competência é obrigatória');
@@ -424,6 +554,9 @@ export function RatingValidator() {
       const result = await ratingValidatorService.simulate(formData);
       setSimulationResult(result);
       success('Simulação realizada com sucesso!');
+      if (formData.save_simulation) {
+        loadValidations();
+      }
       // Scroll para resultado
       setTimeout(() => {
         document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -1798,6 +1931,26 @@ export function RatingValidator() {
                       </p>
                     </div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleExportPdf}
+                    disabled={pdfExporting}
+                    className="print:hidden shrink-0 inline-flex items-center gap-2"
+                    aria-label="Exportar resultado para PDF"
+                    data-pdf-exclude
+                  >
+                    {pdfExporting ? (
+                      'Gerando PDF...'
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Exportar para PDF
+                      </>
+                    )}
+                  </Button>
                 </div>
 
                 <div id="result-section" className="space-y-6">
@@ -2581,23 +2734,6 @@ export function RatingValidator() {
                 </Card>
                 </div>
               </div>
-
-              {/* Botão flutuante — abre layout de impressão em página dedicada */}
-              <button
-                type="button"
-                onClick={() =>
-                  navigate('/rating-validator/print-preview', {
-                    state: { simulationResult, debtAmount, debtSimulations },
-                  })
-                }
-                aria-label="Abrir layout de impressão"
-                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand/40"
-                title="Abrir layout de impressão"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </button>
               </>
             )}
           </div>
@@ -2852,17 +2988,111 @@ export function RatingValidator() {
 
         {activeTab === 'history' && (
           <Card>
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📋</div>
-              <h3 className="text-xl font-semibold text-slate-700 mb-2">
-                Histórico de Validações
-              </h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                O histórico de validações salvas será exibido aqui em breve.
-              </p>
-            </div>
+            <h2 className="text-xl font-semibold text-slate-800 mb-4">Validações salvas</h2>
+            {validationsLoading ? (
+              <p className="text-slate-500 py-4">Carregando...</p>
+            ) : validations.length === 0 ? (
+              <p className="text-slate-500 py-4">Nenhuma validação salva.</p>
+            ) : (
+              <ul className="divide-y divide-slate-200">
+                {validations.map((v) => {
+                  const clientName = clients.find((c) => c.id === v.client_id)?.name ?? v.client_id;
+                  return (
+                    <li key={v.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="font-medium text-slate-800">
+                          {clientName} · {v.competence}
+                        </span>
+                        <span className="ml-2">
+                          <Badge className={`${getRatingColor(v.rating_estimado)} text-xs`}>
+                            Rating {v.rating_estimado}
+                          </Badge>
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleViewValidation(v.id)}
+                          disabled={viewLoadingId === v.id}
+                        >
+                          {viewLoadingId === v.id ? 'Carregando...' : 'Visualizar'}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleEditValidation(v.id)}
+                          disabled={viewLoadingId === v.id}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="tertiary"
+                          size="sm"
+                          onClick={() => handleDeleteValidation(v.id)}
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </Card>
         )}
+
+        {/* Modal Visualizar Validação */}
+        <Modal
+          isOpen={!!viewingValidation}
+          onClose={() => setViewingValidation(null)}
+          title={viewingValidation ? `Validação ${viewingValidation.competence}` : ''}
+          size="lg"
+        >
+          {viewingValidation && (
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              <p className="text-sm text-slate-600">
+                Cliente: {clients.find((c) => c.id === viewingValidation.client_id)?.name ?? viewingValidation.client_id}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">Liquidez Corrente</p>
+                  <p className="text-xl font-bold text-slate-900">{viewingValidation.liquidez_corrente != null ? formatNumber(viewingValidation.liquidez_corrente, 2) : '-'}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">Liquidez Geral</p>
+                  <p className="text-xl font-bold text-slate-900">{viewingValidation.liquidez_geral != null ? formatNumber(viewingValidation.liquidez_geral, 2) : '-'}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase">Solvência</p>
+                  <p className="text-xl font-bold text-slate-900">{viewingValidation.solvencia != null ? formatPercent(viewingValidation.solvencia) : '-'}</p>
+                </Card>
+              </div>
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Enquadramento Revisado</p>
+                  <Badge className={`${getRatingColor(viewingValidation.rating_estimado)} text-lg`}>
+                    Rating {viewingValidation.rating_estimado}
+                  </Badge>
+                </div>
+                {viewingValidation.rating_real && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Enquadramento Receita Federal</p>
+                    <Badge className={getRatingColor(viewingValidation.rating_real)}>
+                      Rating {viewingValidation.rating_real}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              {viewingValidation.has_discrepancy && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+                  <p className="text-sm text-rose-800">Discrepância identificada entre o enquadramento revisado e o da Receita Federal.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
       </div>
       <ToastContainer />
     </Layout>

@@ -250,7 +250,7 @@ export class SimuladorIN2306Service {
 
     const tri2025 = calcularCenario2025(input.trimestres, ded, ret, false);
     const { resultados: tri2026, ajusteAnual } = calcularAno2026(input.trimestres, ded, ret, false);
-    const triEquip = calcularCenario2025(input.trimestres, ded, ret, true);
+    const { resultados: triEquip } = calcularAno2026(input.trimestres, ded, ret, true);
 
     const toCenarioAnual = (trimestres: ReturnType<typeof calcularCenario2025>): CenarioAnual => {
       const totais = agregarAnual(trimestres);
@@ -305,7 +305,7 @@ export class SimuladorIN2306Service {
     const rateio2025 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, false, input.ano);
     const rateio2026 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, true, input.ano);
     const rateioEquiparacao = input.aplicar_equiparacao_hospitalar
-      ? rateioAdicionalIrpjPorTrimestre(input.trimestres, true, false, input.ano)
+      ? rateioAdicionalIrpjPorTrimestre(input.trimestres, true, true, 2026)
       : [];
 
     const result: SimuladorTributarioResponse = {

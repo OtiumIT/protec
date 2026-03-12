@@ -626,7 +626,7 @@ export function SimuladorIN2306() {
     ];
     if (cEq) {
       base.push({
-        name: 'Cenário Equiparação',
+        name: 'Equiparação LC 224 (Projeção 2026)',
         total: cEq.irpj_a_rec_total + cEq.csll_a_rec_total + pis(cEq) + cof(cEq),
         irpj: cEq.irpj_a_rec_total,
         csll: cEq.csll_a_rec_total,
@@ -1093,7 +1093,8 @@ export function SimuladorIN2306() {
                   </Card>
                   {equiparacao && tributarioResult.cenario_equiparacao && (
                     <Card className="border-l-4 border-l-violet-500 bg-violet-50/30 p-5 shadow-sm">
-                      <h3 className="text-sm font-bold text-violet-800 uppercase tracking-wider mb-3">Cenário Equiparação</h3>
+                      <h3 className="text-sm font-bold text-violet-800 uppercase tracking-wider mb-3">Cenário Equiparação LC 224 (Projeção 2026)</h3>
+                      <p className="text-xs text-slate-600 mb-2">Cálculo com presunção 8% IRPJ / 12% CSLL nos serviços (equiparação hospitalar) e regras da LC 224/2025 (IN 2.306) — acréscimo 10% sobre o excedente aos limites. Projeção para 2026.</p>
                       <p className="text-xs text-slate-600 mb-3">Tese jurídica. Aceitação pela Receita depende de interpretação e eventual decisão judicial. Ilustrativo para discussão com advogado e contador.</p>
                       <p className="text-xs text-slate-500 mb-2">Receita bruta: {formatMoney(tributarioResult.cenario_equiparacao.receita_bruta_total)}</p>
                       <p className="text-slate-700 text-sm">IRPJ a rec.: <strong className="text-slate-900">{formatMoney(tributarioResult.cenario_equiparacao.irpj_a_rec_total)}</strong></p>
@@ -1123,7 +1124,7 @@ export function SimuladorIN2306() {
                   <h3 className="font-semibold text-slate-800 mb-3">
                     {includePisCofins ? 'Total de tributos por cenário' : 'Imposto total por cenário (IRPJ + CSLL a rec.)'}
                   </h3>
-                  <div className="h-64 w-full" role="img" aria-label={equiparacao && tributarioResult.cenario_equiparacao ? 'Gráfico comparando total de impostos: 2025, 2026 e Equiparação' : 'Gráfico comparando total de impostos: 2025 e 2026'}>
+                  <div className="h-64 w-full" role="img" aria-label={equiparacao && tributarioResult.cenario_equiparacao ? 'Gráfico comparando total de impostos: 2025, 2026 e Equiparação LC 224' : 'Gráfico comparando total de impostos: 2025 e 2026'}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={barChartData} margin={{ top: 12, right: 24, left: 24, bottom: 12 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1359,7 +1360,7 @@ export function SimuladorIN2306() {
                     | undefined;
                   if (!rateioObj) return null;
                   const tabKeys = ['cenario_2025', 'cenario_2026', 'cenario_equiparacao'] as const;
-                  const tabLabels = ['Cálculo 2025 (sem aumento)', 'Projeção 2026 (LC 224/2025)', 'Cenário Equiparação'] as const;
+                  const tabLabels = ['Cálculo 2025 (sem aumento)', 'Projeção 2026 (LC 224/2025)', 'Equiparação LC 224 (2026)'] as const;
                   const activeKey = tabKeys[Math.min(memoriaTab, 2)];
                   const rateioArr = (rateioObj[activeKey] ?? []) as Array<{
                     trimestre: number;
@@ -1430,7 +1431,7 @@ export function SimuladorIN2306() {
                       { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
                       { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
                       ...(equiparacao && tributarioResult.cenario_equiparacao
-                        ? [{ label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao }]
+                        ? [{ label: 'Equiparação LC 224 (2026)', cenario: tributarioResult.cenario_equiparacao }]
                         : []),
                     ].filter((x) => x.cenario) as { label: string; cenario: typeof tributarioResult.cenario_2025 }[];
                     const tabIndex = Math.min(memoriaTab, cenariosMemoria.length - 1);
@@ -1466,7 +1467,7 @@ export function SimuladorIN2306() {
                     { label: 'Cálculo 2025 (sem aumento)', cenario: tributarioResult.cenario_2025 },
                     { label: 'Projeção 2026 (LC 224/2025)', cenario: tributarioResult.cenario_2026 },
                     ...(equiparacao && tributarioResult.cenario_equiparacao
-                      ? [{ label: 'Cenário Equiparação', cenario: tributarioResult.cenario_equiparacao }]
+                      ? [{ label: 'Equiparação LC 224 (2026)', cenario: tributarioResult.cenario_equiparacao }]
                       : []),
                   ]
                     .filter((x): x is { label: string; cenario: NonNullable<typeof x.cenario> } => !!x.cenario)
@@ -1703,7 +1704,7 @@ export function SimuladorIN2306() {
                   </Card>
                   {cEq && (
                     <Card className="p-4 border-l-4 border-l-violet-500">
-                      <h4 className="text-sm font-bold text-violet-800 mb-2">Equiparação</h4>
+                      <h4 className="text-sm font-bold text-violet-800 mb-2">Equiparação LC 224</h4>
                       <p className="text-xs text-slate-500">Receita: {formatMoney(cEq.receita_bruta_total)}</p>
                       <p className="text-sm">IRPJ a rec.: {formatMoney(cEq.irpj_a_rec_total)}</p>
                       <p className="text-sm">CSLL a rec.: {formatMoney(cEq.csll_a_rec_total)}</p>

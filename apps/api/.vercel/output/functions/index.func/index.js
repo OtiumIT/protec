@@ -85601,7 +85601,7 @@ var SimuladorIN2306Service = class {
     ];
     const tri2025 = calcularCenario2025(input.trimestres, ded, ret, false);
     const { resultados: tri2026, ajusteAnual } = calcularAno2026(input.trimestres, ded, ret, false);
-    const triEquip = calcularCenario2025(input.trimestres, ded, ret, true);
+    const { resultados: triEquip } = calcularAno2026(input.trimestres, ded, ret, true);
     const toCenarioAnual = (trimestres) => {
       const totais = agregarAnual(trimestres);
       return {
@@ -85649,7 +85649,7 @@ var SimuladorIN2306Service = class {
     }
     const rateio2025 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, false, input.ano);
     const rateio2026 = rateioAdicionalIrpjPorTrimestre(input.trimestres, false, true, input.ano);
-    const rateioEquiparacao = input.aplicar_equiparacao_hospitalar ? rateioAdicionalIrpjPorTrimestre(input.trimestres, true, false, input.ano) : [];
+    const rateioEquiparacao = input.aplicar_equiparacao_hospitalar ? rateioAdicionalIrpjPorTrimestre(input.trimestres, true, true, 2026) : [];
     const result = {
       ano: input.ano,
       cenario_2025,
@@ -89760,7 +89760,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-12T18:06:05.226Z";
+var API_UPDATED_AT = "2026-03-12T23:20:04.095Z";
 
 // src/modules/index.ts
 var app = new Hono2();
