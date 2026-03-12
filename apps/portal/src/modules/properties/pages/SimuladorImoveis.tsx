@@ -148,7 +148,7 @@ export function SimuladorImoveis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
-  const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma | ''>('');
+  const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
   const [saveSimulation, setSaveSimulation] = useState(false);
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
@@ -376,7 +376,7 @@ export function SimuladorImoveis() {
             aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
             redutor_short_stay_pct: 50,
             contrato_antes_16012025: contratoAntes16012025,
-            perfil_locacao: perfilLocacao || undefined,
+            perfil_locacao: perfilLocacao,
           },
         });
         setResult(res);
@@ -399,7 +399,7 @@ export function SimuladorImoveis() {
         aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 9 : 26.5,
         redutor_short_stay_pct: 50,
         contrato_antes_16012025: contratoAntes16012025,
-        perfil_locacao: perfilLocacao || undefined,
+        perfil_locacao: perfilLocacao,
       };
       if (saveSimulation && saveClientId) {
         const { result: res } = await propertyService.simulateStandaloneAndSave({
@@ -447,7 +447,7 @@ export function SimuladorImoveis() {
         setMeses(input.meses.map((m) => ({ ...m })));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
-      if (input?.opcoes_reforma?.perfil_locacao) setPerfilLocacao(input.opcoes_reforma.perfil_locacao);
+      setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       setEditingSimulationId(id);
       setResult(null);
       success('Simulação carregada. Edite e clique em Simular para atualizar.');
@@ -560,10 +560,9 @@ export function SimuladorImoveis() {
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
               <select
                 value={perfilLocacao}
-                onChange={(e) => setPerfilLocacao((e.target.value || '') as PerfilLocacaoReforma | '')}
+                onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[220px]"
               >
-                <option value="">Automático (curto &gt; longo → 50%)</option>
                 <option value="residencial_comum">Locação residencial comum (Redutor 70%)</option>
                 <option value="hospedagem_temporada">Hospedagem / Temporada (Redutor 50%)</option>
               </select>
