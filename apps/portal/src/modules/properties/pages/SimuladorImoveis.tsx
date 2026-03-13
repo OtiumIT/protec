@@ -878,6 +878,20 @@ export function SimuladorImoveis() {
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(1)}%
             </p>
+            <details className="mt-3">
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                Ver cálculo
+              </summary>
+              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
+                <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Base × Alíquota progressiva</p>
+                <p>Receita bruta: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.receita_bruta_total)}</span></p>
+                <p>− Despesas dedutíveis: <span className="text-slate-800">{formatMoney(result.cenarios.pf.despesas_dedutiveis_total)}</span></p>
+                <p className="border-t border-slate-200 pt-1">= Base de cálculo: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.base_calculo_total)}</span></p>
+                <p className="text-slate-500 text-[10px] mt-1">Tabela progressiva mensal aplicada (0% a 27,5%)</p>
+                <p className="border-t border-slate-200 pt-1 mt-1">= IR anual: <span className="text-brand font-bold">{formatMoney(result.cenarios.pf.imposto_total)}</span></p>
+              </div>
+            </details>
           </Card>
           <Card>
             <h3 className="font-semibold text-slate-700 mb-2">Pessoa Jurídica (Lucro Presumido)</h3>
@@ -893,8 +907,8 @@ export function SimuladorImoveis() {
               return (
                 <p className="text-xs text-slate-500 mt-1">
                   {pres16
-                    ? 'Elegível 16% (serviços; rec. acum. no ano ≤ R$ 120k até o trimestre)'
-                    : 'Presunção 32% (locação de imóveis)'}
+                    ? 'Presunção 16% – PJ prestadora de serviços c/ receita acumulada ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º)'
+                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15)'}
                 </p>
               );
             })()}
@@ -904,17 +918,122 @@ export function SimuladorImoveis() {
               </p>
             )}
             {(result.cenarios.pj.irpj_postergado ?? 0) > 0 && (
-              <p className="text-xs text-amber-700 mt-1 font-medium">
-                Recolhimento da diferença postergada (16% → 32%): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano; a diferença foi recolhida no trimestre em que ocorreu o excesso.
-              </p>
+              <>
+                <p className="text-xs text-amber-700 mt-1 font-medium">
+                  Diferença postergada (Lei 9.249/95, Art. 15, § 8º): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano-calendário; a diferença de IRPJ (16% → 32%) dos trimestres anteriores foi apurada no trimestre do excesso.
+                </p>
+                {result.cenarios.pj.trimestres && result.cenarios.pj.trimestres.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-xs font-semibold text-amber-800 mb-2">Receita Acumulada no Ano-Calendário</p>
+                    <div className="flex items-center justify-between gap-1">
+                      {(() => {
+                        let receitaAcumulada = 0;
+                        return result.cenarios.pj.trimestres.map((t, i) => {
+                          receitaAcumulada += t.receita;
+                          const presuncao = t.presuncao_irpj_pct ?? 32;
+                          const ultrapassou = presuncao === 32 && (result.cenarios.pj.trimestres?.[i - 1]?.presuncao_irpj_pct ?? 16) === 16;
+                          const temPostergado = (t.irpj_postergado ?? 0) > 0;
+                          return (
+                            <div key={t.trimestre} className="flex-1 text-center">
+                              <div className={`text-[10px] font-mono ${presuncao === 16 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                {formatMoney(receitaAcumulada)}
+                              </div>
+                              <div className="flex items-center justify-center mt-1">
+                                {i > 0 && (
+                                  <div className={`h-0.5 flex-1 ${ultrapassou ? 'bg-red-400' : presuncao === 16 ? 'bg-emerald-300' : 'bg-amber-300'}`} />
+                                )}
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                                  ultrapassou ? 'bg-red-500 text-white' : presuncao === 16 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                                }`}>
+                                  {presuncao === 16 ? '16' : '32'}
+                                </div>
+                                {i < (result.cenarios.pj.trimestres?.length ?? 0) - 1 && (
+                                  <div className={`h-0.5 flex-1 ${presuncao === 16 ? 'bg-emerald-300' : 'bg-amber-300'}`} />
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">{t.trimestre}º Tri</div>
+                              {temPostergado && (
+                                <div className="text-[9px] text-red-600 font-medium mt-0.5">
+                                  +{formatMoney(t.irpj_postergado ?? 0)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    <div className="flex items-center gap-4 mt-3 pt-2 border-t border-amber-200 text-[10px]">
+                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> 16% (≤ R$ 120k)</div>
+                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 32% (&gt; R$ 120k)</div>
+                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-red-500" /> Ultrapassou</div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            {(result.memoria_calculo as { cenario_32_fixo_imposto?: number } | undefined)?.cenario_32_fixo_imposto !== undefined && (
-              <p className="text-xs text-slate-500 mt-1">
-                Comparativo: se 32% (locação) = {formatMoney((result.memoria_calculo as { cenario_32_fixo_imposto: number }).cenario_32_fixo_imposto)}
-              </p>
-            )}
+            {(() => {
+              const mc = result.memoria_calculo as { cenario_32_fixo_imposto?: number; aplicar_presuncao_16_servicos?: boolean } | undefined;
+              const cenario32 = mc?.cenario_32_fixo_imposto;
+              const usou16 = mc?.aplicar_presuncao_16_servicos;
+              if (cenario32 !== undefined && usou16) {
+                const economia = cenario32 - result.cenarios.pj.imposto_total;
+                const economiaPct = cenario32 > 0 ? (economia / cenario32) * 100 : 0;
+                return (
+                  <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
+                    <p className="text-xs text-emerald-800 font-medium flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Economia com presunção 16%: {formatMoney(economia)} ({economiaPct.toFixed(1)}%)
+                    </p>
+                    <p className="text-[10px] text-emerald-700 mt-0.5">
+                      Se usasse 32% (locação): {formatMoney(cenario32)} | Com 16% (serviços): {formatMoney(result.cenarios.pj.imposto_total)}
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <details className="mt-3">
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                Ver cálculo
+              </summary>
+              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
+                <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Lucro Presumido (Lei 9.249/95)</p>
+                {(() => {
+                  const pj = result.cenarios.pj;
+                  const presuncao = pj.trimestres?.[0]?.presuncao_irpj_pct ?? 32;
+                  return (
+                    <>
+                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Base de cálculo IRPJ</p>
+                      <p>Receita bruta: <span className="text-slate-800">{formatMoney(pj.receita_bruta_total)}</span></p>
+                      <p>× Presunção {presuncao}%: <span className="text-slate-800 font-semibold">{formatMoney(pj.base_presumida_irpj)}</span> <span className="text-slate-400">(base IRPJ)</span></p>
+                      
+                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: IRPJ (15%)</p>
+                      <p>{formatMoney(pj.base_presumida_irpj)} × 15% = <span className="text-slate-800 font-semibold">{formatMoney(pj.irpj)}</span></p>
+                      {(pj.irpj_adicional ?? 0) > 0 && (
+                        <p>+ Adicional 10% (excedente R$ 60k/tri): <span className="text-amber-700 font-semibold">{formatMoney(pj.irpj_adicional ?? 0)}</span></p>
+                      )}
+                      {(pj.irpj_postergado ?? 0) > 0 && (
+                        <p>+ Diferença § 8º (16%→32%): <span className="text-amber-700 font-semibold">{formatMoney(pj.irpj_postergado ?? 0)}</span></p>
+                      )}
+                      
+                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: CSLL (9%)</p>
+                      <p>{formatMoney(pj.base_presumida_csll)} × 9% = <span className="text-slate-800 font-semibold">{formatMoney(pj.csll)}</span></p>
+                      
+                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: PIS/COFINS (cumulativo)</p>
+                      <p>{formatMoney(pj.receita_bruta_total)} × 0,65% = PIS <span className="text-slate-800">{formatMoney(pj.pis)}</span></p>
+                      <p>{formatMoney(pj.receita_bruta_total)} × 3% = COFINS <span className="text-slate-800">{formatMoney(pj.cofins)}</span></p>
+                      
+                      <p className="border-t border-slate-200 pt-2 mt-2 font-sans">
+                        <span className="text-slate-500">Total =</span> IRPJ + CSLL + PIS + COFINS = <span className="text-slate-800 font-bold">{formatMoney(pj.imposto_total)}</span>
+                      </p>
+                    </>
+                  );
+                })()}
+              </div>
+            </details>
             {result.cenarios.pj.trimestres && result.cenarios.pj.trimestres.length > 0 && (
-              <details className="mt-3">
+              <details className="mt-2">
                 <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
                   Detalhamento por trimestre
                 </summary>
@@ -1021,8 +1140,166 @@ export function SimuladorImoveis() {
             {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
               <p className="text-xs text-slate-600 mt-1">Redutor diferenciado: 50% na parte short stay (hospedagem/temporada).</p>
             )}
+            <details className="mt-3">
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                Ver cálculo IBS/CBS
+              </summary>
+              {(() => {
+                const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
+                if (!ref) return null;
+                const aliqNominal = (ref as { aliquota_nominal_ibs_cbs?: number }).aliquota_nominal_ibs_cbs ?? 26.5;
+                const redutor = (ref as { redutor_locacao_aplicado_pct?: number }).redutor_locacao_aplicado_pct ?? 70;
+                const aliqEfetiva = aliqNominal * (1 - redutor / 100);
+                const receita = ref.receita_bruta_total ?? 0;
+                const debito = (ref as { ibs_cbs_sobre_receita?: number }).ibs_cbs_sobre_receita ?? 0;
+                const creditos = ref.creditos_ibs_cbs ?? 0;
+                const custos = (ref as { custos_operacionais_total?: number }).custos_operacionais_total ?? 0;
+                const liquido = ref.ibs_cbs_liquido ?? 0;
+                const irpj = (ref as { irpj?: number }).irpj ?? 0;
+                const csll = (ref as { csll?: number }).csll ?? 0;
+                
+                return (
+                  <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
+                    <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Composição da alíquota IBS/CBS (LC 214/2025)</p>
+                    
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva</p>
+                    <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(1)}%</span></p>
+                    <p>× (100% − Redutor {redutor}%): <span className="text-slate-800">{(100 - redutor).toFixed(0)}%</span></p>
+                    <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                    
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Débito sobre receita</p>
+                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(1)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
+                    
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
+                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(1)}% = <span className="text-emerald-700">−{formatMoney(creditos)}</span></p>
+                    
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: IBS/CBS líquido</p>
+                    <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                    
+                    {(irpj > 0 || csll > 0) && (
+                      <>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 5: IRPJ + CSLL (sobre lucro presumido)</p>
+                        <p>IRPJ: <span className="text-slate-800">{formatMoney(irpj)}</span> + CSLL: <span className="text-slate-800">{formatMoney(csll)}</span></p>
+                      </>
+                    )}
+                    
+                    <p className="border-t border-slate-200 pt-2 mt-2 font-sans">
+                      <span className="text-slate-500">Total =</span> IBS/CBS + IRPJ + CSLL = <span className="text-slate-800 font-bold">{formatMoney(ref.imposto_total ?? 0)}</span>
+                    </p>
+                  </div>
+                );
+              })()}
+            </details>
           </Card>
           </div>
+
+      {/* Tabela Comparativa Horizontal */}
+      <Card className="mt-6 p-4">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">Comparativo de Cenários</h3>
+        {(() => {
+          const pf = result.cenarios.pf;
+          const pj = result.cenarios.pj;
+          const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
+          const refPj = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
+          
+          const totalRefPf = pf.imposto_total + (refPf?.ibs_cbs_liquido ?? 0);
+          
+          const valores = [
+            { label: 'PF', value: pf.imposto_total },
+            { label: 'PJ', value: pj.imposto_total },
+            { label: 'Ref. PF', value: totalRefPf },
+            { label: 'Ref. PJ', value: refPj?.imposto_total ?? 0 }
+          ];
+          const melhorAtual = pf.imposto_total < pj.imposto_total ? 'PF' : 'PJ';
+          const melhorTotal = valores.reduce((a, b) => a.value < b.value ? a : b);
+          
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="py-2 px-3 text-left font-medium text-slate-600">Métrica</th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600">
+                      <div className="flex items-center justify-end gap-1">
+                        PF (Carnê-Leão)
+                        {melhorAtual === 'PF' && <span className="text-emerald-600 text-xs">✓</span>}
+                      </div>
+                    </th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600">
+                      <div className="flex items-center justify-end gap-1">
+                        PJ (L. Presumido)
+                        {melhorAtual === 'PJ' && <span className="text-emerald-600 text-xs">✓</span>}
+                      </div>
+                    </th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600">Reforma 2027 PF</th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600">
+                      <div className="flex items-center justify-end gap-1">
+                        Reforma 2027 PJ
+                        {melhorTotal.label === 'Ref. PJ' && <span className="text-amber-500 text-xs">★</span>}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-2 px-3 text-slate-700">Imposto total</td>
+                    <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PF' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                      {formatMoney(pf.imposto_total)}
+                    </td>
+                    <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PJ' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                      {formatMoney(pj.imposto_total)}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-800">
+                      {formatMoney(totalRefPf)}
+                    </td>
+                    <td className={`py-2 px-3 text-right font-semibold ${melhorTotal.label === 'Ref. PJ' ? 'text-amber-600' : 'text-slate-800'}`}>
+                      {formatMoney(refPj?.imposto_total ?? 0)}
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-2 px-3 text-slate-700">Alíquota efetiva</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(1)}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(1)}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">
+                      {(pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(1)}%
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-600">{refPj?.aliquota_efetiva?.toFixed(1) ?? '0'}%</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-2 px-3 text-slate-700">Receita bruta</td>
+                    <td className="py-2 px-3 text-right text-slate-600" colSpan={4}>
+                      {formatMoney(pf.receita_bruta_total)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-slate-700">Diferença vs. melhor atual</td>
+                    <td className="py-2 px-3 text-right text-slate-500">
+                      {melhorAtual === 'PF' ? '—' : `+${formatMoney(pf.imposto_total - pj.imposto_total)}`}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-500">
+                      {melhorAtual === 'PJ' ? '—' : `+${formatMoney(pj.imposto_total - pf.imposto_total)}`}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-500">
+                      +{formatMoney(totalRefPf - Math.min(pf.imposto_total, pj.imposto_total))}
+                    </td>
+                    <td className="py-2 px-3 text-right text-slate-500">
+                      {(refPj?.imposto_total ?? 0) <= Math.min(pf.imposto_total, pj.imposto_total)
+                        ? `−${formatMoney(Math.min(pf.imposto_total, pj.imposto_total) - (refPj?.imposto_total ?? 0))}`
+                        : `+${formatMoney((refPj?.imposto_total ?? 0) - Math.min(pf.imposto_total, pj.imposto_total))}`
+                      }
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                <div className="flex items-center gap-1"><span className="text-emerald-600">✓</span> Melhor atual (sem reforma)</div>
+                <div className="flex items-center gap-1"><span className="text-amber-500">★</span> Melhor absoluto</div>
+              </div>
+            </div>
+          );
+        })()}
+      </Card>
 
       {result?.cenarios?.pf?.trimestres && result?.cenarios?.pj?.trimestres && (
         <Card className="mt-6 p-4">
@@ -1037,8 +1314,17 @@ export function SimuladorImoveis() {
                     : 0;
                   return {
                     trimestre: `${t.trimestre}º Tri`,
+                    idx: i,
                     PF: Math.round(t.imposto * 100) / 100,
                     PJ: Math.round(pjImposto * 100) / 100,
+                    pfReceita: t.receita,
+                    pfBase: t.base_calculo,
+                    pjReceita: pjTri?.receita ?? 0,
+                    pjIrpj: (pjTri?.irpj ?? 0) + (pjTri?.irpj_adicional ?? 0) + (pjTri?.irpj_postergado ?? 0),
+                    pjCsll: pjTri?.csll ?? 0,
+                    pjPis: pjTri?.pis ?? 0,
+                    pjCofins: pjTri?.cofins ?? 0,
+                    pjPresuncao: pjTri?.presuncao_irpj_pct ?? 32,
                   };
                 })}
                 margin={{ top: 12, right: 24, left: 24, bottom: 12 }}
@@ -1046,7 +1332,61 @@ export function SimuladorImoveis() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="trimestre" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => formatMoney(v)} labelFormatter={(l) => l} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const data = payload[0]?.payload as {
+                      PF: number;
+                      PJ: number;
+                      pfReceita: number;
+                      pfBase: number;
+                      pjReceita: number;
+                      pjIrpj: number;
+                      pjCsll: number;
+                      pjPis: number;
+                      pjCofins: number;
+                      pjPresuncao: number;
+                    };
+                    if (!data) return null;
+                    return (
+                      <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs max-w-xs">
+                        <p className="font-semibold text-slate-800 mb-2 border-b border-slate-200 pb-1">{label}</p>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="font-medium text-brand flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-brand" />
+                              PF (Carnê-Leão): {formatMoney(data.PF)}
+                            </p>
+                            <p className="text-slate-500 text-[10px] ml-3">
+                              Receita: {formatMoney(data.pfReceita)} → Base: {formatMoney(data.pfBase)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-700 flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-slate-600" />
+                              PJ (L. Presumido): {formatMoney(data.PJ)}
+                            </p>
+                            <p className="text-slate-500 text-[10px] ml-3">
+                              Presunção: {data.pjPresuncao}% | IRPJ: {formatMoney(data.pjIrpj)}
+                            </p>
+                            <p className="text-slate-500 text-[10px] ml-3">
+                              CSLL: {formatMoney(data.pjCsll)} | PIS: {formatMoney(data.pjPis)} | COFINS: {formatMoney(data.pjCofins)}
+                            </p>
+                          </div>
+                          <div className="border-t border-slate-200 pt-1 mt-1">
+                            <p className={`text-[10px] font-medium ${data.PF < data.PJ ? 'text-emerald-600' : 'text-slate-600'}`}>
+                              {data.PF < data.PJ
+                                ? `PF mais vantajosa (−${formatMoney(data.PJ - data.PF)})`
+                                : data.PF > data.PJ
+                                  ? `PJ mais vantajosa (−${formatMoney(data.PF - data.PJ)})`
+                                  : 'Empate'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
                 <Legend />
                 <Bar dataKey="PF" name="Pessoa Física (IR)" fill="var(--color-brand, #0ea5e9)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="PJ" name="Pessoa Jurídica (IRPJ+CSLL+PIS+COFINS)" fill="#475569" radius={[4, 4, 0, 0]} />
@@ -1133,14 +1473,19 @@ export function SimuladorImoveis() {
                   return (
                     <>
                       <p>Receita bruta: {formatMoney(pj.receita_bruta_total)} | Base IRPJ: {formatMoney(pj.base_presumida_irpj)} | Base CSLL: {formatMoney(pj.base_presumida_csll)}</p>
-                      <p>IRPJ: {formatMoney(pj.irpj)} | CSLL: {formatMoney(pj.csll)} | PIS: {formatMoney(pj.pis)} | COFINS: {formatMoney(pj.cofins)} | Total: {formatMoney(pj.imposto_total)}</p>
+                      <p>IRPJ: {formatMoney(pj.irpj)}{(pj.irpj_adicional ?? 0) > 0 && <> + Adic.: {formatMoney(pj.irpj_adicional)}</>}{(pj.irpj_postergado ?? 0) > 0 && <> + Postergado: {formatMoney(pj.irpj_postergado)}</>} | CSLL: {formatMoney(pj.csll)} | PIS: {formatMoney(pj.pis)} | COFINS: {formatMoney(pj.cofins)} | Total: {formatMoney(pj.imposto_total)}</p>
                       {pj.aplicou_in_2306 && <p className="text-amber-700">Aplicou acréscimo IN 2.306/2026 (receita &gt; limites).</p>}
+                      {(pj.irpj_postergado ?? 0) > 0 && (
+                        <p className="text-amber-700 mt-1">
+                          § 8º Lei 9.249/95: Receita acumulada ultrapassou R$ 120k. Diferença de presunção (16% → 32%) dos trimestres anteriores = {formatMoney(pj.irpj_postergado ?? 0)}.
+                        </p>
+                      )}
                       {pj.trimestres?.length ? (
                         <table className="w-full mt-2 text-slate-600">
-                          <thead><tr><th className="text-left">Trim</th><th className="text-right">Receita</th><th className="text-right">Base IRPJ</th><th className="text-right">IRPJ</th><th className="text-right">CSLL</th><th className="text-right">PIS</th><th className="text-right">COFINS</th></tr></thead>
+                          <thead><tr><th className="text-left">Trim</th><th className="text-right">Receita</th><th className="text-center">Pres.</th><th className="text-right">Base IRPJ</th><th className="text-right">IRPJ</th>{pj.trimestres.some(t => (t.irpj_postergado ?? 0) > 0) && <th className="text-right">Posterg.</th>}<th className="text-right">CSLL</th><th className="text-right">PIS</th><th className="text-right">COFINS</th></tr></thead>
                           <tbody>
                             {pj.trimestres.map((t) => (
-                              <tr key={t.trimestre}><td>{t.trimestre}º</td><td className="text-right">{formatMoney(t.receita)}</td><td className="text-right">{formatMoney(t.base_irpj)}</td><td className="text-right">{formatMoney(t.irpj)}</td><td className="text-right">{formatMoney(t.csll)}</td><td className="text-right">{formatMoney(t.pis)}</td><td className="text-right">{formatMoney(t.cofins)}</td></tr>
+                              <tr key={t.trimestre}><td>{t.trimestre}º</td><td className="text-right">{formatMoney(t.receita)}</td><td className="text-center">{t.presuncao_irpj_pct ?? 32}%</td><td className="text-right">{formatMoney(t.base_irpj)}</td><td className="text-right">{formatMoney(t.irpj + (t.irpj_adicional ?? 0))}</td>{pj.trimestres.some(x => (x.irpj_postergado ?? 0) > 0) && <td className="text-right">{(t.irpj_postergado ?? 0) > 0 ? formatMoney(t.irpj_postergado ?? 0) : '—'}</td>}<td className="text-right">{formatMoney(t.csll)}</td><td className="text-right">{formatMoney(t.pis)}</td><td className="text-right">{formatMoney(t.cofins)}</td></tr>
                             ))}
                           </tbody>
                         </table>

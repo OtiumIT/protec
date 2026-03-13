@@ -41,10 +41,18 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### Regra 7: Cenário PJ (Lucro Presumido)
 
-- Presunção 32% IRPJ e CSLL (locação de imóveis)
-- **Prestadora de serviço em geral** (ex.: predominância aluguel curto/Airbnb): receita acumulada até o trimestre ≤ R$ 120k → 16% IRPJ; se ultrapassar → 32% + imposto postergado dos trimestres anteriores (Lei, Bruno Sacani)
-- **Equiparação hospitalar** (`aplicar_equiparacao_hospitalar`): imóveis para serviços de saúde/hospitalares → presunção 8% IRPJ e 12% CSLL (LC 224/2025, IN 2306)
-- IN 2.306/2026: acréscimo 10% na presunção se receita trimestral > R$ 1,25M ou anual > R$ 5M
+- Presunção 32% IRPJ e CSLL (locação de imóveis) – Lei 9.249/95, Art. 15
+- **Prestadora de serviço em geral** (ex.: predominância aluguel curto/Airbnb):
+  - Receita bruta acumulada no ano-calendário ≤ R$ 120k → presunção 16% IRPJ (Lei 9.249/95, Art. 15, § 7º)
+  - Se ultrapassar R$ 120k durante o ano → passa a 32% e recolhe a diferença de IRPJ dos trimestres anteriores no trimestre em que ocorreu o excesso (Lei 9.249/95, Art. 15, § 8º)
+  - Campo `irpj_postergado` retorna o valor da diferença calculada retroativamente
+- **Equiparação hospitalar** (`aplicar_equiparacao_hospitalar`): imóveis para serviços de saúde/hospitalares → presunção 8% IRPJ e 12% CSLL (LC 224/2025, IN RFB 2.306/2026)
+- IN RFB 2.306/2026: acréscimo 10% na presunção se receita trimestral > R$ 1,25M ou anual > R$ 5M
+
+**Fundamentação Legal:**
+- Lei 9.249/1995, Art. 15, § 7º: percentual de presunção reduzido (16%) para PJ exclusivamente prestadora de serviços com receita bruta anual ≤ R$ 120k
+- Lei 9.249/1995, Art. 15, § 8º: cálculo retroativo quando a receita ultrapassar o limite durante o ano-calendário
+- IN RFB 1700/2017: regulamenta a apuração do IRPJ e CSLL no Lucro Presumido
 
 ### Regra 8: Cenário Reforma 2027
 

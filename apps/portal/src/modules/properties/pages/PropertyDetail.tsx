@@ -632,6 +632,11 @@ export function PropertyDetail() {
                     <p className="text-sm text-slate-600 mt-1">
                       Alíquota efetiva: {simulation.cenarios.pj.aliquota_efetiva.toFixed(1)}%
                     </p>
+                    {(simulation.cenarios.pj.irpj_postergado ?? 0) > 0 && (
+                      <p className="text-xs text-amber-700 mt-1 font-medium">
+                        Diferença postergada (Lei 9.249/95, Art. 15, § 8º): {formatCurrency(simulation.cenarios.pj.irpj_postergado ?? 0)}
+                      </p>
+                    )}
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg">
                     <h3 className="font-semibold text-slate-700 mb-2">
