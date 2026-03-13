@@ -1473,7 +1473,7 @@ export function SimuladorImoveis() {
                   return (
                     <>
                       <p>Receita bruta: {formatMoney(pj.receita_bruta_total)} | Base IRPJ: {formatMoney(pj.base_presumida_irpj)} | Base CSLL: {formatMoney(pj.base_presumida_csll)}</p>
-                      <p>IRPJ: {formatMoney(pj.irpj)}{(pj.irpj_adicional ?? 0) > 0 && <> + Adic.: {formatMoney(pj.irpj_adicional)}</>}{(pj.irpj_postergado ?? 0) > 0 && <> + Postergado: {formatMoney(pj.irpj_postergado)}</>} | CSLL: {formatMoney(pj.csll)} | PIS: {formatMoney(pj.pis)} | COFINS: {formatMoney(pj.cofins)} | Total: {formatMoney(pj.imposto_total)}</p>
+                      <p>IRPJ: {formatMoney(pj.irpj)}{(pj.irpj_adicional ?? 0) > 0 && <> + Adic.: {formatMoney(pj.irpj_adicional ?? 0)}</>}{(pj.irpj_postergado ?? 0) > 0 && <> + Postergado: {formatMoney(pj.irpj_postergado ?? 0)}</>} | CSLL: {formatMoney(pj.csll)} | PIS: {formatMoney(pj.pis)} | COFINS: {formatMoney(pj.cofins)} | Total: {formatMoney(pj.imposto_total)}</p>
                       {pj.aplicou_in_2306 && <p className="text-amber-700">Aplicou acréscimo IN 2.306/2026 (receita &gt; limites).</p>}
                       {(pj.irpj_postergado ?? 0) > 0 && (
                         <p className="text-amber-700 mt-1">
