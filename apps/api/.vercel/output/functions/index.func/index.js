@@ -69330,6 +69330,7 @@ var SimulateStandaloneMesSchema = external_exports.object({
 var SimulateStandaloneInputSchema = external_exports.object({
   ano: external_exports.number().int().min(2020).max(2030),
   meses: external_exports.array(SimulateStandaloneMesSchema).length(12),
+  aplicar_equiparacao_hospitalar: external_exports.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional()
 });
 var SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
@@ -69342,6 +69343,7 @@ var SimulatePropertyTaxInputSchema = external_exports.object({
   property_ids: external_exports.array(external_exports.string().uuid()).min(1),
   aliquota_efetiva_dirpf: external_exports.number().min(0).max(100).optional(),
   aplicar_presuncao_16_servicos: external_exports.boolean().optional().default(false),
+  aplicar_equiparacao_hospitalar: external_exports.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional()
 });
 var CenarioPFSchema = external_exports.object({
@@ -69404,7 +69406,10 @@ var CenarioReforma2027Schema = external_exports.object({
   /** true se foi aplicado o regime de transição (3,65%) por ser menor que o regime normal */
   aplicou_transicao_art487: external_exports.boolean().optional(),
   /** true quando foi aplicado redutor 50% na parte short stay (hospedagem/temporada) */
-  redutor_diferenciado_short: external_exports.boolean().optional()
+  redutor_diferenciado_short: external_exports.boolean().optional(),
+  /** Na ótica PJ em 2027+: IRPJ e CSLL (excl. PIS/COFINS substituídos por IBS/CBS) */
+  irpj: external_exports.number().optional(),
+  csll: external_exports.number().optional()
 });
 var BreakEvenSchema = external_exports.object({
   valor_mensal_break_even: external_exports.number(),
@@ -88159,6 +88164,8 @@ var FAIXAS_IRPF_2026 = [
 var PRESUNCAO_IRPJ = 0.32;
 var PRESUNCAO_CSLL = 0.32;
 var PRESUNCAO_IRPJ_16 = 0.16;
+var PRESUNCAO_IRPJ_HOSPITALAR = 0.08;
+var PRESUNCAO_CSLL_HOSPITALAR = 0.12;
 var LIMITE_PRESUNCAO_16_SERVICOS = 12e4;
 var ALIQ_IRPJ2 = 0.15;
 var ALIQ_IRPJ_ADICIONAL2 = 0.1;
@@ -88223,9 +88230,9 @@ function adicionalIRPJ2(baseCalculoTrimestre) {
   const baseAdicional = baseCalculoTrimestre - LIMITE_LUCRO_PRESUMIDO_ADICIONAL2;
   return round28(baseAdicional * ALIQ_IRPJ_ADICIONAL2);
 }
-function calcularPJ(aggregated, elegivelPresuncao16) {
+function calcularPJ(aggregated, elegivelPresuncao16, aplicarEquiparacaoHospitalar) {
   const { receita_total, meses } = aggregated;
-  const presCsll = PRESUNCAO_CSLL;
+  const presCsll = aplicarEquiparacaoHospitalar ? PRESUNCAO_CSLL_HOSPITALAR : PRESUNCAO_CSLL;
   let receitaAcumulada = 0;
   let aplicouIN2306 = false;
   let irpjPostergadoTotal = 0;
@@ -88238,8 +88245,7 @@ function calcularPJ(aggregated, elegivelPresuncao16) {
       if (mes) recTrim += mes.receita;
     }
     receitaAcumulada += recTrim;
-    const usar16 = elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS;
-    const presIrpj = usar16 ? PRESUNCAO_IRPJ_16 : PRESUNCAO_IRPJ;
+    const presIrpj = aplicarEquiparacaoHospitalar ? PRESUNCAO_IRPJ_HOSPITALAR : elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS ? PRESUNCAO_IRPJ_16 : PRESUNCAO_IRPJ;
     trimestreData.push({
       trimestre: t,
       receita: round28(recTrim),
@@ -88263,7 +88269,7 @@ function calcularPJ(aggregated, elegivelPresuncao16) {
     let irpj = round28(baseIrpj * ALIQ_IRPJ2);
     const irpjAdic = adicionalIRPJ2(baseIrpj);
     let irpjPostergado = 0;
-    if (elegivelPresuncao16 && presuncaoUsada === PRESUNCAO_IRPJ && indicePrimeiroExcesso < 0) {
+    if (!aplicarEquiparacaoHospitalar && elegivelPresuncao16 && presuncaoUsada === PRESUNCAO_IRPJ && indicePrimeiroExcesso < 0) {
       indicePrimeiroExcesso = i;
       for (let q = 0; q < i; q++) {
         const qData = trimestreData[q];
@@ -88619,7 +88625,8 @@ var PropertyService = class {
     );
     const cenarioPJ = calcularPJ(
       aggregatedTotal,
-      input.aplicar_presuncao_16_servicos ?? false
+      input.aplicar_presuncao_16_servicos ?? false,
+      input.aplicar_equiparacao_hospitalar ?? false
     );
     const redutorLocacaoSimulate = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const opcoesReformaSimulate = {
@@ -88646,6 +88653,16 @@ var PropertyService = class {
       aliquota_efetiva: aliquotaEfetivaPFReforma,
       ir_pf: cenarioPF.imposto_total
     };
+    const irpjReforma = cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
+    const impostoTotalReformaPJ = Math.round((cenarioReforma.ibs_cbs_liquido + irpjReforma + cenarioPJ.csll) * 100) / 100;
+    const aliquotaEfetivaReformaPJ = aggregatedTotal.receita_total > 0 ? Math.round(impostoTotalReformaPJ / aggregatedTotal.receita_total * 100 * 100) / 100 : 0;
+    const cenarioReformaPJ = {
+      ...cenarioReforma,
+      imposto_total: impostoTotalReformaPJ,
+      aliquota_efetiva: aliquotaEfetivaReformaPJ,
+      irpj: Math.round(irpjReforma * 100) / 100,
+      csll: cenarioPJ.csll
+    };
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -88658,7 +88675,11 @@ var PropertyService = class {
     for (const [pid, entry] of aggregatedMap) {
       const agg = entry.aggregated;
       const pfForProp = calcularPF(agg);
-      const pjForProp = calcularPJ(agg, input.aplicar_presuncao_16_servicos ?? false);
+      const pjForProp = calcularPJ(
+        agg,
+        input.aplicar_presuncao_16_servicos ?? false,
+        input.aplicar_equiparacao_hospitalar ?? false
+      );
       fluxo_caixa.push({
         property_id: pid,
         identificador: entry.identificador,
@@ -88676,7 +88697,7 @@ var PropertyService = class {
         pf: cenarioPF,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPF,
-        reforma_2027_pj: cenarioReforma,
+        reforma_2027_pj: cenarioReformaPJ,
         reforma_2027: cenarioReforma
       },
       break_even,
@@ -88702,8 +88723,8 @@ var PropertyService = class {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: input.aplicar_presuncao_16_servicos ?? false ? 16 : 32,
-          presuncao_csll_pct: 32,
+          presuncao_irpj_pct: input.aplicar_equiparacao_hospitalar ?? false ? 8 : input.aplicar_presuncao_16_servicos ?? false ? 16 : 32,
+          presuncao_csll_pct: input.aplicar_equiparacao_hospitalar ?? false ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,
@@ -88772,7 +88793,11 @@ var PropertyService = class {
       meses: mesesSoma
     };
     const cenarioPF = calcularPF(aggregatedTotal);
-    const cenarioPJ = calcularPJ(aggregatedTotal, aplicarPresuncao16);
+    const cenarioPJ = calcularPJ(
+      aggregatedTotal,
+      aplicarPresuncao16,
+      input.aplicar_equiparacao_hospitalar ?? false
+    );
     const cenarioPJ32Fixo = aplicarPresuncao16 ? calcularPJ(aggregatedTotal, false) : null;
     const redutorLocacao = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada";
@@ -88804,6 +88829,18 @@ var PropertyService = class {
       aliquota_efetiva: aliquotaEfetivaPFReformaStandalone,
       ir_pf: cenarioPF.imposto_total
     };
+    const irpjReformaStandalone = cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
+    const impostoTotalReformaPJStandalone = Math.round((cenarioReforma.ibs_cbs_liquido + irpjReformaStandalone + cenarioPJ.csll) * 100) / 100;
+    const aliquotaEfetivaReformaPJStandalone = receitaTotal > 0 ? Math.round(
+      impostoTotalReformaPJStandalone / receitaTotal * 100 * 100
+    ) / 100 : 0;
+    const cenarioReformaPJStandalone = {
+      ...cenarioReforma,
+      imposto_total: impostoTotalReformaPJStandalone,
+      aliquota_efetiva: aliquotaEfetivaReformaPJStandalone,
+      irpj: Math.round(irpjReformaStandalone * 100) / 100,
+      csll: cenarioPJ.csll
+    };
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -88818,7 +88855,7 @@ var PropertyService = class {
         pf: cenarioPF,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPFStandalone,
-        reforma_2027_pj: cenarioReforma,
+        reforma_2027_pj: cenarioReformaPJStandalone,
         reforma_2027: cenarioReforma
       },
       break_even,
@@ -88854,8 +88891,8 @@ var PropertyService = class {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: aplicarPresuncao16 ? 16 : 32,
-          presuncao_csll_pct: 32,
+          presuncao_irpj_pct: input.aplicar_equiparacao_hospitalar ?? false ? 8 : aplicarPresuncao16 ? 16 : 32,
+          presuncao_csll_pct: input.aplicar_equiparacao_hospitalar ?? false ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,
@@ -89760,7 +89797,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-12T23:20:04.095Z";
+var API_UPDATED_AT = "2026-03-13T01:07:57.245Z";
 
 // src/modules/index.ts
 var app = new Hono2();

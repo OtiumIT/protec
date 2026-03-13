@@ -64,6 +64,7 @@ export function PropertyDetail() {
   const [savingTotals, setSavingTotals] = useState(false);
   const [aliquotaDirpf, setAliquotaDirpf] = useState<string>('');
   const [aplicarPresuncao16, setAplicarPresuncao16] = useState(false);
+  const [aplicarEquiparacaoHospitalar, setAplicarEquiparacaoHospitalar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -284,6 +285,7 @@ export function PropertyDetail() {
         property_ids: [id],
         aliquota_efetiva_dirpf: aliquotaDirpf ? parseFloat(aliquotaDirpf) : undefined,
         aplicar_presuncao_16_servicos: aplicarPresuncao16,
+        aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
       });
       setSimulation(result);
       setShowSimulation(true);
@@ -571,7 +573,7 @@ export function PropertyDetail() {
                     onChange={(e) => setAliquotaDirpf(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center pt-7">
+                <div className="flex flex-col gap-2 pt-7">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -579,6 +581,14 @@ export function PropertyDetail() {
                       onChange={(e) => setAplicarPresuncao16(e.target.checked)}
                     />
                     <span className="text-sm">Presunção 16% (rec. acum. no ano ≤ R$ 120k até o trimestre)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aplicarEquiparacaoHospitalar}
+                      onChange={(e) => setAplicarEquiparacaoHospitalar(e.target.checked)}
+                    />
+                    <span className="text-sm">Equiparação hospitalar (presunção 8% IRPJ, 12% CSLL)</span>
                   </label>
                 </div>
               </div>
@@ -639,14 +649,28 @@ export function PropertyDetail() {
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg">
                     <h3 className="font-semibold text-slate-700 mb-2">
-                      Reforma 2027 – PJ (IBS/CBS)
+                      Reforma 2027 – PJ (IBS/CBS + IRPJ + CSLL)
                     </h3>
                     <p className="text-2xl font-bold text-slate-800">
                       {formatCurrency((simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.imposto_total ?? 0)}
                     </p>
                     <p className="text-sm text-slate-600 mt-1">
-                      Alíquota efetiva IBS/CBS: {(simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}% (redutor 70% locação). Carga total holding ~16–18%.
+                      Alíquota efetiva total: {(simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}% (redutor 70% locação).
                     </p>
+                    {(() => {
+                      const ref = simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027;
+                      const irpj = (ref as { irpj?: number })?.irpj;
+                      const csll = (ref as { csll?: number })?.csll;
+                      const ibsCbs = ref?.ibs_cbs_liquido ?? 0;
+                      if (irpj != null && csll != null) {
+                        return (
+                          <p className="text-xs text-slate-500 mt-1">
+                            IBS/CBS: {formatCurrency(ibsCbs)} + IRPJ: {formatCurrency(irpj)} + CSLL: {formatCurrency(csll)} = Total acima.
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
                 {simulation.cenarios.pf.trimestres?.length > 0 && simulation.cenarios.pj.trimestres?.length > 0 && (
@@ -691,7 +715,6 @@ export function PropertyDetail() {
                   const pjVence = impostoPJ < impostoPF;
                   const economiaReais = Math.abs(impostoPF - impostoPJ);
                   const economiaPct = impostoPF > 0 ? (economiaReais / impostoPF) * 100 : 0;
-                  const reforma = simulation.cenarios.reforma_2027_pf ?? simulation.cenarios.reforma_2027;
                   const acoes: string[] = [];
                   if (pjVence && economiaReais > 0) {
                     acoes.push(`Considerar PJ para esta atividade — economia estimada de ${formatCurrency(economiaReais)} (${economiaPct.toFixed(0)}% sobre a carga em PF).`);
@@ -701,8 +724,9 @@ export function PropertyDetail() {
                   if (simulation.break_even) {
                     acoes.push(`Break-even: a partir de ~${formatCurrency(simulation.break_even.valor_mensal_break_even)}/mês, PJ tende a ser mais vantajosa.`);
                   }
-                  if (reforma?.aliquota_efetiva != null) {
-                    acoes.push(`Reforma 2027: IBS/CBS com redutor 70% para locação (carga holding ~16–18%). Contratos até 16/01/2025 podem optar por 3,65% até 31/12/2028.`);
+                  const reformaPj = simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027;
+                  if (reformaPj?.aliquota_efetiva != null) {
+                    acoes.push(`Reforma 2027: IBS/CBS + IRPJ + CSLL (carga total ${reformaPj.aliquota_efetiva.toFixed(1)}%). Contratos até 16/01/2025 podem optar por 3,65% até 31/12/2028.`);
                   }
                   acoes.push('Holding: também faz sentido por planejamento sucessório, proteção patrimonial e tributação na venda.');
                   if (acoes.length === 0) acoes.push('Revise com seu contador antes de decisão de estruturação.');

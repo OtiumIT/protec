@@ -282,8 +282,10 @@ Por item (imóvel ou “Simulação” no standalone):
 | Campo | Descrição |
 |-------|------------|
 | Mesmos de reforma (receita, custos, creditos_ibs_cbs, ibs_cbs_sobre_receita, ibs_cbs_liquido). |
-| **imposto_total** | Apenas **ibs_cbs_liquido** (não soma IRPJ+CSLL neste objeto). |
+| **imposto_total** | **ibs_cbs_liquido + irpj + irpj_adicional + irpj_postergado + csll** (tributação total da holding na Reforma). |
 | **aliquota_efetiva** | (imposto_total / receita_bruta_total) × 100. |
+| **irpj** | (opcional) IRPJ + adicional + postergado usados na soma (quando ótica PJ). |
+| **csll** | (opcional) CSLL usado na soma (quando ótica PJ). |
 | **aliquota_nominal_ibs_cbs**, **redutor_locacao_aplicado_pct** | Para exibição. |
 | **imposto_transicao_365**, **aplicou_transicao_art487**, **redutor_diferenciado_short** | (opcionais) Idem 4.6. |
 

@@ -43,12 +43,14 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 - Presunção 32% IRPJ e CSLL (locação de imóveis)
 - **Prestadora de serviço em geral** (ex.: predominância aluguel curto/Airbnb): receita acumulada até o trimestre ≤ R$ 120k → 16% IRPJ; se ultrapassar → 32% + imposto postergado dos trimestres anteriores (Lei, Bruno Sacani)
+- **Equiparação hospitalar** (`aplicar_equiparacao_hospitalar`): imóveis para serviços de saúde/hospitalares → presunção 8% IRPJ e 12% CSLL (LC 224/2025, IN 2306)
 - IN 2.306/2026: acréscimo 10% na presunção se receita trimestral > R$ 1,25M ou anual > R$ 5M
 
 ### Regra 8: Cenário Reforma 2027
 
 - IBS/CBS com alíquota nominal estimada configurável (padrão 26,5%; faixa típica 26,5% a 28%)
-- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota → efetiva = nominal × 30% (ex.: 28% → 8,4%). Padrão `redutor_locacao_pct: 70`. Somando IRPJ e CSLL (que continuam), carga total da holding em 2027 estimada na faixa de 16% a 18%.
+- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota → efetiva = nominal × 30% (ex.: 28% → 8,4%). Padrão `redutor_locacao_pct: 70`.
+- **Reforma PJ**: `reforma_2027_pj.imposto_total` = IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS; IRPJ e CSLL sobre lucro presumido).
 - Créditos sobre custos operacionais deduzem do imposto sobre receita
 - Opção `opcoes_reforma.redutor_locacao_pct` (0–100); se omitido, usa 70
 

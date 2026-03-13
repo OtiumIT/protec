@@ -34,6 +34,9 @@ const FAIXAS_IRPF_2026 = [
 const PRESUNCAO_IRPJ = 0.32;
 const PRESUNCAO_CSLL = 0.32;
 const PRESUNCAO_IRPJ_16 = 0.16; // Serviços receita acum. <= 120k/ano (Lei)
+/** Equiparação hospitalar: imóveis para serviços de saúde/hospitalares (LC 224/2025) */
+const PRESUNCAO_IRPJ_HOSPITALAR = 0.08;
+const PRESUNCAO_CSLL_HOSPITALAR = 0.12;
 const LIMITE_PRESUNCAO_16_SERVICOS = 120_000;
 const ALIQ_IRPJ = 0.15;
 const ALIQ_IRPJ_ADICIONAL = 0.1;
@@ -141,10 +144,12 @@ function adicionalIRPJ(baseCalculoTrimestre: number): number {
  * Regra 16% (Bruno Sacani): PJ prestadora de serviço em geral, receita anual até R$ 120k
  * pode usar 16%. Se receita acumulada até um trimestre > 120k, passa a 32% e recolhe
  * a diferença do imposto postergado nos trimestres anteriores.
+ * Equiparação hospitalar: quando aplicarEquiparacaoHospitalar, usa 8% IRPJ e 12% CSLL.
  */
 export function calcularPJ(
   aggregated: AggregatedYear,
-  elegivelPresuncao16: boolean
+  elegivelPresuncao16: boolean,
+  aplicarEquiparacaoHospitalar?: boolean
 ): {
   receita_bruta_total: number;
   base_presumida_irpj: number;
@@ -173,7 +178,9 @@ export function calcularPJ(
   }>;
 } {
   const { receita_total, meses } = aggregated;
-  const presCsll = PRESUNCAO_CSLL;
+  const presCsll = aplicarEquiparacaoHospitalar
+    ? PRESUNCAO_CSLL_HOSPITALAR
+    : PRESUNCAO_CSLL;
 
   let receitaAcumulada = 0;
   let aplicouIN2306 = false;
@@ -194,9 +201,11 @@ export function calcularPJ(
     }
     receitaAcumulada += recTrim;
 
-    const usar16 =
-      elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS;
-    const presIrpj = usar16 ? PRESUNCAO_IRPJ_16 : PRESUNCAO_IRPJ;
+    const presIrpj = aplicarEquiparacaoHospitalar
+      ? PRESUNCAO_IRPJ_HOSPITALAR
+      : elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS
+        ? PRESUNCAO_IRPJ_16
+        : PRESUNCAO_IRPJ;
 
     trimestreData.push({
       trimestre: t,
@@ -244,6 +253,7 @@ export function calcularPJ(
     let irpjPostergado = 0;
 
     if (
+      !aplicarEquiparacaoHospitalar &&
       elegivelPresuncao16 &&
       presuncaoUsada === PRESUNCAO_IRPJ &&
       indicePrimeiroExcesso < 0

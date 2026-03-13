@@ -236,6 +236,7 @@ export const propertyService = {
       taxa_plataforma?: number;
       outros_custos?: number;
     }>;
+    aplicar_equiparacao_hospitalar?: boolean;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
       aliquota_ibs_plena?: number;
@@ -333,6 +334,7 @@ export const propertyService = {
       taxa_plataforma?: number;
       outros_custos?: number;
     }>;
+    aplicar_equiparacao_hospitalar?: boolean;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
       aliquota_ibs_plena?: number;
@@ -361,6 +363,7 @@ export const propertyService = {
     property_ids: string[];
     aliquota_efetiva_dirpf?: number;
     aplicar_presuncao_16_servicos?: boolean;
+    aplicar_equiparacao_hospitalar?: boolean;
     opcoes_reforma?: {
       aliquota_ibs_cbs_estimada?: number;
       aliquota_ibs_plena?: number;

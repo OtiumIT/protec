@@ -274,7 +274,8 @@ export class PropertyService {
     );
     const cenarioPJ = calcularPJ(
       aggregatedTotal,
-      input.aplicar_presuncao_16_servicos ?? false
+      input.aplicar_presuncao_16_servicos ?? false,
+      input.aplicar_equiparacao_hospitalar ?? false
     );
 
     const redutorLocacaoSimulate =
@@ -311,6 +312,22 @@ export class PropertyService {
       ir_pf: cenarioPF.imposto_total,
     };
 
+    /** Reforma PJ: IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS) */
+    const irpjReforma = cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
+    const impostoTotalReformaPJ =
+      Math.round((cenarioReforma.ibs_cbs_liquido + irpjReforma + cenarioPJ.csll) * 100) / 100;
+    const aliquotaEfetivaReformaPJ =
+      aggregatedTotal.receita_total > 0
+        ? Math.round((impostoTotalReformaPJ / aggregatedTotal.receita_total) * 100 * 100) / 100
+        : 0;
+    const cenarioReformaPJ = {
+      ...cenarioReforma,
+      imposto_total: impostoTotalReformaPJ,
+      aliquota_efetiva: aliquotaEfetivaReformaPJ,
+      irpj: Math.round(irpjReforma * 100) / 100,
+      csll: cenarioPJ.csll,
+    };
+
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -326,7 +343,11 @@ export class PropertyService {
     for (const [pid, entry] of aggregatedMap) {
       const agg = entry.aggregated;
       const pfForProp = calcularPF(agg);
-      const pjForProp = calcularPJ(agg, input.aplicar_presuncao_16_servicos ?? false);
+      const pjForProp = calcularPJ(
+        agg,
+        input.aplicar_presuncao_16_servicos ?? false,
+        input.aplicar_equiparacao_hospitalar ?? false
+      );
       fluxo_caixa.push({
         property_id: pid,
         identificador: entry.identificador,
@@ -353,7 +374,7 @@ export class PropertyService {
         pf: cenarioPF,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPF,
-        reforma_2027_pj: cenarioReforma,
+        reforma_2027_pj: cenarioReformaPJ,
         reforma_2027: cenarioReforma,
       },
       break_even,
@@ -379,8 +400,12 @@ export class PropertyService {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: (input.aplicar_presuncao_16_servicos ?? false) ? 16 : 32,
-          presuncao_csll_pct: 32,
+          presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
+            ? 8
+            : (input.aplicar_presuncao_16_servicos ?? false)
+              ? 16
+              : 32,
+          presuncao_csll_pct: (input.aplicar_equiparacao_hospitalar ?? false) ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,
@@ -471,7 +496,11 @@ export class PropertyService {
     };
 
     const cenarioPF = calcularPF(aggregatedTotal);
-    const cenarioPJ = calcularPJ(aggregatedTotal, aplicarPresuncao16);
+    const cenarioPJ = calcularPJ(
+      aggregatedTotal,
+      aplicarPresuncao16,
+      input.aplicar_equiparacao_hospitalar ?? false
+    );
     const cenarioPJ32Fixo = aplicarPresuncao16
       ? calcularPJ(aggregatedTotal, false)
       : null;
@@ -515,6 +544,26 @@ export class PropertyService {
       ir_pf: cenarioPF.imposto_total,
     };
 
+    /** Reforma PJ: IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS) */
+    const irpjReformaStandalone =
+      cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
+    const impostoTotalReformaPJStandalone =
+      Math.round((cenarioReforma.ibs_cbs_liquido + irpjReformaStandalone + cenarioPJ.csll) * 100) /
+      100;
+    const aliquotaEfetivaReformaPJStandalone =
+      receitaTotal > 0
+        ? Math.round(
+            (impostoTotalReformaPJStandalone / receitaTotal) * 100 * 100
+          ) / 100
+        : 0;
+    const cenarioReformaPJStandalone = {
+      ...cenarioReforma,
+      imposto_total: impostoTotalReformaPJStandalone,
+      aliquota_efetiva: aliquotaEfetivaReformaPJStandalone,
+      irpj: Math.round(irpjReformaStandalone * 100) / 100,
+      csll: cenarioPJ.csll,
+    };
+
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -532,7 +581,7 @@ export class PropertyService {
         pf: cenarioPF,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPFStandalone,
-        reforma_2027_pj: cenarioReforma,
+        reforma_2027_pj: cenarioReformaPJStandalone,
         reforma_2027: cenarioReforma,
       },
       break_even,
@@ -576,8 +625,12 @@ export class PropertyService {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: aplicarPresuncao16 ? 16 : 32,
-          presuncao_csll_pct: 32,
+          presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
+            ? 8
+            : aplicarPresuncao16
+              ? 16
+              : 32,
+          presuncao_csll_pct: (input.aplicar_equiparacao_hospitalar ?? false) ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,

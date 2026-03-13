@@ -166,6 +166,7 @@ export function SimuladorImoveis() {
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
+  const [aplicarEquiparacaoHospitalar, setAplicarEquiparacaoHospitalar] = useState(false);
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
@@ -373,6 +374,7 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
+          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
           opcoes_reforma: {
             aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
             aliquota_ibs_plena: aliquotaPlenaIBS,
@@ -410,6 +412,7 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.simulateStandaloneAndSave({
           ano,
           meses: mesesParaEnvio,
+          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
           opcoes_reforma: opcoes,
           client_id: saveClientId,
           title: saveTitle || undefined,
@@ -422,6 +425,7 @@ export function SimuladorImoveis() {
         const res = await propertyService.simulateStandalone({
           ano,
           meses: mesesParaEnvio,
+          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
           opcoes_reforma: opcoes,
         });
         setResult(res);
@@ -464,6 +468,9 @@ export function SimuladorImoveis() {
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
+      if ((input as { aplicar_equiparacao_hospitalar?: boolean })?.aplicar_equiparacao_hospitalar != null) {
+        setAplicarEquiparacaoHospitalar((input as { aplicar_equiparacao_hospitalar?: boolean }).aplicar_equiparacao_hospitalar ?? false);
+      }
       setEditingSimulationId(id);
       setResult(null);
       success('Simulação carregada. Edite e clique em Simular para atualizar.');
@@ -571,6 +578,15 @@ export function SimuladorImoveis() {
                 className="rounded border-slate-300 text-brand focus:ring-brand"
               />
               <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={aplicarEquiparacaoHospitalar}
+                onChange={(e) => setAplicarEquiparacaoHospitalar(e.target.checked)}
+                className="rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Imóvel destinado a serviços de saúde/hospitalares (presunção 8% IRPJ, 12% CSLL)</span>
             </label>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
@@ -971,19 +987,34 @@ export function SimuladorImoveis() {
             </p>
           </Card>
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Reforma 2027 – Pessoa Jurídica (IBS/CBS)</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">Reforma 2027 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
             <p className="text-2xl font-bold text-slate-800">
               {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva IBS/CBS: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
+              Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
               {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct === 70 && (
                 <span className="text-slate-500"> (com redutor 70% para locação)</span>
               )}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Carga total holding em 2027: IBS/CBS + IRPJ + CSLL, estimada na faixa de 16% a 18%.
-            </p>
+            {(() => {
+              const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
+              const irpj = (ref as { irpj?: number })?.irpj;
+              const csll = (ref as { csll?: number })?.csll;
+              const ibsCbs = ref?.ibs_cbs_liquido ?? 0;
+              if (irpj != null && csll != null) {
+                return (
+                  <p className="text-xs text-slate-500 mt-1">
+                    IBS/CBS: {formatMoney(ibsCbs)} + IRPJ: {formatMoney(irpj)} + CSLL: {formatMoney(csll)} = Total acima.
+                  </p>
+                );
+              }
+              return (
+                <p className="text-xs text-slate-500 mt-1">
+                  Total = IBS/CBS (substitui PIS/COFINS) + IRPJ + CSLL sobre o lucro presumido.
+                </p>
+              );
+            })()}
             {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
             )}
@@ -1190,7 +1221,7 @@ export function SimuladorImoveis() {
         const pjVence = impostoPJ < impostoPF;
         const economiaReais = Math.abs(impostoPF - impostoPJ);
         const economiaPct = impostoPF > 0 ? (economiaReais / impostoPF) * 100 : 0;
-        const reforma = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
+        const reformaPj = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
         const pres16 = (result.memoria_calculo as { aplicar_presuncao_16_servicos?: boolean })?.aplicar_presuncao_16_servicos;
         const acoes: string[] = [];
         if (pjVence && economiaReais > 0) {
@@ -1201,8 +1232,8 @@ export function SimuladorImoveis() {
         if (result.break_even) {
           acoes.push(`A partir de aproximadamente ${formatMoney(result.break_even.valor_mensal_break_even)}/mês de receita, PJ tende a ficar mais vantajosa que PF (break-even).`);
         }
-        if (reforma) {
-          acoes.push(`Reforma 2027: IBS/CBS com redutor 70% para locação → carga efetiva estimada ${reforma.aliquota_efetiva?.toFixed(1) ?? '—'}% (holding total ~16–18% com IRPJ+CSLL). Planeje revisão na vigência da reforma.`);
+        if (reformaPj?.aliquota_efetiva != null) {
+          acoes.push(`Reforma 2027: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(1)}%). Planeje revisão na vigência da reforma.`);
         }
         acoes.push('Holding em 2027: além do imposto, faz sentido por planejamento sucessório (ITCMD progressivo), proteção patrimonial e tributação na venda (menor que ganho de capital na PF).');
         acoes.push('Contratos de locação firmados até 16/01/2025 podem optar por alíquota de transição 3,65% até o fim do contrato ou 31/12/2028.');

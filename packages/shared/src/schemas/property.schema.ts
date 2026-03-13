@@ -123,6 +123,7 @@ export const SimulateStandaloneMesSchema = z.object({
 export const SimulateStandaloneInputSchema = z.object({
   ano: z.number().int().min(2020).max(2030),
   meses: z.array(SimulateStandaloneMesSchema).length(12),
+  aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
 });
 
@@ -138,6 +139,7 @@ export const SimulatePropertyTaxInputSchema = z.object({
   property_ids: z.array(z.string().uuid()).min(1),
   aliquota_efetiva_dirpf: z.number().min(0).max(100).optional(),
   aplicar_presuncao_16_servicos: z.boolean().optional().default(false),
+  aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
 });
 
@@ -204,6 +206,9 @@ export const CenarioReforma2027Schema = z.object({
   aplicou_transicao_art487: z.boolean().optional(),
   /** true quando foi aplicado redutor 50% na parte short stay (hospedagem/temporada) */
   redutor_diferenciado_short: z.boolean().optional(),
+  /** Na ótica PJ em 2027+: IRPJ e CSLL (excl. PIS/COFINS substituídos por IBS/CBS) */
+  irpj: z.number().optional(),
+  csll: z.number().optional(),
 });
 
 export const BreakEvenSchema = z.object({
