@@ -6,7 +6,7 @@ import {
   faChartBar,
   faBuilding,
   faFileAlt,
-  faUserDollar,
+  faMoneyBillWave,
   faChevronDown,
   faChevronUp,
   faClock,
@@ -22,7 +22,7 @@ import { VigenciaTag } from './VigenciaTag';
 
 const moduleIcons: Record<string, any> = {
   'simulador-in-2306': faCalculator,
-  'irpf-alta-renda': faUserDollar,
+  'irpf-alta-renda': faMoneyBillWave,
   'rating-validator': faChartBar,
   'simulador-imoveis': faBuilding,
   'editais-pgfn': faFileAlt,

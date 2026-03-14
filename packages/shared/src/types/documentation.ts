@@ -12,9 +12,9 @@ export interface Variable {
 
 export interface NumericExample {
   titulo: string;
-  dados_entrada: Record<string, number | string>;
+  dados_entrada: Record<string, unknown>;
   passos: ExampleStep[];
-  resultado_final: Record<string, number | string>;
+  resultado_final: Record<string, unknown>;
 }
 
 export interface ExampleStep {

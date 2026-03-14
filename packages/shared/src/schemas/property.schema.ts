@@ -125,6 +125,8 @@ export const SimulateStandaloneInputSchema = z.object({
   meses: z.array(SimulateStandaloneMesSchema).length(12),
   aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
+  /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
+  quantidade_imoveis: z.number().int().min(1).optional(),
 });
 
 /** Input para simular e salvar (persistir simulação standalone) */
@@ -171,6 +173,7 @@ export const CenarioPJSchema = z.object({
   imposto_total: z.number(),
   aliquota_efetiva: z.number(),
   aplicou_in_2306: z.boolean(),
+  aplicou_presuncao_16: z.boolean().optional(),
   trimestres: z.array(z.object({
     trimestre: z.number(),
     receita: z.number(),

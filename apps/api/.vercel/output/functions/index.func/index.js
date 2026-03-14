@@ -69412,7 +69412,9 @@ var SimulateStandaloneInputSchema = external_exports.object({
   ano: external_exports.number().int().min(2020).max(2030),
   meses: external_exports.array(SimulateStandaloneMesSchema).length(12),
   aplicar_equiparacao_hospitalar: external_exports.boolean().optional().default(false),
-  opcoes_reforma: OpcoesReformaSchema.optional()
+  opcoes_reforma: OpcoesReformaSchema.optional(),
+  /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
+  quantidade_imoveis: external_exports.number().int().min(1).optional()
 });
 var SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
   client_id: external_exports.string().uuid().optional(),
@@ -69454,6 +69456,7 @@ var CenarioPJSchema = external_exports.object({
   imposto_total: external_exports.number(),
   aliquota_efetiva: external_exports.number(),
   aplicou_in_2306: external_exports.boolean(),
+  aplicou_presuncao_16: external_exports.boolean().optional(),
   trimestres: external_exports.array(external_exports.object({
     trimestre: external_exports.number(),
     receita: external_exports.number(),
@@ -90424,7 +90427,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-14T18:55:05.758Z";
+var API_UPDATED_AT = "2026-03-14T20:49:20.873Z";
 
 // src/modules/index.ts
 var app = new Hono2();
