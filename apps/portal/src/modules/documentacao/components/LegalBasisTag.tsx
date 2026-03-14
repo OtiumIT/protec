@@ -20,8 +20,8 @@ export function LegalBasisTag({ basis, compact = false }: LegalBasisTagProps) {
   if (compact) {
     return (
       <span
-        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 
-                   text-blue-700 dark:text-blue-300 text-xs rounded-md"
+        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 
+                   text-blue-700 text-xs rounded-md border border-blue-200"
         title={basis.descricao ?? fullReference}
       >
         <FontAwesomeIcon icon={faBalanceScale} className="h-3 w-3" />
@@ -31,23 +31,23 @@ export function LegalBasisTag({ basis, compact = false }: LegalBasisTagProps) {
   }
 
   return (
-    <div className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-r-lg">
+    <div className="border-l-4 border-blue-500 bg-blue-50 p-3 rounded-r-lg">
       <div className="flex items-start gap-2">
         <FontAwesomeIcon
           icon={faBalanceScale}
-          className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
+          className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0"
         />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-blue-900 dark:text-blue-100">{fullReference}</p>
+          <p className="font-medium text-blue-900">{fullReference}</p>
           {basis.descricao && (
-            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">{basis.descricao}</p>
+            <p className="text-sm text-blue-700 mt-1">{basis.descricao}</p>
           )}
           {basis.url && (
             <a
               href={basis.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 
+              className="inline-flex items-center gap-1 text-sm text-blue-600 
                          hover:underline mt-2"
             >
               Ver norma completa

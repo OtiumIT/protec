@@ -27,29 +27,29 @@ const categoriaIcons: Record<string, typeof faCoins> = {
 
 const categoriaColors: Record<string, { bg: string; text: string; border: string }> = {
   tributo: {
-    bg: 'bg-blue-50 dark:bg-blue-900/20',
-    text: 'text-blue-700 dark:text-blue-300',
-    border: 'border-blue-300 dark:border-blue-700',
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    border: 'border-blue-300',
   },
   indicador: {
-    bg: 'bg-green-50 dark:bg-green-900/20',
-    text: 'text-green-700 dark:text-green-300',
-    border: 'border-green-300 dark:border-green-700',
+    bg: 'bg-green-50',
+    text: 'text-green-700',
+    border: 'border-green-300',
   },
   regime: {
-    bg: 'bg-purple-50 dark:bg-purple-900/20',
-    text: 'text-purple-700 dark:text-purple-300',
-    border: 'border-purple-300 dark:border-purple-700',
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    border: 'border-purple-300',
   },
   instrumento: {
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
-    text: 'text-orange-700 dark:text-orange-300',
-    border: 'border-orange-300 dark:border-orange-700',
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    border: 'border-orange-300',
   },
   conceito: {
-    bg: 'bg-slate-50 dark:bg-slate-900/20',
-    text: 'text-slate-700 dark:text-slate-300',
-    border: 'border-slate-300 dark:border-slate-700',
+    bg: 'bg-slate-100',
+    text: 'text-slate-700',
+    border: 'border-slate-300',
   },
 };
 
@@ -69,17 +69,17 @@ function TermoCard({ termo }: { termo: GlossarioTermo }) {
             <span className={`text-xs font-medium ${colors.text}`}>{categoria?.nome}</span>
           </div>
           <span
-            className={`text-lg font-bold ${colors.text} bg-white dark:bg-slate-800 px-2 py-0.5 rounded`}
+            className={`text-lg font-bold ${colors.text} bg-white px-2 py-0.5 rounded`}
           >
             {termo.sigla}
           </span>
         </div>
       </div>
-      <div className="p-4 bg-white dark:bg-slate-800">
-        <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+      <div className="p-4 bg-white">
+        <h3 className="font-semibold text-slate-900 mb-2">
           {termo.nome_completo}
         </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+        <p className="text-sm text-slate-600 leading-relaxed">
           {termo.descricao}
         </p>
       </div>
@@ -132,10 +132,10 @@ export function Glossario() {
       <Layout>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FontAwesomeIcon icon={faLock} className="h-12 w-12 text-slate-400 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">
+          <h2 className="text-xl font-semibold text-slate-700">
             Acesso Restrito
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">
+          <p className="text-slate-500 mt-2">
             Esta area e restrita a administradores.
           </p>
         </div>
@@ -149,22 +149,22 @@ export function Glossario() {
         <div className="mb-6">
           <button
             onClick={() => navigate('/documentacao')}
-            className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 
-                       dark:hover:text-slate-100 transition-colors mb-4"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 
+                       transition-colors mb-4"
           >
             <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
             Voltar para Documentacao
           </button>
 
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <FontAwesomeIcon icon={faBook} className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <FontAwesomeIcon icon={faBook} className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <h1 className="text-2xl font-bold text-slate-900">
                 Glossario Tributario
               </h1>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-slate-600">
                 {glossarioTermos.length} termos tecnicos
               </p>
             </div>
@@ -182,8 +182,8 @@ export function Glossario() {
               placeholder="Buscar termos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 
-                         rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 
+                         rounded-lg bg-white text-slate-900
                          focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
@@ -195,7 +195,7 @@ export function Glossario() {
                 ${
                   selectedCategoria === null
                     ? 'bg-purple-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
             >
               Todos
@@ -208,7 +208,7 @@ export function Glossario() {
                   ${
                     selectedCategoria === cat.key
                       ? 'bg-purple-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
               >
                 <FontAwesomeIcon icon={categoriaIcons[cat.key]} className="h-3 w-3" />
@@ -220,8 +220,8 @@ export function Glossario() {
 
         {filteredTermos.length === 0 ? (
           <div className="text-center py-12">
-            <FontAwesomeIcon icon={faBook} className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" />
-            <p className="text-slate-500 dark:text-slate-400">Nenhum termo encontrado.</p>
+            <FontAwesomeIcon icon={faBook} className="h-12 w-12 text-slate-300 mb-4" />
+            <p className="text-slate-500">Nenhum termo encontrado.</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

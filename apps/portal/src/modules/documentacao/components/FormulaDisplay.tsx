@@ -15,7 +15,7 @@ export function FormulaDisplay({ formula, block = false, className = '' }: Formu
 
   if (block) {
     return (
-      <div className={`bg-slate-50 dark:bg-slate-800 p-4 rounded-lg overflow-x-auto ${className}`}>
+      <div className={`bg-slate-100 p-4 rounded-lg overflow-x-auto border border-slate-200 ${className}`}>
         <BlockMath math={cleanFormula} />
       </div>
     );

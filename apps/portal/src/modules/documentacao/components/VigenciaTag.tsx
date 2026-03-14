@@ -43,27 +43,27 @@ export function VigenciaTag({ vigencia, compact = false }: VigenciaTagProps) {
 
   const styles = {
     active: {
-      bg: 'bg-green-50 dark:bg-green-900/20',
+      bg: 'bg-green-50',
       border: 'border-green-500',
-      text: 'text-green-800 dark:text-green-200',
+      text: 'text-green-800',
       icon: faCalendarCheck,
-      iconColor: 'text-green-600 dark:text-green-400',
+      iconColor: 'text-green-600',
       label: 'Vigente',
     },
     pending: {
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      bg: 'bg-blue-50',
       border: 'border-blue-500',
-      text: 'text-blue-800 dark:text-blue-200',
+      text: 'text-blue-800',
       icon: faCalendarAlt,
-      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconColor: 'text-blue-600',
       label: 'Futura',
     },
     expired: {
-      bg: 'bg-slate-50 dark:bg-slate-900/20',
-      border: 'border-slate-500',
-      text: 'text-slate-800 dark:text-slate-200',
+      bg: 'bg-slate-100',
+      border: 'border-slate-400',
+      text: 'text-slate-700',
       icon: faCalendarTimes,
-      iconColor: 'text-slate-600 dark:text-slate-400',
+      iconColor: 'text-slate-500',
       label: 'Expirada',
     },
   };
@@ -77,7 +77,7 @@ export function VigenciaTag({ vigencia, compact = false }: VigenciaTagProps) {
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1 px-2 py-1 ${style.bg} ${style.text} text-xs rounded-md`}
+        className={`inline-flex items-center gap-1 px-2 py-1 ${style.bg} ${style.text} text-xs rounded-md border ${style.border}`}
         title={vigencia.observacao ?? dateRange}
       >
         <FontAwesomeIcon icon={style.icon} className="h-3 w-3" />

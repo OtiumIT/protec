@@ -13,27 +13,27 @@ interface AlertTagProps {
 
 const alertStyles = {
   atencao: {
-    bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+    bg: 'bg-yellow-50',
     border: 'border-yellow-500',
-    text: 'text-yellow-800 dark:text-yellow-200',
+    text: 'text-yellow-800',
     icon: faExclamationTriangle,
-    iconColor: 'text-yellow-600 dark:text-yellow-400',
+    iconColor: 'text-yellow-600',
     label: 'Atencao',
   },
   importante: {
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
+    bg: 'bg-orange-50',
     border: 'border-orange-500',
-    text: 'text-orange-800 dark:text-orange-200',
+    text: 'text-orange-800',
     icon: faExclamationCircle,
-    iconColor: 'text-orange-600 dark:text-orange-400',
+    iconColor: 'text-orange-600',
     label: 'Importante',
   },
   critico: {
-    bg: 'bg-red-50 dark:bg-red-900/20',
+    bg: 'bg-red-50',
     border: 'border-red-500',
-    text: 'text-red-800 dark:text-red-200',
+    text: 'text-red-800',
     icon: faTimesCircle,
-    iconColor: 'text-red-600 dark:text-red-400',
+    iconColor: 'text-red-600',
     label: 'Critico',
   },
 };
@@ -44,7 +44,7 @@ export function AlertTag({ alert, compact = false }: AlertTagProps) {
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1 px-2 py-1 ${style.bg} ${style.text} text-xs rounded-md`}
+        className={`inline-flex items-center gap-1 px-2 py-1 ${style.bg} ${style.text} text-xs rounded-md border ${style.border}`}
         title={alert.mensagem}
       >
         <FontAwesomeIcon icon={style.icon} className="h-3 w-3" />
