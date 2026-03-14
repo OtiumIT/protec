@@ -252,6 +252,67 @@ O sistema calcula automaticamente:
 - **Arquivo não processado**: Validação real retorna erro se arquivo não estiver 'processed'
 - **Módulo desativado**: Retorna `402 Payment Required`
 
+## Comparativo com Parcelamento PGFN
+
+### Funcionalidade
+O sistema permite comparar o rating calculado (baseado no Balanço Patrimonial) com o rating efetivamente aplicado no parcelamento concedido pela PGFN. Isso permite identificar divergências e potenciais oportunidades de revisão do enquadramento.
+
+### Fluxo de Comparativo
+1. Usuário faz upload do PDF do Recibo de Adesão PGFN em `POST /rating-validator/extract-from-pgfn-pdf`
+2. Backend extrai dados via OCR (OpenAI GPT-4o)
+3. Sistema infere o rating baseado na modalidade do parcelamento
+4. Usuário inclui os dados do parcelamento na simulação (`parcelamento_pgfn`)
+5. Backend calcula o comparativo com economia potencial e fundamentação jurídica
+
+### Dados Extraídos do Recibo PGFN
+- Número da conta de negociação
+- CNPJ e razão social
+- Modalidade e negociação
+- Dívidas negociadas (principal, multa, juros, encargo legal)
+- Capacidade de pagamento em 60 meses
+- Demonstrativo de consolidação
+- Valores de entrada e parcelas
+
+### Benefícios por Rating
+| Rating | Desconto Max. Multa/Juros | Prazo Max. | Entrada Min. | Redução Principal |
+|--------|---------------------------|------------|--------------|-------------------|
+| A      | 0%                        | 60 meses   | 6%           | Não               |
+| B      | 50%                       | 84 meses   | 5%           | Não               |
+| C      | 65%                       | 108 meses  | 4%           | Não               |
+| D      | 70%                       | 120 meses  | 3%           | Sim (casos específicos) |
+
+### Inferência de Rating pelo Parcelamento
+- "SEM REDUCAO" ou desconto máximo 0% → Rating A
+- Desconto máximo até 50% → Rating B
+- Desconto máximo até 65% → Rating C
+- Desconto máximo > 65% → Rating D
+
+### Economia Potencial
+Se o rating calculado for PIOR que o concedido (ex: D vs A), o sistema calcula:
+- Economia potencial = Desconto adicional sobre multa e juros
+- Parcelas extras disponíveis
+- Valor excedente na entrada
+
+### Endpoint de Extração PGFN
+
+**POST /rating-validator/extract-from-pgfn-pdf**
+- **Descrição**: Extrai dados do PDF do Recibo de Adesão PGFN via OCR
+- **Body**: `multipart/form-data` com campo `file` (arquivo PDF)
+- **Resposta**: `{ data: { parcelamento: ParcelamentoPGFN, confianca_extracao?: number, campos_incertos?: string[] } }`
+- **Autenticação**: Requerida
+- **Módulo**: Requer módulo `RATING_VALIDATOR` ativo
+
+## Geração de Relatório
+
+O sistema suporta geração de relatório em PDF para impressão contendo:
+- Resumo do rating calculado vs informado
+- Indicadores financeiros (LC, LG, Solvência)
+- Valores do Balanço Patrimonial
+- Comparativo com parcelamento PGFN (se disponível)
+- Economia potencial identificada
+- Fundamentação jurídica para revisão
+- Base legal (Portaria PGFN 6.757/2022, Lei 13.988/2020)
+
 ## Próximos Passos
 1. Obter exemplos de arquivos ECD reais
 2. Mapear estrutura JSONB de `extracted_fiscal_data`

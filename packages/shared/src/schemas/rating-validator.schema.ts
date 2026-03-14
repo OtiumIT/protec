@@ -96,6 +96,76 @@ export const DRESchema = z.object({
   outros_resultados: signedMonetary.default(0),
 }).optional();
 
+// =====================================================
+// PARCELAMENTO PGFN - Schemas para dados do recibo
+// =====================================================
+
+// Schema para cada dívida negociada
+export const DividaNegociadaSchema = z.object({
+  numero_divida: z.string(),
+  devedor_cnpj: z.string().optional(),
+  codigo_receita: z.string().optional(),
+  data_consolidacao: z.string().optional(),
+  principal: monetaryValue,
+  multa: monetaryValue,
+  juros: monetaryValue,
+  encargo_legal: monetaryValue,
+  total: monetaryValue,
+});
+
+// Schema para capacidade de pagamento calculada pela PGFN
+export const CapacidadePagamentoPGFNSchema = z.object({
+  valor_divida_adesao: monetaryValue,
+  capacidade_60_meses: monetaryValue,
+  permite_desconto: z.boolean(),
+  desconto_maximo_pct: z.number().min(0).max(100),
+});
+
+// Schema para demonstrativo de consolidação
+export const ConsolidacaoParcelamentoSchema = z.object({
+  principal: monetaryValue,
+  multa: monetaryValue,
+  juros: monetaryValue,
+  encargo_legal: monetaryValue,
+  total_sem_desconto: monetaryValue,
+  entrada_total: monetaryValue,
+  desconto_total: monetaryValue,
+  creditos_utilizados: monetaryValue.optional(),
+  total_a_pagar: monetaryValue,
+});
+
+// Schema para dados de pagamento (entrada e parcelas)
+export const PagamentoParcelamentoSchema = z.object({
+  entrada_qtd: z.number().int().nonnegative(),
+  entrada_valor: monetaryValue,
+  parcelas_qtd: z.number().int().nonnegative(),
+  parcelas_valor: monetaryValue,
+});
+
+// Schema principal do Parcelamento PGFN
+export const ParcelamentoPGFNSchema = z.object({
+  numero_conta: z.string().optional(),
+  cnpj: z.string(),
+  razao_social: z.string(),
+  negociacao: z.string(),
+  modalidade: z.string(),
+  data_adesao: z.string(),
+  
+  dividas: z.array(DividaNegociadaSchema),
+  
+  capacidade_pagamento: CapacidadePagamentoPGFNSchema,
+  
+  consolidacao: ConsolidacaoParcelamentoSchema,
+  
+  pagamento: PagamentoParcelamentoSchema,
+  
+  rating_inferido: z.enum(['A', 'B', 'C', 'D']).optional(),
+});
+
+// =====================================================
+// SIMULAÇÃO - Schema principal
+// =====================================================
+
 // Schema principal para simulação (com pré-processamento que arredonda todos os números)
 const SimulateRatingSchemaRaw = z.object({
   // Balanço Patrimonial (campos granulares)
@@ -123,6 +193,9 @@ const SimulateRatingSchemaRaw = z.object({
     .transform((v) => (v === '' || v == null ? undefined : v)),
   rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
   save_simulation: z.boolean().optional().default(false),
+  
+  // Dados do parcelamento PGFN (opcional - para comparativo)
+  parcelamento_pgfn: ParcelamentoPGFNSchema.optional(),
 });
 
 /** Schema com pré-processamento: arredonda todos os números do body antes de validar (evita 400 por resíduos de float). */
@@ -191,4 +264,42 @@ export const RatingValidatorFiscalFileIdParamSchema = z.object({
 export const ValidateFromDataSchema = z.object({
   competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
   rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
+});
+
+// Schema para extração de PDF do recibo PGFN (resposta da API)
+export const ExtractPGFNPdfResponseSchema = z.object({
+  parcelamento: ParcelamentoPGFNSchema,
+  confianca_extracao: z.number().min(0).max(100).optional(),
+  campos_incertos: z.array(z.string()).optional(),
+});
+
+// Schema para comparativo de parcelamento
+export const ComparativoParcelamentoSchema = z.object({
+  rating_calculado: z.enum(['A', 'B', 'C', 'D']),
+  rating_pgfn: z.enum(['A', 'B', 'C', 'D']),
+  divergencia: z.boolean(),
+  
+  cenario_calculado: z.object({
+    desconto_maximo_multa_juros_pct: z.number(),
+    prazo_maximo_meses: z.number(),
+    entrada_minima_pct: z.number(),
+  }),
+  
+  cenario_pgfn: z.object({
+    valor_total_divida: z.number(),
+    entrada_total: z.number(),
+    entrada_pct: z.number(),
+    parcelas_qtd: z.number(),
+    parcelas_valor: z.number(),
+    desconto_aplicado_pct: z.number(),
+    total_a_pagar: z.number(),
+  }),
+  
+  diferenca_financeira: z.object({
+    economia_potencial: z.number(),
+    parcelas_extras_disponiveis: z.number(),
+    valor_excedente_entrada: z.number(),
+  }),
+  
+  fundamentacao_juridica: z.string(),
 });

@@ -7,6 +7,7 @@ import {
   faChartLine,
   faBuilding,
   faGear,
+  faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
@@ -56,6 +57,8 @@ const CATEGORY_ICONS = {
   building: <FontAwesomeIcon icon={faBuilding} className="w-5 h-5" />,
   /** Administração: engrenagem */
   cogSliders: <FontAwesomeIcon icon={faGear} className="w-5 h-5" />,
+  /** Documentação: livro aberto */
+  bookOpen: <FontAwesomeIcon icon={faBookOpen} className="w-5 h-5" />,
 };
 
 // Menu Super Admin (gestão global do sistema)
@@ -430,6 +433,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       }
       if (adminItems.length)
         categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
+      
+      // Documentação (apenas para admin/super_admin)
+      categories.push({ id: 'documentacao', name: 'Documentação', icon: CATEGORY_ICONS.bookOpen, items: [], directLink: '/documentacao' });
+      
       return categories;
     }
 
@@ -468,6 +475,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     if (gestaoUsuarios) adminItems.push(gestaoUsuarios);
     if (adminItems.length)
       categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
+    
+    // Documentação (apenas para admin/super_admin)
+    categories.push({ id: 'documentacao', name: 'Documentação', icon: CATEGORY_ICONS.bookOpen, items: [], directLink: '/documentacao' });
+    
     return categories;
   };
 

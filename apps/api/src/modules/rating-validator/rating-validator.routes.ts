@@ -16,6 +16,7 @@ import {
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 import { extractEcdFromPdf } from './extract-from-ecd-pdf';
+import { extractPgfnFromPdf } from './extract-from-pgfn-pdf';
 
 /** Arredonda número para 2 casas decimais (evita resíduos de float que quebram multipleOf(0.01)) */
 function round2(value: number): number {
@@ -91,6 +92,7 @@ ratingValidatorRoutes.post('/simulate', async (c) => {
             discrepancy_details: result.discrepancy_details,
             validation_id: result.validation_id,
             is_simulation: true,
+            comparativo_parcelamento: result.comparativo_parcelamento,
           },
         },
         200
@@ -126,6 +128,36 @@ ratingValidatorRoutes.post('/extract-from-ecd-pdf', async (c) => {
       );
     }
     const result = await extractEcdFromPdf(buffer);
+    return c.json({ data: result }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/**
+ * POST /rating-validator/extract-from-pgfn-pdf
+ * Extrai dados do PDF do Recibo de Adesão PGFN via OCR e retorna JSON estruturado.
+ * Body: multipart/form-data com campo "file" (arquivo PDF).
+ */
+ratingValidatorRoutes.post('/extract-from-pgfn-pdf', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
+    }
+    if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
+      return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length > MAX_FILE_SIZE_BYTES) {
+      return c.json(
+        { error: { message: 'O arquivo é muito grande. O limite é 15 MB.', code: 'FILE_TOO_LARGE' } },
+        400
+      );
+    }
+    const result = await extractPgfnFromPdf(buffer);
     return c.json({ data: result }, 200);
   } catch (err) {
     return errorHandler(err, c);
@@ -189,6 +221,54 @@ ratingValidatorRoutes.get(
     }
   }
 );
+
+/**
+ * PATCH /rating-validator/:id
+ * Atualizar validação existente (re-simula com novos dados)
+ */
+ratingValidatorRoutes.patch('/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: { message: 'ID é obrigatório.', code: 'ID_REQUIRED' } }, 400);
+    }
+    const body = await c.req.json().catch(() => null);
+    if (body == null) {
+      return c.json({ error: { message: 'Body JSON inválido.', code: 'INVALID_JSON' } }, 400);
+    }
+    const sanitized = deepRoundNumbers(body) as Record<string, unknown>;
+    const parsed = SimulateRatingSchema.safeParse(sanitized);
+    if (!parsed.success) {
+      return c.json(
+        { error: { message: 'Dados inválidos.', code: 'VALIDATION_ERROR', details: parsed.error.flatten() } },
+        400
+      );
+    }
+    const input = parsed.data;
+    const userId = c.get('user')?.id;
+
+    const { validation, result } = await ratingValidatorService.update(id, input, userId);
+
+    return c.json(
+      {
+        data: {
+          validation,
+          calculated_values: result.calculated_values,
+          indicators: result.indicators,
+          indicator_analysis: result.indicator_analysis,
+          rating_estimado: result.rating_estimado,
+          rating_real: result.rating_real,
+          has_discrepancy: result.has_discrepancy,
+          discrepancy_details: result.discrepancy_details,
+          comparativo_parcelamento: result.comparativo_parcelamento,
+        },
+      },
+      200
+    );
+  } catch (error) {
+    return errorHandler(error, c);
+  }
+});
 
 /**
  * DELETE /rating-validator/:id

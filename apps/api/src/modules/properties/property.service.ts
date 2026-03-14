@@ -272,11 +272,7 @@ export class PropertyService {
       aggregatedTotal,
       input.aliquota_efetiva_dirpf
     );
-    const cenarioPJ = calcularPJ(
-      aggregatedTotal,
-      input.aplicar_presuncao_16_servicos ?? false,
-      input.aplicar_equiparacao_hospitalar ?? false
-    );
+    const cenarioPJ = calcularPJ(aggregatedTotal);
 
     const redutorLocacaoSimulate =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
@@ -343,11 +339,7 @@ export class PropertyService {
     for (const [pid, entry] of aggregatedMap) {
       const agg = entry.aggregated;
       const pfForProp = calcularPF(agg);
-      const pjForProp = calcularPJ(
-        agg,
-        input.aplicar_presuncao_16_servicos ?? false,
-        input.aplicar_equiparacao_hospitalar ?? false
-      );
+      const pjForProp = calcularPJ(agg);
       fluxo_caixa.push({
         property_id: pid,
         identificador: entry.identificador,
@@ -484,8 +476,6 @@ export class PropertyService {
       (s, m) => s + (m.receita_aluguel_curto ?? 0),
       0
     );
-    const aplicarPresuncao16 =
-      receitaTotal < 120_000 && receitaShortTotal > receitaLongaTotal;
 
     const aggregatedTotal = {
       ano: input.ano,
@@ -496,14 +486,8 @@ export class PropertyService {
     };
 
     const cenarioPF = calcularPF(aggregatedTotal);
-    const cenarioPJ = calcularPJ(
-      aggregatedTotal,
-      aplicarPresuncao16,
-      input.aplicar_equiparacao_hospitalar ?? false
-    );
-    const cenarioPJ32Fixo = aplicarPresuncao16
-      ? calcularPJ(aggregatedTotal, false)
-      : null;
+    const cenarioPJ = calcularPJ(aggregatedTotal);
+    // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
     const redutorLocacao =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
         ? 50
@@ -608,10 +592,9 @@ export class PropertyService {
       memoria_calculo: {
         ano: input.ano,
         modo: 'standalone',
-        aplicar_presuncao_16_servicos: aplicarPresuncao16,
+        aplicar_presuncao_16_servicos: cenarioPJ.aplicou_presuncao_16,
         aliquota_ibs_cbs_reforma: cenarioReforma.aliquota_nominal_ibs_cbs,
         redutor_locacao_pct: redutorLocacao,
-        cenario_32_fixo_imposto: cenarioPJ32Fixo?.imposto_total,
         receita_total: receitaTotal,
         despesas_dedutiveis_total: despesasDedutiveisTotal,
         custos_operacionais_total: custosOperacionaisTotal,
@@ -625,12 +608,8 @@ export class PropertyService {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
-            ? 8
-            : aplicarPresuncao16
-              ? 16
-              : 32,
-          presuncao_csll_pct: (input.aplicar_equiparacao_hospitalar ?? false) ? 12 : 32,
+          presuncao_irpj_pct: cenarioPJ.aplicou_presuncao_16 ? 16 : 32,
+          presuncao_csll_pct: 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,

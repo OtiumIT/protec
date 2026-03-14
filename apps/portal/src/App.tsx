@@ -27,6 +27,8 @@ import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/Ra
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
 import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
+import { Documentacao } from './modules/documentacao/pages/Documentacao';
+import { Glossario } from './modules/documentacao/pages/Glossario';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -204,6 +206,22 @@ function AppRoutes() {
       <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
       <Route path="/properties/:id" element={<Navigate to="/properties/simulador" replace />} />
       <Route path="/properties" element={<Navigate to="/properties/simulador" replace />} />
+      <Route
+        path="/documentacao"
+        element={
+          <PrivateRoute>
+            <Documentacao />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/documentacao/glossario"
+        element={
+          <PrivateRoute>
+            <Glossario />
+          </PrivateRoute>
+        }
+      />
         <Route path="/quem-somos" element={<QuemSomos />} />
         <Route path="/o-produto" element={<OProduto />} />
         <Route path="/fale-conosco" element={<FaleConosco />} />

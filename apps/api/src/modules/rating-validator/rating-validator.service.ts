@@ -1,14 +1,81 @@
 import {
   RatingValidatorRepository,
   CreateRatingValidationData,
+  FullUpdateRatingValidationData,
 } from './rating-validator.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import { ClientRepository } from '../clients/client.repository';
 import { FiscalFileRepository } from '../fiscal-files/fiscal-file.repository';
-import { SimulateRatingSchema } from '@shared/core';
+import { SimulateRatingSchema, ParcelamentoPGFNSchema } from '@shared/core';
 import type { z } from 'zod';
 
 type SimulateRatingInput = z.infer<typeof SimulateRatingSchema>;
+type ParcelamentoPGFN = z.infer<typeof ParcelamentoPGFNSchema>;
+
+/**
+ * Benefícios por Rating conforme Portaria PGFN nº 6.757/2022
+ * Define os limites de desconto, prazo máximo e entrada mínima para cada classificação
+ */
+export const BENEFICIOS_POR_RATING = {
+  A: {
+    descricao: 'Excelente capacidade de pagamento',
+    desconto_maximo_multa_juros_pct: 0,
+    prazo_maximo_meses: 60,
+    entrada_minima_pct: 6,
+    permite_reducao_principal: false,
+  },
+  B: {
+    descricao: 'Boa capacidade de pagamento',
+    desconto_maximo_multa_juros_pct: 50,
+    prazo_maximo_meses: 84,
+    entrada_minima_pct: 5,
+    permite_reducao_principal: false,
+  },
+  C: {
+    descricao: 'Capacidade de pagamento regular',
+    desconto_maximo_multa_juros_pct: 65,
+    prazo_maximo_meses: 108,
+    entrada_minima_pct: 4,
+    permite_reducao_principal: false,
+  },
+  D: {
+    descricao: 'Capacidade de pagamento insuficiente',
+    desconto_maximo_multa_juros_pct: 70,
+    prazo_maximo_meses: 120,
+    entrada_minima_pct: 3,
+    permite_reducao_principal: true,
+  },
+} as const;
+
+export interface ComparativoParcelamento {
+  rating_calculado: Rating;
+  rating_pgfn: Rating;
+  divergencia: boolean;
+  
+  cenario_calculado: {
+    desconto_maximo_multa_juros_pct: number;
+    prazo_maximo_meses: number;
+    entrada_minima_pct: number;
+  };
+  
+  cenario_pgfn: {
+    valor_total_divida: number;
+    entrada_total: number;
+    entrada_pct: number;
+    parcelas_qtd: number;
+    parcelas_valor: number;
+    desconto_aplicado_pct: number;
+    total_a_pagar: number;
+  };
+  
+  diferenca_financeira: {
+    economia_potencial: number;
+    parcelas_extras_disponiveis: number;
+    valor_excedente_entrada: number;
+  };
+  
+  fundamentacao_juridica: string;
+}
 
 interface CalculatedValues {
   ativo_circulante_total: number;
@@ -423,6 +490,7 @@ export class RatingValidatorService {
     has_discrepancy: boolean;
     discrepancy_details?: Record<string, any>;
     validation_id?: string;
+    comparativo_parcelamento?: ComparativoParcelamento;
   }> {
     // Validar que cliente existe apenas se fornecido e se for salvar simulação
     if (input.client_id) {
@@ -454,6 +522,15 @@ export class RatingValidatorService {
       ratingEstimado
     );
 
+    // Gerar comparativo se parcelamento PGFN foi fornecido
+    let comparativoParcelamento: ComparativoParcelamento | undefined;
+    if (input.parcelamento_pgfn) {
+      comparativoParcelamento = this.generateComparativoParcelamento(
+        ratingEstimado,
+        input.parcelamento_pgfn
+      );
+    }
+
     // Salvar simulação se solicitado (requer client_id)
     let validationId: string | undefined;
     if (input.save_simulation) {
@@ -475,6 +552,8 @@ export class RatingValidatorService {
         rating_real: input.rating_real || null,
         has_discrepancy: comparison.has_discrepancy,
         discrepancy_details: comparison.discrepancy_details || null,
+        parcelamento_pgfn: input.parcelamento_pgfn || null,
+        comparativo_parcelamento: comparativoParcelamento || null,
         created_by: userId || null,
       };
 
@@ -491,6 +570,7 @@ export class RatingValidatorService {
       has_discrepancy: comparison.has_discrepancy,
       discrepancy_details: comparison.discrepancy_details,
       validation_id: validationId,
+      comparativo_parcelamento: comparativoParcelamento,
     };
   }
 
@@ -584,5 +664,191 @@ export class RatingValidatorService {
   async delete(id: string, _userId?: string) {
     await this.getById(id); // Validar que existe
     await this.ratingValidatorRepo.delete(id);
+  }
+
+  /**
+   * Atualizar validação existente (re-simula com novos dados)
+   */
+  async update(
+    id: string,
+    input: SimulateRatingInput,
+    userId?: string
+  ): Promise<{
+    validation: Awaited<ReturnType<typeof this.ratingValidatorRepo.findById>>;
+    result: {
+      calculated_values: CalculatedValues;
+      indicators: Indicators;
+      indicator_analysis: ReturnType<typeof this.getIndicatorAnalysis>;
+      rating_estimado: Rating;
+      rating_real?: Rating;
+      has_discrepancy: boolean;
+      discrepancy_details?: Record<string, any>;
+      comparativo_parcelamento?: ComparativoParcelamento;
+    };
+  }> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new AppError('Rating validation not found', 'VALIDATION_NOT_FOUND', 404);
+    }
+
+    // Validar cliente se fornecido
+    if (input.client_id) {
+      const client = await this.clientRepo.findById(input.client_id);
+      if (!client) {
+        throw new AppError('Client not found', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+
+    // Calcular valores agregados
+    const calculatedValues = this.calculateAggregatedValues(input);
+
+    // Calcular indicadores
+    const indicators = this.calculateIndicators(calculatedValues);
+
+    // Classificar rating
+    const ratingEstimado = this.classifyRating(indicators);
+
+    // Comparar com rating real (se fornecido)
+    const comparison = this.compareRatings(ratingEstimado, input.rating_real);
+
+    // Análise por indicador para demonstrativo
+    const indicator_analysis = this.getIndicatorAnalysis(
+      indicators,
+      input.rating_real,
+      ratingEstimado
+    );
+
+    // Gerar comparativo se parcelamento PGFN foi fornecido
+    let comparativoParcelamento: ComparativoParcelamento | undefined;
+    if (input.parcelamento_pgfn) {
+      comparativoParcelamento = this.generateComparativoParcelamento(
+        ratingEstimado,
+        input.parcelamento_pgfn
+      );
+    }
+
+    // Atualizar no banco
+    const updateData: FullUpdateRatingValidationData = {
+      client_id: input.client_id || existing.client_id,
+      competence: input.competencia,
+      input_data: input as any,
+      calculated_values: calculatedValues,
+      liquidez_corrente: indicators.liquidez_corrente,
+      liquidez_geral: indicators.liquidez_geral,
+      solvencia: indicators.solvencia,
+      rating_estimado: ratingEstimado,
+      rating_real: input.rating_real || null,
+      has_discrepancy: comparison.has_discrepancy,
+      discrepancy_details: comparison.discrepancy_details || null,
+      parcelamento_pgfn: input.parcelamento_pgfn || null,
+      comparativo_parcelamento: comparativoParcelamento || null,
+    };
+
+    const validation = await this.ratingValidatorRepo.fullUpdate(id, updateData);
+
+    return {
+      validation,
+      result: {
+        calculated_values: calculatedValues,
+        indicators,
+        indicator_analysis,
+        rating_estimado: ratingEstimado,
+        rating_real: input.rating_real,
+        has_discrepancy: comparison.has_discrepancy,
+        discrepancy_details: comparison.discrepancy_details,
+        comparativo_parcelamento: comparativoParcelamento,
+      },
+    };
+  }
+
+  /**
+   * Gera comparativo entre o rating calculado e o parcelamento PGFN
+   */
+  generateComparativoParcelamento(
+    ratingCalculado: Rating,
+    parcelamentoPgfn: ParcelamentoPGFN
+  ): ComparativoParcelamento {
+    const ratingPgfn = parcelamentoPgfn.rating_inferido || 'A';
+    const beneficiosCalculado = BENEFICIOS_POR_RATING[ratingCalculado];
+    const beneficiosPgfn = BENEFICIOS_POR_RATING[ratingPgfn];
+
+    const valorTotalDivida = parcelamentoPgfn.consolidacao.total_sem_desconto;
+    const entradaTotal = parcelamentoPgfn.consolidacao.entrada_total;
+    const entradaPct = valorTotalDivida > 0 ? (entradaTotal / valorTotalDivida) * 100 : 0;
+    const descontoAplicadoPct = valorTotalDivida > 0 
+      ? ((valorTotalDivida - parcelamentoPgfn.consolidacao.total_a_pagar) / valorTotalDivida) * 100 
+      : 0;
+
+    const entradaMinimaCalculada = (valorTotalDivida * beneficiosCalculado.entrada_minima_pct) / 100;
+    const valorExcedenteEntrada = Math.max(0, entradaTotal - entradaMinimaCalculada);
+
+    const descontoMaximoCalculado = (
+      (parcelamentoPgfn.consolidacao.multa + parcelamentoPgfn.consolidacao.juros) * 
+      beneficiosCalculado.desconto_maximo_multa_juros_pct / 100
+    );
+    const economiaPotencial = Math.max(0, descontoMaximoCalculado - parcelamentoPgfn.consolidacao.desconto_total);
+
+    const parcelasExtrasDisponiveis = Math.max(0, 
+      beneficiosCalculado.prazo_maximo_meses - parcelamentoPgfn.pagamento.parcelas_qtd
+    );
+
+    const divergencia = ratingCalculado !== ratingPgfn;
+
+    let fundamentacao = '';
+    if (divergencia) {
+      const ordemRating = { A: 1, B: 2, C: 3, D: 4 };
+      const calculadoMelhor = ordemRating[ratingCalculado] > ordemRating[ratingPgfn];
+      
+      if (calculadoMelhor) {
+        fundamentacao = `ATENÇÃO: O rating calculado (${ratingCalculado}) indica PIOR capacidade de pagamento que o rating concedido pela PGFN (${ratingPgfn}). `;
+        fundamentacao += `Isso sugere que o contribuinte pode ter sido prejudicado na concessão do parcelamento. `;
+        fundamentacao += `\n\nCom o rating ${ratingCalculado}, o contribuinte teria direito a:\n`;
+        fundamentacao += `- Desconto de até ${beneficiosCalculado.desconto_maximo_multa_juros_pct}% sobre multa e juros (vs. ${beneficiosPgfn.desconto_maximo_multa_juros_pct}% concedido)\n`;
+        fundamentacao += `- Prazo de até ${beneficiosCalculado.prazo_maximo_meses} meses (vs. ${parcelamentoPgfn.pagamento.parcelas_qtd + parcelamentoPgfn.pagamento.entrada_qtd} meses concedido)\n`;
+        fundamentacao += `- Entrada mínima de ${beneficiosCalculado.entrada_minima_pct}% (vs. ${entradaPct.toFixed(2)}% cobrado)\n`;
+        if (beneficiosCalculado.permite_reducao_principal) {
+          fundamentacao += `- Possibilidade de redução do valor principal\n`;
+        }
+        fundamentacao += `\nBase legal: Portaria PGFN nº 6.757/2022, arts. 30 a 35 (Capag Efetiva) e Lei nº 13.988/2020, art. 3º.`;
+        fundamentacao += `\n\nRecomendação: Avaliar pedido de revisão do enquadramento junto à PGFN, apresentando o Balanço Patrimonial e demonstrando os indicadores de capacidade de pagamento.`;
+      } else {
+        fundamentacao = `O rating calculado (${ratingCalculado}) indica MELHOR capacidade de pagamento que o rating concedido pela PGFN (${ratingPgfn}). `;
+        fundamentacao += `Isso pode indicar inconsistência nos dados do balanço ou critérios diferentes utilizados pela PGFN.`;
+        fundamentacao += `\n\nBase legal: Portaria PGFN nº 6.757/2022.`;
+      }
+    } else {
+      fundamentacao = `O rating calculado (${ratingCalculado}) coincide com o rating do parcelamento PGFN. `;
+      fundamentacao += `Não há divergência a ser questionada.\n\nBase legal: Portaria PGFN nº 6.757/2022.`;
+    }
+
+    return {
+      rating_calculado: ratingCalculado,
+      rating_pgfn: ratingPgfn,
+      divergencia,
+      
+      cenario_calculado: {
+        desconto_maximo_multa_juros_pct: beneficiosCalculado.desconto_maximo_multa_juros_pct,
+        prazo_maximo_meses: beneficiosCalculado.prazo_maximo_meses,
+        entrada_minima_pct: beneficiosCalculado.entrada_minima_pct,
+      },
+      
+      cenario_pgfn: {
+        valor_total_divida: valorTotalDivida,
+        entrada_total: entradaTotal,
+        entrada_pct: Number(entradaPct.toFixed(2)),
+        parcelas_qtd: parcelamentoPgfn.pagamento.parcelas_qtd,
+        parcelas_valor: parcelamentoPgfn.pagamento.parcelas_valor,
+        desconto_aplicado_pct: Number(descontoAplicadoPct.toFixed(2)),
+        total_a_pagar: parcelamentoPgfn.consolidacao.total_a_pagar,
+      },
+      
+      diferenca_financeira: {
+        economia_potencial: Number(economiaPotencial.toFixed(2)),
+        parcelas_extras_disponiveis: parcelasExtrasDisponiveis,
+        valor_excedente_entrada: Number(valorExcedenteEntrada.toFixed(2)),
+      },
+      
+      fundamentacao_juridica: fundamentacao,
+    };
   }
 }

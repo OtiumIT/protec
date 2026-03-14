@@ -123,6 +123,7 @@ export function RatingValidator() {
   const [validationsLoading, setValidationsLoading] = useState(false);
   const [viewingValidation, setViewingValidation] = useState<RatingValidation | null>(null);
   const [viewLoadingId, setViewLoadingId] = useState<string | null>(null);
+  const [editingValidationId, setEditingValidationId] = useState<string | null>(null);
 
   // Simulador de parcelamento
   const [debtAmount, setDebtAmount] = useState<number>(0);
@@ -489,6 +490,22 @@ export function RatingValidator() {
     const defaultPc = { fornecedores: 0, emprestimos_financiamentos: 0, obrigacoes_trabalhistas: 0, tributos_pagar: 0, contas_pagar: 0, provisoes: 0, outros_passivos_circulantes: 0 };
     const defaultPnc = { emprestimos_financiamentos_lp: 0, obrigacoes_trabalhistas_lp: 0, tributos_pagar_lp: 0, provisoes_lp: 0, outros_passivos_nao_circulantes: 0 };
     const defaultPl = { capital_social: 0, reservas_capital: 0, reservas_lucros: 0, lucros_prejuizos_acumulados: 0, outros_ajustes: 0 };
+    
+    // Verificar se há totais diretos definidos para restaurar o modo de entrada
+    const hasAtivoCirculanteTotal = input.ativo_circulante_total != null;
+    const hasRealizavelLpTotal = input.realizavel_longo_prazo_total != null;
+    const hasPassivoCirculanteTotal = input.passivo_circulante_total != null;
+    const hasPassivoNaoCirculanteTotal = input.passivo_nao_circulante_total != null;
+    const hasPatrimonioLiquidoTotal = input.patrimonio_liquido_total != null;
+    
+    setUseTotalMode({
+      ativo_circulante: hasAtivoCirculanteTotal,
+      realizavel_longo_prazo: hasRealizavelLpTotal,
+      passivo_circulante: hasPassivoCirculanteTotal,
+      passivo_nao_circulante: hasPassivoNaoCirculanteTotal,
+      patrimonio_liquido: hasPatrimonioLiquidoTotal,
+    });
+    
     setFormData({
       ativo_circulante: { ...defaultAc, ...input.ativo_circulante },
       ativo_nao_circulante: {
@@ -506,6 +523,12 @@ export function RatingValidator() {
       client_id: v.client_id,
       save_simulation: false,
       rating_real: input.rating_real ?? v.rating_real ?? undefined,
+      // Restaurar totais diretos se existirem
+      ativo_circulante_total: input.ativo_circulante_total,
+      realizavel_longo_prazo_total: input.realizavel_longo_prazo_total,
+      passivo_circulante_total: input.passivo_circulante_total,
+      passivo_nao_circulante_total: input.passivo_nao_circulante_total,
+      patrimonio_liquido_total: input.patrimonio_liquido_total,
     });
     setCurrentStep(1);
     setSimulationResult(null);
@@ -517,12 +540,18 @@ export function RatingValidator() {
     try {
       const v = await ratingValidatorService.getById(id);
       applyValidationToForm(v);
-      success('Validação carregada. Edite os dados e clique em "Calcular classificação" para recalcular.');
+      setEditingValidationId(id);
+      success('Validação carregada para edição. Ao final, escolha "Salvar" para atualizar ou "Salvar como novo" para criar uma cópia.');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao carregar validação');
     } finally {
       setViewLoadingId(null);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingValidationId(null);
+    setSimulationResult(null);
   };
 
   const handleDeleteValidation = async (id: string) => {
@@ -537,7 +566,7 @@ export function RatingValidator() {
     }
   };
 
-  const handleSimulate = async () => {
+  const handleSimulate = async (saveAsNew = false) => {
     if (!formData.competencia) {
       showError('Competência é obrigatória');
       return;
@@ -551,11 +580,24 @@ export function RatingValidator() {
 
     setIsSimulating(true);
     try {
-      const result = await ratingValidatorService.simulate(formData);
-      setSimulationResult(result);
-      success('Simulação realizada com sucesso!');
-      if (formData.save_simulation) {
+      // Se está editando e não é "salvar como novo", faz PATCH
+      if (editingValidationId && !saveAsNew) {
+        const { result } = await ratingValidatorService.update(editingValidationId, formData);
+        setSimulationResult(result);
+        success('Simulação atualizada com sucesso!');
+        setEditingValidationId(null);
         loadValidations();
+      } else {
+        // Criar nova simulação (POST)
+        if (saveAsNew) {
+          setEditingValidationId(null);
+        }
+        const result = await ratingValidatorService.simulate(formData);
+        setSimulationResult(result);
+        success(saveAsNew ? 'Nova simulação criada com sucesso!' : 'Simulação realizada com sucesso!');
+        if (formData.save_simulation || saveAsNew) {
+          loadValidations();
+        }
       }
       // Scroll para resultado
       setTimeout(() => {
@@ -567,6 +609,12 @@ export function RatingValidator() {
     } finally {
       setIsSimulating(false);
     }
+  };
+
+  const handleSaveAsNew = () => {
+    const dataWithSave = { ...formData, save_simulation: true };
+    setFormData(dataWithSave);
+    handleSimulate(true);
   };
 
   const formatCurrency = (value: number) => {
@@ -1580,6 +1628,26 @@ export function RatingValidator() {
         {/* Tab Content */}
         {activeTab === 'simulation' && (
           <div className="space-y-6">
+            {/* Banner de edição */}
+            {editingValidationId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-amber-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="font-medium text-amber-800">Modo de edição</p>
+                    <p className="text-sm text-amber-600">Você está editando uma simulação existente. Use "Salvar" para atualizar ou "Salvar como novo" para criar uma cópia.</p>
+                  </div>
+                </div>
+                <Button variant="tertiary" size="sm" onClick={handleCancelEdit}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
+
             {/* Importar PDF da ECD */}
             <Card className="border-dashed border-slate-300 bg-slate-50/50">
               <div className="flex flex-wrap items-center gap-4">
@@ -1674,8 +1742,20 @@ export function RatingValidator() {
                   </Button>
                   {currentStep < 7 ? (
                     <Button onClick={handleNext}>Próximo</Button>
+                  ) : editingValidationId ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => handleSimulate(false)} disabled={isSimulating}>
+                        {isSimulating ? 'Salvando...' : 'Salvar'}
+                      </Button>
+                      <Button variant="secondary" onClick={handleSaveAsNew} disabled={isSimulating}>
+                        Salvar como novo
+                      </Button>
+                      <Button variant="tertiary" onClick={handleCancelEdit} disabled={isSimulating}>
+                        Cancelar edição
+                      </Button>
+                    </div>
                   ) : (
-                    <Button onClick={handleSimulate} disabled={isSimulating}>
+                    <Button onClick={() => handleSimulate(false)} disabled={isSimulating}>
                       {isSimulating ? 'Calculando...' : 'Calcular classificação'}
                     </Button>
                   )}

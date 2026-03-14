@@ -66825,7 +66825,8 @@ var TENANT_MIGRATION_FILES = [
   "038_property_monthly_totals.sql",
   "040_irpf_alta_renda_payload_json.sql",
   "045_clients_person_type.sql",
-  "046_property_simulations.sql"
+  "046_property_simulations.sql",
+  "048_rating_parcelamento_pgfn.sql"
 ];
 function getTenantMigrationVersion(filename) {
   return parseInt(filename.split("_")[0], 10);
@@ -66846,7 +66847,8 @@ var EMBEDDED_TENANT_MIGRATIONS = {
   "038_property_monthly_totals.sql": "-- Migration: 038_property_monthly_totals\r\n-- Vers\xE3o reduzida: totais mensais por tipo (loca\xE7\xE3o longa e short)\r\n-- Esta migration roda em schemas de tenant (tenant_{company_id})\r\n\r\n-- Adicionar modo_entrada ao property: detalhado (transa\xE7\xF5es) ou reduzido (totais mensais)\r\nALTER TABLE properties\r\n  ADD COLUMN IF NOT EXISTS modo_entrada VARCHAR(20) NOT NULL DEFAULT 'detalhado'\r\n  CHECK (modo_entrada IN ('detalhado', 'reduzido'));\r\n\r\n-- Tabela para modo reduzido: totais mensais (loca\xE7\xE3o longa + short)\r\nCREATE TABLE IF NOT EXISTS property_monthly_totals (\r\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\r\n  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,\r\n  mes_referencia VARCHAR(7) NOT NULL CHECK (mes_referencia ~ '^\\d{4}-\\d{2}$'),\r\n  receita_longa DECIMAL(15, 2) NOT NULL DEFAULT 0,\r\n  receita_short DECIMAL(15, 2) NOT NULL DEFAULT 0,\r\n  despesas_dedutiveis DECIMAL(15, 2) NOT NULL DEFAULT 0,\r\n  custos_operacionais DECIMAL(15, 2) NOT NULL DEFAULT 0,\r\n  created_at TIMESTAMP DEFAULT NOW(),\r\n  updated_at TIMESTAMP DEFAULT NOW(),\r\n  UNIQUE(property_id, mes_referencia)\r\n);\r\n\r\nCREATE INDEX IF NOT EXISTS idx_property_monthly_totals_property_id ON property_monthly_totals(property_id);\r\nCREATE INDEX IF NOT EXISTS idx_property_monthly_totals_mes ON property_monthly_totals(mes_referencia);\r\n\r\nCREATE TRIGGER update_property_monthly_totals_updated_at\r\n  BEFORE UPDATE ON property_monthly_totals\r\n  FOR EACH ROW\r\n  EXECUTE FUNCTION update_updated_at_column();\r\n\r\nCOMMENT ON TABLE property_monthly_totals IS 'Totais mensais (modo reduzido): loca\xE7\xE3o longa, short, despesas e custos';\r\nCOMMENT ON COLUMN properties.modo_entrada IS 'detalhado=transa\xE7\xF5es individuais; reduzido=totais mensais';\r\n",
   "040_irpf_alta_renda_payload_json.sql": "-- Migration: 040_irpf_alta_renda_payload_json\r\n-- Adiciona coluna payload_json para armazenar simula\xE7\xE3o completa (dados de entrada + resultado).\r\n-- Estrutura: tipo_importacao, arquivo_nome, ano, dados, resultado_simulacao, declaracao_completa, diagnostico.\r\n-- Mant\xE9m colunas existentes por compatibilidade (preenchidas a partir de payload_json ou vice-versa).\r\n\r\nALTER TABLE irpf_alta_renda\r\nADD COLUMN IF NOT EXISTS payload_json JSONB;\r\n\r\nCOMMENT ON COLUMN irpf_alta_renda.payload_json IS 'Payload completo: tipo_importacao, arquivo_nome, dados, resultado_simulacao, declaracao_completa, diagnostico';\r\n",
   "045_clients_person_type.sql": "-- Migration: 045_clients_person_type\r\n-- Suporte a pessoa f\xEDsica no cadastro de clientes\r\n-- Esta migration roda em schemas de tenant (tenant_{company_id})\r\n\r\n-- Tornar cnpj nullable (PF n\xE3o tem CNPJ)\r\nALTER TABLE clients ALTER COLUMN cnpj DROP NOT NULL;\r\n\r\n-- Adicionar person_type e cpf\r\nALTER TABLE clients\r\n  ADD COLUMN IF NOT EXISTS person_type VARCHAR(2) DEFAULT 'pj',\r\n  ADD COLUMN IF NOT EXISTS cpf VARCHAR(14);\r\n\r\n-- Remover constraint UNIQUE(cnpj) se existir, pois agora cnpj pode ser NULL\r\n-- Em PostgreSQL, UNIQUE permite m\xFAltiplos NULLs, ent\xE3o a constraint pode permanecer\r\n-- Mas precisamos de unique em cpf quando preenchido\r\nCREATE UNIQUE INDEX IF NOT EXISTS idx_clients_cpf_unique ON clients(cpf) WHERE cpf IS NOT NULL;\r\n\r\nCOMMENT ON COLUMN clients.person_type IS 'pj = Pessoa Jur\xEDdica, pf = Pessoa F\xEDsica';\r\nCOMMENT ON COLUMN clients.cpf IS 'CPF do cliente quando person_type = pf';\r\n",
-  "046_property_simulations.sql": "-- Migration: 046_property_simulations\r\n-- Tabela de simula\xE7\xF5es do Simulador Imobili\xE1rio (PF vs PJ vs Reforma)\r\n-- Esta migration roda em schemas de tenant (tenant_{company_id})\r\n\r\nCREATE TABLE IF NOT EXISTS property_simulations (\r\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\r\n  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,\r\n  ano INTEGER NOT NULL,\r\n  input_data JSONB NOT NULL,\r\n  result_data JSONB NOT NULL,\r\n  title VARCHAR(255),\r\n  created_by UUID,\r\n  created_at TIMESTAMP DEFAULT NOW(),\r\n  updated_at TIMESTAMP DEFAULT NOW(),\r\n  CONSTRAINT check_property_simulations_ano CHECK (ano >= 2020 AND ano <= 2035)\r\n);\r\n\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_client_id ON property_simulations(client_id);\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_ano ON property_simulations(ano);\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_created_at ON property_simulations(created_at DESC);\r\n\r\nCREATE TRIGGER update_property_simulations_updated_at\r\n  BEFORE UPDATE ON property_simulations\r\n  FOR EACH ROW\r\n  EXECUTE FUNCTION update_updated_at_column();\r\n\r\nCOMMENT ON TABLE property_simulations IS 'Simula\xE7\xF5es Simulador Imobili\xE1rio PF vs PJ vs Reforma 2027';\r\n"
+  "046_property_simulations.sql": "-- Migration: 046_property_simulations\r\n-- Tabela de simula\xE7\xF5es do Simulador Imobili\xE1rio (PF vs PJ vs Reforma)\r\n-- Esta migration roda em schemas de tenant (tenant_{company_id})\r\n\r\nCREATE TABLE IF NOT EXISTS property_simulations (\r\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\r\n  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,\r\n  ano INTEGER NOT NULL,\r\n  input_data JSONB NOT NULL,\r\n  result_data JSONB NOT NULL,\r\n  title VARCHAR(255),\r\n  created_by UUID,\r\n  created_at TIMESTAMP DEFAULT NOW(),\r\n  updated_at TIMESTAMP DEFAULT NOW(),\r\n  CONSTRAINT check_property_simulations_ano CHECK (ano >= 2020 AND ano <= 2035)\r\n);\r\n\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_client_id ON property_simulations(client_id);\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_ano ON property_simulations(ano);\r\nCREATE INDEX IF NOT EXISTS idx_property_simulations_created_at ON property_simulations(created_at DESC);\r\n\r\nCREATE TRIGGER update_property_simulations_updated_at\r\n  BEFORE UPDATE ON property_simulations\r\n  FOR EACH ROW\r\n  EXECUTE FUNCTION update_updated_at_column();\r\n\r\nCOMMENT ON TABLE property_simulations IS 'Simula\xE7\xF5es Simulador Imobili\xE1rio PF vs PJ vs Reforma 2027';\r\n",
+  "048_rating_parcelamento_pgfn.sql": "-- Migration: 048_rating_parcelamento_pgfn\r\n-- Adiciona campo para armazenar dados do parcelamento PGFN junto com a simula\xE7\xE3o\r\n-- Esta migration roda em schemas de tenant (tenant_{company_id})\r\n\r\n-- Adicionar coluna para armazenar dados do parcelamento PGFN\r\nALTER TABLE rating_validations \r\nADD COLUMN IF NOT EXISTS parcelamento_pgfn JSONB;\r\n\r\n-- Adicionar coluna para armazenar o comparativo calculado\r\nALTER TABLE rating_validations \r\nADD COLUMN IF NOT EXISTS comparativo_parcelamento JSONB;\r\n\r\n-- \xCDndice GIN para busca em JSONB do parcelamento\r\nCREATE INDEX IF NOT EXISTS idx_rating_validations_parcelamento_pgfn_gin \r\nON rating_validations USING GIN (parcelamento_pgfn) \r\nWHERE parcelamento_pgfn IS NOT NULL;\r\n\r\n-- Coment\xE1rios para documenta\xE7\xE3o\r\nCOMMENT ON COLUMN rating_validations.parcelamento_pgfn IS 'Dados do parcelamento PGFN extra\xEDdos do Recibo de Ades\xE3o (CNPJ, modalidade, d\xEDvidas, capacidade de pagamento, consolida\xE7\xE3o, pagamento)';\r\nCOMMENT ON COLUMN rating_validations.comparativo_parcelamento IS 'Comparativo entre rating calculado e parcelamento PGFN (cen\xE1rios, diferen\xE7a financeira, fundamenta\xE7\xE3o jur\xEDdica)';\r\n"
 };
 
 // src/db/schema-manager.ts
@@ -68333,6 +68335,53 @@ var DRESchema = external_exports.object({
   resultado_financeiro: signedMonetary.default(0),
   outros_resultados: signedMonetary.default(0)
 }).optional();
+var DividaNegociadaSchema = external_exports.object({
+  numero_divida: external_exports.string(),
+  devedor_cnpj: external_exports.string().optional(),
+  codigo_receita: external_exports.string().optional(),
+  data_consolidacao: external_exports.string().optional(),
+  principal: monetaryValue,
+  multa: monetaryValue,
+  juros: monetaryValue,
+  encargo_legal: monetaryValue,
+  total: monetaryValue
+});
+var CapacidadePagamentoPGFNSchema = external_exports.object({
+  valor_divida_adesao: monetaryValue,
+  capacidade_60_meses: monetaryValue,
+  permite_desconto: external_exports.boolean(),
+  desconto_maximo_pct: external_exports.number().min(0).max(100)
+});
+var ConsolidacaoParcelamentoSchema = external_exports.object({
+  principal: monetaryValue,
+  multa: monetaryValue,
+  juros: monetaryValue,
+  encargo_legal: monetaryValue,
+  total_sem_desconto: monetaryValue,
+  entrada_total: monetaryValue,
+  desconto_total: monetaryValue,
+  creditos_utilizados: monetaryValue.optional(),
+  total_a_pagar: monetaryValue
+});
+var PagamentoParcelamentoSchema = external_exports.object({
+  entrada_qtd: external_exports.number().int().nonnegative(),
+  entrada_valor: monetaryValue,
+  parcelas_qtd: external_exports.number().int().nonnegative(),
+  parcelas_valor: monetaryValue
+});
+var ParcelamentoPGFNSchema = external_exports.object({
+  numero_conta: external_exports.string().optional(),
+  cnpj: external_exports.string(),
+  razao_social: external_exports.string(),
+  negociacao: external_exports.string(),
+  modalidade: external_exports.string(),
+  data_adesao: external_exports.string(),
+  dividas: external_exports.array(DividaNegociadaSchema),
+  capacidade_pagamento: CapacidadePagamentoPGFNSchema,
+  consolidacao: ConsolidacaoParcelamentoSchema,
+  pagamento: PagamentoParcelamentoSchema,
+  rating_inferido: external_exports.enum(["A", "B", "C", "D"]).optional()
+});
 var SimulateRatingSchemaRaw = external_exports.object({
   // Balanço Patrimonial (campos granulares)
   ativo_circulante: AtivoCirculanteSchema,
@@ -68352,7 +68401,9 @@ var SimulateRatingSchemaRaw = external_exports.object({
   competencia: external_exports.string().regex(/^\d{4}-\d{2}$/, "Compet\xEAncia deve ser no formato AAAA-MM (ex.: 2025-01)"),
   client_id: external_exports.union([external_exports.string().uuid(), external_exports.literal("")]).optional().transform((v) => v === "" || v == null ? void 0 : v),
   rating_real: external_exports.enum(["A", "B", "C", "D"]).optional(),
-  save_simulation: external_exports.boolean().optional().default(false)
+  save_simulation: external_exports.boolean().optional().default(false),
+  // Dados do parcelamento PGFN (opcional - para comparativo)
+  parcelamento_pgfn: ParcelamentoPGFNSchema.optional()
 });
 var SimulateRatingSchema = external_exports.preprocess(
   (data) => data != null && typeof data === "object" ? deepRoundNumbers(data) : data,
@@ -68407,6 +68458,36 @@ var RatingValidatorFiscalFileIdParamSchema = external_exports.object({
 var ValidateFromDataSchema = external_exports.object({
   competence: external_exports.string().regex(/^\d{4}-\d{2}$/, "Competence must be in format YYYY-MM"),
   rating_real: external_exports.enum(["A", "B", "C", "D"]).optional()
+});
+var ExtractPGFNPdfResponseSchema = external_exports.object({
+  parcelamento: ParcelamentoPGFNSchema,
+  confianca_extracao: external_exports.number().min(0).max(100).optional(),
+  campos_incertos: external_exports.array(external_exports.string()).optional()
+});
+var ComparativoParcelamentoSchema = external_exports.object({
+  rating_calculado: external_exports.enum(["A", "B", "C", "D"]),
+  rating_pgfn: external_exports.enum(["A", "B", "C", "D"]),
+  divergencia: external_exports.boolean(),
+  cenario_calculado: external_exports.object({
+    desconto_maximo_multa_juros_pct: external_exports.number(),
+    prazo_maximo_meses: external_exports.number(),
+    entrada_minima_pct: external_exports.number()
+  }),
+  cenario_pgfn: external_exports.object({
+    valor_total_divida: external_exports.number(),
+    entrada_total: external_exports.number(),
+    entrada_pct: external_exports.number(),
+    parcelas_qtd: external_exports.number(),
+    parcelas_valor: external_exports.number(),
+    desconto_aplicado_pct: external_exports.number(),
+    total_a_pagar: external_exports.number()
+  }),
+  diferenca_financeira: external_exports.object({
+    economia_potencial: external_exports.number(),
+    parcelas_extras_disponiveis: external_exports.number(),
+    valor_excedente_entrada: external_exports.number()
+  }),
+  fundamentacao_juridica: external_exports.string()
 });
 
 // ../../packages/shared/src/schemas/ecd-extracted.schema.ts
@@ -83226,6 +83307,36 @@ systemRoutes.post("/log-client-error", async (c) => {
 });
 
 // src/modules/rating-validator/rating-validator.service.ts
+var BENEFICIOS_POR_RATING = {
+  A: {
+    descricao: "Excelente capacidade de pagamento",
+    desconto_maximo_multa_juros_pct: 0,
+    prazo_maximo_meses: 60,
+    entrada_minima_pct: 6,
+    permite_reducao_principal: false
+  },
+  B: {
+    descricao: "Boa capacidade de pagamento",
+    desconto_maximo_multa_juros_pct: 50,
+    prazo_maximo_meses: 84,
+    entrada_minima_pct: 5,
+    permite_reducao_principal: false
+  },
+  C: {
+    descricao: "Capacidade de pagamento regular",
+    desconto_maximo_multa_juros_pct: 65,
+    prazo_maximo_meses: 108,
+    entrada_minima_pct: 4,
+    permite_reducao_principal: false
+  },
+  D: {
+    descricao: "Capacidade de pagamento insuficiente",
+    desconto_maximo_multa_juros_pct: 70,
+    prazo_maximo_meses: 120,
+    entrada_minima_pct: 3,
+    permite_reducao_principal: true
+  }
+};
 var RatingValidatorService = class _RatingValidatorService {
   constructor(ratingValidatorRepo2, clientRepo7, fiscalFileRepo3) {
     this.ratingValidatorRepo = ratingValidatorRepo2;
@@ -83474,6 +83585,13 @@ var RatingValidatorService = class _RatingValidatorService {
       input.rating_real,
       ratingEstimado
     );
+    let comparativoParcelamento;
+    if (input.parcelamento_pgfn) {
+      comparativoParcelamento = this.generateComparativoParcelamento(
+        ratingEstimado,
+        input.parcelamento_pgfn
+      );
+    }
     let validationId;
     if (input.save_simulation) {
       if (!input.client_id) {
@@ -83493,6 +83611,8 @@ var RatingValidatorService = class _RatingValidatorService {
         rating_real: input.rating_real || null,
         has_discrepancy: comparison.has_discrepancy,
         discrepancy_details: comparison.discrepancy_details || null,
+        parcelamento_pgfn: input.parcelamento_pgfn || null,
+        comparativo_parcelamento: comparativoParcelamento || null,
         created_by: userId || null
       };
       const validation = await this.ratingValidatorRepo.create(validationData);
@@ -83506,7 +83626,8 @@ var RatingValidatorService = class _RatingValidatorService {
       rating_real: input.rating_real,
       has_discrepancy: comparison.has_discrepancy,
       discrepancy_details: comparison.discrepancy_details,
-      validation_id: validationId
+      validation_id: validationId,
+      comparativo_parcelamento: comparativoParcelamento
     };
   }
   /**
@@ -83569,6 +83690,151 @@ var RatingValidatorService = class _RatingValidatorService {
     await this.getById(id);
     await this.ratingValidatorRepo.delete(id);
   }
+  /**
+   * Atualizar validação existente (re-simula com novos dados)
+   */
+  async update(id, input, userId) {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new AppError("Rating validation not found", "VALIDATION_NOT_FOUND", 404);
+    }
+    if (input.client_id) {
+      const client = await this.clientRepo.findById(input.client_id);
+      if (!client) {
+        throw new AppError("Client not found", "CLIENT_NOT_FOUND", 404);
+      }
+    }
+    const calculatedValues = this.calculateAggregatedValues(input);
+    const indicators = this.calculateIndicators(calculatedValues);
+    const ratingEstimado = this.classifyRating(indicators);
+    const comparison = this.compareRatings(ratingEstimado, input.rating_real);
+    const indicator_analysis = this.getIndicatorAnalysis(
+      indicators,
+      input.rating_real,
+      ratingEstimado
+    );
+    let comparativoParcelamento;
+    if (input.parcelamento_pgfn) {
+      comparativoParcelamento = this.generateComparativoParcelamento(
+        ratingEstimado,
+        input.parcelamento_pgfn
+      );
+    }
+    const updateData = {
+      client_id: input.client_id || existing.client_id,
+      competence: input.competencia,
+      input_data: input,
+      calculated_values: calculatedValues,
+      liquidez_corrente: indicators.liquidez_corrente,
+      liquidez_geral: indicators.liquidez_geral,
+      solvencia: indicators.solvencia,
+      rating_estimado: ratingEstimado,
+      rating_real: input.rating_real || null,
+      has_discrepancy: comparison.has_discrepancy,
+      discrepancy_details: comparison.discrepancy_details || null,
+      parcelamento_pgfn: input.parcelamento_pgfn || null,
+      comparativo_parcelamento: comparativoParcelamento || null
+    };
+    const validation = await this.ratingValidatorRepo.fullUpdate(id, updateData);
+    return {
+      validation,
+      result: {
+        calculated_values: calculatedValues,
+        indicators,
+        indicator_analysis,
+        rating_estimado: ratingEstimado,
+        rating_real: input.rating_real,
+        has_discrepancy: comparison.has_discrepancy,
+        discrepancy_details: comparison.discrepancy_details,
+        comparativo_parcelamento: comparativoParcelamento
+      }
+    };
+  }
+  /**
+   * Gera comparativo entre o rating calculado e o parcelamento PGFN
+   */
+  generateComparativoParcelamento(ratingCalculado, parcelamentoPgfn) {
+    const ratingPgfn = parcelamentoPgfn.rating_inferido || "A";
+    const beneficiosCalculado = BENEFICIOS_POR_RATING[ratingCalculado];
+    const beneficiosPgfn = BENEFICIOS_POR_RATING[ratingPgfn];
+    const valorTotalDivida = parcelamentoPgfn.consolidacao.total_sem_desconto;
+    const entradaTotal = parcelamentoPgfn.consolidacao.entrada_total;
+    const entradaPct = valorTotalDivida > 0 ? entradaTotal / valorTotalDivida * 100 : 0;
+    const descontoAplicadoPct = valorTotalDivida > 0 ? (valorTotalDivida - parcelamentoPgfn.consolidacao.total_a_pagar) / valorTotalDivida * 100 : 0;
+    const entradaMinimaCalculada = valorTotalDivida * beneficiosCalculado.entrada_minima_pct / 100;
+    const valorExcedenteEntrada = Math.max(0, entradaTotal - entradaMinimaCalculada);
+    const descontoMaximoCalculado = (parcelamentoPgfn.consolidacao.multa + parcelamentoPgfn.consolidacao.juros) * beneficiosCalculado.desconto_maximo_multa_juros_pct / 100;
+    const economiaPotencial = Math.max(0, descontoMaximoCalculado - parcelamentoPgfn.consolidacao.desconto_total);
+    const parcelasExtrasDisponiveis = Math.max(
+      0,
+      beneficiosCalculado.prazo_maximo_meses - parcelamentoPgfn.pagamento.parcelas_qtd
+    );
+    const divergencia = ratingCalculado !== ratingPgfn;
+    let fundamentacao = "";
+    if (divergencia) {
+      const ordemRating = { A: 1, B: 2, C: 3, D: 4 };
+      const calculadoMelhor = ordemRating[ratingCalculado] > ordemRating[ratingPgfn];
+      if (calculadoMelhor) {
+        fundamentacao = `ATEN\xC7\xC3O: O rating calculado (${ratingCalculado}) indica PIOR capacidade de pagamento que o rating concedido pela PGFN (${ratingPgfn}). `;
+        fundamentacao += `Isso sugere que o contribuinte pode ter sido prejudicado na concess\xE3o do parcelamento. `;
+        fundamentacao += `
+
+Com o rating ${ratingCalculado}, o contribuinte teria direito a:
+`;
+        fundamentacao += `- Desconto de at\xE9 ${beneficiosCalculado.desconto_maximo_multa_juros_pct}% sobre multa e juros (vs. ${beneficiosPgfn.desconto_maximo_multa_juros_pct}% concedido)
+`;
+        fundamentacao += `- Prazo de at\xE9 ${beneficiosCalculado.prazo_maximo_meses} meses (vs. ${parcelamentoPgfn.pagamento.parcelas_qtd + parcelamentoPgfn.pagamento.entrada_qtd} meses concedido)
+`;
+        fundamentacao += `- Entrada m\xEDnima de ${beneficiosCalculado.entrada_minima_pct}% (vs. ${entradaPct.toFixed(2)}% cobrado)
+`;
+        if (beneficiosCalculado.permite_reducao_principal) {
+          fundamentacao += `- Possibilidade de redu\xE7\xE3o do valor principal
+`;
+        }
+        fundamentacao += `
+Base legal: Portaria PGFN n\xBA 6.757/2022, arts. 30 a 35 (Capag Efetiva) e Lei n\xBA 13.988/2020, art. 3\xBA.`;
+        fundamentacao += `
+
+Recomenda\xE7\xE3o: Avaliar pedido de revis\xE3o do enquadramento junto \xE0 PGFN, apresentando o Balan\xE7o Patrimonial e demonstrando os indicadores de capacidade de pagamento.`;
+      } else {
+        fundamentacao = `O rating calculado (${ratingCalculado}) indica MELHOR capacidade de pagamento que o rating concedido pela PGFN (${ratingPgfn}). `;
+        fundamentacao += `Isso pode indicar inconsist\xEAncia nos dados do balan\xE7o ou crit\xE9rios diferentes utilizados pela PGFN.`;
+        fundamentacao += `
+
+Base legal: Portaria PGFN n\xBA 6.757/2022.`;
+      }
+    } else {
+      fundamentacao = `O rating calculado (${ratingCalculado}) coincide com o rating do parcelamento PGFN. `;
+      fundamentacao += `N\xE3o h\xE1 diverg\xEAncia a ser questionada.
+
+Base legal: Portaria PGFN n\xBA 6.757/2022.`;
+    }
+    return {
+      rating_calculado: ratingCalculado,
+      rating_pgfn: ratingPgfn,
+      divergencia,
+      cenario_calculado: {
+        desconto_maximo_multa_juros_pct: beneficiosCalculado.desconto_maximo_multa_juros_pct,
+        prazo_maximo_meses: beneficiosCalculado.prazo_maximo_meses,
+        entrada_minima_pct: beneficiosCalculado.entrada_minima_pct
+      },
+      cenario_pgfn: {
+        valor_total_divida: valorTotalDivida,
+        entrada_total: entradaTotal,
+        entrada_pct: Number(entradaPct.toFixed(2)),
+        parcelas_qtd: parcelamentoPgfn.pagamento.parcelas_qtd,
+        parcelas_valor: parcelamentoPgfn.pagamento.parcelas_valor,
+        desconto_aplicado_pct: Number(descontoAplicadoPct.toFixed(2)),
+        total_a_pagar: parcelamentoPgfn.consolidacao.total_a_pagar
+      },
+      diferenca_financeira: {
+        economia_potencial: Number(economiaPotencial.toFixed(2)),
+        parcelas_extras_disponiveis: parcelasExtrasDisponiveis,
+        valor_excedente_entrada: Number(valorExcedenteEntrada.toFixed(2))
+      },
+      fundamentacao_juridica: fundamentacao
+    };
+  }
 };
 
 // src/modules/rating-validator/rating-validator.repository.ts
@@ -83582,6 +83848,7 @@ var RatingValidatorRepository = class extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations WHERE id = $1`,
       [id],
@@ -83599,11 +83866,13 @@ var RatingValidatorRepository = class extends BaseRepository {
       `INSERT INTO rating_validations 
        (client_id, competence, fiscal_file_id, is_simulation, input_data, 
         calculated_values, liquidez_corrente, liquidez_geral, solvencia,
-        rating_estimado, rating_real, has_discrepancy, discrepancy_details, created_by) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+        rating_estimado, rating_real, has_discrepancy, discrepancy_details, 
+        parcelamento_pgfn, comparativo_parcelamento, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
        RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
                  input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
                  rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
                  created_by, created_at, updated_at`,
       [
         data.client_id,
@@ -83619,6 +83888,8 @@ var RatingValidatorRepository = class extends BaseRepository {
         data.rating_real || null,
         data.has_discrepancy,
         data.discrepancy_details ? JSON.stringify(data.discrepancy_details) : null,
+        data.parcelamento_pgfn ? JSON.stringify(data.parcelamento_pgfn) : null,
+        data.comparativo_parcelamento ? JSON.stringify(data.comparativo_parcelamento) : null,
         data.created_by || null
       ],
       false
@@ -83657,11 +83928,62 @@ var RatingValidatorRepository = class extends BaseRepository {
        RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
                  input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
                  rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
                  created_by, created_at, updated_at`,
       params,
       false
       // Não requer company_id (isolado por schema)
     );
+    return result.rows[0];
+  }
+  /**
+   * Atualização completa da validação (re-simulação)
+   * NOTA: Schema já isola por tenant, não precisa company_id
+   */
+  async fullUpdate(id, data) {
+    const result = await this.query(
+      `UPDATE rating_validations 
+       SET client_id = COALESCE($2, client_id),
+           competence = $3,
+           input_data = $4,
+           calculated_values = $5,
+           liquidez_corrente = $6,
+           liquidez_geral = $7,
+           solvencia = $8,
+           rating_estimado = $9,
+           rating_real = $10,
+           has_discrepancy = $11,
+           discrepancy_details = $12,
+           parcelamento_pgfn = $13,
+           comparativo_parcelamento = $14,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
+                 input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
+                 rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
+                 created_by, created_at, updated_at`,
+      [
+        id,
+        data.client_id ?? null,
+        data.competence,
+        JSON.stringify(data.input_data),
+        data.calculated_values ? JSON.stringify(data.calculated_values) : null,
+        data.liquidez_corrente ?? null,
+        data.liquidez_geral ?? null,
+        data.solvencia ?? null,
+        data.rating_estimado,
+        data.rating_real ?? null,
+        data.has_discrepancy,
+        data.discrepancy_details ? JSON.stringify(data.discrepancy_details) : null,
+        data.parcelamento_pgfn ? JSON.stringify(data.parcelamento_pgfn) : null,
+        data.comparativo_parcelamento ? JSON.stringify(data.comparativo_parcelamento) : null
+      ],
+      false
+    );
+    if (result.rows.length === 0) {
+      throw new Error("Validation not found");
+    }
     return result.rows[0];
   }
   /**
@@ -83716,6 +84038,7 @@ var RatingValidatorRepository = class extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations 
        ${whereClause}
@@ -83756,6 +84079,7 @@ var RatingValidatorRepository = class extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations 
        WHERE client_id = $1 
@@ -83961,6 +84285,253 @@ Analise o PDF anexo (ECD/SPED).` }
   };
 }
 
+// src/modules/rating-validator/extract-from-pgfn-pdf.ts
+init_openai();
+var PGFN_SYSTEM_PROMPT = `Role: Atue como um Especialista em Direito Tribut\xE1rio Brasileiro e Engenheiro de Dados.
+
+Tarefa: Realize o OCR e a extra\xE7\xE3o estruturada do arquivo PDF do Recibo de Ades\xE3o e Consolida\xE7\xE3o de Negocia\xE7\xE3o da PGFN (Procuradoria-Geral da Fazenda Nacional).
+
+Instru\xE7\xF5es t\xE9cnicas:
+1. Convers\xE3o num\xE9rica: Remova "R$", pontos de milhar e use ponto como separador decimal. Exemplo: "R$ 244.857,85" \u2192 244857.85
+2. Percentuais: Converta para n\xFAmero. "0,00 %" \u2192 0
+3. Datas: Use formato "DD/MM/YYYY" como string.
+4. Inferir Rating: Baseado na modalidade:
+   - "SEM REDUCAO" ou sem desconto permitido \u2192 provavelmente Rating "A"
+   - Desconto at\xE9 50% \u2192 provavelmente Rating "B"  
+   - Desconto at\xE9 65% \u2192 provavelmente Rating "C"
+   - Desconto at\xE9 70% ou mais \u2192 provavelmente Rating "D"
+5. Sa\xEDda: Retorne APENAS um \xFAnico objeto JSON v\xE1lido, sem markdown e sem texto antes ou depois.
+
+Estrutura t\xEDpica do documento PGFN:
+- Se\xE7\xE3o "INFORMA\xC7\xC3O DA NEGOCIA\xC7\xC3O": n\xFAmero da conta, CNPJ, nome, negocia\xE7\xE3o, modalidade
+- Se\xE7\xE3o "D\xCDVIDAS NEGOCIADAS": tabela com d\xEDvida, devedor, c\xF3digo receita, principal, multa, juros, encargo legal, total
+- Se\xE7\xE3o "CAPACIDADE DE PAGAMENTO": valor da d\xEDvida na ades\xE3o, capacidade em 60 meses, permite desconto, desconto m\xE1ximo
+- Se\xE7\xE3o "DEMONSTRATIVO DE CONSOLIDA\xC7\xC3O": total sem desconto, entrada, desconto, cr\xE9ditos, total a pagar
+- Se\xE7\xE3o "DEMONSTRATIVO DE PAGAMENTO": entrada (quantidade x valor), parcelas b\xE1sicas (quantidade x valor)
+
+Schema JSON de sa\xEDda (siga rigorosamente; use 0 ou "" quando ausente):
+
+{
+  "numero_conta": "string ou null",
+  "cnpj": "XX.XXX.XXX/XXXX-XX",
+  "razao_social": "string",
+  "negociacao": "descri\xE7\xE3o completa da negocia\xE7\xE3o (ex: TRANSACAO POR ADESAO - EDITAL...)",
+  "modalidade": "descri\xE7\xE3o da modalidade (ex: DEMAIS DEBITOS - ATE 60 PRESTACOES - SEM REDUCAO)",
+  "data_adesao": "DD/MM/YYYY",
+  
+  "dividas": [
+    {
+      "numero_divida": "string",
+      "devedor_cnpj": "string ou null",
+      "codigo_receita": "string ou null",
+      "data_consolidacao": "DD/MM/YYYY ou null",
+      "principal": number,
+      "multa": number,
+      "juros": number,
+      "encargo_legal": number,
+      "total": number
+    }
+  ],
+  
+  "capacidade_pagamento": {
+    "valor_divida_adesao": number,
+    "capacidade_60_meses": number,
+    "permite_desconto": boolean,
+    "desconto_maximo_pct": number
+  },
+  
+  "consolidacao": {
+    "principal": number,
+    "multa": number,
+    "juros": number,
+    "encargo_legal": number,
+    "total_sem_desconto": number,
+    "entrada_total": number,
+    "desconto_total": number,
+    "creditos_utilizados": number,
+    "total_a_pagar": number
+  },
+  
+  "pagamento": {
+    "entrada_qtd": number,
+    "entrada_valor": number,
+    "parcelas_qtd": number,
+    "parcelas_valor": number
+  },
+  
+  "rating_inferido": "A" | "B" | "C" | "D" | null,
+  
+  "_confianca_extracao": number (0-100, sua confian\xE7a na extra\xE7\xE3o),
+  "_campos_incertos": ["lista de campos onde voc\xEA teve d\xFAvida"]
+}`;
+var PGFN_USER_PROMPT_TEXT = `Extraia todos os dados do PDF do Recibo de Ades\xE3o PGFN conforme o schema informado. 
+
+IMPORTANTE:
+- Na se\xE7\xE3o "CAPACIDADE DE PAGAMENTO", extraia corretamente:
+  - "VALOR DA D\xCDVIDA NA DATA DA ADES\xC3O" \u2192 valor_divida_adesao
+  - "CAPACIDADE DE PAGAMENTO EM 60 MESES" \u2192 capacidade_60_meses  
+  - "PERMITE APLICA\xC7\xC3O DE DESCONTO" \u2192 permite_desconto (Sim=true, N\xE3o=false)
+  - "DESCONTO M\xC1XIMO POSS\xCDVEL" \u2192 desconto_maximo_pct
+
+- Na se\xE7\xE3o "DEMONSTRATIVO DE PAGAMENTO":
+  - "ENTRADA Nx valor" \u2192 entrada_qtd e entrada_valor
+  - "B\xC1SICA Nx valor" \u2192 parcelas_qtd e parcelas_valor
+
+Retorne APENAS o objeto JSON, sem markdown.`;
+function inferRatingFromModalidade(modalidade, permiteDesconto, descontoMaxPct) {
+  const mod = modalidade.toUpperCase();
+  if (mod.includes("SEM REDUCAO") || mod.includes("SEM REDU\xC7\xC3O") || !permiteDesconto || descontoMaxPct === 0) {
+    return "A";
+  }
+  if (descontoMaxPct <= 50) {
+    return "B";
+  }
+  if (descontoMaxPct <= 65) {
+    return "C";
+  }
+  if (descontoMaxPct > 65) {
+    return "D";
+  }
+  return void 0;
+}
+async function extractPgfnFromPdf(pdfBuffer) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey?.trim()) {
+    throw new Error("OPENAI_API_KEY n\xE3o configurada. N\xE3o \xE9 poss\xEDvel extrair dados do PDF PGFN.");
+  }
+  const minSize = 100;
+  if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length < minSize) {
+    throw new AppError(
+      "Arquivo inv\xE1lido ou vazio. Envie um PDF do Recibo de Ades\xE3o PGFN com tamanho adequado.",
+      "PGFN_PDF_INVALID",
+      400
+    );
+  }
+  const header = pdfBuffer.subarray(0, 5).toString("ascii");
+  if (header !== "%PDF-") {
+    throw new AppError(
+      "O arquivo n\xE3o parece ser um PDF v\xE1lido. Verifique se o arquivo \xE9 um Recibo de Ades\xE3o PGFN.",
+      "PGFN_PDF_INVALID",
+      400
+    );
+  }
+  let text;
+  try {
+    const { PDFParse: PDFParse2 } = await Promise.resolve().then(() => (init_esm(), esm_exports));
+    const parser = new PDFParse2({ data: pdfBuffer });
+    let result;
+    try {
+      result = await parser.getText();
+    } catch {
+      try {
+        result = await parser.getText({
+          preserveStructure: true
+        });
+      } catch {
+        result = null;
+      }
+    }
+    text = typeof result?.text === "string" ? result.text : String(result ?? "");
+  } catch (err) {
+    console.error("[extractPgfnFromPdf] Falha ao extrair texto (tentando via Files API como PDF escaneado):", err);
+    text = "";
+  }
+  const openai = new OpenAI({ apiKey });
+  const cleanText = text.replace(/--\s*\d+\s*of\s*\d+\s*--/gi, "").trim();
+  const hasText = cleanText.length > 200;
+  let rawContent;
+  if (hasText) {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: PGFN_SYSTEM_PROMPT },
+        { role: "user", content: `${PGFN_USER_PROMPT_TEXT}
+
+Conte\xFAdo extra\xEDdo do PDF:
+
+${cleanText.slice(0, 28e3)}` }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0
+    });
+    rawContent = completion.choices[0]?.message?.content?.trim();
+  } else {
+    const { toFile: toFile2 } = await Promise.resolve().then(() => (init_openai(), openai_exports));
+    const uploadedFile = await openai.files.create({
+      file: await toFile2(pdfBuffer, "recibo_pgfn.pdf", { type: "application/pdf" }),
+      purpose: "user_data"
+    });
+    try {
+      const response = await openai.responses.create({
+        model: "gpt-4o",
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_file", file_id: uploadedFile.id },
+              { type: "input_text", text: `${PGFN_SYSTEM_PROMPT}
+
+${PGFN_USER_PROMPT_TEXT}
+
+Analise o PDF anexo (Recibo PGFN).` }
+            ]
+          }
+        ],
+        text: { format: { type: "json_object" } }
+      });
+      const outputItem = response.output?.find((o) => o.type === "message");
+      rawContent = outputItem?.content?.find((c) => c.type === "output_text")?.text?.trim();
+    } finally {
+      await openai.files.delete(uploadedFile.id).catch(() => {
+      });
+    }
+  }
+  if (!rawContent) {
+    throw new AppError(
+      "Resposta vazia da extra\xE7\xE3o. Verifique se o PDF \xE9 um Recibo de Ades\xE3o PGFN v\xE1lido e tente novamente.",
+      "PGFN_PDF_EMPTY_RESPONSE",
+      400
+    );
+  }
+  let parsed;
+  try {
+    const cleaned = rawContent.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/m, "$1");
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new AppError(
+      "Resposta da extra\xE7\xE3o em formato inv\xE1lido. Verifique o PDF e preencha os dados manualmente se necess\xE1rio.",
+      "PGFN_PDF_INVALID_RESPONSE",
+      400
+    );
+  }
+  const confianca = parsed._confianca_extracao;
+  const camposIncertos = parsed._campos_incertos;
+  delete parsed._confianca_extracao;
+  delete parsed._campos_incertos;
+  if (!parsed.rating_inferido && parsed.modalidade && parsed.capacidade_pagamento) {
+    parsed.rating_inferido = inferRatingFromModalidade(
+      parsed.modalidade,
+      parsed.capacidade_pagamento.permite_desconto,
+      parsed.capacidade_pagamento.desconto_maximo_pct
+    );
+  }
+  const parsedPgfn = ParcelamentoPGFNSchema.safeParse(parsed);
+  if (!parsedPgfn.success) {
+    const firstError = parsedPgfn.error.flatten().fieldErrors;
+    const msg = Object.keys(firstError).length ? JSON.stringify(firstError).slice(0, 200) : "estrutura inv\xE1lida";
+    throw new AppError(
+      "Dados extra\xEDdos n\xE3o correspondem ao schema do Recibo PGFN. Ajuste o PDF ou preencha manualmente. " + msg,
+      "PGFN_PDF_SCHEMA_MISMATCH",
+      400
+    );
+  }
+  return {
+    parcelamento: parsedPgfn.data,
+    confianca_extracao: typeof confianca === "number" ? confianca : void 0,
+    campos_incertos: Array.isArray(camposIncertos) ? camposIncertos : void 0
+  };
+}
+
 // src/modules/rating-validator/rating-validator.routes.ts
 function round23(value) {
   return Math.round(value * 100) / 100;
@@ -84019,7 +84590,8 @@ ratingValidatorRoutes.post("/simulate", async (c) => {
           has_discrepancy: result.has_discrepancy,
           discrepancy_details: result.discrepancy_details,
           validation_id: result.validation_id,
-          is_simulation: true
+          is_simulation: true,
+          comparativo_parcelamento: result.comparativo_parcelamento
         }
       },
       200
@@ -84048,6 +84620,30 @@ ratingValidatorRoutes.post("/extract-from-ecd-pdf", async (c) => {
       );
     }
     const result = await extractEcdFromPdf(buffer);
+    return c.json({ data: result }, 200);
+  } catch (err) {
+    return errorHandler2(err, c);
+  }
+});
+ratingValidatorRoutes.post("/extract-from-pgfn-pdf", async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get("file");
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: { message: "Envie um arquivo PDF (campo file).", code: "FILE_REQUIRED" } }, 400);
+    }
+    if (!file.type?.includes("pdf") && !file.name?.toLowerCase().endsWith(".pdf")) {
+      return c.json({ error: { message: "O arquivo deve ser um PDF.", code: "INVALID_FILE_TYPE" } }, 400);
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length > MAX_FILE_SIZE_BYTES) {
+      return c.json(
+        { error: { message: "O arquivo \xE9 muito grande. O limite \xE9 15 MB.", code: "FILE_TOO_LARGE" } },
+        400
+      );
+    }
+    const result = await extractPgfnFromPdf(buffer);
     return c.json({ data: result }, 200);
   } catch (err) {
     return errorHandler2(err, c);
@@ -84097,6 +84693,47 @@ ratingValidatorRoutes.get(
     }
   }
 );
+ratingValidatorRoutes.patch("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    if (!id) {
+      return c.json({ error: { message: "ID \xE9 obrigat\xF3rio.", code: "ID_REQUIRED" } }, 400);
+    }
+    const body = await c.req.json().catch(() => null);
+    if (body == null) {
+      return c.json({ error: { message: "Body JSON inv\xE1lido.", code: "INVALID_JSON" } }, 400);
+    }
+    const sanitized = deepRoundNumbers2(body);
+    const parsed = SimulateRatingSchema.safeParse(sanitized);
+    if (!parsed.success) {
+      return c.json(
+        { error: { message: "Dados inv\xE1lidos.", code: "VALIDATION_ERROR", details: parsed.error.flatten() } },
+        400
+      );
+    }
+    const input = parsed.data;
+    const userId = c.get("user")?.id;
+    const { validation, result } = await ratingValidatorService.update(id, input, userId);
+    return c.json(
+      {
+        data: {
+          validation,
+          calculated_values: result.calculated_values,
+          indicators: result.indicators,
+          indicator_analysis: result.indicator_analysis,
+          rating_estimado: result.rating_estimado,
+          rating_real: result.rating_real,
+          has_discrepancy: result.has_discrepancy,
+          discrepancy_details: result.discrepancy_details,
+          comparativo_parcelamento: result.comparativo_parcelamento
+        }
+      },
+      200
+    );
+  } catch (error) {
+    return errorHandler2(error, c);
+  }
+});
 ratingValidatorRoutes.delete(
   "/:id",
   zValidator("param", RatingValidationIdParamSchema),
@@ -88164,9 +88801,7 @@ var FAIXAS_IRPF_2026 = [
 var PRESUNCAO_IRPJ = 0.32;
 var PRESUNCAO_CSLL = 0.32;
 var PRESUNCAO_IRPJ_16 = 0.16;
-var PRESUNCAO_IRPJ_HOSPITALAR = 0.08;
-var PRESUNCAO_CSLL_HOSPITALAR = 0.12;
-var LIMITE_PRESUNCAO_16_SERVICOS = 12e4;
+var LIMITE_PRESUNCAO_16_LOCACAO = 12e4;
 var ALIQ_IRPJ2 = 0.15;
 var ALIQ_IRPJ_ADICIONAL2 = 0.1;
 var ALIQ_CSLL2 = 0.09;
@@ -88230,12 +88865,12 @@ function adicionalIRPJ2(baseCalculoTrimestre) {
   const baseAdicional = baseCalculoTrimestre - LIMITE_LUCRO_PRESUMIDO_ADICIONAL2;
   return round28(baseAdicional * ALIQ_IRPJ_ADICIONAL2);
 }
-function calcularPJ(aggregated, elegivelPresuncao16, aplicarEquiparacaoHospitalar) {
+function calcularPJ(aggregated, _elegivelPresuncao16) {
   const { receita_total, meses } = aggregated;
-  const presCsll = aplicarEquiparacaoHospitalar ? PRESUNCAO_CSLL_HOSPITALAR : PRESUNCAO_CSLL;
   let receitaAcumulada = 0;
   let aplicouIN2306 = false;
   let irpjPostergadoTotal = 0;
+  let aplicouPresuncao16 = false;
   const trimestreData = [];
   for (let t = 1; t <= 4; t++) {
     const startMonth = (t - 1) * 3;
@@ -88245,7 +88880,13 @@ function calcularPJ(aggregated, elegivelPresuncao16, aplicarEquiparacaoHospitala
       if (mes) recTrim += mes.receita;
     }
     receitaAcumulada += recTrim;
-    const presIrpj = aplicarEquiparacaoHospitalar ? PRESUNCAO_IRPJ_HOSPITALAR : elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS ? PRESUNCAO_IRPJ_16 : PRESUNCAO_IRPJ;
+    let presIrpj;
+    if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
+      presIrpj = PRESUNCAO_IRPJ_16;
+      aplicouPresuncao16 = true;
+    } else {
+      presIrpj = PRESUNCAO_IRPJ;
+    }
     trimestreData.push({
       trimestre: t,
       receita: round28(recTrim),
@@ -88265,11 +88906,11 @@ function calcularPJ(aggregated, elegivelPresuncao16, aplicarEquiparacaoHospitala
     const baseNormal = Math.min(recTrim, LIMITE_TRIMESTRAL_IN2306);
     const baseExcedente = excedenteTrimestral;
     const baseIrpj = baseNormal * presuncaoUsada + baseExcedente * presuncaoUsada * fatorAcrescimo;
-    const baseCsll = baseNormal * presCsll + baseExcedente * presCsll * fatorAcrescimo;
-    let irpj = round28(baseIrpj * ALIQ_IRPJ2);
+    const baseCsll = baseNormal * PRESUNCAO_CSLL + baseExcedente * PRESUNCAO_CSLL * fatorAcrescimo;
+    const irpj = round28(baseIrpj * ALIQ_IRPJ2);
     const irpjAdic = adicionalIRPJ2(baseIrpj);
     let irpjPostergado = 0;
-    if (!aplicarEquiparacaoHospitalar && elegivelPresuncao16 && presuncaoUsada === PRESUNCAO_IRPJ && indicePrimeiroExcesso < 0) {
+    if (presuncaoUsada === PRESUNCAO_IRPJ && indicePrimeiroExcesso < 0) {
       indicePrimeiroExcesso = i;
       for (let q = 0; q < i; q++) {
         const qData = trimestreData[q];
@@ -88323,6 +88964,7 @@ function calcularPJ(aggregated, elegivelPresuncao16, aplicarEquiparacaoHospitala
     imposto_total: round28(impostoTotal),
     aliquota_efetiva: round28(aliquotaEfetiva),
     aplicou_in_2306: aplicouIN2306,
+    aplicou_presuncao_16: aplicouPresuncao16,
     trimestres
   };
 }
@@ -88623,11 +89265,7 @@ var PropertyService = class {
       aggregatedTotal,
       input.aliquota_efetiva_dirpf
     );
-    const cenarioPJ = calcularPJ(
-      aggregatedTotal,
-      input.aplicar_presuncao_16_servicos ?? false,
-      input.aplicar_equiparacao_hospitalar ?? false
-    );
+    const cenarioPJ = calcularPJ(aggregatedTotal);
     const redutorLocacaoSimulate = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const opcoesReformaSimulate = {
       ano: input.ano,
@@ -88675,11 +89313,7 @@ var PropertyService = class {
     for (const [pid, entry] of aggregatedMap) {
       const agg = entry.aggregated;
       const pfForProp = calcularPF(agg);
-      const pjForProp = calcularPJ(
-        agg,
-        input.aplicar_presuncao_16_servicos ?? false,
-        input.aplicar_equiparacao_hospitalar ?? false
-      );
+      const pjForProp = calcularPJ(agg);
       fluxo_caixa.push({
         property_id: pid,
         identificador: entry.identificador,
@@ -88784,7 +89418,6 @@ var PropertyService = class {
       (s, m) => s + (m.receita_aluguel_curto ?? 0),
       0
     );
-    const aplicarPresuncao16 = receitaTotal < 12e4 && receitaShortTotal > receitaLongaTotal;
     const aggregatedTotal = {
       ano: input.ano,
       receita_total: receitaTotal,
@@ -88793,12 +89426,7 @@ var PropertyService = class {
       meses: mesesSoma
     };
     const cenarioPF = calcularPF(aggregatedTotal);
-    const cenarioPJ = calcularPJ(
-      aggregatedTotal,
-      aplicarPresuncao16,
-      input.aplicar_equiparacao_hospitalar ?? false
-    );
-    const cenarioPJ32Fixo = aplicarPresuncao16 ? calcularPJ(aggregatedTotal, false) : null;
+    const cenarioPJ = calcularPJ(aggregatedTotal);
     const redutorLocacao = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada";
     const opcoesReformaStandalone = {
@@ -88874,10 +89502,9 @@ var PropertyService = class {
       memoria_calculo: {
         ano: input.ano,
         modo: "standalone",
-        aplicar_presuncao_16_servicos: aplicarPresuncao16,
+        aplicar_presuncao_16_servicos: cenarioPJ.aplicou_presuncao_16,
         aliquota_ibs_cbs_reforma: cenarioReforma.aliquota_nominal_ibs_cbs,
         redutor_locacao_pct: redutorLocacao,
-        cenario_32_fixo_imposto: cenarioPJ32Fixo?.imposto_total,
         receita_total: receitaTotal,
         despesas_dedutiveis_total: despesasDedutiveisTotal,
         custos_operacionais_total: custosOperacionaisTotal,
@@ -88891,8 +89518,8 @@ var PropertyService = class {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: input.aplicar_equiparacao_hospitalar ?? false ? 8 : aplicarPresuncao16 ? 16 : 32,
-          presuncao_csll_pct: input.aplicar_equiparacao_hospitalar ?? false ? 12 : 32,
+          presuncao_irpj_pct: cenarioPJ.aplicou_presuncao_16 ? 16 : 32,
+          presuncao_csll_pct: 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,
@@ -89797,7 +90424,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-13T10:56:19.626Z";
+var API_UPDATED_AT = "2026-03-14T18:46:46.000Z";
 
 // src/modules/index.ts
 var app = new Hono2();

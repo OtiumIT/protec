@@ -33,11 +33,14 @@ const FAIXAS_IRPF_2026 = [
 /** Lucro Presumido - locação de imóveis */
 const PRESUNCAO_IRPJ = 0.32;
 const PRESUNCAO_CSLL = 0.32;
-const PRESUNCAO_IRPJ_16 = 0.16; // Serviços receita acum. <= 120k/ano (Lei)
-/** Equiparação hospitalar: imóveis para serviços de saúde/hospitalares (LC 224/2025) */
-const PRESUNCAO_IRPJ_HOSPITALAR = 0.08;
-const PRESUNCAO_CSLL_HOSPITALAR = 0.12;
-const LIMITE_PRESUNCAO_16_SERVICOS = 120_000;
+/** Presunção 16% para locação de imóveis com receita até R$ 120k/ano (Lei 9.249/95, Art. 15, § 7º - IN RFB 1.700/1997) */
+const PRESUNCAO_IRPJ_16 = 0.16;
+const LIMITE_PRESUNCAO_16_LOCACAO = 120_000;
+
+/** Limites para PF ser contribuinte de IBS/CBS (LC 214/2025) */
+const LIMITE_RECEITA_IBS_CBS_PF = 240_000;
+const LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF = 288_000; // 20% acima de 240k
+const LIMITE_IMOVEIS_IBS_CBS_PF = 3;
 const ALIQ_IRPJ = 0.15;
 const ALIQ_IRPJ_ADICIONAL = 0.1;
 const ALIQ_CSLL = 0.09;
@@ -49,6 +52,37 @@ const LIMITE_ANUAL_IN2306 = 5_000_000;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Verifica se a Pessoa Física é contribuinte de IBS/CBS na locação de imóveis (LC 214/2025).
+ * Critérios:
+ * - Mais de 3 imóveis E receita > R$ 240.000/ano = contribuinte
+ * - OU receita > R$ 288.000/ano (20% acima de 240k) = contribuinte independente do número de imóveis
+ * - Caso contrário = não contribuinte (apenas IR Carnê-Leão)
+ */
+export function verificarContribuinteIbsCbsPF(
+  quantidadeImoveis: number,
+  receitaAnual: number
+): { contribuinte: boolean; motivo: string } {
+  if (receitaAnual > LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF) {
+    return {
+      contribuinte: true,
+      motivo: `Receita anual > R$ 288.000 (${((receitaAnual / LIMITE_RECEITA_IBS_CBS_PF - 1) * 100).toFixed(0)}% acima de R$ 240k)`,
+    };
+  }
+  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > LIMITE_RECEITA_IBS_CBS_PF) {
+    return {
+      contribuinte: true,
+      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (${quantidadeImoveis}) e receita > R$ 240.000`,
+    };
+  }
+  return {
+    contribuinte: false,
+    motivo: quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF
+      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ 288.000`
+      : `Receita ≤ R$ 240.000`,
+  };
 }
 
 /** IR mensal sobre base de cálculo (tabela progressiva) */
@@ -141,15 +175,17 @@ function adicionalIRPJ(baseCalculoTrimestre: number): number {
 }
 
 /** Cenário PJ: Lucro Presumido com IN 2.306/2026
- * Regra 16% (Bruno Sacani): PJ prestadora de serviço em geral, receita anual até R$ 120k
- * pode usar 16%. Se receita acumulada até um trimestre > 120k, passa a 32% e recolhe
- * a diferença do imposto postergado nos trimestres anteriores.
- * Equiparação hospitalar: quando aplicarEquiparacaoHospitalar, usa 8% IRPJ e 12% CSLL.
+ * Regra 16% para locação de imóveis (Lei 9.249/95, Art. 15, § 7º - IN RFB 1.700/1997):
+ * Quando a receita anual de locação for até R$ 120.000, a presunção de IRPJ é 16% (não 32%).
+ * Se receita acumulada até um trimestre > 120k, passa a 32% e recolhe
+ * a diferença do imposto postergado nos trimestres anteriores (§ 8º).
+ * 
+ * @param aggregated - Dados agregados do ano
+ * @param _elegivelPresuncao16 - DEPRECATED: agora é calculado automaticamente baseado na receita
  */
 export function calcularPJ(
   aggregated: AggregatedYear,
-  elegivelPresuncao16: boolean,
-  aplicarEquiparacaoHospitalar?: boolean
+  _elegivelPresuncao16?: boolean
 ): {
   receita_bruta_total: number;
   base_presumida_irpj: number;
@@ -163,6 +199,8 @@ export function calcularPJ(
   imposto_total: number;
   aliquota_efetiva: number;
   aplicou_in_2306: boolean;
+  /** Indica se aplicou presunção 16% para locação (receita até R$ 120k) */
+  aplicou_presuncao_16: boolean;
   trimestres: Array<{
     trimestre: number;
     receita: number;
@@ -178,13 +216,11 @@ export function calcularPJ(
   }>;
 } {
   const { receita_total, meses } = aggregated;
-  const presCsll = aplicarEquiparacaoHospitalar
-    ? PRESUNCAO_CSLL_HOSPITALAR
-    : PRESUNCAO_CSLL;
 
   let receitaAcumulada = 0;
   let aplicouIN2306 = false;
   let irpjPostergadoTotal = 0;
+  let aplicouPresuncao16 = false;
   const trimestreData: Array<{
     trimestre: number;
     receita: number;
@@ -201,11 +237,14 @@ export function calcularPJ(
     }
     receitaAcumulada += recTrim;
 
-    const presIrpj = aplicarEquiparacaoHospitalar
-      ? PRESUNCAO_IRPJ_HOSPITALAR
-      : elegivelPresuncao16 && receitaAcumulada <= LIMITE_PRESUNCAO_16_SERVICOS
-        ? PRESUNCAO_IRPJ_16
-        : PRESUNCAO_IRPJ;
+    // Presunção automática: 16% se receita acumulada <= R$ 120k (Lei 9.249/95, Art. 15, § 7º)
+    let presIrpj: number;
+    if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
+      presIrpj = PRESUNCAO_IRPJ_16;
+      aplicouPresuncao16 = true;
+    } else {
+      presIrpj = PRESUNCAO_IRPJ;
+    }
 
     trimestreData.push({
       trimestre: t,
@@ -246,18 +285,14 @@ export function calcularPJ(
     const baseIrpj =
       baseNormal * presuncaoUsada + baseExcedente * presuncaoUsada * fatorAcrescimo;
     const baseCsll =
-      baseNormal * presCsll + baseExcedente * presCsll * fatorAcrescimo;
+      baseNormal * PRESUNCAO_CSLL + baseExcedente * PRESUNCAO_CSLL * fatorAcrescimo;
 
-    let irpj = round2(baseIrpj * ALIQ_IRPJ);
+    const irpj = round2(baseIrpj * ALIQ_IRPJ);
     const irpjAdic = adicionalIRPJ(baseIrpj);
     let irpjPostergado = 0;
 
-    if (
-      !aplicarEquiparacaoHospitalar &&
-      elegivelPresuncao16 &&
-      presuncaoUsada === PRESUNCAO_IRPJ &&
-      indicePrimeiroExcesso < 0
-    ) {
+    // § 8º Lei 9.249/95: se ultrapassou 120k e usava 16% antes, recolhe diferença
+    if (presuncaoUsada === PRESUNCAO_IRPJ && indicePrimeiroExcesso < 0) {
       indicePrimeiroExcesso = i;
       for (let q = 0; q < i; q++) {
         const qData = trimestreData[q]!;
@@ -266,8 +301,7 @@ export function calcularPJ(
           const base32 = qData.recTrim * PRESUNCAO_IRPJ;
           const difBase = base32 - base16;
           const difIrpj = round2(difBase * ALIQ_IRPJ);
-          const difAdic =
-            adicionalIRPJ(base32) - adicionalIRPJ(base16);
+          const difAdic = adicionalIRPJ(base32) - adicionalIRPJ(base16);
           irpjPostergado += round2(difIrpj + difAdic);
         }
       }
@@ -318,6 +352,7 @@ export function calcularPJ(
     imposto_total: round2(impostoTotal),
     aliquota_efetiva: round2(aliquotaEfetiva),
     aplicou_in_2306: aplicouIN2306,
+    aplicou_presuncao_16: aplicouPresuncao16,
     trimestres,
   };
 }
@@ -506,9 +541,114 @@ export function calcularBreakEven(
   cargaPJPercentual: number
 ): number | null {
   if (cargaPJPercentual >= cargaPFPercentual) return null;
-  // Break-even é conceitual: geralmente entre R$ 10k e R$ 15k/mês
-  // Retornamos um valor aproximado para exibição
   const diferenca = cargaPFPercentual - cargaPJPercentual;
   if (diferenca <= 0) return null;
-  return round2(12000); // Valor típico para exibição
+  return round2(12000);
+}
+
+export interface TributacaoAnoResult {
+  ano: number;
+  /** CBS com redutor aplicado */
+  cbs_efetiva: number;
+  cbs_valor: number;
+  /** IBS com redutor aplicado (0,1% fixo em 2027/2028, progressivo 2029+) */
+  ibs_efetivo: number;
+  ibs_valor: number;
+  /** Total IBS + CBS */
+  ibs_cbs_total: number;
+  /** Créditos sobre custos operacionais */
+  creditos: number;
+  /** IBS/CBS líquido após créditos */
+  ibs_cbs_liquido: number;
+  /** IRPJ + CSLL (para PJ) */
+  irpj_csll: number;
+  /** Tributação total */
+  total_tributos: number;
+  /** Alíquota efetiva total */
+  aliquota_efetiva: number;
+}
+
+/**
+ * Simula a tributação ano a ano de 2027 a 2033 para PJ (Reforma Tributária LC 214/2025).
+ * 
+ * Cronograma:
+ * - 2027/2028: CBS + IBS fixo 0,1% (ambos com redutor)
+ * - 2029: CBS + IBS 10% da alíquota plena (ambos com redutor)
+ * - 2030: CBS + IBS 20% da alíquota plena
+ * - 2031: CBS + IBS 30% da alíquota plena
+ * - 2032: CBS + IBS 40% da alíquota plena
+ * - 2033: CBS + IBS 100% (alíquota plena)
+ */
+export function calcularTributacaoAnoAno(
+  receitaAnual: number,
+  custosOperacionais: number,
+  irpjCsll: number,
+  opcoes?: {
+    aliquotaIbsPlena?: number;  // default 19
+    aliquotaCBS?: number;       // default 9
+    redutorLocacao?: number;    // default 70
+  }
+): TributacaoAnoResult[] {
+  const aliquotaIbsPlena = opcoes?.aliquotaIbsPlena ?? 19;
+  const aliquotaCBS = opcoes?.aliquotaCBS ?? 9;
+  const redutor = opcoes?.redutorLocacao ?? 70;
+  const fatorReducao = 1 - redutor / 100; // 30% após redutor de 70%
+
+  const anos = [2027, 2028, 2029, 2030, 2031, 2032, 2033];
+  const results: TributacaoAnoResult[] = [];
+
+  for (const ano of anos) {
+    let ibsNominal: number;
+    
+    if (ano <= 2028) {
+      // 2027/2028: IBS fixo 0,1%
+      ibsNominal = 0.1;
+    } else {
+      // 2029+: IBS progressivo
+      const transicao = TRANSICAO_IBS_ANOS[ano];
+      if (transicao) {
+        ibsNominal = round2((aliquotaIbsPlena * transicao.ibsPct) / 100);
+      } else {
+        ibsNominal = aliquotaIbsPlena;
+      }
+    }
+
+    // Aplicar redutor a CBS e IBS
+    const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
+    const ibsEfetivo = round2(ibsNominal * fatorReducao);
+
+    // Calcular valores
+    const cbsValor = round2((receitaAnual * cbsEfetiva) / 100);
+    const ibsValor = round2((receitaAnual * ibsEfetivo) / 100);
+    const ibsCbsTotal = round2(cbsValor + ibsValor);
+
+    // Créditos sobre custos operacionais
+    const aliquotaEfetivaCombinada = cbsEfetiva + ibsEfetivo;
+    const creditos = round2((custosOperacionais * aliquotaEfetivaCombinada) / 100);
+
+    // Líquido
+    const ibsCbsLiquido = Math.max(0, round2(ibsCbsTotal - creditos));
+
+    // Total com IRPJ/CSLL
+    const totalTributos = round2(ibsCbsLiquido + irpjCsll);
+
+    // Alíquota efetiva
+    const aliquotaEfetiva = receitaAnual > 0 ? round2((totalTributos / receitaAnual) * 100) : 0;
+
+    results.push({
+      ano,
+      cbs_efetiva: cbsEfetiva,
+      cbs_valor: cbsValor,
+      ibs_efetivo: ibsEfetivo,
+      ibs_valor: ibsValor,
+      ibs_cbs_total: ibsCbsTotal,
+      creditos,
+      ibs_cbs_liquido: ibsCbsLiquido,
+      irpj_csll: irpjCsll,
+      total_tributos: totalTributos,
+      aliquota_efetiva: aliquotaEfetiva,
+    });
+  }
+
+  return results;
 }

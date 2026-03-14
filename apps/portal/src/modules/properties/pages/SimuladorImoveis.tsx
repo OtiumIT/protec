@@ -166,7 +166,7 @@ export function SimuladorImoveis() {
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
-  const [aplicarEquiparacaoHospitalar, setAplicarEquiparacaoHospitalar] = useState(false);
+  const [quantidadeImoveis, setQuantidadeImoveis] = useState<number>(1);
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
@@ -374,7 +374,7 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
-          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
+          quantidade_imoveis: quantidadeImoveis,
           opcoes_reforma: {
             aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
             aliquota_ibs_plena: aliquotaPlenaIBS,
@@ -412,7 +412,7 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.simulateStandaloneAndSave({
           ano,
           meses: mesesParaEnvio,
-          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
+          quantidade_imoveis: quantidadeImoveis,
           opcoes_reforma: opcoes,
           client_id: saveClientId,
           title: saveTitle || undefined,
@@ -425,7 +425,7 @@ export function SimuladorImoveis() {
         const res = await propertyService.simulateStandalone({
           ano,
           meses: mesesParaEnvio,
-          aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
+          quantidade_imoveis: quantidadeImoveis,
           opcoes_reforma: opcoes,
         });
         setResult(res);
@@ -453,6 +453,7 @@ export function SimuladorImoveis() {
       const input = sim.input_data as {
         ano?: number;
         meses?: SimulateStandaloneMesInput[];
+        quantidade_imoveis?: number;
         opcoes_reforma?: {
           contrato_antes_16012025?: boolean;
           perfil_locacao?: PerfilLocacaoReforma;
@@ -468,9 +469,12 @@ export function SimuladorImoveis() {
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
-      if ((input as { aplicar_equiparacao_hospitalar?: boolean })?.aplicar_equiparacao_hospitalar != null) {
-        setAplicarEquiparacaoHospitalar((input as { aplicar_equiparacao_hospitalar?: boolean }).aplicar_equiparacao_hospitalar ?? false);
+      if (input?.quantidade_imoveis != null) {
+        setQuantidadeImoveis(input.quantidade_imoveis);
       }
+      // Carregar client_id e title para "Salvar como novo"
+      setSaveClientId(sim.client_id ?? '');
+      setSaveTitle(sim.title ?? '');
       setEditingSimulationId(id);
       setResult(null);
       success('Simulação carregada. Edite e clique em Simular para atualizar.');
@@ -492,6 +496,49 @@ export function SimuladorImoveis() {
     }
   };
 
+  const handleSaveAsNew = async () => {
+    if (!saveClientId) {
+      showError('Selecione um cliente para salvar como novo');
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    try {
+      const mesesParaEnvio = buildMesesParaEnvio();
+      const opcoes = {
+        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
+        aliquota_ibs_plena: aliquotaPlenaIBS,
+        aliquota_cbs_estimada: aliquotaCBS,
+        redutor_short_stay_pct: 50,
+        contrato_antes_16012025: contratoAntes16012025,
+        perfil_locacao: perfilLocacao,
+      };
+      const { result: res } = await propertyService.simulateStandaloneAndSave({
+        ano,
+        meses: mesesParaEnvio,
+        quantidade_imoveis: quantidadeImoveis,
+        opcoes_reforma: opcoes,
+        client_id: saveClientId,
+        title: saveTitle || undefined,
+        save_simulation: true,
+      });
+      setResult(res);
+      setEditingSimulationId(null);
+      success('Nova simulação criada com sucesso!');
+      const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+      resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSimulationId(null);
+  };
+
   const formatMoney = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -500,7 +547,7 @@ export function SimuladorImoveis() {
       <ToastContainer />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Simulador Imobiliário – PF vs PJ vs Reforma 2027
+          Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025
         </h1>
         <p className="text-slate-600 mt-2 max-w-2xl">
           Preencha os totais mensais por categoria. O resultado compara Pessoa Física (Carnê-Leão), Pessoa Jurídica (Lucro Presumido) e o cenário da Reforma Tributária (IBS/CBS).
@@ -524,23 +571,29 @@ export function SimuladorImoveis() {
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <Button type="submit" variant="primary" disabled={loading} className="min-w-[200px]">
-                {loading ? 'Simulando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular PF vs PJ vs Reforma 2027'}
+                {loading ? 'Simulando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
               </Button>
               {editingSimulationId && (
-                <Button type="button" variant="tertiary" size="sm" onClick={() => setEditingSimulationId(null)}>
-                  Cancelar edição
-                </Button>
+                <>
+                  <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNew} disabled={loading}>
+                    Salvar como novo
+                  </Button>
+                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
+                    Cancelar edição
+                  </Button>
+                </>
               )}
-              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={saveSimulation}
-                  onChange={(e) => setSaveSimulation(e.target.checked)}
-                  className="rounded border-slate-300"
-                  disabled={!!editingSimulationId}
-                />
-                Salvar simulação
-              </label>
+              {!editingSimulationId && (
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveSimulation}
+                    onChange={(e) => setSaveSimulation(e.target.checked)}
+                    className="rounded border-slate-300"
+                  />
+                  Salvar simulação
+                </label>
+              )}
               {saveSimulation && !editingSimulationId && (
                 <>
                   <Input
@@ -566,9 +619,9 @@ export function SimuladorImoveis() {
           </div>
         </Card>
 
-        {/* Opções da Reforma 2027 */}
+        {/* Opções da Reforma LC 214/2025 */}
         <Card className="p-5 border-amber-200/80 bg-amber-50/30">
-          <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma 2027 (IBS/CBS)</h3>
+          <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma LC 214/2025 (IBS/CBS)</h3>
           <div className="flex flex-col gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -579,15 +632,18 @@ export function SimuladorImoveis() {
               />
               <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700">Quantidade de imóveis</label>
               <input
-                type="checkbox"
-                checked={aplicarEquiparacaoHospitalar}
-                onChange={(e) => setAplicarEquiparacaoHospitalar(e.target.checked)}
-                className="rounded border-slate-300 text-brand focus:ring-brand"
+                type="number"
+                min={1}
+                max={100}
+                value={quantidadeImoveis}
+                onChange={(e) => setQuantidadeImoveis(Math.max(1, parseInt(e.target.value) || 1))}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-24"
               />
-              <span className="text-sm text-slate-700">Imóvel destinado a serviços de saúde/hospitalares (presunção 8% IRPJ, 12% CSLL)</span>
-            </label>
+              <span className="text-xs text-slate-500">Para PF: contribuinte de IBS/CBS se mais de 3 imóveis e receita &gt; R$ 240k, ou receita &gt; R$ 288k.</span>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
               <select
@@ -598,23 +654,23 @@ export function SimuladorImoveis() {
                 <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
                 <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
               </select>
-              <span className="text-xs text-slate-500">Em 2027/2028 incide IBS e CBS; a partir de 2029, IBS + CBS.</span>
+              <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
             </div>
           </div>
         </Card>
 
-        {/* Transição IBS vs ICMS/ISS (2027-2033) */}
+        {/* Transição Reforma Tributária (2027-2033) */}
         <Card className="p-5 border-violet-200/80 bg-violet-50/20">
-          <h3 className="font-semibold text-slate-800 mb-2">Transição IBS vs ICMS/ISS (2027-2033)</h3>
+          <h3 className="font-semibold text-slate-800 mb-2">Transição Reforma Tributária - Incidência de CBS + IBS</h3>
           <p className="text-xs text-amber-800 bg-amber-100/80 rounded px-3 py-2 mb-2">
             Valores estimados; alíquotas sujeitas a regulamentação (previsão fim de 2026).
           </p>
           <p className="text-xs text-slate-600 mb-4">
-            Em 2027 e 2028 o IBS incide à alíquota fixa de 0,1%, que se soma à CBS.
+            2027/2028: CBS + IBS de 0,1% fixo · A partir de 2029 até 2032: IBS progressivo + CBS · A partir de 2033: reforma tributária em vigor de forma plena
           </p>
           <div className="flex flex-wrap items-end gap-4 mb-4">
             <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700">Alíquota plena IBS (%)</label>
+              <label className="text-sm font-medium text-slate-700">Alíquota IBS (%)</label>
               <input
                 type="number"
                 min={0}
@@ -626,7 +682,7 @@ export function SimuladorImoveis() {
               />
             </div>
             <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700">Alíquota CBS estimada (%)</label>
+              <label className="text-sm font-medium text-slate-700">Alíquota CBS (%)</label>
               <input
                 type="number"
                 min={0}
@@ -643,7 +699,7 @@ export function SimuladorImoveis() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold">Ano</th>
-                  <th className="text-right py-2 px-3 font-semibold">IBS (% alíq. plena)</th>
+                  <th className="text-right py-2 px-3 font-semibold">IBS (% alíquota)</th>
                   <th className="text-right py-2 px-3 font-semibold">ICMS/ISS residual</th>
                   <th className="text-right py-2 px-3 font-semibold">IBS efetivo</th>
                 </tr>
@@ -837,7 +893,7 @@ export function SimuladorImoveis() {
 
         <div className="flex justify-end">
           <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px]">
-            {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma 2027'}
+            {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
           </Button>
         </div>
       </form>
@@ -907,8 +963,8 @@ export function SimuladorImoveis() {
               return (
                 <p className="text-xs text-slate-500 mt-1">
                   {pres16
-                    ? 'Presunção 16% – PJ prestadora de serviços c/ receita acumulada ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º)'
-                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15)'}
+                    ? 'Presunção 16% – Receita anual ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º – IN RFB 1.700/1997)'
+                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15 – IN RFB 1.700/1997)'}
                 </p>
               );
             })()}
@@ -1071,13 +1127,47 @@ export function SimuladorImoveis() {
             )}
           </Card>
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Reforma 2027 – Pessoa Física (IR + IBS/CBS)</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Física (IR + IBS/CBS)</h3>
             {(() => {
               const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
               const irHoje = result.cenarios.pf.imposto_total;
+              const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
+              
+              // Verificar se PF é contribuinte de IBS/CBS
+              const LIMITE_RECEITA = 240_000;
+              const LIMITE_RECEITA_ABSOLUTO = 288_000;
+              const LIMITE_IMOVEIS = 3;
+              const ehContribuinteIbsCbs = receita > LIMITE_RECEITA_ABSOLUTO || 
+                (quantidadeImoveis > LIMITE_IMOVEIS && receita > LIMITE_RECEITA);
+              
+              if (!ehContribuinteIbsCbs) {
+                return (
+                  <>
+                    <p className="text-2xl font-bold text-emerald-700">
+                      {formatMoney(irHoje)}
+                    </p>
+                    <p className="text-sm text-slate-600 mt-1">
+                      Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(1)}%
+                    </p>
+                    <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
+                      <p className="text-sm text-emerald-800 font-medium">
+                        Não contribuinte de IBS/CBS
+                      </p>
+                      <p className="text-xs text-emerald-700 mt-1">
+                        {quantidadeImoveis <= LIMITE_IMOVEIS 
+                          ? `Com ${quantidadeImoveis} imóvel(is) e receita de ${formatMoney(receita)}, a PF não atinge os critérios para ser contribuinte de IBS/CBS.`
+                          : `Receita de ${formatMoney(receita)} está abaixo de R$ 240.000.`}
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      A PF continua pagando apenas o IR (Carnê-Leão) sobre a renda de locação.
+                    </p>
+                  </>
+                );
+              }
+              
               const ibsCbs = refPf?.ibs_cbs_liquido ?? 0;
               const totalPF2027 = irHoje + ibsCbs;
-              const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
               const aliquotaTotal = receita > 0 ? (totalPF2027 / receita) * 100 : 0;
               return (
                 <>
@@ -1098,15 +1188,17 @@ export function SimuladorImoveis() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     Em 2027 a PF continua pagando o mesmo IR de hoje sobre a renda; soma-se o IBS/CBS sobre a atividade.
                   </p>
+                  <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
+                    Contribuinte de IBS/CBS: {receita > LIMITE_RECEITA_ABSOLUTO 
+                      ? `Receita > R$ 288.000 (independente do número de imóveis)`
+                      : `Mais de ${LIMITE_IMOVEIS} imóveis (${quantidadeImoveis}) e receita > R$ 240.000`}
+                  </p>
                 </>
               );
             })()}
-            <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
-              A obrigatoriedade de IBS/CBS para PF depende de receita &gt; R$ 240k e mais de 3 imóveis (ou &gt; R$ 288k, conforme interpretação em discussão). O regulamento definirá os critérios.
-            </p>
           </Card>
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Reforma 2027 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
             <p className="text-2xl font-bold text-slate-800">
               {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
             </p>
@@ -1194,6 +1286,73 @@ export function SimuladorImoveis() {
           </Card>
           </div>
 
+          {/* Card de Projeção Ano a Ano (2027-2033) - Reforma PJ */}
+          <Card className="mt-6 p-4 border-violet-200/50 bg-violet-50/10">
+            <h3 className="text-lg font-semibold text-slate-800 mb-3">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL) – Projeção 2027-2033</h3>
+            <p className="text-xs text-slate-500 mb-4">Demonstração da tributação ano a ano considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).</p>
+            {(() => {
+              const receita = result.cenarios.pf.receita_bruta_total;
+              const custos = (result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.custos_operacionais_total ?? 0;
+              const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.csll ?? 0);
+              const redutor = perfilLocacao === 'hospedagem_temporada' ? 50 : 70;
+              const fatorReducao = (100 - redutor) / 100;
+
+              const anos = [
+                { ano: '2027/2028', ibsNominal: 0.1 },
+                { ano: '2029', ibsNominal: aliquotaPlenaIBS * 0.1 },
+                { ano: '2030', ibsNominal: aliquotaPlenaIBS * 0.2 },
+                { ano: '2031', ibsNominal: aliquotaPlenaIBS * 0.3 },
+                { ano: '2032', ibsNominal: aliquotaPlenaIBS * 0.4 },
+                { ano: '2033', ibsNominal: aliquotaPlenaIBS * 1.0 },
+              ];
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="py-2 px-3 text-left font-medium text-slate-600">Ano</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">CBS</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS/CBS Líq.</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IRPJ+CSLL</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-700">Total</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">Alíq. Efet.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {anos.map((item) => {
+                        const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
+                        const ibsEfetivo = round2(item.ibsNominal * fatorReducao);
+                        const aliqCombinada = cbsEfetiva + ibsEfetivo;
+                        const ibsCbsBruto = round2((receita * aliqCombinada) / 100);
+                        const creditos = round2((custos * aliqCombinada) / 100);
+                        const ibsCbsLiquido = Math.max(0, round2(ibsCbsBruto - creditos));
+                        const total = round2(ibsCbsLiquido + irpjCsll);
+                        const aliqEfetiva = receita > 0 ? round2((total / receita) * 100) : 0;
+
+                        return (
+                          <tr key={item.ano} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-2 px-3 font-medium text-slate-700">{item.ano}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * cbsEfetiva) / 100))}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * ibsEfetivo) / 100))}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(ibsCbsLiquido)}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(irpjCsll)}</td>
+                            <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(total)}</td>
+                            <td className="py-2 px-3 text-right text-slate-500">{aliqEfetiva.toFixed(1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+            <p className="text-xs text-slate-500 mt-3">
+              CBS com redutor de {perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção {result.cenarios.pj.aplicou_presuncao_16 ? '16%' : '32%'})
+            </p>
+          </Card>
+
       {/* Tabela Comparativa Horizontal */}
       <Card className="mt-6 p-4">
         <h3 className="text-lg font-semibold text-slate-800 mb-4">Comparativo de Cenários</h3>
@@ -1232,10 +1391,10 @@ export function SimuladorImoveis() {
                         {melhorAtual === 'PJ' && <span className="text-emerald-600 text-xs">✓</span>}
                       </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600">Reforma 2027 PF</th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600">Reforma LC 214/2025 PF</th>
                     <th className="py-2 px-3 text-right font-medium text-slate-600">
                       <div className="flex items-center justify-end gap-1">
-                        Reforma 2027 PJ
+                        Reforma LC 214/2025 PJ
                         {melhorTotal.label === 'Ref. PJ' && <span className="text-amber-500 text-xs">★</span>}
                       </div>
                     </th>
@@ -1496,7 +1655,7 @@ export function SimuladorImoveis() {
               </div>
             </details>
             <details className="border border-slate-200 rounded-lg overflow-hidden">
-              <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Reforma 2027 (IBS/CBS)</summary>
+              <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Reforma LC 214/2025 (IBS/CBS)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">
                 {(() => {
                   const mc = result.memoria_calculo as { detalhe_reforma?: { aliquota_nominal_ibs_cbs: number; redutor_locacao_pct: number; aliquota_efetiva: number; receita_bruta_total: number; custos_operacionais_total: number; creditos_ibs_cbs: number; ibs_cbs_sobre_receita: number; ibs_cbs_liquido: number; imposto_total: number; ir_pf?: number } } | undefined;
@@ -1540,7 +1699,7 @@ export function SimuladorImoveis() {
             {(['pf', 'pj', 'reforma'] as const).map((cenario) => {
               const itens = result.embasamentos_legais!.filter((e) => e.cenario === cenario);
               if (itens.length === 0) return null;
-              const labels = { pf: 'Pessoa Física', pj: 'Pessoa Jurídica', reforma: 'Reforma 2027 (IBS/CBS)' };
+              const labels = { pf: 'Pessoa Física', pj: 'Pessoa Jurídica', reforma: 'Reforma LC 214/2025 (IBS/CBS)' };
               return (
                 <div key={cenario}>
                   <p className="font-medium text-slate-700 mb-1">{labels[cenario]}</p>
@@ -1578,7 +1737,7 @@ export function SimuladorImoveis() {
           acoes.push(`A partir de aproximadamente ${formatMoney(result.break_even.valor_mensal_break_even)}/mês de receita, PJ tende a ficar mais vantajosa que PF (break-even).`);
         }
         if (reformaPj?.aliquota_efetiva != null) {
-          acoes.push(`Reforma 2027: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(1)}%). Planeje revisão na vigência da reforma.`);
+          acoes.push(`Reforma LC 214/2025: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(1)}%). Planeje revisão na vigência da reforma.`);
         }
         acoes.push('Holding em 2027: além do imposto, faz sentido por planejamento sucessório (ITCMD progressivo), proteção patrimonial e tributação na venda (menor que ganho de capital na PF).');
         acoes.push('Contratos de locação firmados até 16/01/2025 podem optar por alíquota de transição 3,65% até o fim do contrato ou 31/12/2028.');
@@ -1694,7 +1853,7 @@ export function SimuladorImoveis() {
                   <p className="text-lg font-semibold">{pj ? formatMoney(pj.imposto_total) : '-'}</p>
                 </Card>
                 <Card className="p-4">
-                  <h4 className="text-sm font-bold text-slate-600 mb-2">Reforma 2027</h4>
+                  <h4 className="text-sm font-bold text-slate-600 mb-2">Reforma LC 214/2025</h4>
                   <p className="text-lg font-semibold">{ref ? formatMoney(ref.imposto_total ?? 0) : '-'}</p>
                 </Card>
               </div>

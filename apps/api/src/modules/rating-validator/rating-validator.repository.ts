@@ -15,6 +15,8 @@ export interface CreateRatingValidationData {
   rating_real?: 'A' | 'B' | 'C' | 'D' | null;
   has_discrepancy: boolean;
   discrepancy_details?: Record<string, any> | null;
+  parcelamento_pgfn?: Record<string, any> | null;
+  comparativo_parcelamento?: Record<string, any> | null;
   created_by?: string | null;
 }
 
@@ -22,6 +24,22 @@ export interface UpdateRatingValidationData {
   rating_real?: 'A' | 'B' | 'C' | 'D' | null;
   has_discrepancy?: boolean;
   discrepancy_details?: Record<string, any> | null;
+}
+
+export interface FullUpdateRatingValidationData {
+  client_id?: string;
+  competence: string;
+  input_data: Record<string, any>;
+  calculated_values?: Record<string, any> | null;
+  liquidez_corrente?: number | null;
+  liquidez_geral?: number | null;
+  solvencia?: number | null;
+  rating_estimado: 'A' | 'B' | 'C' | 'D';
+  rating_real?: 'A' | 'B' | 'C' | 'D' | null;
+  has_discrepancy: boolean;
+  discrepancy_details?: Record<string, any> | null;
+  parcelamento_pgfn?: Record<string, any> | null;
+  comparativo_parcelamento?: Record<string, any> | null;
 }
 
 export class RatingValidatorRepository extends BaseRepository {
@@ -34,6 +52,7 @@ export class RatingValidatorRepository extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations WHERE id = $1`,
       [id],
@@ -51,11 +70,13 @@ export class RatingValidatorRepository extends BaseRepository {
       `INSERT INTO rating_validations 
        (client_id, competence, fiscal_file_id, is_simulation, input_data, 
         calculated_values, liquidez_corrente, liquidez_geral, solvencia,
-        rating_estimado, rating_real, has_discrepancy, discrepancy_details, created_by) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+        rating_estimado, rating_real, has_discrepancy, discrepancy_details, 
+        parcelamento_pgfn, comparativo_parcelamento, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
        RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
                  input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
                  rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
                  created_by, created_at, updated_at`,
       [
         data.client_id,
@@ -71,6 +92,8 @@ export class RatingValidatorRepository extends BaseRepository {
         data.rating_real || null,
         data.has_discrepancy,
         data.discrepancy_details ? JSON.stringify(data.discrepancy_details) : null,
+        data.parcelamento_pgfn ? JSON.stringify(data.parcelamento_pgfn) : null,
+        data.comparativo_parcelamento ? JSON.stringify(data.comparativo_parcelamento) : null,
         data.created_by || null,
       ],
       false // Não requer company_id (isolado por schema)
@@ -112,10 +135,62 @@ export class RatingValidatorRepository extends BaseRepository {
        RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
                  input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
                  rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
                  created_by, created_at, updated_at`,
       params,
       false // Não requer company_id (isolado por schema)
     );
+    return result.rows[0];
+  }
+
+  /**
+   * Atualização completa da validação (re-simulação)
+   * NOTA: Schema já isola por tenant, não precisa company_id
+   */
+  async fullUpdate(id: string, data: FullUpdateRatingValidationData): Promise<RatingValidation> {
+    const result = await this.query<RatingValidation>(
+      `UPDATE rating_validations 
+       SET client_id = COALESCE($2, client_id),
+           competence = $3,
+           input_data = $4,
+           calculated_values = $5,
+           liquidez_corrente = $6,
+           liquidez_geral = $7,
+           solvencia = $8,
+           rating_estimado = $9,
+           rating_real = $10,
+           has_discrepancy = $11,
+           discrepancy_details = $12,
+           parcelamento_pgfn = $13,
+           comparativo_parcelamento = $14,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, client_id, competence, fiscal_file_id, is_simulation,
+                 input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
+                 rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+                 parcelamento_pgfn, comparativo_parcelamento,
+                 created_by, created_at, updated_at`,
+      [
+        id,
+        data.client_id ?? null,
+        data.competence,
+        JSON.stringify(data.input_data),
+        data.calculated_values ? JSON.stringify(data.calculated_values) : null,
+        data.liquidez_corrente ?? null,
+        data.liquidez_geral ?? null,
+        data.solvencia ?? null,
+        data.rating_estimado,
+        data.rating_real ?? null,
+        data.has_discrepancy,
+        data.discrepancy_details ? JSON.stringify(data.discrepancy_details) : null,
+        data.parcelamento_pgfn ? JSON.stringify(data.parcelamento_pgfn) : null,
+        data.comparativo_parcelamento ? JSON.stringify(data.comparativo_parcelamento) : null,
+      ],
+      false
+    );
+    if (result.rows.length === 0) {
+      throw new Error('Validation not found');
+    }
     return result.rows[0];
   }
 
@@ -184,6 +259,7 @@ export class RatingValidatorRepository extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations 
        ${whereClause}
@@ -229,6 +305,7 @@ export class RatingValidatorRepository extends BaseRepository {
       `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
               input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
               rating_estimado, rating_real, has_discrepancy, discrepancy_details,
+              parcelamento_pgfn, comparativo_parcelamento,
               created_by, created_at, updated_at 
        FROM rating_validations 
        WHERE client_id = $1 

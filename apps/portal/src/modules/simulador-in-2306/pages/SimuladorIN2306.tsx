@@ -519,6 +519,100 @@ export function SimuladorIN2306() {
     setEditingSimulationId(null);
   };
 
+  const handleSaveAsNewTrib = async () => {
+    if (!clientIdTrib) {
+      showError('Selecione um cliente para salvar como novo');
+      return;
+    }
+    setLoading(true);
+    setTributarioResult(null);
+    try {
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const trimestresParaEnvio = (modoAnual
+        ? Array(4).fill(null).map(() => ({
+            produtos_mercadorias: round2((receitaAnual.produtos_mercadorias ?? 0) / 4),
+            servicos: round2((receitaAnual.servicos ?? 0) / 4),
+            servicos_favorecida: round2((receitaAnual.servicos_favorecida ?? 0) / 4),
+            servicos_hospitalares: round2((receitaAnual.servicos_hospitalares ?? 0) / 4),
+            demais_receitas: round2((receitaAnual.demais_receitas ?? 0) / 4),
+          }))
+        : trimestres
+      ).map((t) => ({
+        produtos_mercadorias: round2(t?.produtos_mercadorias ?? 0),
+        servicos: round2(t?.servicos ?? 0),
+        servicos_favorecida: round2(t?.servicos_favorecida ?? 0),
+        servicos_hospitalares: round2(t?.servicos_hospitalares ?? 0),
+        demais_receitas: round2(t?.demais_receitas ?? 0),
+      }));
+      const deducoes = (modoAnual
+        ? Array(4).fill(null).map(() => ({
+            pis_cofins_zero: round2(deducoesAnual.pis_cofins_zero / 4),
+            icms_destacado: round2(deducoesAnual.icms_destacado / 4),
+          }))
+        : deducoesTrimestrais
+      ).map((d) => ({
+        pis_cofins_zero: round2(d?.pis_cofins_zero ?? 0),
+        icms_destacado: round2(d?.icms_destacado ?? 0),
+      }));
+      const retencoes = (modoAnual
+        ? Array(4).fill(null).map(() => ({
+            irrf: round2(retencoesAnual.irrf / 4),
+            orgaos_publicos: round2(retencoesAnual.orgaos_publicos / 4),
+          }))
+        : retencoesTrimestrais
+      ).map((r) => ({
+        irrf: round2(r?.irrf ?? 0),
+        orgaos_publicos: round2(r?.orgaos_publicos ?? 0),
+      }));
+      const input: SimulateTributarioInput = {
+        ano,
+        trimestres: trimestresParaEnvio,
+        deducoes_trimestrais: deducoes,
+        retencoes_trimestrais: retencoes,
+        aplicar_equiparacao_hospitalar: equiparacao,
+        save_simulation: true,
+        title: titleTrib || undefined,
+        client_id: clientIdTrib,
+      };
+      const res = await simuladorIN2306Service.simulateTributario(input);
+      setTributarioResult(res);
+      setEditingSimulationId(null);
+      success('Nova simulação criada com sucesso!');
+      const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAsNewParcel = async () => {
+    if (!formParcel.client_id) {
+      showError('Selecione um cliente para salvar como novo');
+      return;
+    }
+    if (!formParcel.competence.match(/^\d{4}-\d{2}$/)) {
+      showError('Competência deve ser YYYY-MM');
+      return;
+    }
+    setLoading(true);
+    setParcelamentoResult(null);
+    try {
+      const inputWithSave = { ...formParcel, save_simulation: true };
+      const res = await simuladorIN2306Service.simulate(inputWithSave);
+      setParcelamentoResult(res);
+      setEditingSimulationId(null);
+      success('Nova simulação criada com sucesso!');
+      const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatMoney = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -991,14 +1085,21 @@ export function SimuladorIN2306() {
                   {loading ? 'Calculando...' : editingSimulationId ? 'Atualizar simulação' : 'Comparar cenários'}
                 </Button>
                 {editingSimulationId && (
-                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit}>
-                    Cancelar edição
-                  </Button>
+                  <>
+                    <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNewTrib} disabled={loading}>
+                      Salvar como novo
+                    </Button>
+                    <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
+                      Cancelar edição
+                    </Button>
+                  </>
                 )}
-                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                  <input type="checkbox" checked={saveTrib} onChange={(e) => setSaveTrib(e.target.checked)} className="rounded border-slate-300" />
-                  Salvar simulação
-                </label>
+                {!editingSimulationId && (
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={saveTrib} onChange={(e) => setSaveTrib(e.target.checked)} className="rounded border-slate-300" />
+                    Salvar simulação
+                  </label>
+                )}
                 {saveTrib && (
                   <>
                     <Input placeholder="Título" value={titleTrib} onChange={(e) => setTitleTrib(e.target.value)} className="w-40 h-9 text-sm" />
@@ -1210,7 +1311,7 @@ export function SimuladorIN2306() {
                   Limite isento: R$ 1.250.000/trimestre (R$ 5 MM/ano). O acréscimo de 10% na presunção incide apenas sobre a parcela da receita que exceder o limite (LC 224/2025 – IN 2.306/2026). No 4º trimestre aplica-se o ajuste anual (§ 5º).
                 </p>
                 <p className="text-xs text-slate-500 mb-4">
-                  Valores &quot;a rec.&quot; consideram retenções (IRRF, 4,65% órgãos públicos). Se não informadas, os valores podem ser superiores ao efetivamente devido.
+                  Valores &quot;a rec.&quot; consideram as retenções informadas (IRRF e demais retenções). Se não informadas, os valores podem ser superiores ao efetivamente devido.
                 </p>
 
                 {/* Demonstração do cálculo por proporção (Receita Federal – Perguntas e Respostas) */}
@@ -1263,7 +1364,8 @@ export function SimuladorIN2306() {
                                     <th className="px-3 py-2 text-right">Participação</th>
                                     <th className="px-3 py-2 text-right">Limite proporcional</th>
                                     <th className="px-3 py-2 text-right">Excedente</th>
-                                    <th className="px-3 py-2 text-left">Presunção (resumo)</th>
+                                    <th className="px-3 py-2 text-center">% IRPJ</th>
+                                    <th className="px-3 py-2 text-center">% CSLL</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1274,18 +1376,45 @@ export function SimuladorIN2306() {
                                       <td className="px-3 py-2 text-right">{a.participacao_pct.toFixed(1)}%</td>
                                       <td className="px-3 py-2 text-right">{formatMoney(a.limite_proporcional)}</td>
                                       <td className="px-3 py-2 text-right">{formatMoney(a.excedente)}</td>
-                                      <td className="px-3 py-2 text-xs text-slate-600">{a.formula_resumida}</td>
+                                      <td className="px-3 py-2 text-center text-slate-600">
+                                        {a.excedente > 0 && pt.aplica_acrescimo_irpj
+                                          ? `${a.percentual_irpj_normal}% / ${a.percentual_irpj_acrescimo}%`
+                                          : `${a.percentual_irpj_normal}%`}
+                                      </td>
+                                      <td className="px-3 py-2 text-center text-slate-600">
+                                        {a.excedente > 0 && pt.aplica_acrescimo_csll
+                                          ? `${a.percentual_csll_normal}% / ${a.percentual_csll_acrescimo}%`
+                                          : `${a.percentual_csll_normal}%`}
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
-                            <p className="text-xs text-slate-600 mt-2">
-                              <strong>Base IRPJ (resumida):</strong> {pt.formula_geral_irpj}
+                            {/* Nota explicativa sobre timing do acréscimo */}
+                            <p className="text-xs text-slate-500 mt-2 italic">
+                              {pt.aplica_acrescimo_irpj && !pt.aplica_acrescimo_csll
+                                ? 'No 1º trimestre de 2026, o acréscimo de 10% incide apenas sobre IRPJ (Pergunta 12 RF).'
+                                : pt.aplica_acrescimo_irpj && pt.aplica_acrescimo_csll
+                                ? 'A partir do 2º trimestre de 2026, o acréscimo de 10% incide sobre IRPJ e CSLL (Pergunta 12 RF).'
+                                : 'Sem acréscimo de 10% neste trimestre.'}
+                              {' '}Formato: normal% / acréscimo%.
                             </p>
-                            <p className="text-xs text-slate-600">
-                              <strong>Base CSLL (resumida):</strong> {pt.formula_geral_csll}
-                            </p>
+                            {/* Fórmulas de Base IRPJ e CSLL */}
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-slate-600">
+                                <strong>Base IRPJ:</strong> {pt.formula_geral_irpj}
+                              </p>
+                              {pt.formula_geral_csll !== pt.formula_geral_irpj ? (
+                                <p className="text-xs text-slate-600">
+                                  <strong>Base CSLL:</strong> {pt.formula_geral_csll}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-500 italic">
+                                  Base CSLL: mesma fórmula (alíquotas iguais neste caso).
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1582,19 +1711,26 @@ export function SimuladorIN2306() {
                   {loading ? 'Calculando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular'}
                 </Button>
                 {editingSimulationId && (
-                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit}>
-                    Cancelar edição
-                  </Button>
+                  <>
+                    <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNewParcel} disabled={loading}>
+                      Salvar como novo
+                    </Button>
+                    <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
+                      Cancelar edição
+                    </Button>
+                  </>
                 )}
-                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formParcel.save_simulation ?? false}
-                    onChange={(e) => setFormParcel((f) => ({ ...f, save_simulation: e.target.checked }))}
-                    className="rounded border-slate-300"
-                  />
-                  Salvar simulação
-                </label>
+                {!editingSimulationId && (
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formParcel.save_simulation ?? false}
+                      onChange={(e) => setFormParcel((f) => ({ ...f, save_simulation: e.target.checked }))}
+                      className="rounded border-slate-300"
+                    />
+                    Salvar simulação
+                  </label>
+                )}
                 {(formParcel.save_simulation ?? false) && (
                   <>
                     <Input

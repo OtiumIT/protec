@@ -1,0 +1,103 @@
+---
+description: Documentação Obrigatória de Regras Tributárias
+globs:
+  - apps/api/src/modules/**/calculations.ts
+  - apps/api/src/modules/**/*.service.ts
+  - packages/shared/src/utils/*-calculations.ts
+alwaysApply: false
+---
+
+# Documentação Obrigatória de Regras Tributárias
+
+## Regra Principal
+Toda vez que uma regra de cálculo tributário for **criada ou modificada**, a documentação correspondente DEVE ser atualizada.
+
+## Localização da Documentação
+- **Tipos**: `packages/shared/src/types/documentation.ts`
+- **Dados de regras**: `apps/portal/src/modules/documentacao/data/`
+  - `rules-in-2306.ts` - Simulador IN RFB 2.306/2026
+  - `rules-irpf-alta-renda.ts` - Lei 15.270/2025
+  - `rules-rating-validator.ts` - Rating PGFN (CAPAG)
+  - `rules-imoveis.ts` - Simulador PF vs PJ vs Reforma
+
+## Checklist Obrigatório
+
+Ao criar/modificar código de cálculo tributário:
+
+### 1. Identificar a Regra
+- [ ] Qual módulo é afetado? (IN 2.306, IRPF Alta Renda, Rating, Imóveis)
+- [ ] É uma nova regra ou alteração de existente?
+
+### 2. Atualizar a Documentação
+Abrir o arquivo correspondente em `apps/portal/src/modules/documentacao/data/` e:
+
+- [ ] **Nome descritivo**: Título claro da regra
+- [ ] **Descrição**: Texto explicativo para especialista tributário
+- [ ] **Fórmula**: Notação LaTeX para renderização (ex: `Base = Receita \\times 32\\%`)
+- [ ] **Embasamento legal**: Norma, artigo, parágrafo, inciso
+- [ ] **Variáveis**: Lista com nome, descrição, tipo e exemplo
+- [ ] **Exemplo numérico**: Dados de entrada, passos e resultado final
+- [ ] **Observações**: Notas importantes, exceções, casos especiais
+- [ ] **Atualizar `ultima_atualizacao`**: Data no formato YYYY-MM-DD
+
+### 3. Estrutura Mínima de uma Regra
+
+```typescript
+{
+  id: 'modulo-nome-regra',           // ID único
+  modulo: 'simulador-in-2306',        // Módulo (ver tipos em documentation.ts)
+  nome: 'Nome da Regra',              // Título descritivo
+  descricao: 'Descrição detalhada...', // Para o especialista tributário
+  formula: 'Base = Receita \\times P\\%', // LaTeX
+  formula_explicada: 'Texto explicativo da fórmula',
+  embasamento_legal: [
+    {
+      norma: 'IN RFB nº 2.306/2026',
+      artigo: 'Art. 14',
+      paragrafo: '§ 2º',
+      descricao: 'Descrição do que o artigo estabelece'
+    }
+  ],
+  variaveis: [
+    {
+      nome: 'Receita',
+      descricao: 'Receita bruta do período',
+      tipo: 'moeda',
+      exemplo: 'R$ 1.000.000,00'
+    }
+  ],
+  exemplo_numerico: {
+    titulo: 'Exemplo prático',
+    dados_entrada: { receita: 1000000 },
+    passos: [
+      { ordem: 1, descricao: 'Passo 1', calculo: '...', resultado: 'R$ X' }
+    ],
+    resultado_final: { valor: 320000 }
+  },
+  observacoes: ['Nota importante 1', 'Nota importante 2'],
+  ultima_atualizacao: '2026-03-14',
+  tags: ['tag1', 'tag2']
+}
+```
+
+## Módulos e Arquivos
+
+| Módulo | Arquivo de Cálculos | Arquivo de Documentação |
+|--------|---------------------|-------------------------|
+| IN 2.306 | `apps/api/src/modules/simulador-in-2306/calculations.ts` | `rules-in-2306.ts` |
+| IRPF Alta Renda | `apps/api/src/modules/irpf-alta-renda/calculations.ts` | `rules-irpf-alta-renda.ts` |
+| Rating PGFN | `apps/api/src/modules/rating-validator/*.service.ts` | `rules-rating-validator.ts` |
+| Imóveis | `apps/api/src/modules/properties/calculations.ts` | `rules-imoveis.ts` |
+
+## Público-Alvo
+O público-alvo é um **especialista tributário sênior** que precisa:
+- Entender cada cálculo e fórmula
+- Ver os embasamentos legais
+- Validar com exemplos numéricos
+- Identificar o que precisa ajuste
+
+## Violação
+Alterações em cálculos tributários **sem atualização da documentação** serão sinalizadas como INCOMPLETAS pela IA.
+
+## Acesso
+A documentação está disponível em `/documentacao` no portal, **apenas para administradores**.

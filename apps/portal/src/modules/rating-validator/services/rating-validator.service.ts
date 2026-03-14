@@ -22,6 +22,88 @@ export interface ExtractEcdPdfResult {
   simulação_prefill: Omit<SimulateRatingInput, 'client_id' | 'rating_real' | 'save_simulation'>;
 }
 
+/** Dados de dívida negociada extraídos do recibo PGFN */
+export interface DividaNegociada {
+  numero_divida: string;
+  devedor_cnpj?: string;
+  codigo_receita?: string;
+  data_consolidacao?: string;
+  principal: number;
+  multa: number;
+  juros: number;
+  encargo_legal: number;
+  total: number;
+}
+
+/** Dados do parcelamento PGFN extraídos do recibo de adesão */
+export interface ParcelamentoPGFN {
+  numero_conta?: string;
+  cnpj: string;
+  razao_social: string;
+  negociacao: string;
+  modalidade: string;
+  data_adesao: string;
+  dividas: DividaNegociada[];
+  capacidade_pagamento: {
+    valor_divida_adesao: number;
+    capacidade_60_meses: number;
+    permite_desconto: boolean;
+    desconto_maximo_pct: number;
+  };
+  consolidacao: {
+    principal: number;
+    multa: number;
+    juros: number;
+    encargo_legal: number;
+    total_sem_desconto: number;
+    entrada_total: number;
+    desconto_total: number;
+    creditos_utilizados?: number;
+    total_a_pagar: number;
+  };
+  pagamento: {
+    entrada_qtd: number;
+    entrada_valor: number;
+    parcelas_qtd: number;
+    parcelas_valor: number;
+  };
+  rating_inferido?: 'A' | 'B' | 'C' | 'D';
+}
+
+/** Resultado da extração do PDF do recibo PGFN */
+export interface ExtractPGFNPdfResult {
+  parcelamento: ParcelamentoPGFN;
+  confianca_extracao?: number;
+  campos_incertos?: string[];
+}
+
+/** Comparativo entre rating calculado e parcelamento PGFN */
+export interface ComparativoParcelamento {
+  rating_calculado: 'A' | 'B' | 'C' | 'D';
+  rating_pgfn: 'A' | 'B' | 'C' | 'D';
+  divergencia: boolean;
+  cenario_calculado: {
+    desconto_maximo_multa_juros_pct: number;
+    prazo_maximo_meses: number;
+    entrada_minima_pct: number;
+  };
+  cenario_pgfn: {
+    valor_total_divida: number;
+    entrada_total: number;
+    entrada_pct: number;
+    parcelas_qtd: number;
+    parcelas_valor: number;
+    desconto_aplicado_pct: number;
+    total_a_pagar: number;
+  };
+  diferenca_financeira: {
+    economia_potencial: number;
+    parcelas_extras_disponiveis: number;
+    valor_excedente_entrada: number;
+  };
+  fundamentacao_juridica: string;
+}
+
 // Tipos para simulação
 export interface SimulateRatingInput {
   ativo_circulante: {
@@ -86,6 +168,7 @@ export interface SimulateRatingInput {
   client_id: string;
   rating_real?: 'A' | 'B' | 'C' | 'D';
   save_simulation?: boolean;
+  parcelamento_pgfn?: ParcelamentoPGFN;
 }
 
 export interface IndicatorAnalysisItem {
@@ -128,6 +211,7 @@ export interface RatingSimulationResult {
   };
   validation_id?: string;
   is_simulation: boolean;
+  comparativo_parcelamento?: ComparativoParcelamento;
 }
 
 export const ratingValidatorService = {
@@ -214,6 +298,50 @@ export const ratingValidatorService = {
   },
 
   /**
+   * Atualizar validação existente (re-simula com novos dados)
+   */
+  async update(id: string, input: SimulateRatingInput): Promise<{
+    validation: RatingValidation;
+    result: RatingSimulationResult;
+  }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: {
+        validation: RatingValidation;
+        calculated_values: RatingSimulationResult['calculated_values'];
+        indicators: RatingSimulationResult['indicators'];
+        indicator_analysis: RatingSimulationResult['indicator_analysis'];
+        rating_estimado: RatingSimulationResult['rating_estimado'];
+        rating_real?: RatingSimulationResult['rating_real'];
+        has_discrepancy: RatingSimulationResult['has_discrepancy'];
+        discrepancy_details?: RatingSimulationResult['discrepancy_details'];
+        comparativo_parcelamento?: RatingSimulationResult['comparativo_parcelamento'];
+      };
+    }>(`/api/v1/rating-validator/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+      token,
+      tenantId,
+    });
+    
+    const d = response.data;
+    return {
+      validation: d.validation,
+      result: {
+        calculated_values: d.calculated_values,
+        indicators: d.indicators,
+        indicator_analysis: d.indicator_analysis,
+        rating_estimado: d.rating_estimado,
+        rating_real: d.rating_real,
+        has_discrepancy: d.has_discrepancy,
+        discrepancy_details: d.discrepancy_details,
+        is_simulation: true,
+        comparativo_parcelamento: d.comparativo_parcelamento,
+      },
+    };
+  },
+
+  /**
    * Extrai dados do PDF da ECD (SPED Contábil) via OCR e retorna dados para preencher a simulação.
    */
   async extractFromEcdPdf(file: File): Promise<ExtractEcdPdfResult> {
@@ -245,6 +373,52 @@ export const ratingValidatorService = {
       const friendlyMessage =
         code === 'FILE_REQUIRED'
           ? 'Nenhum arquivo foi enviado. Selecione o PDF da ECD e tente novamente.'
+          : code === 'INVALID_FILE_TYPE'
+            ? 'O arquivo deve ser um PDF. Verifique o formato e tente novamente.'
+            : code === 'TENANT_REQUIRED'
+              ? 'Sessão inválida. Faça login novamente.'
+              : code === 'FILE_TOO_LARGE'
+                ? 'O arquivo é muito grande. O limite é 15 MB.'
+                : msg;
+
+      throw new Error(friendlyMessage);
+    }
+    const result = await response.json();
+    return result.data;
+  },
+
+  /**
+   * Extrai dados do PDF do Recibo de Adesão PGFN via OCR.
+   */
+  async extractFromPgfnPdf(file: File): Promise<ExtractPGFNPdfResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/v1/rating-validator/extract-from-pgfn-pdf`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Tenant-ID': tenantId ?? '',
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: { message: 'Falha na extração do PDF PGFN', code: 'UNKNOWN' } }));
+      const code = err.error?.code;
+      const msg = err.error?.message ?? 'Falha na extração do PDF PGFN';
+
+      logClientError({
+        endpoint: '/api/v1/rating-validator/extract-from-pgfn-pdf',
+        status: response.status,
+        code,
+        message: msg,
+        meta: { fileName: file.name, fileSize: file.size },
+      });
+
+      const friendlyMessage =
+        code === 'FILE_REQUIRED'
+          ? 'Nenhum arquivo foi enviado. Selecione o PDF do Recibo PGFN e tente novamente.'
           : code === 'INVALID_FILE_TYPE'
             ? 'O arquivo deve ser um PDF. Verifique o formato e tente novamente.'
             : code === 'TENANT_REQUIRED'
