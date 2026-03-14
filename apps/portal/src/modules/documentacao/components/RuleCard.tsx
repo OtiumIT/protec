@@ -43,16 +43,19 @@ interface RuleCardProps {
 }
 
 export function RuleCard({ rule, expanded = false, onToggle }: RuleCardProps) {
-  const [isExpanded, setIsExpanded] = useState(expanded);
+  const [localExpanded, setLocalExpanded] = useState(expanded);
   const moduleInfo = MODULES_INFO.find((m) => m.key === rule.modulo);
   const icon = moduleIcons[rule.modulo] ?? faFileAlt;
   const color = moduleColors[rule.modulo] ?? 'gray';
+
+  // Usa prop expanded quando onToggle é fornecido, senão usa estado local
+  const isExpanded = onToggle ? expanded : localExpanded;
 
   const handleToggle = () => {
     if (onToggle) {
       onToggle();
     } else {
-      setIsExpanded(!isExpanded);
+      setLocalExpanded(!localExpanded);
     }
   };
 
