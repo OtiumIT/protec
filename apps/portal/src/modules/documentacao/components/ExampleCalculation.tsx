@@ -6,12 +6,21 @@ interface ExampleCalculationProps {
   example: NumericExample;
 }
 
-function formatValue(value: number | string): string {
+function formatValue(value: unknown): string {
   if (typeof value === 'number') {
     return value.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'Sim' : 'Não';
+  }
+  if (Array.isArray(value)) {
+    return JSON.stringify(value);
   }
   return String(value);
 }
