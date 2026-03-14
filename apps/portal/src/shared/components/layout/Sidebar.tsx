@@ -110,6 +110,11 @@ const superAdminMenuItems: MenuItem[] = [
     ),
   },
   {
+    name: 'Documentação',
+    path: '/documentacao',
+    icon: CATEGORY_ICONS.bookOpen,
+  },
+  {
     name: 'Gestão de Usuários',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,6 +192,11 @@ const adminMenuItems: MenuItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
       </svg>
     ),
+  },
+  {
+    name: 'Documentação',
+    path: '/documentacao',
+    icon: CATEGORY_ICONS.bookOpen,
   },
   {
     name: 'Análise de Capacidade',
@@ -375,14 +385,14 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
   const getCategoryIdForPath = (pathname: string): string | null => {
     if (pathname === '/dashboard') return null;
     if (isSuperAdmin) {
-      if (['/tenants', '/plans', '/modules', '/editais', '/administrators', '/users'].includes(pathname)) return 'administracao';
+      if (['/tenants', '/plans', '/modules', '/editais', '/administrators', '/users', '/documentacao'].includes(pathname) || pathname.startsWith('/documentacao')) return 'administracao';
     } else {
       if (pathname === '/meu-plano' || pathname === '/gestao-assinatura' || pathname === '/clients') return 'administracao';
       if (pathname === '/rating-validator') return 'rating_validator';
       if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
       if (pathname === '/irpf-alta-renda') return 'irpf_alta_renda';
       if (pathname.startsWith('/properties')) return 'gestao_imoveis';
-      if (pathname === '/users') return 'administracao';
+      if (pathname === '/users' || pathname === '/documentacao' || pathname.startsWith('/documentacao')) return 'administracao';
     }
     return null;
   };
@@ -425,17 +435,15 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       const plans = get('/plans');
       const modules = get('/modules');
       const editais = get('/editais');
+      const documentacao = get('/documentacao');
       const gestaoUsuarios = get(undefined, 'Gestão de Usuários');
 
-      const adminItems: MenuItem[] = [tenants, plans, modules, editais].filter(Boolean) as MenuItem[];
+      const adminItems: MenuItem[] = [tenants, plans, modules, editais, documentacao].filter(Boolean) as MenuItem[];
       if (gestaoUsuarios) {
         adminItems.push(...(gestaoUsuarios.children ?? [gestaoUsuarios]));
       }
       if (adminItems.length)
         categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
-      
-      // Documentação (apenas para admin/super_admin)
-      categories.push({ id: 'documentacao', name: 'Documentação', icon: CATEGORY_ICONS.bookOpen, items: [], directLink: '/documentacao' });
       
       return categories;
     }
@@ -447,6 +455,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const faturas = get('/gestao-assinatura');
     const clientes = get('/clients');
     const gestaoUsuarios = get('/users', 'Gestão de Usuários');
+    const documentacao = get('/documentacao');
     const rating = get(undefined, undefined, 'RATING_VALIDATOR');
     const simulador = get(undefined, undefined, 'SIMULADOR_IN_2306');
     const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
@@ -473,11 +482,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
     const adminItems: MenuItem[] = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];
     if (gestaoUsuarios) adminItems.push(gestaoUsuarios);
+    if (documentacao) adminItems.push(documentacao);
     if (adminItems.length)
       categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
-    
-    // Documentação (apenas para admin/super_admin)
-    categories.push({ id: 'documentacao', name: 'Documentação', icon: CATEGORY_ICONS.bookOpen, items: [], directLink: '/documentacao' });
     
     return categories;
   };
