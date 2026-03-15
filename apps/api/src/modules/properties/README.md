@@ -42,7 +42,8 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 ### Regra 7: Cenário PJ (Lucro Presumido)
 
 - Presunção 32% IRPJ e CSLL (locação de imóveis) – Lei 9.249/95, Art. 15
-- **Prestadora de serviço em geral** (ex.: predominância aluguel curto/Airbnb):
+- **Receita anual conhecida > R$ 120k**: quando a receita total anual (agregada) já é conhecida e superior a R$ 120.000, aplica-se **32% em todos os trimestres** desde o 1º (sem 16% e sem imposto postergado).
+- **Prestadora de serviço em geral** (ex.: predominância aluguel curto/Airbnb), quando receita anual ≤ R$ 120k:
   - Receita bruta acumulada no ano-calendário ≤ R$ 120k → presunção 16% IRPJ (Lei 9.249/95, Art. 15, § 7º)
   - Se ultrapassar R$ 120k durante o ano → passa a 32% e recolhe a diferença de IRPJ dos trimestres anteriores no trimestre em que ocorreu o excesso (Lei 9.249/95, Art. 15, § 8º)
   - Campo `irpj_postergado` retorna o valor da diferença calculada retroativamente
@@ -59,6 +60,7 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - IBS/CBS com alíquota nominal estimada configurável (padrão 26,5%; faixa típica 26,5% a 28%)
 - **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota → efetiva = nominal × 30% (ex.: 28% → 8,4%). Padrão `redutor_locacao_pct: 70`.
 - **Reforma PJ**: `reforma_2027_pj.imposto_total` = IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS; IRPJ e CSLL sobre lucro presumido).
+- **Reforma PF**: quando a PF **não** é contribuinte de IBS/CBS (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k), `reforma_2027_pf.imposto_total` = apenas IR (Carnê-Leão), `reforma_2027_pf.ibs_cbs_liquido` = 0. No comparativo de cenários do portal, a coluna Reforma PF exibe "—" (não se aplica) nesses casos.
 - Créditos sobre custos operacionais deduzem do imposto sobre receita
 - Opção `opcoes_reforma.redutor_locacao_pct` (0–100); se omitido, usa 70
 

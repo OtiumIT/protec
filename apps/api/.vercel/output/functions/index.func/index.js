@@ -88805,6 +88805,9 @@ var PRESUNCAO_IRPJ = 0.32;
 var PRESUNCAO_CSLL = 0.32;
 var PRESUNCAO_IRPJ_16 = 0.16;
 var LIMITE_PRESUNCAO_16_LOCACAO = 12e4;
+var LIMITE_RECEITA_IBS_CBS_PF = 24e4;
+var LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF = 288e3;
+var LIMITE_IMOVEIS_IBS_CBS_PF = 3;
 var ALIQ_IRPJ2 = 0.15;
 var ALIQ_IRPJ_ADICIONAL2 = 0.1;
 var ALIQ_CSLL2 = 0.09;
@@ -88815,6 +88818,24 @@ var LIMITE_TRIMESTRAL_IN2306 = 125e4;
 var LIMITE_ANUAL_IN2306 = 5e6;
 function round28(n2) {
   return Math.round(n2 * 100) / 100;
+}
+function verificarContribuinteIbsCbsPF(quantidadeImoveis, receitaAnual) {
+  if (receitaAnual > LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF) {
+    return {
+      contribuinte: true,
+      motivo: `Receita anual > R$ 288.000 (${((receitaAnual / LIMITE_RECEITA_IBS_CBS_PF - 1) * 100).toFixed(0)}% acima de R$ 240k)`
+    };
+  }
+  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > LIMITE_RECEITA_IBS_CBS_PF) {
+    return {
+      contribuinte: true,
+      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} im\xF3veis (${quantidadeImoveis}) e receita > R$ 240.000`
+    };
+  }
+  return {
+    contribuinte: false,
+    motivo: quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF ? `At\xE9 ${LIMITE_IMOVEIS_IBS_CBS_PF} im\xF3veis e receita \u2264 R$ 288.000` : `Receita \u2264 R$ 240.000`
+  };
 }
 function impostoIRPFMensal(baseCalculo) {
   if (baseCalculo <= 0) return 0;
@@ -88874,6 +88895,7 @@ function calcularPJ(aggregated, _elegivelPresuncao16) {
   let aplicouIN2306 = false;
   let irpjPostergadoTotal = 0;
   let aplicouPresuncao16 = false;
+  const usar32PorCentoEmTodos = receita_total > LIMITE_PRESUNCAO_16_LOCACAO;
   const trimestreData = [];
   for (let t = 1; t <= 4; t++) {
     const startMonth = (t - 1) * 3;
@@ -88884,7 +88906,9 @@ function calcularPJ(aggregated, _elegivelPresuncao16) {
     }
     receitaAcumulada += recTrim;
     let presIrpj;
-    if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
+    if (usar32PorCentoEmTodos) {
+      presIrpj = PRESUNCAO_IRPJ;
+    } else if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
       presIrpj = PRESUNCAO_IRPJ_16;
       aplicouPresuncao16 = true;
     } else {
@@ -89284,7 +89308,12 @@ var PropertyService = class {
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
-    const impostoTotalPFReforma = Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100;
+    const quantidadeImoveisSimulate = input.property_ids.length;
+    const { contribuinte: contribuinteIbsCbsPF } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisSimulate,
+      aggregatedTotal.receita_total
+    );
+    const impostoTotalPFReforma = contribuinteIbsCbsPF ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100 : cenarioPF.imposto_total;
     const aliquotaEfetivaPFReforma = aggregatedTotal.receita_total > 0 ? Math.round(
       impostoTotalPFReforma / aggregatedTotal.receita_total * 100 * 100
     ) / 100 : 0;
@@ -89292,7 +89321,8 @@ var PropertyService = class {
       ...cenarioReforma,
       imposto_total: impostoTotalPFReforma,
       aliquota_efetiva: aliquotaEfetivaPFReforma,
-      ir_pf: cenarioPF.imposto_total
+      ir_pf: cenarioPF.imposto_total,
+      ...contribuinteIbsCbsPF ? {} : { ibs_cbs_liquido: 0 }
     };
     const irpjReforma = cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
     const impostoTotalReformaPJ = Math.round((cenarioReforma.ibs_cbs_liquido + irpjReforma + cenarioPJ.csll) * 100) / 100;
@@ -89450,7 +89480,12 @@ var PropertyService = class {
       redutorLocacao,
       opcoesReformaStandalone
     );
-    const impostoTotalPFReformaStandalone = Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100;
+    const quantidadeImoveisStandalone = input.quantidade_imoveis ?? 1;
+    const { contribuinte: contribuinteIbsCbsPFStandalone } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisStandalone,
+      receitaTotal
+    );
+    const impostoTotalPFReformaStandalone = contribuinteIbsCbsPFStandalone ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100 : cenarioPF.imposto_total;
     const aliquotaEfetivaPFReformaStandalone = receitaTotal > 0 ? Math.round(
       impostoTotalPFReformaStandalone / receitaTotal * 100 * 100
     ) / 100 : 0;
@@ -89458,7 +89493,8 @@ var PropertyService = class {
       ...cenarioReforma,
       imposto_total: impostoTotalPFReformaStandalone,
       aliquota_efetiva: aliquotaEfetivaPFReformaStandalone,
-      ir_pf: cenarioPF.imposto_total
+      ir_pf: cenarioPF.imposto_total,
+      ...contribuinteIbsCbsPFStandalone ? {} : { ibs_cbs_liquido: 0 }
     };
     const irpjReformaStandalone = cenarioPJ.irpj + (cenarioPJ.irpj_adicional ?? 0) + (cenarioPJ.irpj_postergado ?? 0);
     const impostoTotalReformaPJStandalone = Math.round((cenarioReforma.ibs_cbs_liquido + irpjReformaStandalone + cenarioPJ.csll) * 100) / 100;
@@ -90427,7 +90463,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-14T21:23:01.028Z";
+var API_UPDATED_AT = "2026-03-15T11:31:05.610Z";
 
 // src/modules/index.ts
 var app = new Hono2();

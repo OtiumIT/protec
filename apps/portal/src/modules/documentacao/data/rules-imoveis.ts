@@ -109,10 +109,10 @@ export const rulesImoveis: RuleDocumentation[] = [
     modulo: 'simulador-imoveis',
     nome: 'Lucro Presumido PJ (Locacao de Imoveis)',
     descricao:
-      'Pessoa Juridica no Lucro Presumido aplica presuncao de 32% para IRPJ e CSLL sobre receitas de locacao. Se a receita anual for ate R$ 120.000, aplica-se presuncao reduzida de 16% para IRPJ.',
-    formula: 'Base\\_IRPJ = Receita \\times 32\\%\\;(ou\\;16\\%)',
+      'Pessoa Juridica no Lucro Presumido aplica presuncao de 32% para IRPJ e CSLL sobre receitas de locacao. Quando a receita total anual ja e conhecida e superior a R$ 120.000, aplica-se 32% em todos os trimestres desde o 1. Se a receita anual for ate R$ 120.000, aplica-se presuncao reduzida de 16% para IRPJ (ate o acumulado ultrapassar 120k, quando passa a 32% e recolhe a diferenca).',
+    formula: 'Base\\_IRPJ = Receita \\times 32\\%\\;(ou\\;16\\%\\;se\\;receita\\;anual\\;\\leq 120k)',
     formula_explicada:
-      'Aplica 32% de presuncao sobre a receita para calcular a base do IRPJ e CSLL. Empresas com receita ate R$ 120.000/ano podem usar 16% para IRPJ.',
+      'Se receita anual conhecida > R$ 120.000: 32% em todos os trimestres. Se receita anual <= R$ 120.000: 16% IRPJ nos trimestres em que o acumulado nao ultrapassou 120k; acima disso, 32% e imposto postergado.',
     embasamento_legal: [
       {
         norma: 'Lei nº 9.249/1995',
@@ -202,11 +202,12 @@ export const rulesImoveis: RuleDocumentation[] = [
       },
     },
     observacoes: [
+      'Quando a receita total anual ja e conhecida e superior a R$ 120.000, o sistema aplica 32% em todos os trimestres (sem 16% e sem imposto postergado).',
       'Se ultrapassar R$ 120k no ano, recolhe diferenca retroativa (§ 8.).',
       'CSLL sempre usa 32% de presuncao para locacao.',
       'PIS (0,65%) e COFINS (3%) incidem sobre a receita bruta.',
     ],
-    ultima_atualizacao: '2026-03-14',
+    ultima_atualizacao: '2026-03-15',
     tags: ['pj', 'lucro-presumido', 'locacao'],
     vigencia: {
       inicio: '1996-01-01',
@@ -613,10 +614,11 @@ export const rulesImoveis: RuleDocumentation[] = [
     observacoes: [
       'A interpretação sobre o limite de 20% (R$ 288k) ainda está em discussão na regulamentação.',
       'Se a PF não for contribuinte de IBS/CBS, paga apenas o IR via Carnê-Leão.',
+      'No comparativo de cenários do simulador, a coluna "Reforma LC 214/2025 PF" exibe "—" (não se aplica) para imposto total, alíquota efetiva e diferença quando a PF não é contribuinte.',
       'O regulamento (previsão fim de 2026) definirá os critérios definitivos.',
     ],
-    ultima_atualizacao: '2026-03-14',
-    tags: ['pf', 'contribuinte', 'ibs', 'cbs', 'criterios'],
+    ultima_atualizacao: '2026-03-15',
+    tags: ['pf', 'contribuinte', 'ibs', 'cbs', 'criterios', 'comparativo'],
     vigencia: {
       inicio: '2027-01-01',
       observacao: 'Vigente a partir da entrada em vigor da reforma tributária',

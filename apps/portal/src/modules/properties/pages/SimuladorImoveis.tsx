@@ -1361,18 +1361,25 @@ export function SimuladorImoveis() {
           const pj = result.cenarios.pj;
           const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
           const refPj = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-          
+          const receitaComparativo = refPf?.receita_bruta_total ?? pf.receita_bruta_total ?? 0;
+          const LIMITE_RECEITA = 240_000;
+          const LIMITE_RECEITA_ABSOLUTO = 288_000;
+          const LIMITE_IMOVEIS = 3;
+          const ehContribuinteIbsCbs =
+            receitaComparativo > LIMITE_RECEITA_ABSOLUTO ||
+            (quantidadeImoveis > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA);
+
           const totalRefPf = pf.imposto_total + (refPf?.ibs_cbs_liquido ?? 0);
-          
+
           const valores = [
             { label: 'PF', value: pf.imposto_total },
             { label: 'PJ', value: pj.imposto_total },
-            { label: 'Ref. PF', value: totalRefPf },
+            { label: 'Ref. PF', value: ehContribuinteIbsCbs ? totalRefPf : refPf?.imposto_total ?? pf.imposto_total },
             { label: 'Ref. PJ', value: refPj?.imposto_total ?? 0 }
           ];
           const melhorAtual = pf.imposto_total < pj.imposto_total ? 'PF' : 'PJ';
           const melhorTotal = valores.reduce((a, b) => a.value < b.value ? a : b);
-          
+
           return (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1391,7 +1398,9 @@ export function SimuladorImoveis() {
                         {melhorAtual === 'PJ' && <span className="text-emerald-600 text-xs">✓</span>}
                       </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600">Reforma LC 214/2025 PF</th>
+                    <th className="py-2 px-3 text-right font-medium text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                      Reforma LC 214/2025 PF
+                    </th>
                     <th className="py-2 px-3 text-right font-medium text-slate-600">
                       <div className="flex items-center justify-end gap-1">
                         Reforma LC 214/2025 PJ
@@ -1409,8 +1418,8 @@ export function SimuladorImoveis() {
                     <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PJ' ? 'text-emerald-700' : 'text-slate-800'}`}>
                       {formatMoney(pj.imposto_total)}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-800">
-                      {formatMoney(totalRefPf)}
+                    <td className="py-2 px-3 text-right text-slate-800" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                      {ehContribuinteIbsCbs ? formatMoney(totalRefPf) : '—'}
                     </td>
                     <td className={`py-2 px-3 text-right font-semibold ${melhorTotal.label === 'Ref. PJ' ? 'text-amber-600' : 'text-slate-800'}`}>
                       {formatMoney(refPj?.imposto_total ?? 0)}
@@ -1420,8 +1429,10 @@ export function SimuladorImoveis() {
                     <td className="py-2 px-3 text-slate-700">Alíquota efetiva</td>
                     <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(1)}%</td>
                     <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(1)}%</td>
-                    <td className="py-2 px-3 text-right text-slate-600">
-                      {(pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(1)}%
+                    <td className="py-2 px-3 text-right text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                      {ehContribuinteIbsCbs
+                        ? (pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(1) + '%'
+                        : '—'}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-600">{refPj?.aliquota_efetiva?.toFixed(1) ?? '0'}%</td>
                   </tr>
@@ -1439,8 +1450,10 @@ export function SimuladorImoveis() {
                     <td className="py-2 px-3 text-right text-slate-500">
                       {melhorAtual === 'PJ' ? '—' : `+${formatMoney(pj.imposto_total - pf.imposto_total)}`}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-500">
-                      +{formatMoney(totalRefPf - Math.min(pf.imposto_total, pj.imposto_total))}
+                    <td className="py-2 px-3 text-right text-slate-500" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                      {ehContribuinteIbsCbs
+                        ? `+${formatMoney(totalRefPf - Math.min(pf.imposto_total, pj.imposto_total))}`
+                        : '—'}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-500">
                       {(refPj?.imposto_total ?? 0) <= Math.min(pf.imposto_total, pj.imposto_total)
@@ -1454,6 +1467,9 @@ export function SimuladorImoveis() {
               <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
                 <div className="flex items-center gap-1"><span className="text-emerald-600">✓</span> Melhor atual (sem reforma)</div>
                 <div className="flex items-center gap-1"><span className="text-amber-500">★</span> Melhor absoluto</div>
+                {!ehContribuinteIbsCbs && (
+                  <div className="flex items-center gap-1" title="PF não atinge os critérios de contribuinte de IBS/CBS (LC 214/2025)">Reforma PF: — = não se aplica</div>
+                )}
               </div>
             </div>
           );

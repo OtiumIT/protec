@@ -221,6 +221,10 @@ export function calcularPJ(
   let aplicouIN2306 = false;
   let irpjPostergadoTotal = 0;
   let aplicouPresuncao16 = false;
+  /** Se receita anual já conhecida > R$ 120k, usar 32% em todos os trimestres (Lei 9.249/95, Art. 15, § 7º) */
+  const usar32PorCentoEmTodos =
+    receita_total > LIMITE_PRESUNCAO_16_LOCACAO;
+
   const trimestreData: Array<{
     trimestre: number;
     receita: number;
@@ -237,9 +241,11 @@ export function calcularPJ(
     }
     receitaAcumulada += recTrim;
 
-    // Presunção automática: 16% se receita acumulada <= R$ 120k (Lei 9.249/95, Art. 15, § 7º)
+    // Presunção: 32% se receita anual > 120k; senão 16% até acumulado ≤ 120k (Lei 9.249/95, Art. 15, § 7º)
     let presIrpj: number;
-    if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
+    if (usar32PorCentoEmTodos) {
+      presIrpj = PRESUNCAO_IRPJ;
+    } else if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
       presIrpj = PRESUNCAO_IRPJ_16;
       aplicouPresuncao16 = true;
     } else {

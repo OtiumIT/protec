@@ -112,10 +112,10 @@ Endpoint: `POST /api/v1/properties/simulate`.
 
 ### 3.2 Elegibilidade à presunção 16% (PJ – “serviços”)
 
-Aplicada **apenas no modo standalone**, de forma automática:
+Aplicada de forma automática (modo standalone e modo imóveis):
 
-- **Condição**: receita total anual &lt; R$ 120.000 **e** receita de aluguel curto prazo (short) **&gt;** receita de aluguel tradicional (longa).
-- **Efeito**: nos trimestres em que a **receita acumulada (jan–trim)** ≤ R$ 120.000, usa-se presunção de lucro **16%** para IRPJ (em vez de 32%). Acima de R$ 120.000 acumulados, passa a 32% e é calculado o **imposto postergado** dos trimestres que usaram 16%.
+- **Receita anual conhecida &gt; R$ 120.000**: quando a receita total anual já é conhecida e superior a R$ 120.000, aplica-se **32% em todos os trimestres** desde o 1º (sem 16% e sem imposto postergado).
+- **Receita anual ≤ R$ 120.000**: nos trimestres em que a **receita acumulada (jan–trim)** ≤ R$ 120.000, usa-se presunção de lucro **16%** para IRPJ (em vez de 32%). Acima de R$ 120.000 acumulados, passa a 32% e é calculado o **imposto postergado** dos trimestres que usaram 16%.
 - **Base legal**: Lei 9.249/95 (Lucro Presumido); interpretação para prestadora de serviços em geral (receita limitada e predominância de curto prazo).
 
 ### 3.3 Cenário A – Pessoa Física (Carnê-Leão)
@@ -183,6 +183,7 @@ Aplicada **apenas no modo standalone**, de forma automática:
 
 - **Imposto total PF 2027** = **IR (Carnê-Leão, mesmo valor do cenário PF atual)** + **IBS/CBS líquido**.
 - O IR considerado é o do cenário “Pessoa Física (Carnê-Leão)” da mesma simulação; em 2027 a PF continua pagando IR sobre a renda e ainda paga IBS/CBS sobre a atividade.
+- **PF não contribuinte de IBS/CBS** (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k): o cenário Reforma PF equivale ao cenário PF atual (só IR). No **comparativo de cenários**, a coluna "Reforma LC 214/2025 PF" exibe **"—"** (não se aplica) para imposto total, alíquota efetiva e diferença.
 
 **Leis/normas:** LC 214/2025 (Art. 261 – redutor 70%; Art. 487 – transição 3,65%); transição 2027-2029 (CBS 9%); redutor 50% hospedagem; EC 132/2023.
 
@@ -361,3 +362,6 @@ Lista utilizada na tela e na API para o simulador.
 ---
 
 *Documento gerado com base no código do módulo `properties` (API), schemas em `@shared/core` e tela `SimuladorImoveis` do portal. Última atualização referente às regras vigentes no código.*
+
+
+

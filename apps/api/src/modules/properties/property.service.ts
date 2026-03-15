@@ -7,6 +7,7 @@ import {
   calcularPJ,
   calcularReforma2027,
   calcularBreakEven,
+  verificarContribuinteIbsCbsPF,
   type OpcoesReformaCalculo,
 } from './calculations';
 import type {
@@ -292,9 +293,15 @@ export class PropertyService {
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
-    /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS */
-    const impostoTotalPFReforma =
-      Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100;
+    const quantidadeImoveisSimulate = input.property_ids.length;
+    const { contribuinte: contribuinteIbsCbsPF } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisSimulate,
+      aggregatedTotal.receita_total
+    );
+    /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
+    const impostoTotalPFReforma = contribuinteIbsCbsPF
+      ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
+      : cenarioPF.imposto_total;
     const aliquotaEfetivaPFReforma =
       aggregatedTotal.receita_total > 0
         ? Math.round(
@@ -306,6 +313,7 @@ export class PropertyService {
       imposto_total: impostoTotalPFReforma,
       aliquota_efetiva: aliquotaEfetivaPFReforma,
       ir_pf: cenarioPF.imposto_total,
+      ...(contribuinteIbsCbsPF ? {} : { ibs_cbs_liquido: 0 }),
     };
 
     /** Reforma PJ: IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS) */
@@ -512,9 +520,15 @@ export class PropertyService {
       redutorLocacao,
       opcoesReformaStandalone
     );
-    /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS */
-    const impostoTotalPFReformaStandalone =
-      Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100;
+    const quantidadeImoveisStandalone = input.quantidade_imoveis ?? 1;
+    const { contribuinte: contribuinteIbsCbsPFStandalone } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisStandalone,
+      receitaTotal
+    );
+    /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
+    const impostoTotalPFReformaStandalone = contribuinteIbsCbsPFStandalone
+      ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
+      : cenarioPF.imposto_total;
     const aliquotaEfetivaPFReformaStandalone =
       receitaTotal > 0
         ? Math.round(
@@ -526,6 +540,7 @@ export class PropertyService {
       imposto_total: impostoTotalPFReformaStandalone,
       aliquota_efetiva: aliquotaEfetivaPFReformaStandalone,
       ir_pf: cenarioPF.imposto_total,
+      ...(contribuinteIbsCbsPFStandalone ? {} : { ibs_cbs_liquido: 0 }),
     };
 
     /** Reforma PJ: IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS) */
