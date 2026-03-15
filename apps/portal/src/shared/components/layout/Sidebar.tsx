@@ -296,6 +296,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role === 'admin' || isSuperAdmin;
+  const canSeeMenu = !!user;
 
   const loadActiveModules = async () => {
     // Não setar loading aqui pois já é setado antes de chamar a função
@@ -587,7 +588,25 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     return itemsToRender.map((item) => renderMenuLink(item, false));
   };
 
-  const menuItems = isSuperAdmin ? superAdminMenuItems : adminMenuItems;
+  // Itens de menu baseados no tipo de usuário
+  let menuItems: MenuItem[];
+  if (isSuperAdmin) {
+    menuItems = superAdminMenuItems;
+  } else if (isAdmin) {
+    // Admin de tenant vê todas as opções administrativas + módulos
+    menuItems = adminMenuItems;
+  } else {
+    // Usuário comum do tenant:
+    // - vê apenas os módulos contratados (Simuladores, IRPF, Imóveis, etc.)
+    // - e a Documentação
+    menuItems = adminMenuItems.filter((item) => {
+      // Itens de módulo têm moduleKey
+      if (item.moduleKey) return true;
+      // Documentação é útil para qualquer usuário
+      if (item.path === '/documentacao') return true;
+      return false;
+    });
+  }
   const filteredMenuItems = filterMenuItems(menuItems);
   const categories = buildCategories(filteredMenuItems);
 
@@ -708,7 +727,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
               <p className="text-xs text-slate-400">Carregando módulos...</p>
             </div>
           )}
-          {isAdmin && (FORCE_SHOW_ALL_MODULES || !isLoadingModules) && categories.map((cat) => {
+          {canSeeMenu && (FORCE_SHOW_ALL_MODULES || !isLoadingModules) && categories.map((cat) => {
             const hasActive = cat.directLink ? isActive(cat.directLink) : categoryHasActiveItem(cat);
 
             if (cat.directLink) {

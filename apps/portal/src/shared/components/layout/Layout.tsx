@@ -41,7 +41,10 @@ export function Layout({ children }: LayoutProps) {
       <div className="flex-1 h-screen min-h-0 flex flex-col min-w-0 relative">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" data-private-scroll-container="true">
           {/* Header */}
-          <header className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 sticky top-0 z-30 shadow-sm h-[72px]">
+          <header
+            className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 sticky top-0 z-30 shadow-sm h-[72px]"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          >
             <div className="h-full flex items-start justify-between gap-4 pt-2.5">
               <div className="flex items-center gap-4 min-w-0">
                 {/* Botão abrir menu: mobile sempre; no desktop só quando menu está escondido */}
