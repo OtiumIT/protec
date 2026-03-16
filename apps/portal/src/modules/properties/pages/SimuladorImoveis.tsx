@@ -1006,8 +1006,8 @@ export function SimuladorImoveis() {
               return (
                 <p className="text-xs text-slate-500 mt-1">
                   {pres16
-                    ? 'Presunção 16% – Receita anual ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º – IN RFB 1.700/1997)'
-                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15 – IN RFB 1.700/1997)'}
+                    ? 'Presunção 16% – Receita anual ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º – IN RFB 1700/2017, art. 33, § 7º)'
+                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15 – IN RFB 1700/2017, art. 33, § 7º)'}
                 </p>
               );
             })()}

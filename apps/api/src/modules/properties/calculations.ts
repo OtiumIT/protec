@@ -33,7 +33,7 @@ const FAIXAS_IRPF_2026 = [
 /** Lucro Presumido - locação de imóveis */
 const PRESUNCAO_IRPJ = 0.32;
 const PRESUNCAO_CSLL = 0.32;
-/** Presunção 16% para locação de imóveis com receita até R$ 120k/ano (Lei 9.249/95, Art. 15, § 7º - IN RFB 1.700/1997) */
+/** Presunção 16% para locação de imóveis com receita até R$ 120k/ano (Lei 9.249/95, Art. 15, § 7º - IN RFB 1700/2017, art. 33, § 7º) */
 const PRESUNCAO_IRPJ_16 = 0.16;
 const LIMITE_PRESUNCAO_16_LOCACAO = 120_000;
 
@@ -175,7 +175,7 @@ function adicionalIRPJ(baseCalculoTrimestre: number): number {
 }
 
 /** Cenário PJ: Lucro Presumido com IN 2.306/2026
- * Regra 16% para locação de imóveis (Lei 9.249/95, Art. 15, § 7º - IN RFB 1.700/1997):
+ * Regra 16% para locação de imóveis (Lei 9.249/95, Art. 15, § 7º - IN RFB 1700/2017, art. 33, § 7º):
  * Quando a receita anual de locação for até R$ 120.000, a presunção de IRPJ é 16% (não 32%).
  * Se receita acumulada até um trimestre > 120k, passa a 32% e recolhe
  * a diferença do imposto postergado nos trimestres anteriores (§ 8º).
