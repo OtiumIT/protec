@@ -387,8 +387,6 @@ export function SimuladorImoveis() {
             redutor_short_stay_pct: 50,
             contrato_antes_16012025: contratoAntes16012025,
             perfil_locacao: perfilLocacao,
-            redutor_social_residencial_anual:
-              quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : undefined,
           },
         });
         setResult(res);
@@ -414,8 +412,6 @@ export function SimuladorImoveis() {
         redutor_short_stay_pct: 50,
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
-        redutor_social_residencial_anual:
-          quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : undefined,
       };
       if (saveSimulation && saveClientId) {
         const { result: res } = await propertyService.simulateStandaloneAndSave({
@@ -535,7 +531,9 @@ export function SimuladorImoveis() {
       const { result: res } = await propertyService.simulateStandaloneAndSave({
         ano,
         meses: mesesParaEnvio,
-        quantidade_imoveis: quantidadeImoveis,
+        quantidade_imoveis: quantidadeImoveisTotal,
+        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
         client_id: saveClientId,
         title: saveTitle || undefined,
@@ -1183,7 +1181,7 @@ export function SimuladorImoveis() {
               const LIMITE_RECEITA_ABSOLUTO = 288_000;
               const LIMITE_IMOVEIS = 3;
               const ehContribuinteIbsCbs = receita > LIMITE_RECEITA_ABSOLUTO || 
-                (quantidadeImoveis > LIMITE_IMOVEIS && receita > LIMITE_RECEITA);
+                (quantidadeImoveisTotal > LIMITE_IMOVEIS && receita > LIMITE_RECEITA);
               
               if (!ehContribuinteIbsCbs) {
                 return (
@@ -1199,8 +1197,8 @@ export function SimuladorImoveis() {
                         Não contribuinte de IBS/CBS
                       </p>
                       <p className="text-xs text-emerald-700 mt-1">
-                        {quantidadeImoveis <= LIMITE_IMOVEIS 
-                          ? `Com ${quantidadeImoveis} imóvel(is) e receita de ${formatMoney(receita)}, a PF não atinge os critérios para ser contribuinte de IBS/CBS.`
+                        {quantidadeImoveisTotal <= LIMITE_IMOVEIS
+                          ? `Com ${quantidadeImoveisTotal} imóvel(is) e receita de ${formatMoney(receita)}, a PF não atinge os critérios para ser contribuinte de IBS/CBS.`
                           : `Receita de ${formatMoney(receita)} está abaixo de R$ 240.000.`}
                       </p>
                     </div>
@@ -1236,7 +1234,7 @@ export function SimuladorImoveis() {
                   <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
                     Contribuinte de IBS/CBS: {receita > LIMITE_RECEITA_ABSOLUTO 
                       ? `Receita > R$ 288.000 (independente do número de imóveis)`
-                      : `Mais de ${LIMITE_IMOVEIS} imóveis (${quantidadeImoveis}) e receita > R$ 240.000`}
+                      : `Mais de ${LIMITE_IMOVEIS} imóveis (${quantidadeImoveisTotal}) e receita > R$ 240.000`}
                   </p>
                 </>
               );
@@ -1394,7 +1392,7 @@ export function SimuladorImoveis() {
               );
             })()}
             <p className="text-xs text-slate-500 mt-3">
-              CBS com redutor de {perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção {result.cenarios.pj.aplicou_presuncao_16 ? '16%' : '32%'})
+              CBS com redutor de {perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).
             </p>
           </Card>
 
@@ -1412,7 +1410,7 @@ export function SimuladorImoveis() {
           const LIMITE_IMOVEIS = 3;
           const ehContribuinteIbsCbs =
             receitaComparativo > LIMITE_RECEITA_ABSOLUTO ||
-            (quantidadeImoveis > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA);
+            (quantidadeImoveisTotal > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA);
 
           const totalRefPf = pf.imposto_total + (refPf?.ibs_cbs_liquido ?? 0);
 

@@ -318,6 +318,8 @@ export const propertyService = {
       }>;
       aplicar_equiparacao_hospitalar?: boolean;
       quantidade_imoveis?: number;
+      quantidade_imoveis_residenciais?: number;
+      quantidade_imoveis_comerciais?: number;
       opcoes_reforma?: {
         aliquota_ibs_cbs_estimada?: number;
         aliquota_ibs_plena?: number;
@@ -326,6 +328,7 @@ export const propertyService = {
         redutor_short_stay_pct?: number;
         contrato_antes_16012025?: boolean;
         perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+        redutor_social_residencial_anual?: number;
       };
     }
   ): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
