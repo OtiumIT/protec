@@ -69384,7 +69384,13 @@ var OpcoesReformaSchema = external_exports.object({
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: external_exports.boolean().optional().default(false),
   /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
-  perfil_locacao: PerfilLocacaoReformaSchema.optional()
+  perfil_locacao: PerfilLocacaoReformaSchema.optional(),
+  /**
+   * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
+   * Valor absoluto em reais (ex.: 600 × 12 × número de imóveis residenciais).
+   * Opcional para manter compatibilidade; calculado no backend quando não enviado.
+   */
+  redutor_social_residencial_anual: monetaryValue4.optional()
 });
 var SimulateStandaloneMesSchema = external_exports.object({
   mes_referencia: external_exports.string().regex(/^\d{4}-\d{2}$/, "Formato YYYY-MM"),
@@ -69414,7 +69420,11 @@ var SimulateStandaloneInputSchema = external_exports.object({
   aplicar_equiparacao_hospitalar: external_exports.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
   /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
-  quantidade_imoveis: external_exports.number().int().min(1).optional()
+  quantidade_imoveis: external_exports.number().int().min(1).optional(),
+  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  quantidade_imoveis_residenciais: external_exports.number().int().min(0).optional(),
+  /** Quantidade de imóveis comerciais (sem redutor social) */
+  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional()
 });
 var SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
   client_id: external_exports.string().uuid().optional(),
@@ -69427,7 +69437,11 @@ var SimulatePropertyTaxInputSchema = external_exports.object({
   aliquota_efetiva_dirpf: external_exports.number().min(0).max(100).optional(),
   aplicar_presuncao_16_servicos: external_exports.boolean().optional().default(false),
   aplicar_equiparacao_hospitalar: external_exports.boolean().optional().default(false),
-  opcoes_reforma: OpcoesReformaSchema.optional()
+  opcoes_reforma: OpcoesReformaSchema.optional(),
+  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  quantidade_imoveis_residenciais: external_exports.number().int().min(0).optional(),
+  /** Quantidade de imóveis comerciais (sem redutor social) */
+  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional()
 });
 var CenarioPFSchema = external_exports.object({
   receita_bruta_total: external_exports.number(),
@@ -89039,7 +89053,15 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
     creditosIbsCbs = round28(custos_operacionais_total * aliquotaEfetivaRate);
     redutorExibicao = redutor;
   }
-  let ibsCbsLiquido = Math.max(0, round28(ibsCbsReceita - creditosIbsCbs));
+  let ibsCbsLiquidoBase = Math.max(0, round28(ibsCbsReceita - creditosIbsCbs));
+  if (opcoes?.redutor_social_residencial_anual && opcoes.redutor_social_residencial_anual > 0) {
+    const desconto = Math.min(
+      ibsCbsLiquidoBase,
+      opcoes.redutor_social_residencial_anual
+    );
+    ibsCbsLiquidoBase = Math.max(0, round28(ibsCbsLiquidoBase - desconto));
+  }
+  let ibsCbsLiquido = ibsCbsLiquidoBase;
   let aplicouTransicao = false;
   let impostoTransicao365;
   if (opcoes?.contrato_antes_16012025 && receita_total > 0) {
@@ -89294,13 +89316,16 @@ var PropertyService = class {
     );
     const cenarioPJ = calcularPJ(aggregatedTotal);
     const redutorLocacaoSimulate = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
+    const quantidadeImoveisResidenciaisSimulate = input.quantidade_imoveis_residenciais ?? 0;
+    const redutorSocialResidencialAnualSimulate = quantidadeImoveisResidenciaisSimulate > 0 ? 600 * 12 * quantidadeImoveisResidenciaisSimulate : void 0;
     const opcoesReformaSimulate = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacaoSimulate,
-      contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025
+      contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
+      redutor_social_residencial_anual: input.opcoes_reforma?.redutor_social_residencial_anual ?? redutorSocialResidencialAnualSimulate
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
@@ -89308,9 +89333,11 @@ var PropertyService = class {
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
-    const quantidadeImoveisSimulate = input.property_ids.length;
+    const quantidadeImoveisComerciaisSimulate = input.quantidade_imoveis_comerciais ?? 0;
+    const quantidadeImoveisResidenciaisParaContribuinte = quantidadeImoveisResidenciaisSimulate || 0;
+    const quantidadeImoveisTotalSimulate = (input.quantidade_imoveis_residenciais != null || input.quantidade_imoveis_comerciais != null ? quantidadeImoveisResidenciaisParaContribuinte + quantidadeImoveisComerciaisSimulate : input.property_ids.length) || 0;
     const { contribuinte: contribuinteIbsCbsPF } = verificarContribuinteIbsCbsPF(
-      quantidadeImoveisSimulate,
+      quantidadeImoveisTotalSimulate,
       aggregatedTotal.receita_total
     );
     const impostoTotalPFReforma = contribuinteIbsCbsPF ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100 : cenarioPF.imposto_total;
@@ -89451,6 +89478,9 @@ var PropertyService = class {
       (s, m) => s + (m.receita_aluguel_curto ?? 0),
       0
     );
+    const quantidadeImoveisResidenciaisStandalone = input.quantidade_imoveis_residenciais ?? // fallback: se não informado, assumir que todos os imóveis são residenciais
+    input.quantidade_imoveis ?? 0;
+    const redutorSocialResidencialAnualStandalone = quantidadeImoveisResidenciaisStandalone > 0 ? 600 * 12 * quantidadeImoveisResidenciaisStandalone : void 0;
     const aggregatedTotal = {
       ano: input.ano,
       receita_total: receitaTotal,
@@ -89472,7 +89502,8 @@ var PropertyService = class {
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
       usar_redutor_diferenciado_short: usarRedutorDiferenciado,
       receita_longa_total: receitaLongaTotal,
-      receita_short_total: receitaShortTotal
+      receita_short_total: receitaShortTotal,
+      redutor_social_residencial_anual: input.opcoes_reforma?.redutor_social_residencial_anual ?? redutorSocialResidencialAnualStandalone
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
@@ -89480,9 +89511,10 @@ var PropertyService = class {
       redutorLocacao,
       opcoesReformaStandalone
     );
-    const quantidadeImoveisStandalone = input.quantidade_imoveis ?? 1;
+    const quantidadeImoveisComerciaisStandalone = input.quantidade_imoveis_comerciais ?? 0;
+    const quantidadeImoveisTotalStandalone = (input.quantidade_imoveis_residenciais != null || input.quantidade_imoveis_comerciais != null ? quantidadeImoveisResidenciaisStandalone + quantidadeImoveisComerciaisStandalone : input.quantidade_imoveis ?? 1) || 1;
     const { contribuinte: contribuinteIbsCbsPFStandalone } = verificarContribuinteIbsCbsPF(
-      quantidadeImoveisStandalone,
+      quantidadeImoveisTotalStandalone,
       receitaTotal
     );
     const impostoTotalPFReformaStandalone = contribuinteIbsCbsPFStandalone ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100 : cenarioPF.imposto_total;
@@ -90463,7 +90495,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-15T14:42:41.881Z";
+var API_UPDATED_AT = "2026-03-16T22:11:59.009Z";
 
 // src/modules/index.ts
 var app = new Hono2();

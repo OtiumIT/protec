@@ -93,6 +93,12 @@ export const OpcoesReformaSchema = z.object({
   contrato_antes_16012025: z.boolean().optional().default(false),
   /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
+  /**
+   * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
+   * Valor absoluto em reais (ex.: 600 × 12 × número de imóveis residenciais).
+   * Opcional para manter compatibilidade; calculado no backend quando não enviado.
+   */
+  redutor_social_residencial_anual: monetaryValue.optional(),
 });
 
 /** Simulador standalone: campos granulares por mês */
@@ -127,6 +133,10 @@ export const SimulateStandaloneInputSchema = z.object({
   opcoes_reforma: OpcoesReformaSchema.optional(),
   /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
   quantidade_imoveis: z.number().int().min(1).optional(),
+  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis comerciais (sem redutor social) */
+  quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
 });
 
 /** Input para simular e salvar (persistir simulação standalone) */
@@ -143,6 +153,10 @@ export const SimulatePropertyTaxInputSchema = z.object({
   aplicar_presuncao_16_servicos: z.boolean().optional().default(false),
   aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
+  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis comerciais (sem redutor social) */
+  quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
 });
 
 export const CenarioPFSchema = z.object({

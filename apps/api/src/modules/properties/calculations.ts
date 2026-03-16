@@ -390,6 +390,12 @@ export interface OpcoesReformaCalculo {
   usar_redutor_diferenciado_short?: boolean;
   receita_longa_total?: number;
   receita_short_total?: number;
+  /**
+   * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
+   * Valor absoluto em reais que será abatido da base de IBS/CBS (limitado ao próprio imposto devido),
+   * típico = 600 × 12 × quantidade_imoveis_residenciais.
+   */
+  redutor_social_residencial_anual?: number;
 }
 
 /**
@@ -469,7 +475,23 @@ export function calcularReforma2027(
     redutorExibicao = redutor;
   }
 
-  let ibsCbsLiquido = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
+  // IBS/CBS líquido antes de redutor social e do regime de transição
+  let ibsCbsLiquidoBase = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
+
+  // Aplicar redutor social (LC 214/2025, arts. 259 e 260) apenas no regime regular
+  // e somente se informado valor anual > 0.
+  if (
+    opcoes?.redutor_social_residencial_anual &&
+    opcoes.redutor_social_residencial_anual > 0
+  ) {
+    const desconto = Math.min(
+      ibsCbsLiquidoBase,
+      opcoes.redutor_social_residencial_anual
+    );
+    ibsCbsLiquidoBase = Math.max(0, round2(ibsCbsLiquidoBase - desconto));
+  }
+
+  let ibsCbsLiquido = ibsCbsLiquidoBase;
 
   let aplicouTransicao = false;
   let impostoTransicao365: number | undefined;

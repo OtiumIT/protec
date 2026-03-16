@@ -166,7 +166,10 @@ export function SimuladorImoveis() {
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
-  const [quantidadeImoveis, setQuantidadeImoveis] = useState<number>(1);
+  const [quantidadeImoveisResidenciais, setQuantidadeImoveisResidenciais] = useState<number>(1);
+  const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
+  const quantidadeImoveisTotal =
+    (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
@@ -374,7 +377,9 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveis,
+          quantidade_imoveis: quantidadeImoveisTotal,
+          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
           opcoes_reforma: {
             aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
             aliquota_ibs_plena: aliquotaPlenaIBS,
@@ -382,6 +387,8 @@ export function SimuladorImoveis() {
             redutor_short_stay_pct: 50,
             contrato_antes_16012025: contratoAntes16012025,
             perfil_locacao: perfilLocacao,
+            redutor_social_residencial_anual:
+              quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : undefined,
           },
         });
         setResult(res);
@@ -407,12 +414,16 @@ export function SimuladorImoveis() {
         redutor_short_stay_pct: 50,
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
+        redutor_social_residencial_anual:
+          quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : undefined,
       };
       if (saveSimulation && saveClientId) {
         const { result: res } = await propertyService.simulateStandaloneAndSave({
           ano,
           meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveis,
+          quantidade_imoveis: quantidadeImoveisTotal,
+          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
           opcoes_reforma: opcoes,
           client_id: saveClientId,
           title: saveTitle || undefined,
@@ -425,7 +436,9 @@ export function SimuladorImoveis() {
         const res = await propertyService.simulateStandalone({
           ano,
           meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveis,
+          quantidade_imoveis: quantidadeImoveisTotal,
+          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
           opcoes_reforma: opcoes,
         });
         setResult(res);
@@ -454,6 +467,8 @@ export function SimuladorImoveis() {
         ano?: number;
         meses?: SimulateStandaloneMesInput[];
         quantidade_imoveis?: number;
+        quantidade_imoveis_residenciais?: number;
+        quantidade_imoveis_comerciais?: number;
         opcoes_reforma?: {
           contrato_antes_16012025?: boolean;
           perfil_locacao?: PerfilLocacaoReforma;
@@ -469,8 +484,12 @@ export function SimuladorImoveis() {
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
-      if (input?.quantidade_imoveis != null) {
-        setQuantidadeImoveis(input.quantidade_imoveis);
+      if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
+        setQuantidadeImoveisResidenciais(input.quantidade_imoveis_residenciais ?? 0);
+        setQuantidadeImoveisComerciais(input.quantidade_imoveis_comerciais ?? 0);
+      } else if (input?.quantidade_imoveis != null) {
+        setQuantidadeImoveisResidenciais(input.quantidade_imoveis);
+        setQuantidadeImoveisComerciais(0);
       }
       // Carregar client_id e title para "Salvar como novo"
       setSaveClientId(sim.client_id ?? '');
@@ -632,17 +651,43 @@ export function SimuladorImoveis() {
               />
               <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
             </label>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Quantidade de imóveis</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={quantidadeImoveis}
-                onChange={(e) => setQuantidadeImoveis(Math.max(1, parseInt(e.target.value) || 1))}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-24"
-              />
-              <span className="text-xs text-slate-500">Para PF: contribuinte de IBS/CBS se mais de 3 imóveis e receita &gt; R$ 240k, ou receita &gt; R$ 288k.</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700">Imóveis residenciais (com redutor social)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={quantidadeImoveisResidenciais}
+                  onChange={(e) =>
+                    setQuantidadeImoveisResidenciais(
+                      Math.max(0, parseInt(e.target.value, 10) || 0)
+                    )
+                  }
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                />
+                <span className="text-xs text-slate-500">
+                  Cada imóvel residencial gera redutor social de R$ 600/mês na base de IBS/CBS (LC 214/2025, arts. 259–260), limitado ao imposto devido.
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-700">Imóveis comerciais (sem redutor social)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={quantidadeImoveisComerciais}
+                  onChange={(e) =>
+                    setQuantidadeImoveisComerciais(
+                      Math.max(0, parseInt(e.target.value, 10) || 0)
+                    )
+                  }
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                />
+                <span className="text-xs text-slate-500">
+                  Usados apenas para verificar se a PF se torna contribuinte de IBS/CBS (limites de 3 imóveis e receita anual de R$ 240k/288k).
+                </span>
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
