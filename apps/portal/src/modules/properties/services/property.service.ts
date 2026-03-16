@@ -247,7 +247,7 @@ export const propertyService = {
       redutor_locacao_pct?: number;
       redutor_short_stay_pct?: number;
       contrato_antes_16012025?: boolean;
-      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
       redutor_social_residencial_anual?: number;
     };
     client_id: string;
@@ -327,7 +327,7 @@ export const propertyService = {
         redutor_locacao_pct?: number;
         redutor_short_stay_pct?: number;
         contrato_antes_16012025?: boolean;
-        perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+        perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
         redutor_social_residencial_anual?: number;
       };
     }
@@ -385,7 +385,7 @@ export const propertyService = {
       redutor_locacao_pct?: number;
       redutor_short_stay_pct?: number;
       contrato_antes_16012025?: boolean;
-      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
       redutor_social_residencial_anual?: number;
     };
   }): Promise<PropertyTaxSimulationResponse> {
@@ -414,7 +414,7 @@ export const propertyService = {
       aliquota_cbs_estimada?: number;
       redutor_locacao_pct?: number;
       contrato_antes_16012025?: boolean;
-      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada';
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
     };
   }): Promise<PropertyTaxSimulationResponse> {
     const { token, tenantId } = getAuthHeaders();

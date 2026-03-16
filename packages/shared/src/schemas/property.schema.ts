@@ -74,8 +74,8 @@ export const BatchPropertyTransactionSchema = z.object({
   transactions: z.array(PropertyTransactionSchema).min(1),
 });
 
-/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 50% */
-export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedagem_temporada']);
+/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 50%, ou ambos (proporcional) */
+export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedagem_temporada', 'ambos']);
 export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
 
 export const OpcoesReformaSchema = z.object({
@@ -91,7 +91,7 @@ export const OpcoesReformaSchema = z.object({
   redutor_short_stay_pct: z.number().min(0).max(100).optional().default(50),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: z.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
+  /** Perfil: residencial_comum (70%), hospedagem_temporada (50%) ou ambos (70%+50% proporcional). */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).

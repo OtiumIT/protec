@@ -69369,7 +69369,7 @@ var BatchPropertyTransactionSchema = external_exports.object({
   property_id: external_exports.string().uuid(),
   transactions: external_exports.array(PropertyTransactionSchema).min(1)
 });
-var PerfilLocacaoReformaSchema = external_exports.enum(["residencial_comum", "hospedagem_temporada"]);
+var PerfilLocacaoReformaSchema = external_exports.enum(["residencial_comum", "hospedagem_temporada", "ambos"]);
 var OpcoesReformaSchema = external_exports.object({
   /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. Mantido para compatibilidade. */
   aliquota_ibs_cbs_estimada: external_exports.number().min(0).max(100).optional().default(26.5),
@@ -69383,7 +69383,7 @@ var OpcoesReformaSchema = external_exports.object({
   redutor_short_stay_pct: external_exports.number().min(0).max(100).optional().default(50),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: external_exports.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%) ou hospedagem_temporada (50%). Escolha explícita pelo usuário. */
+  /** Perfil: residencial_comum (70%), hospedagem_temporada (50%) ou ambos (70%+50% proporcional). */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
@@ -89031,7 +89031,8 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
   }
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;
-  const usarRedutorDiferenciado = opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga && receita_total > 0;
+  const temReceitaLongaOuShort = receitaLonga + receitaShort > 0;
+  const usarRedutorDiferenciado = receita_total > 0 && temReceitaLongaOuShort && (opcoes?.usar_ambos_redutores === true || opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga);
   const redutorLong = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
   const redutorShort = opcoes?.redutor_short_stay_pct ?? REDUTOR_SHORT_STAY;
   let ibsCbsReceita;
@@ -89084,7 +89085,11 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 },
     ...aplicouTransicao && { aplicou_transicao_art487: true },
-    ...usarRedutorDiferenciado && { redutor_diferenciado_short: true }
+    ...usarRedutorDiferenciado && {
+      redutor_diferenciado_short: true,
+      redutor_long_pct: redutorLong,
+      redutor_short_pct: redutorShort
+    }
   };
 }
 var TRANSICAO_IBS_ANOS = {
@@ -89492,6 +89497,7 @@ var PropertyService = class {
     const cenarioPJ = calcularPJ(aggregatedTotal);
     const redutorLocacao = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada";
+    const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === "ambos";
     const opcoesReformaStandalone = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
@@ -89500,7 +89506,8 @@ var PropertyService = class {
       redutor_locacao_pct: redutorLocacao,
       redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
-      usar_redutor_diferenciado_short: usarRedutorDiferenciado,
+      usar_redutor_diferenciado_short: usarAmbosRedutores ? false : usarRedutorDiferenciado,
+      usar_ambos_redutores: usarAmbosRedutores,
       receita_longa_total: receitaLongaTotal,
       receita_short_total: receitaShortTotal,
       redutor_social_residencial_anual: input.opcoes_reforma?.redutor_social_residencial_anual ?? redutorSocialResidencialAnualStandalone
@@ -90495,7 +90502,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-16T23:03:23.178Z";
+var API_UPDATED_AT = "2026-03-16T23:51:53.685Z";
 
 // src/modules/index.ts
 var app = new Hono2();

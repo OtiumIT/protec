@@ -535,6 +535,7 @@ export class PropertyService {
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
     const usarRedutorDiferenciado =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
+    const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
     const opcoesReformaStandalone: OpcoesReformaCalculo = {
       ano: input.ano,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
@@ -543,7 +544,8 @@ export class PropertyService {
       redutor_locacao_pct: redutorLocacao,
       redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
-      usar_redutor_diferenciado_short: usarRedutorDiferenciado,
+      usar_redutor_diferenciado_short: usarAmbosRedutores ? false : usarRedutorDiferenciado,
+      usar_ambos_redutores: usarAmbosRedutores,
       receita_longa_total: receitaLongaTotal,
       receita_short_total: receitaShortTotal,
       redutor_social_residencial_anual:

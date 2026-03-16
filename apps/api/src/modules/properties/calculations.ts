@@ -388,6 +388,8 @@ export interface OpcoesReformaCalculo {
   contrato_antes_16012025?: boolean;
   /** Se true, aplica 50% no montante de receita short e 70% no long (quando short > long) */
   usar_redutor_diferenciado_short?: boolean;
+  /** Se true (perfil "ambos"), aplica 70% na parte longa e 50% na curta, proporcional à receita de cada tipo. */
+  usar_ambos_redutores?: boolean;
   receita_longa_total?: number;
   receita_short_total?: number;
   /**
@@ -422,8 +424,11 @@ export function calcularReforma2027(
   /** Regime transição Art. 487 aplicado (imposto a 3,65%) */
   imposto_transicao_365?: number;
   aplicou_transicao_art487?: boolean;
-  /** Quando short > long: redutor 50% na parte short, 70% na long */
+  /** Quando redutor proporcional: 50% na parte short, 70% na long */
   redutor_diferenciado_short?: boolean;
+  /** Percentuais aplicados quando redutor diferenciado (para exibição na UI). */
+  redutor_long_pct?: number;
+  redutor_short_pct?: number;
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
   const ano = opcoes?.ano ?? aggAno ?? 2027;
@@ -446,10 +451,12 @@ export function calcularReforma2027(
 
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;
+  const temReceitaLongaOuShort = receitaLonga + receitaShort > 0;
   const usarRedutorDiferenciado =
-    opcoes?.usar_redutor_diferenciado_short === true &&
-    receitaShort > receitaLonga &&
-    receita_total > 0;
+    receita_total > 0 &&
+    temReceitaLongaOuShort &&
+    (opcoes?.usar_ambos_redutores === true ||
+      (opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga));
 
   const redutorLong = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
   const redutorShort = opcoes?.redutor_short_stay_pct ?? REDUTOR_SHORT_STAY;
@@ -519,7 +526,11 @@ export function calcularReforma2027(
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...(impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 }),
     ...(aplicouTransicao && { aplicou_transicao_art487: true }),
-    ...(usarRedutorDiferenciado && { redutor_diferenciado_short: true }),
+    ...(usarRedutorDiferenciado && {
+      redutor_diferenciado_short: true,
+      redutor_long_pct: redutorLong,
+      redutor_short_pct: redutorShort,
+    }),
   };
 }
 

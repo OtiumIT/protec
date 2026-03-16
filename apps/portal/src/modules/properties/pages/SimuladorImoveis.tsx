@@ -692,10 +692,11 @@ export function SimuladorImoveis() {
               <select
                 value={perfilLocacao}
                 onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[220px]"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
               >
                 <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
                 <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
+                <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
               </select>
               <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
             </div>
@@ -1247,8 +1248,12 @@ export function SimuladorImoveis() {
             </p>
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
-              {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct === 70 && (
-                <span className="text-slate-500"> (com redutor 70% para locação)</span>
+              {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
+                <span className="text-slate-500"> (com redutor 70% longa duração e 50% curta temporada)</span>
+              ) : (
+                ((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct != null && (
+                  <span className="text-slate-500"> (com redutor {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.redutor_locacao_aplicado_pct ?? 70}% para locação)</span>
+                )
               )}
             </p>
             {(() => {
@@ -1273,7 +1278,7 @@ export function SimuladorImoveis() {
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
             )}
             {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
-              <p className="text-xs text-slate-600 mt-1">Redutor diferenciado: 50% na parte short stay (hospedagem/temporada).</p>
+              <p className="text-xs text-slate-600 mt-1">Redutor 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
             )}
             <details className="mt-3">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
@@ -1283,25 +1288,48 @@ export function SimuladorImoveis() {
               {(() => {
                 const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
                 if (!ref) return null;
-                const aliqNominal = (ref as { aliquota_nominal_ibs_cbs?: number }).aliquota_nominal_ibs_cbs ?? 26.5;
-                const redutor = (ref as { redutor_locacao_aplicado_pct?: number }).redutor_locacao_aplicado_pct ?? 70;
-                const aliqEfetiva = aliqNominal * (1 - redutor / 100);
+                const refExt = ref as {
+                  aliquota_nominal_ibs_cbs?: number;
+                  redutor_locacao_aplicado_pct?: number;
+                  ibs_cbs_sobre_receita?: number;
+                  custos_operacionais_total?: number;
+                  irpj?: number;
+                  csll?: number;
+                  redutor_diferenciado_short?: boolean;
+                  redutor_long_pct?: number;
+                  redutor_short_pct?: number;
+                };
+                const aliqNominal = refExt.aliquota_nominal_ibs_cbs ?? 26.5;
                 const receita = ref.receita_bruta_total ?? 0;
-                const debito = (ref as { ibs_cbs_sobre_receita?: number }).ibs_cbs_sobre_receita ?? 0;
+                const debito = refExt.ibs_cbs_sobre_receita ?? 0;
                 const creditos = ref.creditos_ibs_cbs ?? 0;
-                const custos = (ref as { custos_operacionais_total?: number }).custos_operacionais_total ?? 0;
+                const custos = refExt.custos_operacionais_total ?? 0;
                 const liquido = ref.ibs_cbs_liquido ?? 0;
-                const irpj = (ref as { irpj?: number }).irpj ?? 0;
-                const csll = (ref as { csll?: number }).csll ?? 0;
-                
+                const irpj = refExt.irpj ?? 0;
+                const csll = refExt.csll ?? 0;
+                const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
+                const aliqEfetiva =
+                  receita > 0
+                    ? round2((debito / receita) * 100)
+                    : aliqNominal * (1 - (refExt.redutor_locacao_aplicado_pct ?? 70) / 100);
+
                 return (
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
                     <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Composição da alíquota IBS/CBS (LC 214/2025)</p>
                     
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva</p>
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva (redutor de ajuste)</p>
                     <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(1)}%</span></p>
-                    <p>× (100% − Redutor {redutor}%): <span className="text-slate-800">{(100 - redutor).toFixed(0)}%</span></p>
-                    <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                    {redutorDiferenciado ? (
+                      <>
+                        <p>Redutor 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                      </>
+                    ) : (
+                      <>
+                        <p>× (100% − Redutor {refExt.redutor_locacao_aplicado_pct ?? 70}%): <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70)).toFixed(0)}%</span></p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                      </>
+                    )}
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Débito sobre receita</p>
                     <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(1)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
@@ -1335,10 +1363,15 @@ export function SimuladorImoveis() {
             <p className="text-xs text-slate-500 mb-4">Demonstração da tributação ano a ano considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).</p>
             {(() => {
               const receita = result.cenarios.pf.receita_bruta_total;
-              const custos = (result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.custos_operacionais_total ?? 0;
+              const refReforma = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
+              const custos = refReforma?.custos_operacionais_total ?? 0;
               const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.csll ?? 0);
-              const redutor = perfilLocacao === 'hospedagem_temporada' ? 50 : 70;
-              const fatorReducao = (100 - redutor) / 100;
+              const aliqNominalRef = (refReforma as { aliquota_nominal_ibs_cbs?: number })?.aliquota_nominal_ibs_cbs ?? 26.5;
+              const debitoRef = (refReforma as { ibs_cbs_sobre_receita?: number })?.ibs_cbs_sobre_receita ?? 0;
+              const fatorReducao =
+                perfilLocacao === 'ambos' && receita > 0 && aliqNominalRef > 0
+                  ? debitoRef / receita / (aliqNominalRef / 100)
+                  : (100 - (perfilLocacao === 'hospedagem_temporada' ? 50 : 70)) / 100;
 
               const anos = [
                 { ano: '2027/2028', ibsNominal: 0.1 },
@@ -1392,7 +1425,9 @@ export function SimuladorImoveis() {
               );
             })()}
             <p className="text-xs text-slate-500 mt-3">
-              CBS com redutor de {perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).
+              {perfilLocacao === 'ambos'
+                ? 'CBS e IBS com redutores 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
+                : `CBS com redutor de ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
             </p>
           </Card>
 

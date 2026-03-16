@@ -336,7 +336,7 @@ export const rulesImoveis: RuleDocumentation[] = [
     modulo: 'simulador-imoveis',
     nome: 'Reforma Tributaria 2027 (IBS/CBS)',
     descricao:
-      'A partir de 2027, locacao de imoveis passa a pagar IBS e CBS com redutores de aliquota. Locacao residencial tem redutor de 70% e hospedagem/temporada tem redutor de 50%.',
+      'A partir de 2027, locacao de imoveis passa a pagar IBS e CBS com redutores de aliquota. Locacao residencial: redutor 70%; hospedagem/temporada: 50%. O perfil "ambos" aplica os dois redutores proporcionalmente à receita de cada tipo.',
     formula: 'Aliquota\\_Efetiva = Aliquota\\_Nominal \\times (1 - Redutor)',
     formula_explicada:
       'Se a aliquota nominal for 26,5% e o redutor for 70%, a efetiva e 26,5% x 30% = 7,95%.',
@@ -407,9 +407,10 @@ export const rulesImoveis: RuleDocumentation[] = [
       '2027/2028: CBS plena (~9%) + IBS fixo de 0,1% - ambos com redutor de 70% para locação residencial.',
       'A partir de 2029: CBS plena + IBS progressivo (10% em 2029, 20% em 2030, 30% em 2031, 40% em 2032, 100% em 2033).',
       'O redutor de 70% resulta em carga efetiva próxima a 8% sobre receita após 2033.',
+      'Perfil "ambos": quando há receita de longa duração e de curta temporada, o simulador aplica 70% na parte longa e 50% na curta, proporcionalmente. O redutor aplicado é exibido no card e em "Ver cálculo IBS/CBS".',
       'Para PF: só é contribuinte se mais de 3 imóveis + receita > R$ 240k, ou receita > R$ 288k.',
     ],
-    ultima_atualizacao: '2026-03-14',
+    ultima_atualizacao: '2026-03-16',
     tags: ['reforma', 'ibs', 'cbs', 'redutor'],
     vigencia: {
       inicio: '2027-01-01',

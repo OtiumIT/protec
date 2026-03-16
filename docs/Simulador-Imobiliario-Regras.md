@@ -97,7 +97,7 @@ Endpoint: `POST /api/v1/properties/simulate`.
 | **redutor_locacao_pct** | número (0–100) | 70 | Redutor para locação de longa duração (%). Ex.: 70 → paga 30% da alíquota nominal. |
 | **redutor_short_stay_pct** | número (0–100) | 50 | Redutor para curta temporada / hospedagem (%). Usado quando o perfil é "hospedagem_temporada". |
 | **contrato_antes_16012025** | booleano | false | Contrato firmado antes de 16/01/2025? Se true, aplica-se o regime de transição do Art. 487 LC 214/25: opção de 3,65% sobre faturamento bruto; o resultado é o menor entre esse valor e o regime normal (débito/crédito). |
-| **perfil_locacao** | enum | — | `residencial_comum` (redutor 70%, locação longa duração) ou `hospedagem_temporada` (redutor 50%, curta temporada). Escolha explícita pelo usuário. |
+| **perfil_locacao** | enum | — | `residencial_comum` (redutor 70%, locação longa duração), `hospedagem_temporada` (redutor 50%, curta temporada) ou `ambos` (aplica 70% na parte de receita longa duração e 50% na parte curta temporada, proporcionalmente à receita de cada tipo). |
 
 ---
 
@@ -170,7 +170,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 ### 3.5 Cenário C – Reforma 2027 (IBS/CBS)
 
-**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor:** longa duração 70%; curta temporada 50% (aplicado conforme perfil escolhido).
+**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor:** longa duração 70%; curta temporada 50%. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente). O redutor aplicado é exibido no card e no detalhe "Ver cálculo IBS/CBS".
 
 **Ótica PJ (somente IBS/CBS sobre a atividade):**
 
