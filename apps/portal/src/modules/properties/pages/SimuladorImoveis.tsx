@@ -713,7 +713,7 @@ export function SimuladorImoveis() {
                 <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
               </select>
               <span className="text-xs text-slate-500">
-                Opção selecionada automaticamente conforme as receitas informadas (longa e/ou curta duração). Ao alterar os valores na tabela de receitas, esta opção é atualizada sozinha.
+                Longa duração: R$ {receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Curta temporada: R$ {receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. A opção acima é atualizada automaticamente ao alterar a tabela de receitas.
               </span>
               <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
             </div>

@@ -2,4 +2,4 @@
  * Gerado em tempo de build por scripts/build-vercel-output.mjs
  */
 export const API_VERSION = '1.0.0';
-export const API_UPDATED_AT = '2026-03-17T00:40:32.908Z';
+export const API_UPDATED_AT = '2026-03-17T00:44:21.129Z';
