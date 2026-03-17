@@ -172,11 +172,11 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 **Ano de referência:** O card principal permite selecionar o ano de referência (2027–2033). Default 2033 (reforma integral) para alinhar com a projeção.
 
-**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor da alíquota:** longa duração 70%; curta temporada 50%. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente).
+**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor setorial da alíquota:** para locação imobiliária em geral (residencial e não residencial) aplica‑se redutor de 70% na longa duração e 50% na curta temporada. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente).
 
-**Redutor social (Art. 260):** R$ 600/mês por imóvel residencial, deduzido da **base de cálculo** (não do imposto). Base tributável = máx(0, receita residencial − 600 × 12 × n imóveis).
+**Redutor social (Art. 260):** R$ 600/mês por imóvel residencial, deduzido da **base de cálculo** (não do imposto) apenas na parte residencial. Base tributável = máx(0, receita residencial − 600 × 12 × n imóveis).
 
-**Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: residencial recebe redutor social na base e redutor da alíquota; não residencial não tem redutor social.
+**Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: a parte residencial recebe redutor social na base e redutor(es) de alíquota (70% longa e/ou 50% curta); a parte não residencial não tem redutor social, mas utiliza o mesmo redutor setorial de alíquota definido para o perfil da locação (por padrão 70% para longa duração).
 
 **Ótica PJ (somente IBS/CBS sobre a atividade):**
 

@@ -89063,19 +89063,37 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
   let ibsCbsAntesRedutorSocial;
   let redutorSocialAplicado;
   if (usarModeloSplit) {
-    const baseResidencial = Math.max(0, round28(receitaResidencial - redutorSocialAnual));
-    const aliquotaEfetivaResidencial = aliquotaNominal / 100 * (1 - redutorLong / 100);
-    const aliquotaPlena = aliquotaNominal / 100;
-    const ibsCbsResidencial = round28(baseResidencial * aliquotaEfetivaResidencial);
-    const ibsCbsNaoResidencial = round28(receitaNaoResidencial * aliquotaPlena);
-    const receitaReforma = receitaResidencial + receitaNaoResidencial;
+    const receitaTotalSplit = receitaResidencial + receitaNaoResidencial;
+    const totalReceitaLongShort = receitaLonga + receitaShort;
+    const partLongResidencial = totalReceitaLongShort > 0 ? Math.min(1, Math.max(0, receitaLonga / totalReceitaLongShort)) : 1;
+    const partShortResidencial = 1 - partLongResidencial;
+    const aliquotaBase = aliquotaNominal / 100;
+    const rateLong = aliquotaBase * (1 - redutorLong / 100);
+    const rateShort = aliquotaBase * (1 - redutorShort / 100);
+    const receitaResidencialLong = receitaResidencial * partLongResidencial;
+    const receitaResidencialShort = receitaResidencial * partShortResidencial;
+    const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual * partLongResidencial : 0;
+    const redutorSocialShort = redutorSocialAnual > 0 ? redutorSocialAnual * partShortResidencial : 0;
+    const baseResidencialLong = Math.max(0, round28(receitaResidencialLong - redutorSocialLong));
+    const baseResidencialShort = Math.max(0, round28(receitaResidencialShort - redutorSocialShort));
+    const ibsCbsResidencialLong = round28(baseResidencialLong * rateLong);
+    const ibsCbsResidencialShort = round28(baseResidencialShort * rateShort);
+    const rateNaoResidencial = rateLong;
+    const ibsCbsNaoResidencial = round28(receitaNaoResidencial * rateNaoResidencial);
+    const ibsCbsResidencial = round28(ibsCbsResidencialLong + ibsCbsResidencialShort);
     ibsCbsReceita = round28(ibsCbsResidencial + ibsCbsNaoResidencial);
-    const rateMedio = receitaReforma > 0 ? ibsCbsReceita / receitaReforma : 0;
+    const rateMedio = receitaTotalSplit > 0 ? ibsCbsReceita / receitaTotalSplit : 0;
     creditosIbsCbs = round28(custos_operacionais_total * rateMedio);
     redutorExibicao = redutorLong;
-    const impostoResidencialSemRedutorBase = round28(receitaResidencial * aliquotaEfetivaResidencial);
-    redutorSocialAplicado = round28(Math.min(receitaResidencial, redutorSocialAnual) * aliquotaEfetivaResidencial);
-    ibsCbsAntesRedutorSocial = round28(impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs);
+    const impostoResidencialSemRedutorBase = round28(
+      receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
+    );
+    redutorSocialAplicado = round28(
+      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong + Math.min(receitaResidencialShort, redutorSocialShort) * rateShort
+    );
+    ibsCbsAntesRedutorSocial = round28(
+      impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
+    );
   } else {
     const baseTributavel = redutorSocialAnual > 0 ? Math.max(0, round28(receita_total - redutorSocialAnual)) : receita_total;
     if (usarRedutorDiferenciado) {
@@ -90589,7 +90607,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-17T13:55:06.366Z";
+var API_UPDATED_AT = "2026-03-17T23:50:47.245Z";
 
 // src/modules/index.ts
 var app = new Hono2();

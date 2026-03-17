@@ -788,7 +788,9 @@ export function SimuladorImoveis() {
                     onChange={setReceitaLocacaoResidencialAnual}
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
-                  <span className="text-xs text-slate-500">Com redutor social R$ 600/imóvel/mês e redutor da alíquota.</span>
+                  <span className="text-xs text-slate-500">
+                    Com redutor social R$ 600/imóvel/mês e redutor setorial da alíquota (70% longa duração ou 50% curta, conforme perfil escolhido).
+                  </span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-slate-700">Receita anual locação não residencial (R$)</label>
@@ -797,8 +799,9 @@ export function SimuladorImoveis() {
                     onChange={setReceitaLocacaoNaoResidencialAnual}
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
-                  <span className="text-xs text-slate-500">Sem redutor social.</span>
-                </div>
+                  <span className="text-xs text-slate-500">
+                    Sem redutor social, mas com o mesmo redutor setorial de alíquota configurado acima (70% longa duração ou 50% curta, conforme perfil).
+                  </span>
               </div>
             )}
           </div>

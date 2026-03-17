@@ -484,20 +484,58 @@ export function calcularReforma2027(
   let redutorSocialAplicado: number | undefined;
 
   if (usarModeloSplit) {
-    // Modelo com split: residencial (base reduzida + redutor alíquota) e não residencial (alíquota plena)
-    const baseResidencial = Math.max(0, round2(receitaResidencial - redutorSocialAnual));
-    const aliquotaEfetivaResidencial = (aliquotaNominal / 100) * (1 - redutorLong / 100);
-    const aliquotaPlena = aliquotaNominal / 100;
-    const ibsCbsResidencial = round2(baseResidencial * aliquotaEfetivaResidencial);
-    const ibsCbsNaoResidencial = round2(receitaNaoResidencial * aliquotaPlena);
-    const receitaReforma = receitaResidencial + receitaNaoResidencial;
+    // Modelo com split: residencial (base reduzida + redutor(es) de alíquota) e não residencial (mesmo redutor setorial, sem redutor social)
+    const receitaTotalSplit = receitaResidencial + receitaNaoResidencial;
+
+    // Decomposição da parte residencial em longa x curta usando receitas totais do simulador
+    const totalReceitaLongShort = receitaLonga + receitaShort;
+    const partLongResidencial =
+      totalReceitaLongShort > 0 ? Math.min(1, Math.max(0, receitaLonga / totalReceitaLongShort)) : 1;
+    const partShortResidencial = 1 - partLongResidencial;
+
+    const aliquotaBase = aliquotaNominal / 100;
+    const rateLong = aliquotaBase * (1 - redutorLong / 100);
+    const rateShort = aliquotaBase * (1 - redutorShort / 100);
+
+    const receitaResidencialLong = receitaResidencial * partLongResidencial;
+    const receitaResidencialShort = receitaResidencial * partShortResidencial;
+
+    // Distribuição proporcional do redutor social entre longa e curta
+    const redutorSocialLong =
+      redutorSocialAnual > 0 ? redutorSocialAnual * partLongResidencial : 0;
+    const redutorSocialShort =
+      redutorSocialAnual > 0 ? redutorSocialAnual * partShortResidencial : 0;
+
+    const baseResidencialLong = Math.max(0, round2(receitaResidencialLong - redutorSocialLong));
+    const baseResidencialShort = Math.max(0, round2(receitaResidencialShort - redutorSocialShort));
+
+    const ibsCbsResidencialLong = round2(baseResidencialLong * rateLong);
+    const ibsCbsResidencialShort = round2(baseResidencialShort * rateShort);
+
+    // Locação não residencial: mesmo redutor setorial da alíquota de longa duração, sem redutor social
+    const rateNaoResidencial = rateLong;
+    const ibsCbsNaoResidencial = round2(receitaNaoResidencial * rateNaoResidencial);
+
+    const ibsCbsResidencial = round2(ibsCbsResidencialLong + ibsCbsResidencialShort);
     ibsCbsReceita = round2(ibsCbsResidencial + ibsCbsNaoResidencial);
-    const rateMedio = receitaReforma > 0 ? ibsCbsReceita / receitaReforma : 0;
+
+    const rateMedio =
+      receitaTotalSplit > 0 ? ibsCbsReceita / receitaTotalSplit : 0;
     creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
+
+    // Para exibição, manter o redutor de longa duração como referência principal
     redutorExibicao = redutorLong;
-    const impostoResidencialSemRedutorBase = round2(receitaResidencial * aliquotaEfetivaResidencial);
-    redutorSocialAplicado = round2(Math.min(receitaResidencial, redutorSocialAnual) * aliquotaEfetivaResidencial);
-    ibsCbsAntesRedutorSocial = round2(impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs);
+
+    const impostoResidencialSemRedutorBase = round2(
+      receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
+    );
+    redutorSocialAplicado = round2(
+      (Math.min(receitaResidencialLong, redutorSocialLong) * rateLong) +
+      (Math.min(receitaResidencialShort, redutorSocialShort) * rateShort)
+    );
+    ibsCbsAntesRedutorSocial = round2(
+      impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
+    );
   } else {
     // Modelo unificado: redutor social na BASE (Art. 260), não no imposto
     const baseTributavel = redutorSocialAnual > 0
