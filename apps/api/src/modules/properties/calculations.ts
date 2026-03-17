@@ -392,10 +392,13 @@ export interface OpcoesReformaCalculo {
   usar_ambos_redutores?: boolean;
   receita_longa_total?: number;
   receita_short_total?: number;
+  /** Receita anual de locação residencial (para modelo com split residencial/não residencial). */
+  receita_locacao_residencial_anual?: number;
+  /** Receita anual de locação não residencial (alíquota plena, sem redutor). */
+  receita_locacao_nao_residencial_anual?: number;
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
-   * Valor absoluto em reais que será abatido da base de IBS/CBS (limitado ao próprio imposto devido),
-   * típico = 600 × 12 × quantidade_imoveis_residenciais.
+   * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × 12 × quantidade_imoveis_residenciais.
    */
   redutor_social_residencial_anual?: number;
 }
@@ -429,6 +432,10 @@ export function calcularReforma2027(
   /** Percentuais aplicados quando redutor diferenciado (para exibição na UI). */
   redutor_long_pct?: number;
   redutor_short_pct?: number;
+  /** IBS/CBS líquido antes de redutor social (para memória de cálculo). */
+  ibs_cbs_antes_redutor_social?: number;
+  /** Valor do redutor social aplicado na base (Art. 260). */
+  redutor_social_aplicado?: number;
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
   const ano = opcoes?.ano ?? aggAno ?? 2027;
@@ -449,10 +456,18 @@ export function calcularReforma2027(
     aliquotaNominal = ibsEfetivo + aliquotaCBS;
   }
 
+  const receitaResidencial = opcoes?.receita_locacao_residencial_anual ?? 0;
+  const receitaNaoResidencial = opcoes?.receita_locacao_nao_residencial_anual ?? 0;
+  const usarModeloSplit =
+    receitaResidencial > 0 &&
+    receitaNaoResidencial > 0 &&
+    (opcoes?.redutor_social_residencial_anual ?? 0) > 0;
+
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;
   const temReceitaLongaOuShort = receitaLonga + receitaShort > 0;
   const usarRedutorDiferenciado =
+    !usarModeloSplit &&
     receita_total > 0 &&
     temReceitaLongaOuShort &&
     (opcoes?.usar_ambos_redutores === true ||
@@ -460,45 +475,67 @@ export function calcularReforma2027(
 
   const redutorLong = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
   const redutorShort = opcoes?.redutor_short_stay_pct ?? REDUTOR_SHORT_STAY;
+  const redutorSocialAnual = opcoes?.redutor_social_residencial_anual ?? 0;
 
   let ibsCbsReceita: number;
   let creditosIbsCbs: number;
   let redutorExibicao: number;
+  let ibsCbsAntesRedutorSocial: number | undefined;
+  let redutorSocialAplicado: number | undefined;
 
-  if (usarRedutorDiferenciado) {
-    const partLong = receitaLonga / receita_total;
-    const partShort = receitaShort / receita_total;
-    const rateLong = (aliquotaNominal / 100) * (1 - redutorLong / 100);
-    const rateShort = (aliquotaNominal / 100) * (1 - redutorShort / 100);
-    ibsCbsReceita = round2(receita_total * (partLong * rateLong + partShort * rateShort));
-    const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
+  if (usarModeloSplit) {
+    // Modelo com split: residencial (base reduzida + redutor alíquota) e não residencial (alíquota plena)
+    const baseResidencial = Math.max(0, round2(receitaResidencial - redutorSocialAnual));
+    const aliquotaEfetivaResidencial = (aliquotaNominal / 100) * (1 - redutorLong / 100);
+    const aliquotaPlena = aliquotaNominal / 100;
+    const ibsCbsResidencial = round2(baseResidencial * aliquotaEfetivaResidencial);
+    const ibsCbsNaoResidencial = round2(receitaNaoResidencial * aliquotaPlena);
+    const receitaReforma = receitaResidencial + receitaNaoResidencial;
+    ibsCbsReceita = round2(ibsCbsResidencial + ibsCbsNaoResidencial);
+    const rateMedio = receitaReforma > 0 ? ibsCbsReceita / receitaReforma : 0;
     creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
     redutorExibicao = redutorLong;
+    const impostoResidencialSemRedutorBase = round2(receitaResidencial * aliquotaEfetivaResidencial);
+    redutorSocialAplicado = round2(Math.min(receitaResidencial, redutorSocialAnual) * aliquotaEfetivaResidencial);
+    ibsCbsAntesRedutorSocial = round2(impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs);
   } else {
-    const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
-    const aliquotaEfetivaRate = (aliquotaNominal / 100) * (1 - redutor / 100);
-    ibsCbsReceita = round2(receita_total * aliquotaEfetivaRate);
-    creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate);
-    redutorExibicao = redutor;
+    // Modelo unificado: redutor social na BASE (Art. 260), não no imposto
+    const baseTributavel = redutorSocialAnual > 0
+      ? Math.max(0, round2(receita_total - redutorSocialAnual))
+      : receita_total;
+
+    if (usarRedutorDiferenciado) {
+      const partLong = receitaLonga / receita_total;
+      const partShort = receitaShort / receita_total;
+      const rateLong = (aliquotaNominal / 100) * (1 - redutorLong / 100);
+      const rateShort = (aliquotaNominal / 100) * (1 - redutorShort / 100);
+      const aliquotaEfetivaMedia = partLong * rateLong + partShort * rateShort;
+      ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaMedia);
+      const rateMedio = receita_total > 0 ? (baseTributavel * aliquotaEfetivaMedia) / receita_total : 0;
+      creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
+      redutorExibicao = redutorLong;
+      redutorSocialAplicado = redutorSocialAnual > 0
+        ? round2(Math.min(receita_total, redutorSocialAnual) * (partLong * rateLong + partShort * rateShort))
+        : 0;
+      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado
+        ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
+        : undefined;
+    } else {
+      const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+      const aliquotaEfetivaRate = (aliquotaNominal / 100) * (1 - redutor / 100);
+      ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaRate);
+      creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate);
+      redutorExibicao = redutor;
+      redutorSocialAplicado = redutorSocialAnual > 0
+        ? round2(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate)
+        : 0;
+      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado
+        ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
+        : undefined;
+    }
   }
 
-  // IBS/CBS líquido antes de redutor social e do regime de transição
-  let ibsCbsLiquidoBase = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
-
-  // Aplicar redutor social (LC 214/2025, arts. 259 e 260) apenas no regime regular
-  // e somente se informado valor anual > 0.
-  if (
-    opcoes?.redutor_social_residencial_anual &&
-    opcoes.redutor_social_residencial_anual > 0
-  ) {
-    const desconto = Math.min(
-      ibsCbsLiquidoBase,
-      opcoes.redutor_social_residencial_anual
-    );
-    ibsCbsLiquidoBase = Math.max(0, round2(ibsCbsLiquidoBase - desconto));
-  }
-
-  let ibsCbsLiquido = ibsCbsLiquidoBase;
+  let ibsCbsLiquido = Math.max(0, round2(ibsCbsReceita - creditosIbsCbs));
 
   let aplicouTransicao = false;
   let impostoTransicao365: number | undefined;
@@ -511,17 +548,16 @@ export function calcularReforma2027(
     }
   }
 
-  const aliquotaEfetiva =
-    receita_total > 0 ? (ibsCbsLiquido / receita_total) * 100 : 0;
+  const receitaParaAliquota = usarModeloSplit ? receitaResidencial + receitaNaoResidencial : receita_total;
 
   return {
-    receita_bruta_total: round2(receita_total),
+    receita_bruta_total: round2(receitaParaAliquota),
     custos_operacionais_total: round2(custos_operacionais_total),
     creditos_ibs_cbs: creditosIbsCbs,
     ibs_cbs_sobre_receita: ibsCbsReceita,
     ibs_cbs_liquido: ibsCbsLiquido,
     imposto_total: round2(ibsCbsLiquido),
-    aliquota_efetiva: round2(aliquotaEfetiva),
+    aliquota_efetiva: round2(receitaParaAliquota > 0 ? (ibsCbsLiquido / receitaParaAliquota) * 100 : 0),
     aliquota_nominal_ibs_cbs: round2(aliquotaNominal),
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...(impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 }),
@@ -531,6 +567,8 @@ export function calcularReforma2027(
       redutor_long_pct: redutorLong,
       redutor_short_pct: redutorShort,
     }),
+    ...(ibsCbsAntesRedutorSocial != null && { ibs_cbs_antes_redutor_social: ibsCbsAntesRedutorSocial }),
+    ...(redutorSocialAplicado != null && redutorSocialAplicado > 0 && { redutor_social_aplicado: redutorSocialAplicado }),
   };
 }
 

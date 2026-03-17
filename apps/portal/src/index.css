@@ -50,7 +50,7 @@
     visibility: visible;
   }
   /* Quando movido para body: esconder irmãos (Layout) para evitar páginas em branco */
-  body > *:not(#simulador-tributario-resultado-print):not(#simulador-imoveis-resultado-print) {
+  body > *:not(#simulador-tributario-resultado-print):not(#simulador-imoveis-resultado-print):not(#simulador-imoveis-print-wrapper) {
     display: none !important;
   }
   /* Impressão resumida: esconder Memória de Cálculo */
@@ -159,28 +159,71 @@
   }
 
   /* Impressão: resultado do Simulador Imobiliário (PF vs PJ vs Reforma) */
-  #simulador-imoveis-resultado-print,
-  #simulador-imoveis-resultado-print * {
+  #simulador-imoveis-print-wrapper,
+  #simulador-imoveis-print-wrapper * {
     visibility: visible;
   }
-  #simulador-imoveis-resultado-print {
-    position: absolute;
-    left: 0;
-    top: 0;
+  #simulador-imoveis-print-wrapper {
+    position: relative;
     width: 100%;
-    max-width: 100%;
-    padding: 1rem;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 0 1rem;
+    padding-top: 2.2cm;
+    padding-bottom: 1.5cm;
     background: white;
     overflow: visible;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   /* Quando movido para body: fluxo normal para impressão multi-página */
-  #simulador-imoveis-resultado-print[data-print-moved="true"] {
+  #simulador-imoveis-print-wrapper[data-print-moved="true"] {
     position: static !important;
     width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
     height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
   }
+  /* Cabeçalho fixo em cada folha A4 */
+  #simulador-imoveis-print-wrapper .print-report-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2cm;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1cm;
+    border-bottom: 1px solid #e2e8f0;
+    background: white;
+    z-index: 9999;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Rodapé fixo em cada folha A4 */
+  #simulador-imoveis-print-wrapper .print-report-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1.2cm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1cm;
+    font-size: 10px;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    background: white;
+    z-index: 9999;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #simulador-imoveis-resultado-print,
   #simulador-imoveis-resultado-print * {
     overflow: visible !important;
     box-sizing: border-box;
@@ -190,10 +233,28 @@
   }
   #simulador-imoveis-resultado-print table {
     width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed;
     page-break-inside: auto;
   }
   #simulador-imoveis-resultado-print tr {
     page-break-inside: avoid;
+  }
+  /* Cards e blocos: evitar corte no meio */
+  #simulador-imoveis-print-wrapper .grid > *,
+  #simulador-imoveis-print-wrapper .rounded-xl,
+  #simulador-imoveis-print-wrapper .rounded-2xl,
+  #simulador-imoveis-print-wrapper .rounded-lg {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Tabelas: fonte legível, evitar overflow */
+  #simulador-imoveis-resultado-print td,
+  #simulador-imoveis-resultado-print th {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.4rem !important;
   }
 
   /* Impressão: resultado da simulação IRPF Alta Renda */

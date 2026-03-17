@@ -155,15 +155,22 @@ export function SimuladorImoveis() {
   const [simulations, setSimulations] = useState<PropertySimulation[]>([]);
   const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [reportClientName, setReportClientName] = useState('');
   const resultSectionRef = useRef<HTMLDivElement>(null);
+  const printPreviewContentRef = useRef<HTMLDivElement>(null);
+  const printWrapperRef = useRef<HTMLDivElement>(null);
   /** Payload da última simulação (para Salvar no histórico após o resultado). */
   const lastSimulationPayloadRef = useRef<{
     ano: number;
     meses: SimulateStandaloneMesInput[];
+    aplicar_equiparacao_hospitalar?: boolean;
     quantidade_imoveis: number;
     quantidade_imoveis_residenciais: number;
     quantidade_imoveis_comerciais: number;
     opcoes_reforma: Record<string, unknown>;
+    receita_locacao_residencial_anual?: number;
+    receita_locacao_nao_residencial_anual?: number;
   } | null>(null);
   const [modoReceitaAnual, setModoReceitaAnual] = useState(false);
   const [aluguelAnualTradicional, setAluguelAnualTradicional] = useState<number>(0);
@@ -174,8 +181,11 @@ export function SimuladorImoveis() {
   const [custoAnualTotal, setCustoAnualTotal] = useState<number>(0);
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
+  const [anoReferenciaReforma, setAnoReferenciaReforma] = useState<number>(2033);
   const [quantidadeImoveisResidenciais, setQuantidadeImoveisResidenciais] = useState<number>(1);
   const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
+  const [receitaLocacaoResidencialAnual, setReceitaLocacaoResidencialAnual] = useState<number>(0);
+  const [receitaLocacaoNaoResidencialAnual, setReceitaLocacaoNaoResidencialAnual] = useState<number>(0);
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
@@ -278,22 +288,45 @@ export function SimuladorImoveis() {
     success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
 
-  const handlePrintPdf = useCallback(() => {
+  /** Nome do cliente para o relatório: viewingSimulation > saveClientId > reportClientName (manual) */
+  const effectiveClientName =
+    (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)?.name) ??
+    (saveClientId && clients.find((c) => c.id === saveClientId)?.name) ??
+    reportClientName;
+
+  const handleOpenPrintPreview = useCallback(() => {
+    setShowPrintPreview(true);
+  }, []);
+
+  /** Clona o conteúdo do resultado para o preview do modal */
+  useEffect(() => {
+    if (!showPrintPreview || !printPreviewContentRef.current || !result) return;
     const el = document.getElementById('simulador-imoveis-resultado-print');
     if (!el) return;
-    const parent = el.parentElement;
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('[data-preview-exclude]').forEach((n) => n.remove());
+    printPreviewContentRef.current.innerHTML = '';
+    printPreviewContentRef.current.appendChild(clone);
+  }, [showPrintPreview, result]);
+
+  const handleDoPrint = useCallback(() => {
+    const wrapper = document.getElementById('simulador-imoveis-print-wrapper');
+    const content = document.getElementById('simulador-imoveis-resultado-print');
+    if (!wrapper || !content) return;
+    const parent = wrapper.parentElement;
     const placeholder = document.createElement('div');
     placeholder.id = 'simulador-imoveis-print-placeholder';
     if (parent) {
-      parent.insertBefore(placeholder, el);
-      document.body.appendChild(el);
-      el.setAttribute('data-print-moved', 'true');
+      parent.insertBefore(placeholder, wrapper);
+      document.body.appendChild(wrapper);
+      wrapper.setAttribute('data-print-moved', 'true');
     }
+    setShowPrintPreview(false);
     const cleanup = () => {
-      el.removeAttribute('data-print-moved');
-      if (parent && placeholder.parentElement && el.parentElement === document.body) {
-        document.body.removeChild(el);
-        parent.replaceChild(el, placeholder);
+      wrapper.removeAttribute('data-print-moved');
+      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
+        document.body.removeChild(wrapper);
+        parent.replaceChild(wrapper, placeholder);
       }
       window.removeEventListener('afterprint', cleanup);
     };
@@ -383,6 +416,7 @@ export function SimuladorImoveis() {
       try {
         const mesesParaEnvio = buildMesesParaEnvio();
         const opcoes = {
+          ano_referencia_reforma: anoReferenciaReforma,
           aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
           aliquota_ibs_plena: aliquotaPlenaIBS,
           aliquota_cbs_estimada: aliquotaCBS,
@@ -393,21 +427,27 @@ export function SimuladorImoveis() {
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
+          aplicar_equiparacao_hospitalar: false,
           quantidade_imoveis: quantidadeImoveisTotal,
           quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
           quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
           opcoes_reforma: opcoes,
+          receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
+          receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
         });
         setResult(res);
-        lastSimulationPayloadRef.current = {
-          ano,
-          meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveisTotal,
-          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
-          opcoes_reforma: opcoes,
-        };
-        setEditingSimulationId(null);
+      lastSimulationPayloadRef.current = {
+        ano,
+        meses: mesesParaEnvio,
+        aplicar_equiparacao_hospitalar: false,
+        quantidade_imoveis: quantidadeImoveisTotal,
+        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        opcoes_reforma: opcoes,
+        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
+        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+      };
+      setEditingSimulationId(null);
         success('Simulação atualizada.');
         const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
         setSimulations(simRes.simulations);
@@ -423,6 +463,7 @@ export function SimuladorImoveis() {
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
       const opcoes = {
+        ano_referencia_reforma: anoReferenciaReforma,
         aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
         aliquota_ibs_plena: aliquotaPlenaIBS,
         aliquota_cbs_estimada: aliquotaCBS,
@@ -433,19 +474,25 @@ export function SimuladorImoveis() {
       const res = await propertyService.simulateStandalone({
         ano,
         meses: mesesParaEnvio,
+        aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: quantidadeImoveisTotal,
         quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
         quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
+        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
+        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
       });
       setResult(res);
       lastSimulationPayloadRef.current = {
         ano,
         meses: mesesParaEnvio,
+        aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: quantidadeImoveisTotal,
         quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
         quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
+        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
+        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
       };
       success('Simulação concluída.');
     } catch (err) {
@@ -473,7 +520,10 @@ export function SimuladorImoveis() {
         quantidade_imoveis?: number;
         quantidade_imoveis_residenciais?: number;
         quantidade_imoveis_comerciais?: number;
+        receita_locacao_residencial_anual?: number;
+        receita_locacao_nao_residencial_anual?: number;
         opcoes_reforma?: {
+          ano_referencia_reforma?: number;
           contrato_antes_16012025?: boolean;
           perfil_locacao?: PerfilLocacaoReforma;
           aliquota_ibs_plena?: number;
@@ -486,8 +536,11 @@ export function SimuladorImoveis() {
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
+      if (input?.opcoes_reforma?.ano_referencia_reforma != null) setAnoReferenciaReforma(input.opcoes_reforma.ano_referencia_reforma);
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
+      if ((input as { receita_locacao_residencial_anual?: number })?.receita_locacao_residencial_anual != null) setReceitaLocacaoResidencialAnual((input as { receita_locacao_residencial_anual: number }).receita_locacao_residencial_anual);
+      if ((input as { receita_locacao_nao_residencial_anual?: number })?.receita_locacao_nao_residencial_anual != null) setReceitaLocacaoNaoResidencialAnual((input as { receita_locacao_nao_residencial_anual: number }).receita_locacao_nao_residencial_anual);
       if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
         setQuantidadeImoveisResidenciais(input.quantidade_imoveis_residenciais ?? 0);
         setQuantidadeImoveisComerciais(input.quantidade_imoveis_comerciais ?? 0);
@@ -529,6 +582,7 @@ export function SimuladorImoveis() {
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
       const opcoes = {
+        ano_referencia_reforma: anoReferenciaReforma,
         aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
         aliquota_ibs_plena: aliquotaPlenaIBS,
         aliquota_cbs_estimada: aliquotaCBS,
@@ -539,10 +593,13 @@ export function SimuladorImoveis() {
       const { result: res } = await propertyService.simulateStandaloneAndSave({
         ano,
         meses: mesesParaEnvio,
+        aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: quantidadeImoveisTotal,
         quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
         quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
+        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
+        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
         client_id: saveClientId,
         title: saveTitle || undefined,
         save_simulation: true,
@@ -581,7 +638,7 @@ export function SimuladorImoveis() {
         ...payload,
         client_id: saveClientId,
         title: saveTitle || undefined,
-      });
+      } as Parameters<typeof propertyService.simulateStandaloneAndSave>[0]);
       setResult(res);
       success('Simulação salva no histórico.');
       const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
@@ -670,7 +727,7 @@ export function SimuladorImoveis() {
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
                 />
                 <span className="text-xs text-slate-500">
-                  Cada imóvel residencial gera redutor social de R$ 600/mês na base de IBS/CBS (LC 214/2025, arts. 259–260), limitado ao imposto devido.
+                  Cada imóvel residencial gera redutor social de R$ 600/mês na base de cálculo do IBS/CBS (LC 214/2025, arts. 259–260).
                 </span>
               </div>
               <div className="flex flex-col gap-1">
@@ -693,18 +750,57 @@ export function SimuladorImoveis() {
               </div>
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700">Ano de referência do cenário Reforma</label>
+              <select
+                value={anoReferenciaReforma}
+                onChange={(e) => setAnoReferenciaReforma(Number(e.target.value))}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-40"
+              >
+                <option value={2027}>2027/2028</option>
+                <option value={2028}>2028</option>
+                <option value={2029}>2029</option>
+                <option value={2030}>2030</option>
+                <option value={2031}>2031</option>
+                <option value={2032}>2032</option>
+                <option value={2033}>2033 (reforma integral)</option>
+              </select>
+              <span className="text-xs text-slate-500">Ano usado para o card principal da Reforma. Default 2033 para alinhar com a projeção.</span>
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
               <select
                 value={perfilLocacao}
                 onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
               >
-                <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
-                <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
+                <option value="residencial_comum">Locação de longa duração (Redutor da alíquota 70%)</option>
+                <option value="hospedagem_temporada">Locação de curta temporada (Redutor da alíquota 50%)</option>
                 <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
               </select>
               <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
             </div>
+            {quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-amber-200">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-slate-700">Receita anual locação residencial (R$)</label>
+                  <MoneyInput
+                    value={receitaLocacaoResidencialAnual}
+                    onChange={setReceitaLocacaoResidencialAnual}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <span className="text-xs text-slate-500">Com redutor social R$ 600/imóvel/mês e redutor da alíquota.</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-slate-700">Receita anual locação não residencial (R$)</label>
+                  <MoneyInput
+                    value={receitaLocacaoNaoResidencialAnual}
+                    onChange={setReceitaLocacaoNaoResidencialAnual}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <span className="text-xs text-slate-500">Alíquota plena, sem redutor.</span>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -948,7 +1044,20 @@ export function SimuladorImoveis() {
       </form>
 
       {result && (
-        <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 mt-6">
+        <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="mt-6">
+          {/* Cabeçalho para impressão – exibido em cada folha via @media print */}
+          <header className="print-report-header hidden print:flex" aria-hidden="true">
+            <img src="/logo-iatax.png" alt="" className="h-9 w-9 object-contain" aria-hidden />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-slate-900 truncate">Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025</h2>
+              <p className="text-xs text-slate-600">
+                {effectiveClientName && <>Cliente: {effectiveClientName} · </>}
+                {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </p>
+              <p className="text-[10px] text-slate-500">IATax Soluções Inteligentes</p>
+            </div>
+          </header>
+          <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 print:pt-2">
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>
@@ -963,9 +1072,10 @@ export function SimuladorImoveis() {
             <Button
               type="button"
               variant="secondary"
-              onClick={handlePrintPdf}
+              onClick={handleOpenPrintPreview}
               className="print:hidden shrink-0 inline-flex items-center gap-2"
               aria-label="Exportar resultado para PDF"
+              data-preview-exclude
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -975,7 +1085,7 @@ export function SimuladorImoveis() {
           </div>
 
           {/* Salvar simulação no histórico (botão após resultado) */}
-          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden">
+          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden" data-preview-exclude>
             <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
             <p className="text-sm text-slate-600 mb-4">
               Salve esta simulação para consultar depois no Histórico.
@@ -1323,7 +1433,7 @@ export function SimuladorImoveis() {
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
             )}
             {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
-              <p className="text-xs text-slate-600 mt-1">Redutor 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
+              <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
             )}
             <details className="mt-3">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
@@ -1343,6 +1453,8 @@ export function SimuladorImoveis() {
                   redutor_diferenciado_short?: boolean;
                   redutor_long_pct?: number;
                   redutor_short_pct?: number;
+                  ibs_cbs_antes_redutor_social?: number;
+                  redutor_social_aplicado?: number;
                 };
                 const aliqNominal = refExt.aliquota_nominal_ibs_cbs ?? 26.5;
                 const receita = ref.receita_bruta_total ?? 0;
@@ -1362,16 +1474,16 @@ export function SimuladorImoveis() {
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
                     <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Composição da alíquota IBS/CBS (LC 214/2025)</p>
                     
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva (redutor de ajuste)</p>
+                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva (redutor da alíquota)</p>
                     <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(1)}%</span></p>
                     {redutorDiferenciado ? (
                       <>
-                        <p>Redutor 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
+                        <p>Redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
                         <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
                       </>
                     ) : (
                       <>
-                        <p>× (100% − Redutor {refExt.redutor_locacao_aplicado_pct ?? 70}%): <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70)).toFixed(0)}%</span></p>
+                        <p>× (100% − Redutor da alíquota {refExt.redutor_locacao_aplicado_pct ?? 70}%): <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70)).toFixed(0)}%</span></p>
                         <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
                       </>
                     )}
@@ -1383,7 +1495,15 @@ export function SimuladorImoveis() {
                     <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(1)}% = <span className="text-emerald-700">−{formatMoney(creditos)}</span></p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: IBS/CBS líquido</p>
-                    <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                    {(refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0) ? (
+                      <>
+                        <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800">{formatMoney(refExt.ibs_cbs_antes_redutor_social)}</span></p>
+                        <p>(−) Redutor social Art. 260 (R$ 600/imóvel/mês): <span className="text-emerald-700">−{formatMoney(refExt.redutor_social_aplicado ?? 0)}</span></p>
+                        <p className="border-t border-slate-200 pt-1">= IBS/CBS líquido: <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                      </>
+                    ) : (
+                      <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                    )}
                     
                     {(irpj > 0 || csll > 0) && (
                       <>
@@ -1407,7 +1527,10 @@ export function SimuladorImoveis() {
             <h3 className="text-lg font-semibold text-slate-800 mb-3">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL) – Projeção 2027-2033</h3>
             <p className="text-xs text-slate-500 mb-4">Demonstração da tributação ano a ano considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).</p>
             {(() => {
-              const receita = result.cenarios.pf.receita_bruta_total;
+              const receitaBase = result.cenarios.pf.receita_bruta_total;
+              const receita = quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 && (receitaLocacaoResidencialAnual > 0 || receitaLocacaoNaoResidencialAnual > 0)
+                ? receitaLocacaoResidencialAnual + receitaLocacaoNaoResidencialAnual
+                : receitaBase;
               const refReforma = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
               const custos = refReforma?.custos_operacionais_total ?? 0;
               const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.csll ?? 0);
@@ -1417,6 +1540,8 @@ export function SimuladorImoveis() {
                 perfilLocacao === 'ambos' && receita > 0 && aliqNominalRef > 0
                   ? debitoRef / receita / (aliqNominalRef / 100)
                   : (100 - (perfilLocacao === 'hospedagem_temporada' ? 50 : 70)) / 100;
+              const redutorSocialAnual = quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : 0;
+              const baseTributavelProjecao = redutorSocialAnual > 0 ? Math.max(0, receita - redutorSocialAnual) : receita;
 
               const anos = [
                 { ano: '2027/2028', ibsNominal: 0.1 },
@@ -1446,7 +1571,7 @@ export function SimuladorImoveis() {
                         const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
                         const ibsEfetivo = round2(item.ibsNominal * fatorReducao);
                         const aliqCombinada = cbsEfetiva + ibsEfetivo;
-                        const ibsCbsBruto = round2((receita * aliqCombinada) / 100);
+                        const ibsCbsBruto = round2((baseTributavelProjecao * aliqCombinada) / 100);
                         const creditos = round2((custos * aliqCombinada) / 100);
                         const ibsCbsLiquido = Math.max(0, round2(ibsCbsBruto - creditos));
                         const total = round2(ibsCbsLiquido + irpjCsll);
@@ -1471,8 +1596,8 @@ export function SimuladorImoveis() {
             })()}
             <p className="text-xs text-slate-500 mt-3">
               {perfilLocacao === 'ambos'
-                ? 'CBS e IBS com redutores 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
-                : `CBS com redutor de ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
+                ? 'CBS e IBS com redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
+                : `CBS com redutor da alíquota ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
             </p>
           </Card>
 
@@ -1940,6 +2065,14 @@ export function SimuladorImoveis() {
         </Card>
       )}
 
+          </div>
+          {/* Rodapé para impressão – exibido em cada folha via @media print */}
+          <footer className="print-report-footer hidden print:flex" aria-hidden="true">
+            <span className="text-[10px] text-slate-500">IATax Soluções Inteligentes</span>
+            <span className="text-[10px] text-slate-500">
+              {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+          </footer>
         </div>
       )}
 
@@ -2001,11 +2134,64 @@ export function SimuladorImoveis() {
         })()}
       </Modal>
 
+      {/* Modal de preview antes de imprimir */}
+      <Modal
+        isOpen={showPrintPreview && !!result}
+        onClose={() => setShowPrintPreview(false)}
+        title="Visualizar relatório antes de imprimir"
+        size="xl"
+      >
+        <div className="space-y-4">
+          {!effectiveClientName && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cliente (opcional)</label>
+              <Input
+                placeholder="Ex: João Silva"
+                value={reportClientName}
+                onChange={(e) => setReportClientName(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          )}
+          <div
+            className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
+            style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+          >
+            <div className="report-preview-inner p-4">
+              <header className="print-report-header flex items-center gap-3 border-b border-slate-200 pb-3 mb-4">
+                <img src="/logo-iatax.png" alt="" className="h-9 w-9 object-contain" />
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base font-bold text-slate-900">Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025</h2>
+                  <p className="text-xs text-slate-600">
+                    {(effectiveClientName || reportClientName) && <>Cliente: {effectiveClientName || reportClientName} · </>}
+                    {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </p>
+                  <p className="text-[10px] text-slate-500">IATax Soluções Inteligentes</p>
+                </div>
+              </header>
+              <div ref={printPreviewContentRef} className="report-preview-content" />
+              <footer className="print-report-footer flex items-center justify-between pt-3 mt-4 border-t border-slate-200 text-[10px] text-slate-500">
+                <span>IATax Soluções Inteligentes</span>
+                <span>{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+              </footer>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowPrintPreview(false)}>
+              Fechar
+            </Button>
+            <Button variant="primary" onClick={handleDoPrint}>
+              Imprimir / Exportar PDF
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Botão flutuante — Exportar PDF (impressão) */}
       {result && (
         <button
           type="button"
-          onClick={handlePrintPdf}
+          onClick={handleOpenPrintPreview}
           aria-label="Exportar resultado para PDF"
           title="Exportar para PDF"
           className="print:hidden fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand/40"

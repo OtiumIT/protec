@@ -289,8 +289,9 @@ export class PropertyService {
         ? 600 * 12 * quantidadeImoveisResidenciaisSimulate
         : undefined;
 
+    const anoRefReformaSimulate = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaSimulate: OpcoesReformaCalculo = {
-      ano: input.ano,
+      ano: anoRefReformaSimulate,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
@@ -527,6 +528,17 @@ export class PropertyService {
       meses: mesesSoma,
     };
 
+    // Para Reforma com split residencial/não residencial, usar receita segregada
+    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
+    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
+    const aggregatedReforma =
+      receitaResidencial > 0 && receitaNaoResidencial > 0
+        ? {
+            ...aggregatedTotal,
+            receita_total: receitaResidencial + receitaNaoResidencial,
+          }
+        : aggregatedTotal;
+
     const cenarioPF = calcularPF(aggregatedTotal);
     const cenarioPJ = calcularPJ(aggregatedTotal);
     // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
@@ -537,8 +549,9 @@ export class PropertyService {
     const usarRedutorDiferenciado =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
     const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
+    const anoRefReforma = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaStandalone: OpcoesReformaCalculo = {
-      ano: input.ano,
+      ano: anoRefReforma,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
@@ -549,12 +562,14 @@ export class PropertyService {
       usar_ambos_redutores: usarAmbosRedutores,
       receita_longa_total: receitaLongaTotal,
       receita_short_total: receitaShortTotal,
+      receita_locacao_residencial_anual: input.receita_locacao_residencial_anual,
+      receita_locacao_nao_residencial_anual: input.receita_locacao_nao_residencial_anual,
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualStandalone,
     };
     const cenarioReforma = calcularReforma2027(
-      aggregatedTotal,
+      aggregatedReforma,
       undefined,
       redutorLocacao,
       opcoesReformaStandalone

@@ -79,6 +79,8 @@ export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedag
 export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
 
 export const OpcoesReformaSchema = z.object({
+  /** Ano de referência para o cálculo Reforma (2027-2033). Default 2033 (reforma integral). */
+  ano_referencia_reforma: z.number().int().min(2027).max(2033).optional().default(2033),
   /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. Mantido para compatibilidade. */
   aliquota_ibs_cbs_estimada: z.number().min(0).max(100).optional().default(26.5),
   /** Alíquota plena IBS (%) para transição 2029+. Usado na tabela e no cálculo. Default 19. */
@@ -137,6 +139,10 @@ export const SimulateStandaloneInputSchema = z.object({
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
+  /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
+  receita_locacao_residencial_anual: monetaryValue.optional(),
+  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  receita_locacao_nao_residencial_anual: monetaryValue.optional(),
 });
 
 /** Input para simular e salvar (persistir simulação standalone) */
@@ -157,6 +163,10 @@ export const SimulatePropertyTaxInputSchema = z.object({
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
+  /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */
+  receita_locacao_residencial_anual: monetaryValue.optional(),
+  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  receita_locacao_nao_residencial_anual: monetaryValue.optional(),
 });
 
 /** Input para simular por property_ids e salvar no histórico (ex.: tela de detalhe do imóvel). */
@@ -214,6 +224,10 @@ export const CenarioReforma2027Schema = z.object({
   custos_operacionais_total: z.number(),
   creditos_ibs_cbs: z.number(),
   ibs_cbs_sobre_receita: z.number(),
+  /** IBS/CBS líquido antes de aplicar redutor social (para memória de cálculo). */
+  ibs_cbs_antes_redutor_social: z.number().optional(),
+  /** Valor do redutor social aplicado (Art. 260). */
+  redutor_social_aplicado: z.number().optional(),
   ibs_cbs_liquido: z.number(),
   imposto_total: z.number(),
   aliquota_efetiva: z.number(),

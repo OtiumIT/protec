@@ -69371,6 +69371,8 @@ var BatchPropertyTransactionSchema = external_exports.object({
 });
 var PerfilLocacaoReformaSchema = external_exports.enum(["residencial_comum", "hospedagem_temporada", "ambos"]);
 var OpcoesReformaSchema = external_exports.object({
+  /** Ano de referência para o cálculo Reforma (2027-2033). Default 2033 (reforma integral). */
+  ano_referencia_reforma: external_exports.number().int().min(2027).max(2033).optional().default(2033),
   /** Alíquota nominal estimada do IVA (IBS+CBS). Em 2027/2028 sugere-se 9% (só CBS); 2029+ 26,5% a 28%. Mantido para compatibilidade. */
   aliquota_ibs_cbs_estimada: external_exports.number().min(0).max(100).optional().default(26.5),
   /** Alíquota plena IBS (%) para transição 2029+. Usado na tabela e no cálculo. Default 19. */
@@ -69424,7 +69426,11 @@ var SimulateStandaloneInputSchema = external_exports.object({
   /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
   quantidade_imoveis_residenciais: external_exports.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
-  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional()
+  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional(),
+  /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
+  receita_locacao_residencial_anual: monetaryValue4.optional(),
+  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  receita_locacao_nao_residencial_anual: monetaryValue4.optional()
 });
 var SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
   client_id: external_exports.string().uuid().optional(),
@@ -69441,7 +69447,11 @@ var SimulatePropertyTaxInputSchema = external_exports.object({
   /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
   quantidade_imoveis_residenciais: external_exports.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
-  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional()
+  quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional(),
+  /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */
+  receita_locacao_residencial_anual: monetaryValue4.optional(),
+  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  receita_locacao_nao_residencial_anual: monetaryValue4.optional()
 });
 var SimulatePropertyTaxAndSaveInputSchema = SimulatePropertyTaxInputSchema.extend({
   client_id: external_exports.string().uuid(),
@@ -69494,6 +69504,10 @@ var CenarioReforma2027Schema = external_exports.object({
   custos_operacionais_total: external_exports.number(),
   creditos_ibs_cbs: external_exports.number(),
   ibs_cbs_sobre_receita: external_exports.number(),
+  /** IBS/CBS líquido antes de aplicar redutor social (para memória de cálculo). */
+  ibs_cbs_antes_redutor_social: external_exports.number().optional(),
+  /** Valor do redutor social aplicado (Art. 260). */
+  redutor_social_aplicado: external_exports.number().optional(),
   ibs_cbs_liquido: external_exports.number(),
   imposto_total: external_exports.number(),
   aliquota_efetiva: external_exports.number(),
@@ -89033,40 +89047,60 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
     const ibsEfetivo = dadosTransicao ? round28(aliquotaIbsPlena / 100 * (dadosTransicao.ibsPct / 100) * 100) : aliquotaIbsPlena;
     aliquotaNominal = ibsEfetivo + aliquotaCBS;
   }
+  const receitaResidencial = opcoes?.receita_locacao_residencial_anual ?? 0;
+  const receitaNaoResidencial = opcoes?.receita_locacao_nao_residencial_anual ?? 0;
+  const usarModeloSplit = receitaResidencial > 0 && receitaNaoResidencial > 0 && (opcoes?.redutor_social_residencial_anual ?? 0) > 0;
   const receitaLonga = opcoes?.receita_longa_total ?? 0;
   const receitaShort = opcoes?.receita_short_total ?? 0;
   const temReceitaLongaOuShort = receitaLonga + receitaShort > 0;
-  const usarRedutorDiferenciado = receita_total > 0 && temReceitaLongaOuShort && (opcoes?.usar_ambos_redutores === true || opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga);
+  const usarRedutorDiferenciado = !usarModeloSplit && receita_total > 0 && temReceitaLongaOuShort && (opcoes?.usar_ambos_redutores === true || opcoes?.usar_redutor_diferenciado_short === true && receitaShort > receitaLonga);
   const redutorLong = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
   const redutorShort = opcoes?.redutor_short_stay_pct ?? REDUTOR_SHORT_STAY;
+  const redutorSocialAnual = opcoes?.redutor_social_residencial_anual ?? 0;
   let ibsCbsReceita;
   let creditosIbsCbs;
   let redutorExibicao;
-  if (usarRedutorDiferenciado) {
-    const partLong = receitaLonga / receita_total;
-    const partShort = receitaShort / receita_total;
-    const rateLong = aliquotaNominal / 100 * (1 - redutorLong / 100);
-    const rateShort = aliquotaNominal / 100 * (1 - redutorShort / 100);
-    ibsCbsReceita = round28(receita_total * (partLong * rateLong + partShort * rateShort));
-    const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
+  let ibsCbsAntesRedutorSocial;
+  let redutorSocialAplicado;
+  if (usarModeloSplit) {
+    const baseResidencial = Math.max(0, round28(receitaResidencial - redutorSocialAnual));
+    const aliquotaEfetivaResidencial = aliquotaNominal / 100 * (1 - redutorLong / 100);
+    const aliquotaPlena = aliquotaNominal / 100;
+    const ibsCbsResidencial = round28(baseResidencial * aliquotaEfetivaResidencial);
+    const ibsCbsNaoResidencial = round28(receitaNaoResidencial * aliquotaPlena);
+    const receitaReforma = receitaResidencial + receitaNaoResidencial;
+    ibsCbsReceita = round28(ibsCbsResidencial + ibsCbsNaoResidencial);
+    const rateMedio = receitaReforma > 0 ? ibsCbsReceita / receitaReforma : 0;
     creditosIbsCbs = round28(custos_operacionais_total * rateMedio);
     redutorExibicao = redutorLong;
+    const impostoResidencialSemRedutorBase = round28(receitaResidencial * aliquotaEfetivaResidencial);
+    redutorSocialAplicado = round28(Math.min(receitaResidencial, redutorSocialAnual) * aliquotaEfetivaResidencial);
+    ibsCbsAntesRedutorSocial = round28(impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs);
   } else {
-    const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
-    const aliquotaEfetivaRate = aliquotaNominal / 100 * (1 - redutor / 100);
-    ibsCbsReceita = round28(receita_total * aliquotaEfetivaRate);
-    creditosIbsCbs = round28(custos_operacionais_total * aliquotaEfetivaRate);
-    redutorExibicao = redutor;
+    const baseTributavel = redutorSocialAnual > 0 ? Math.max(0, round28(receita_total - redutorSocialAnual)) : receita_total;
+    if (usarRedutorDiferenciado) {
+      const partLong = receitaLonga / receita_total;
+      const partShort = receitaShort / receita_total;
+      const rateLong = aliquotaNominal / 100 * (1 - redutorLong / 100);
+      const rateShort = aliquotaNominal / 100 * (1 - redutorShort / 100);
+      const aliquotaEfetivaMedia = partLong * rateLong + partShort * rateShort;
+      ibsCbsReceita = round28(baseTributavel * aliquotaEfetivaMedia);
+      const rateMedio = receita_total > 0 ? baseTributavel * aliquotaEfetivaMedia / receita_total : 0;
+      creditosIbsCbs = round28(custos_operacionais_total * rateMedio);
+      redutorExibicao = redutorLong;
+      redutorSocialAplicado = redutorSocialAnual > 0 ? round28(Math.min(receita_total, redutorSocialAnual) * (partLong * rateLong + partShort * rateShort)) : 0;
+      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado ? round28(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado) : void 0;
+    } else {
+      const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+      const aliquotaEfetivaRate = aliquotaNominal / 100 * (1 - redutor / 100);
+      ibsCbsReceita = round28(baseTributavel * aliquotaEfetivaRate);
+      creditosIbsCbs = round28(custos_operacionais_total * aliquotaEfetivaRate);
+      redutorExibicao = redutor;
+      redutorSocialAplicado = redutorSocialAnual > 0 ? round28(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate) : 0;
+      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado ? round28(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado) : void 0;
+    }
   }
-  let ibsCbsLiquidoBase = Math.max(0, round28(ibsCbsReceita - creditosIbsCbs));
-  if (opcoes?.redutor_social_residencial_anual && opcoes.redutor_social_residencial_anual > 0) {
-    const desconto = Math.min(
-      ibsCbsLiquidoBase,
-      opcoes.redutor_social_residencial_anual
-    );
-    ibsCbsLiquidoBase = Math.max(0, round28(ibsCbsLiquidoBase - desconto));
-  }
-  let ibsCbsLiquido = ibsCbsLiquidoBase;
+  let ibsCbsLiquido = Math.max(0, round28(ibsCbsReceita - creditosIbsCbs));
   let aplicouTransicao = false;
   let impostoTransicao365;
   if (opcoes?.contrato_antes_16012025 && receita_total > 0) {
@@ -89076,15 +89110,15 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
       aplicouTransicao = true;
     }
   }
-  const aliquotaEfetiva = receita_total > 0 ? ibsCbsLiquido / receita_total * 100 : 0;
+  const receitaParaAliquota = usarModeloSplit ? receitaResidencial + receitaNaoResidencial : receita_total;
   return {
-    receita_bruta_total: round28(receita_total),
+    receita_bruta_total: round28(receitaParaAliquota),
     custos_operacionais_total: round28(custos_operacionais_total),
     creditos_ibs_cbs: creditosIbsCbs,
     ibs_cbs_sobre_receita: ibsCbsReceita,
     ibs_cbs_liquido: ibsCbsLiquido,
     imposto_total: round28(ibsCbsLiquido),
-    aliquota_efetiva: round28(aliquotaEfetiva),
+    aliquota_efetiva: round28(receitaParaAliquota > 0 ? ibsCbsLiquido / receitaParaAliquota * 100 : 0),
     aliquota_nominal_ibs_cbs: round28(aliquotaNominal),
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 },
@@ -89093,7 +89127,9 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
       redutor_diferenciado_short: true,
       redutor_long_pct: redutorLong,
       redutor_short_pct: redutorShort
-    }
+    },
+    ...ibsCbsAntesRedutorSocial != null && { ibs_cbs_antes_redutor_social: ibsCbsAntesRedutorSocial },
+    ...redutorSocialAplicado != null && redutorSocialAplicado > 0 && { redutor_social_aplicado: redutorSocialAplicado }
   };
 }
 var TRANSICAO_IBS_ANOS = {
@@ -89327,8 +89363,9 @@ var PropertyService = class {
     const redutorLocacaoSimulate = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const quantidadeImoveisResidenciaisSimulate = input.quantidade_imoveis_residenciais ?? 0;
     const redutorSocialResidencialAnualSimulate = quantidadeImoveisResidenciaisSimulate > 0 ? 600 * 12 * quantidadeImoveisResidenciaisSimulate : void 0;
+    const anoRefReformaSimulate = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaSimulate = {
-      ano: input.ano,
+      ano: anoRefReformaSimulate,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
@@ -89497,13 +89534,20 @@ var PropertyService = class {
       custos_operacionais_total: custosOperacionaisTotal,
       meses: mesesSoma
     };
+    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
+    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
+    const aggregatedReforma = receitaResidencial > 0 && receitaNaoResidencial > 0 ? {
+      ...aggregatedTotal,
+      receita_total: receitaResidencial + receitaNaoResidencial
+    } : aggregatedTotal;
     const cenarioPF = calcularPF(aggregatedTotal);
     const cenarioPJ = calcularPJ(aggregatedTotal);
     const redutorLocacao = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada" ? 50 : input.opcoes_reforma?.redutor_locacao_pct ?? 70;
     const usarRedutorDiferenciado = input.opcoes_reforma?.perfil_locacao === "hospedagem_temporada";
     const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === "ambos";
+    const anoRefReforma = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaStandalone = {
-      ano: input.ano,
+      ano: anoRefReforma,
       aliquota_ibs_cbs_estimada: input.opcoes_reforma?.aliquota_ibs_cbs_estimada,
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
@@ -89514,10 +89558,12 @@ var PropertyService = class {
       usar_ambos_redutores: usarAmbosRedutores,
       receita_longa_total: receitaLongaTotal,
       receita_short_total: receitaShortTotal,
+      receita_locacao_residencial_anual: input.receita_locacao_residencial_anual,
+      receita_locacao_nao_residencial_anual: input.receita_locacao_nao_residencial_anual,
       redutor_social_residencial_anual: input.opcoes_reforma?.redutor_social_residencial_anual ?? redutorSocialResidencialAnualStandalone
     };
     const cenarioReforma = calcularReforma2027(
-      aggregatedTotal,
+      aggregatedReforma,
       void 0,
       redutorLocacao,
       opcoesReformaStandalone
@@ -90543,7 +90589,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-17T01:06:27.937Z";
+var API_UPDATED_AT = "2026-03-17T11:21:13.957Z";
 
 // src/modules/index.ts
 var app = new Hono2();

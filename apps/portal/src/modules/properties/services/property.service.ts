@@ -1,5 +1,5 @@
 import apiRequest from '../../../shared/services/api';
-import type { Property, PropertyTransaction, PropertySimulation } from '@shared/core';
+import type { Property, PropertyTransaction, PropertySimulation, SimulateStandaloneInput } from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
 export interface PropertyWithClient extends Property {
@@ -215,45 +215,13 @@ export const propertyService = {
     }>;
   },
 
-  async simulateStandaloneAndSave(params: {
+  async simulateStandaloneAndSave(params: (Partial<SimulateStandaloneInput> & {
     ano: number;
-    meses: Array<{
-      mes_referencia: string;
-      receita_aluguel_tradicional?: number;
-      receita_aluguel_curto?: number;
-      receita_garagem?: number;
-      receita_outras?: number;
-      iptu?: number;
-      condominio?: number;
-      seguro_imovel?: number;
-      juros_financiamento?: number;
-      manutencao_conservacao?: number;
-      outras_dedutiveis?: number;
-      reformas_melhorias?: number;
-      mobilia_equipamentos?: number;
-      limpeza_higienizacao?: number;
-      comissao_corretagem?: number;
-      taxa_plataforma?: number;
-      outros_custos?: number;
-    }>;
-    aplicar_equiparacao_hospitalar?: boolean;
-    quantidade_imoveis?: number;
-    quantidade_imoveis_residenciais?: number;
-    quantidade_imoveis_comerciais?: number;
-    opcoes_reforma?: {
-      aliquota_ibs_cbs_estimada?: number;
-      aliquota_ibs_plena?: number;
-      aliquota_cbs_estimada?: number;
-      redutor_locacao_pct?: number;
-      redutor_short_stay_pct?: number;
-      contrato_antes_16012025?: boolean;
-      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
-      redutor_social_residencial_anual?: number;
-    };
+    meses: SimulateStandaloneInput['meses'];
     client_id: string;
     title?: string;
     save_simulation?: boolean;
-  }): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
+  })): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{
       data: { simulation: PropertySimulation; result: PropertyTaxSimulationResponse };
@@ -295,42 +263,7 @@ export const propertyService = {
 
   async updateSimulation(
     id: string,
-    input: {
-      ano: number;
-      meses: Array<{
-        mes_referencia: string;
-        receita_aluguel_tradicional?: number;
-        receita_aluguel_curto?: number;
-        receita_garagem?: number;
-        receita_outras?: number;
-        iptu?: number;
-        condominio?: number;
-        seguro_imovel?: number;
-        juros_financiamento?: number;
-        manutencao_conservacao?: number;
-        outras_dedutiveis?: number;
-        reformas_melhorias?: number;
-        mobilia_equipamentos?: number;
-        limpeza_higienizacao?: number;
-        comissao_corretagem?: number;
-        taxa_plataforma?: number;
-        outros_custos?: number;
-      }>;
-      aplicar_equiparacao_hospitalar?: boolean;
-      quantidade_imoveis?: number;
-      quantidade_imoveis_residenciais?: number;
-      quantidade_imoveis_comerciais?: number;
-      opcoes_reforma?: {
-        aliquota_ibs_cbs_estimada?: number;
-        aliquota_ibs_plena?: number;
-        aliquota_cbs_estimada?: number;
-        redutor_locacao_pct?: number;
-        redutor_short_stay_pct?: number;
-        contrato_antes_16012025?: boolean;
-        perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
-        redutor_social_residencial_anual?: number;
-      };
-    }
+    input: Partial<SimulateStandaloneInput> & { ano: number; meses: SimulateStandaloneInput['meses'] }
   ): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{
@@ -353,42 +286,7 @@ export const propertyService = {
     });
   },
 
-  async simulateStandalone(params: {
-    ano: number;
-    meses: Array<{
-      mes_referencia: string;
-      receita_aluguel_tradicional?: number;
-      receita_aluguel_curto?: number;
-      receita_garagem?: number;
-      receita_outras?: number;
-      iptu?: number;
-      condominio?: number;
-      seguro_imovel?: number;
-      juros_financiamento?: number;
-      manutencao_conservacao?: number;
-      outras_dedutiveis?: number;
-      reformas_melhorias?: number;
-      mobilia_equipamentos?: number;
-      limpeza_higienizacao?: number;
-      comissao_corretagem?: number;
-      taxa_plataforma?: number;
-      outros_custos?: number;
-    }>;
-    aplicar_equiparacao_hospitalar?: boolean;
-    quantidade_imoveis?: number;
-    quantidade_imoveis_residenciais?: number;
-    quantidade_imoveis_comerciais?: number;
-    opcoes_reforma?: {
-      aliquota_ibs_cbs_estimada?: number;
-      aliquota_ibs_plena?: number;
-      aliquota_cbs_estimada?: number;
-      redutor_locacao_pct?: number;
-      redutor_short_stay_pct?: number;
-      contrato_antes_16012025?: boolean;
-      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
-      redutor_social_residencial_anual?: number;
-    };
-  }): Promise<PropertyTaxSimulationResponse> {
+  async simulateStandalone(params: Partial<SimulateStandaloneInput> & { ano: number; meses: SimulateStandaloneInput['meses'] }): Promise<PropertyTaxSimulationResponse> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: PropertyTaxSimulationResponse }>(
       '/api/v1/properties/simulate-standalone',

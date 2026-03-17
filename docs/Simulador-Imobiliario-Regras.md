@@ -170,12 +170,18 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 ### 3.5 Cenário C – Reforma 2027 (IBS/CBS)
 
-**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor:** longa duração 70%; curta temporada 50%. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente). O redutor aplicado é exibido no card e no detalhe "Ver cálculo IBS/CBS".
+**Ano de referência:** O card principal permite selecionar o ano de referência (2027–2033). Default 2033 (reforma integral) para alinhar com a projeção.
+
+**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor da alíquota:** longa duração 70%; curta temporada 50%. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente).
+
+**Redutor social (Art. 260):** R$ 600/mês por imóvel residencial, deduzido da **base de cálculo** (não do imposto). Base tributável = máx(0, receita residencial − 600 × 12 × n imóveis).
+
+**Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: residencial recebe redutor social na base e redutor da alíquota; não residencial tributa à alíquota plena (sem redutor).
 
 **Ótica PJ (somente IBS/CBS sobre a atividade):**
 
 - Alíquota efetiva conforme redutor(es). **IBS/CBS sobre receita** e **Créditos IBS/CBS** conforme taxa efetiva (ou parcelas long/short quando redutor diferenciado).
-- **IBS/CBS líquido** = máx(0, IBS/CBS sobre receita − Créditos).
+- **IBS/CBS líquido** = máx(0, IBS/CBS sobre receita − Créditos); quando há redutor social, aplica-se na base antes do cálculo.
 - **Regime de transição Art. 487:** se contrato antes 16/01/2025, imposto = min(3,65% sobre receita, IBS/CBS líquido).
 - **Imposto total (PJ)** = IBS/CBS líquido (ou 3,65% se transição aplicada).
 
