@@ -699,29 +699,22 @@ export function SimuladorImoveis() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700">Perfil de locação (identificado automaticamente)</label>
-              <div
-                className="rounded-lg border-2 border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm"
-                role="status"
-                aria-live="polite"
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
+              <select
+                value={perfilLocacao}
+                disabled
+                aria-label="Perfil de locação (atualizado automaticamente pelas receitas informadas)"
+                className="rounded-md border-2 border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 min-w-[280px] cursor-default"
+                title="Opção definida automaticamente conforme as receitas de longa e curta duração informadas na tabela acima."
               >
-                <p className="font-semibold text-slate-800">
-                  {perfilLocacao === 'ambos' && 'Locação longa duração e curta temporada (ambos os redutores)'}
-                  {perfilLocacao === 'hospedagem_temporada' && 'Locação de curta temporada (Redutor 50%)'}
-                  {perfilLocacao === 'residencial_comum' && 'Locação de longa duração (Redutor 70%)'}
-                </p>
-                <p className="mt-1 text-xs text-slate-600">
-                  {perfilLocacao === 'ambos' &&
-                    `Com base nos valores informados: R$ ${receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em aluguel tradicional (longa duração) e R$ ${receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em curto prazo. Serão aplicados os redutores de 70% e 50% proporcionalmente.`}
-                  {perfilLocacao === 'hospedagem_temporada' &&
-                    `Com base nos valores informados: apenas receita de curto prazo (R$ ${receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Redutor de 50% aplicado.`}
-                  {perfilLocacao === 'residencial_comum' &&
-                    (receitaLongaTotal > 0
-                      ? `Com base nos valores informados: apenas receita de longa duração (R$ ${receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Redutor de 70% aplicado.`
-                      : 'Nenhuma receita de aluguel tradicional ou curto prazo informada. Será usado redutor de 70% (longa duração) por padrão.')}
-                </p>
-              </div>
+                <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
+                <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
+                <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
+              </select>
+              <span className="text-xs text-slate-500">
+                Opção selecionada automaticamente conforme as receitas informadas (longa e/ou curta duração). Ao alterar os valores na tabela de receitas, esta opção é atualizada sozinha.
+              </span>
               <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
             </div>
           </div>
