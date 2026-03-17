@@ -15,6 +15,7 @@ import type {
   UpdatePropertyInput,
   PropertyTransactionInput,
   SimulatePropertyTaxInput,
+  SimulatePropertyTaxAndSaveInput,
   SimulateStandaloneInput,
   SimulateStandaloneAndSaveInput,
   UpdatePropertySimulationInput,
@@ -700,6 +701,32 @@ export class PropertyService {
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
     };
+  }
+
+  /** Simular por property_ids e salvar no histórico (ex.: tela de detalhe do imóvel). */
+  async simulateAndSaveFromProperties(
+    input: SimulatePropertyTaxAndSaveInput,
+    userId?: string
+  ): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
+    if (this.clientRepo) {
+      const client = await this.clientRepo.findById(input.client_id);
+      if (!client) {
+        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+    const result = await this.simulate(input);
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    const simulation = await this.simulationRepo.create({
+      client_id: input.client_id,
+      ano: input.ano,
+      input_data: input as unknown as Record<string, unknown>,
+      result_data: result as unknown as Record<string, unknown>,
+      title: input.title ?? null,
+      created_by: userId ?? null,
+    });
+    return { simulation, result };
   }
 
   /** Simular e salvar (persistir simulação standalone) */

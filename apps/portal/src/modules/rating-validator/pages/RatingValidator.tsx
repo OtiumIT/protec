@@ -141,6 +141,8 @@ export function RatingValidator() {
   // Processos judiciais elegíveis (para validação de CONTENCIOSO)
   const [eligibleTheses, setEligibleTheses] = useState<string[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  /** Cliente selecionado para "Salvar simulação no histórico" (botão após resultado) */
+  const [saveClientIdForRating, setSaveClientIdForRating] = useState<string>('');
 
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -572,12 +574,6 @@ export function RatingValidator() {
       return;
     }
     
-    // Se for salvar simulação, cliente é obrigatório
-    if (formData.save_simulation && !formData.client_id) {
-      showError('Cliente é obrigatório para salvar a simulação');
-      return;
-    }
-
     setIsSimulating(true);
     try {
       // Se está editando e não é "salvar como novo", faz PATCH
@@ -592,10 +588,12 @@ export function RatingValidator() {
         if (saveAsNew) {
           setEditingValidationId(null);
         }
-        const result = await ratingValidatorService.simulate(formData);
+        const result = await ratingValidatorService.simulate(
+          saveAsNew ? { ...formData, client_id: formData.client_id || saveClientIdForRating || '', save_simulation: true } : { ...formData, save_simulation: false }
+        );
         setSimulationResult(result);
         success(saveAsNew ? 'Nova simulação criada com sucesso!' : 'Simulação realizada com sucesso!');
-        if (formData.save_simulation || saveAsNew) {
+        if (saveAsNew) {
           loadValidations();
         }
       }
@@ -612,9 +610,36 @@ export function RatingValidator() {
   };
 
   const handleSaveAsNew = () => {
-    const dataWithSave = { ...formData, save_simulation: true };
-    setFormData(dataWithSave);
+    if (!saveClientIdForRating) {
+      showError('Selecione um cliente para salvar como nova simulação');
+      return;
+    }
+    setFormData((prev) => ({ ...prev, client_id: saveClientIdForRating, save_simulation: true }));
     handleSimulate(true);
+  };
+
+  /** Salvar a simulação atual no histórico (botão após resultado). */
+  const handleSaveToHistory = async () => {
+    if (!saveClientIdForRating) {
+      showError('Cliente é obrigatório para salvar a simulação');
+      return;
+    }
+    setIsSimulating(true);
+    try {
+      const result = await ratingValidatorService.simulate({
+        ...formData,
+        client_id: saveClientIdForRating,
+        save_simulation: true,
+      });
+      setSimulationResult(result);
+      success('Simulação salva no histórico!');
+      loadValidations();
+    } catch (error: any) {
+      console.error('Error saving simulation:', error);
+      showError(error.message || 'Erro ao salvar simulação');
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -1440,27 +1465,6 @@ export function RatingValidator() {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Cliente {formData.save_simulation ? '*' : '(Opcional)'}
-                </label>
-                <select
-                  value={formData.client_id || ''}
-                  onChange={(e) => setFormData({ ...formData, client_id: e.target.value || '' })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                  disabled={isLoadingClients}
-                >
-                  <option value="">Selecione um cliente (opcional)</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-                {formData.save_simulation && !formData.client_id && (
-                  <p className="text-xs text-red-600 mt-1">Cliente é obrigatório para salvar a simulação</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Competência (YYYY-MM) *
                 </label>
                 <Input
@@ -1528,19 +1532,6 @@ export function RatingValidator() {
                   </div>
                 </div>
               </Card>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="save_simulation"
-                checked={formData.save_simulation}
-                onChange={(e) => setFormData({ ...formData, save_simulation: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <label htmlFor="save_simulation" className="text-sm text-slate-700">
-                Salvar esta simulação no histórico
-              </label>
             </div>
 
             <div>
@@ -2561,6 +2552,39 @@ export function RatingValidator() {
                       )}
                     </div>
                   )}
+                </Card>
+
+                {/* Salvar simulação no histórico (botão após resultado) */}
+                <Card className="p-6 border border-slate-200 bg-slate-50/50">
+                  <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Salve esta simulação para consultar depois no Histórico.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="min-w-[200px]">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                      <select
+                        value={saveClientIdForRating}
+                        onChange={(e) => setSaveClientIdForRating(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white"
+                        disabled={isLoadingClients}
+                      >
+                        <option value="">Selecione um cliente</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={handleSaveToHistory}
+                      disabled={isSimulating || !saveClientIdForRating}
+                    >
+                      {isSimulating ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                  </div>
                 </Card>
 
                 {/* Comparativo de Modalidades */}

@@ -69443,6 +69443,10 @@ var SimulatePropertyTaxInputSchema = external_exports.object({
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional()
 });
+var SimulatePropertyTaxAndSaveInputSchema = SimulatePropertyTaxInputSchema.extend({
+  client_id: external_exports.string().uuid(),
+  title: external_exports.string().max(255).optional()
+});
 var CenarioPFSchema = external_exports.object({
   receita_bruta_total: external_exports.number(),
   despesas_dedutiveis_total: external_exports.number(),
@@ -83710,7 +83714,7 @@ var RatingValidatorService = class _RatingValidatorService {
   /**
    * Atualizar validação existente (re-simula com novos dados)
    */
-  async update(id, input, userId) {
+  async update(id, input, _userId) {
     const existing = await this.getById(id);
     if (!existing) {
       throw new AppError("Rating validation not found", "VALIDATION_NOT_FOUND", 404);
@@ -89627,6 +89631,28 @@ var PropertyService = class {
       embasamentos_legais: EMBASAMENTOS_LEGAIS
     };
   }
+  /** Simular por property_ids e salvar no histórico (ex.: tela de detalhe do imóvel). */
+  async simulateAndSaveFromProperties(input, userId) {
+    if (this.clientRepo) {
+      const client = await this.clientRepo.findById(input.client_id);
+      if (!client) {
+        throw new AppError("Cliente n\xE3o encontrado", "CLIENT_NOT_FOUND", 404);
+      }
+    }
+    const result = await this.simulate(input);
+    if (!this.simulationRepo) {
+      throw new AppError("Simulador de persist\xEAncia n\xE3o configurado", "INTERNAL_ERROR", 500);
+    }
+    const simulation = await this.simulationRepo.create({
+      client_id: input.client_id,
+      ano: input.ano,
+      input_data: input,
+      result_data: result,
+      title: input.title ?? null,
+      created_by: userId ?? null
+    });
+    return { simulation, result };
+  }
   /** Simular e salvar (persistir simulação standalone) */
   async simulateStandaloneAndSave(input, userId) {
     if (input.save_simulation && !input.client_id) {
@@ -90153,6 +90179,21 @@ propertyRoutes.post(
   }
 );
 propertyRoutes.post(
+  "/simulate-and-save",
+  zValidator("json", SimulatePropertyTaxAndSaveInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid("json");
+      const userId = c.get("user")?.id;
+      const { simulation, result } = await propertyService.simulateAndSaveFromProperties(input, userId);
+      const data = PropertyTaxSimulationResponseSchema.parse(result);
+      return c.json({ data: { simulation, result: data } }, 201);
+    } catch (err) {
+      return errorHandler2(err, c);
+    }
+  }
+);
+propertyRoutes.post(
   "/simulate-standalone-and-save",
   zValidator("json", SimulateStandaloneAndSaveInputSchema),
   async (c) => {
@@ -90502,7 +90543,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-16T23:51:53.685Z";
+var API_UPDATED_AT = "2026-03-17T00:19:10.392Z";
 
 // src/modules/index.ts
 var app = new Hono2();

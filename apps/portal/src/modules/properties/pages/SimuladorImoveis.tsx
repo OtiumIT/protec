@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -148,8 +148,6 @@ export function SimuladorImoveis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
-  const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
-  const [saveSimulation, setSaveSimulation] = useState(false);
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
@@ -157,6 +155,15 @@ export function SimuladorImoveis() {
   const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultSectionRef = useRef<HTMLDivElement>(null);
+  /** Payload da última simulação (para Salvar no histórico após o resultado). */
+  const lastSimulationPayloadRef = useRef<{
+    ano: number;
+    meses: SimulateStandaloneMesInput[];
+    quantidade_imoveis: number;
+    quantidade_imoveis_residenciais: number;
+    quantidade_imoveis_comerciais: number;
+    opcoes_reforma: Record<string, unknown>;
+  } | null>(null);
   const [modoReceitaAnual, setModoReceitaAnual] = useState(false);
   const [aluguelAnualTradicional, setAluguelAnualTradicional] = useState<number>(0);
   const [aluguelAnualCurto, setAluguelAnualCurto] = useState<number>(0);
@@ -171,6 +178,15 @@ export function SimuladorImoveis() {
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
+
+  /** Perfil de locação diagnosticado a partir das receitas digitadas (longa + curta). */
+  const { receitaLongaTotal, receitaShortTotal, perfilLocacao } = useMemo(() => {
+    const longa = meses.reduce((s, m) => s + (Number(m.receita_aluguel_tradicional) || 0), 0);
+    const curta = meses.reduce((s, m) => s + (Number(m.receita_aluguel_curto) || 0), 0);
+    const perfil: PerfilLocacaoReforma =
+      longa > 0 && curta > 0 ? 'ambos' : curta > 0 ? 'hospedagem_temporada' : 'residencial_comum';
+    return { receitaLongaTotal: round2(longa), receitaShortTotal: round2(curta), perfilLocacao: perfil };
+  }, [meses]);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -374,22 +390,31 @@ export function SimuladorImoveis() {
       setResult(null);
       try {
         const mesesParaEnvio = buildMesesParaEnvio();
+        const opcoes = {
+          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
+          aliquota_ibs_plena: aliquotaPlenaIBS,
+          aliquota_cbs_estimada: aliquotaCBS,
+          redutor_short_stay_pct: 50,
+          contrato_antes_16012025: contratoAntes16012025,
+          perfil_locacao: perfilLocacao,
+        };
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
           quantidade_imoveis: quantidadeImoveisTotal,
           quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
           quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
-          opcoes_reforma: {
-            aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
-            aliquota_ibs_plena: aliquotaPlenaIBS,
-            aliquota_cbs_estimada: aliquotaCBS,
-            redutor_short_stay_pct: 50,
-            contrato_antes_16012025: contratoAntes16012025,
-            perfil_locacao: perfilLocacao,
-          },
+          opcoes_reforma: opcoes,
         });
         setResult(res);
+        lastSimulationPayloadRef.current = {
+          ano,
+          meses: mesesParaEnvio,
+          quantidade_imoveis: quantidadeImoveisTotal,
+          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+          opcoes_reforma: opcoes,
+        };
         setEditingSimulationId(null);
         success('Simulação atualizada.');
         const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
@@ -413,33 +438,24 @@ export function SimuladorImoveis() {
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
       };
-      if (saveSimulation && saveClientId) {
-        const { result: res } = await propertyService.simulateStandaloneAndSave({
-          ano,
-          meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveisTotal,
-          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
-          opcoes_reforma: opcoes,
-          client_id: saveClientId,
-          title: saveTitle || undefined,
-        });
-        setResult(res);
-        success('Simulação salva.');
-        const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
-        setSimulations(simRes.simulations);
-      } else {
-        const res = await propertyService.simulateStandalone({
-          ano,
-          meses: mesesParaEnvio,
-          quantidade_imoveis: quantidadeImoveisTotal,
-          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
-          opcoes_reforma: opcoes,
-        });
-        setResult(res);
-        success('Simulação concluída.');
-      }
+      const res = await propertyService.simulateStandalone({
+        ano,
+        meses: mesesParaEnvio,
+        quantidade_imoveis: quantidadeImoveisTotal,
+        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        opcoes_reforma: opcoes,
+      });
+      setResult(res);
+      lastSimulationPayloadRef.current = {
+        ano,
+        meses: mesesParaEnvio,
+        quantidade_imoveis: quantidadeImoveisTotal,
+        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        opcoes_reforma: opcoes,
+      };
+      success('Simulação concluída.');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
     } finally {
@@ -477,7 +493,6 @@ export function SimuladorImoveis() {
         setMeses(input.meses.map((m) => ({ ...m })));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
-      setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
       if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
@@ -556,6 +571,35 @@ export function SimuladorImoveis() {
     setEditingSimulationId(null);
   };
 
+  /** Salvar a simulação atual no histórico (botão após resultado). */
+  const handleSaveToHistory = async () => {
+    if (!saveClientId) {
+      showError('Selecione um cliente para salvar a simulação');
+      return;
+    }
+    const payload = lastSimulationPayloadRef.current;
+    if (!payload) {
+      showError('Execute uma simulação antes de salvar');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { result: res } = await propertyService.simulateStandaloneAndSave({
+        ...payload,
+        client_id: saveClientId,
+        title: saveTitle || undefined,
+      });
+      setResult(res);
+      success('Simulação salva no histórico.');
+      const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatMoney = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -598,38 +642,6 @@ export function SimuladorImoveis() {
                   <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
                     Cancelar edição
                   </Button>
-                </>
-              )}
-              {!editingSimulationId && (
-                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveSimulation}
-                    onChange={(e) => setSaveSimulation(e.target.checked)}
-                    className="rounded border-slate-300"
-                  />
-                  Salvar simulação
-                </label>
-              )}
-              {saveSimulation && !editingSimulationId && (
-                <>
-                  <Input
-                    placeholder="Título (opcional)"
-                    value={saveTitle}
-                    onChange={(e) => setSaveTitle(e.target.value)}
-                    className="w-40 h-9 text-sm"
-                  />
-                  <select
-                    className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
-                    value={saveClientId}
-                    onChange={(e) => setSaveClientId(e.target.value)}
-                    required={saveSimulation}
-                  >
-                    <option value="">Cliente *</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
                 </>
               )}
             </div>
@@ -687,17 +699,29 @@ export function SimuladorImoveis() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
-              <select
-                value={perfilLocacao}
-                onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-slate-700">Perfil de locação (identificado automaticamente)</label>
+              <div
+                className="rounded-lg border-2 border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm"
+                role="status"
+                aria-live="polite"
               >
-                <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
-                <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
-                <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
-              </select>
+                <p className="font-semibold text-slate-800">
+                  {perfilLocacao === 'ambos' && 'Locação longa duração e curta temporada (ambos os redutores)'}
+                  {perfilLocacao === 'hospedagem_temporada' && 'Locação de curta temporada (Redutor 50%)'}
+                  {perfilLocacao === 'residencial_comum' && 'Locação de longa duração (Redutor 70%)'}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {perfilLocacao === 'ambos' &&
+                    `Com base nos valores informados: R$ ${receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em aluguel tradicional (longa duração) e R$ ${receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em curto prazo. Serão aplicados os redutores de 70% e 50% proporcionalmente.`}
+                  {perfilLocacao === 'hospedagem_temporada' &&
+                    `Com base nos valores informados: apenas receita de curto prazo (R$ ${receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Redutor de 50% aplicado.`}
+                  {perfilLocacao === 'residencial_comum' &&
+                    (receitaLongaTotal > 0
+                      ? `Com base nos valores informados: apenas receita de longa duração (R$ ${receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Redutor de 70% aplicado.`
+                      : 'Nenhuma receita de aluguel tradicional ou curto prazo informada. Será usado redutor de 70% (longa duração) por padrão.')}
+                </p>
+              </div>
               <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
             </div>
           </div>
@@ -968,6 +992,46 @@ export function SimuladorImoveis() {
               Exportar para PDF
             </Button>
           </div>
+
+          {/* Salvar simulação no histórico (botão após resultado) */}
+          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden">
+            <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Salve esta simulação para consultar depois no Histórico.
+            </p>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="min-w-[200px]">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                <select
+                  className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                  value={saveClientId}
+                  onChange={(e) => setSaveClientId(e.target.value)}
+                >
+                  <option value="">Selecione um cliente</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[180px]">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+                <Input
+                  placeholder="Ex: Simulação 2025"
+                  value={saveTitle}
+                  onChange={(e) => setSaveTitle(e.target.value)}
+                  className="h-10"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSaveToHistory}
+                disabled={loading || !saveClientId}
+              >
+                {loading ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>

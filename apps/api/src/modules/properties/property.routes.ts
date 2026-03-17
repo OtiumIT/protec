@@ -13,6 +13,7 @@ import {
   UpdatePropertySchema,
   PropertyTransactionSchema,
   SimulatePropertyTaxInputSchema,
+  SimulatePropertyTaxAndSaveInputSchema,
   SimulateStandaloneInputSchema,
   SimulateStandaloneAndSaveInputSchema,
   UpdatePropertySimulationInputSchema,
@@ -54,6 +55,23 @@ propertyRoutes.post(
       const result = await propertyService.simulate(input);
       const data = PropertyTaxSimulationResponseSchema.parse(result);
       return c.json({ data }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** POST /properties/simulate-and-save - Simular por property_ids e salvar no histórico (ex.: detalhe do imóvel) */
+propertyRoutes.post(
+  '/simulate-and-save',
+  zValidator('json', SimulatePropertyTaxAndSaveInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { simulation, result } = await propertyService.simulateAndSaveFromProperties(input, userId);
+      const data = PropertyTaxSimulationResponseSchema.parse(result);
+      return c.json({ data: { simulation, result: data } }, 201);
     } catch (err) {
       return errorHandler(err, c);
     }

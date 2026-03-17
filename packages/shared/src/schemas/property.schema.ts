@@ -159,6 +159,12 @@ export const SimulatePropertyTaxInputSchema = z.object({
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
 });
 
+/** Input para simular por property_ids e salvar no histórico (ex.: tela de detalhe do imóvel). */
+export const SimulatePropertyTaxAndSaveInputSchema = SimulatePropertyTaxInputSchema.extend({
+  client_id: z.string().uuid(),
+  title: z.string().max(255).optional(),
+});
+
 export const CenarioPFSchema = z.object({
   receita_bruta_total: z.number(),
   despesas_dedutiveis_total: z.number(),
@@ -315,6 +321,7 @@ export type SimulateStandaloneMesInput = z.infer<typeof SimulateStandaloneMesSch
 export type SimulateStandaloneInput = z.infer<typeof SimulateStandaloneInputSchema>;
 export type SimulateStandaloneAndSaveInput = z.infer<typeof SimulateStandaloneAndSaveInputSchema>;
 export type SimulatePropertyTaxInput = z.infer<typeof SimulatePropertyTaxInputSchema>;
+export type SimulatePropertyTaxAndSaveInput = z.infer<typeof SimulatePropertyTaxAndSaveInputSchema>;
 export type UpdatePropertySimulationInput = z.infer<typeof UpdatePropertySimulationInputSchema>;
 
 export interface PropertySimulation {

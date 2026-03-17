@@ -429,4 +429,34 @@ export const propertyService = {
     );
     return response.data;
   },
+
+  /** Simular por property_ids e salvar no histórico (ex.: detalhe do imóvel). */
+  async simulateAndSaveFromProperties(params: {
+    ano: number;
+    property_ids: string[];
+    client_id: string;
+    title?: string;
+    aliquota_efetiva_dirpf?: number;
+    aplicar_presuncao_16_servicos?: boolean;
+    aplicar_equiparacao_hospitalar?: boolean;
+    opcoes_reforma?: {
+      aliquota_ibs_cbs_estimada?: number;
+      aliquota_ibs_plena?: number;
+      aliquota_cbs_estimada?: number;
+      redutor_locacao_pct?: number;
+      contrato_antes_16012025?: boolean;
+      perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
+    };
+  }): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { simulation: PropertySimulation; result: PropertyTaxSimulationResponse };
+    }>('/api/v1/properties/simulate-and-save', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      token,
+      tenantId,
+    });
+    return response.data;
+  },
 };

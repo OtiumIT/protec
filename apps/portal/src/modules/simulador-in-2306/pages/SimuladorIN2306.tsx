@@ -97,9 +97,10 @@ export function SimuladorIN2306() {
   );
   const [receitaAnual, setReceitaAnual] = useState<ReceitasTrimestre>({ ...EMPTY_TRIMESTRE });
   const [equiparacao, setEquiparacao] = useState(false);
-  const [saveTrib, setSaveTrib] = useState(false);
   const [titleTrib, setTitleTrib] = useState('');
   const [clientIdTrib, setClientIdTrib] = useState('');
+  /** Último input enviado na simulação tributária (para Salvar no histórico após resultado). */
+  const lastTribInputRef = useRef<SimulateTributarioInput | null>(null);
   const [includePisCofins, setIncludePisCofins] = useState(false);
   const [modoAnual, setModoAnual] = useState(false);
   const [refNormativaExpanded, setRefNormativaExpanded] = useState(false);
@@ -108,6 +109,10 @@ export function SimuladorIN2306() {
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
   const resultadoTributarioRef = useRef<HTMLDivElement>(null);
+  /** Último input enviado na simulação de parcelamento (para Salvar no histórico após resultado). */
+  const lastParcelInputRef = useRef<SimulateIN2306Input | null>(null);
+  const [saveClientIdParcel, setSaveClientIdParcel] = useState('');
+  const [saveTitleParcel, setSaveTitleParcel] = useState('');
 
   const handlePrintPdf = useCallback((resumida: boolean) => {
     setPrintModalOpen(false);
@@ -367,10 +372,11 @@ export function SimuladorIN2306() {
         deducoes_trimestrais: deducoes,
         retencoes_trimestrais: retencoes,
         aplicar_equiparacao_hospitalar: equiparacao,
-        save_simulation: saveTrib,
-        title: titleTrib || undefined,
-        client_id: clientIdTrib || undefined,
+        save_simulation: false,
+        title: undefined,
+        client_id: undefined,
       };
+      lastTribInputRef.current = input;
       if (editingSimulationId) {
         const { result_data } = await simuladorIN2306Service.update(editingSimulationId, input);
         setTributarioResult(result_data as unknown as SimuladorTributarioResponse & { simulation_id?: string });
@@ -381,13 +387,7 @@ export function SimuladorIN2306() {
       } else {
         const res = await simuladorIN2306Service.simulateTributario(input);
         setTributarioResult(res);
-        if (res.simulation_id) {
-          success('Simulação tributária salva.');
-          const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
-          setSimulations(listRes.simulations);
-        } else {
-          success('Comparativo calculado.');
-        }
+        success('Comparativo calculado.');
       }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
@@ -406,6 +406,8 @@ export function SimuladorIN2306() {
     setParcelamentoResult(null);
     try {
       if (editingSimulationId) {
+        const inputNoSave = { ...formParcel, save_simulation: false };
+        lastParcelInputRef.current = inputNoSave;
         const { result_data } = await simuladorIN2306Service.update(editingSimulationId, formParcel);
         setParcelamentoResult({
           input_data: formParcel as unknown as Record<string, unknown>,
@@ -417,15 +419,11 @@ export function SimuladorIN2306() {
         const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
         setSimulations(listRes.simulations);
       } else {
-        const res = await simuladorIN2306Service.simulate(formParcel);
+        const inputNoSave = { ...formParcel, save_simulation: false };
+        lastParcelInputRef.current = inputNoSave;
+        const res = await simuladorIN2306Service.simulate(inputNoSave);
         setParcelamentoResult(res);
-        if (res.simulation_id) {
-          success('Simulação salva.');
-          const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
-          setSimulations(listRes.simulations);
-        } else {
-          success('Simulação concluída.');
-        }
+        success('Simulação concluída.');
       }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
@@ -496,6 +494,8 @@ export function SimuladorIN2306() {
         title: (sim.title as string) ?? '',
         client_id: (sim.client_id as string) ?? undefined,
       });
+      setSaveClientIdParcel((sim.client_id as string) ?? '');
+      setSaveTitleParcel((sim.title as string) ?? '');
       setParcelamentoResult(null);
     }
   };
@@ -587,9 +587,69 @@ export function SimuladorIN2306() {
     }
   };
 
+  /** Salvar simulação tributária no histórico (botão após resultado). */
+  const handleSaveToHistoryTrib = async () => {
+    if (!clientIdTrib) {
+      showError('Cliente é obrigatório para salvar a simulação');
+      return;
+    }
+    const input = lastTribInputRef.current;
+    if (!input) {
+      showError('Execute uma simulação antes de salvar');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await simuladorIN2306Service.simulateTributario({
+        ...input,
+        save_simulation: true,
+        client_id: clientIdTrib,
+        title: titleTrib || undefined,
+      });
+      setTributarioResult(res);
+      success('Simulação salva no histórico.');
+      const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** Salvar simulação de parcelamento no histórico (botão após resultado). */
+  const handleSaveToHistoryParcel = async () => {
+    if (!saveClientIdParcel) {
+      showError('Cliente é obrigatório para salvar a simulação');
+      return;
+    }
+    const input = lastParcelInputRef.current;
+    if (!input || !input.competence.match(/^\d{4}-\d{2}$/)) {
+      showError('Execute uma simulação antes de salvar');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await simuladorIN2306Service.simulate({
+        ...input,
+        save_simulation: true,
+        client_id: saveClientIdParcel,
+        title: saveTitleParcel || undefined,
+      });
+      setParcelamentoResult(res);
+      success('Simulação salva no histórico.');
+      const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
+      setSimulations(listRes.simulations);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveAsNewParcel = async () => {
-    if (!formParcel.client_id) {
-      showError('Selecione um cliente para salvar como novo');
+    if (!saveClientIdParcel) {
+      showError('Selecione um cliente na seção abaixo para salvar como novo');
       return;
     }
     if (!formParcel.competence.match(/^\d{4}-\d{2}$/)) {
@@ -599,7 +659,7 @@ export function SimuladorIN2306() {
     setLoading(true);
     setParcelamentoResult(null);
     try {
-      const inputWithSave = { ...formParcel, save_simulation: true };
+      const inputWithSave = { ...formParcel, save_simulation: true, client_id: saveClientIdParcel, title: saveTitleParcel || undefined };
       const res = await simuladorIN2306Service.simulate(inputWithSave);
       setParcelamentoResult(res);
       setEditingSimulationId(null);
@@ -1094,28 +1154,6 @@ export function SimuladorIN2306() {
                     </Button>
                   </>
                 )}
-                {!editingSimulationId && (
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input type="checkbox" checked={saveTrib} onChange={(e) => setSaveTrib(e.target.checked)} className="rounded border-slate-300" />
-                    Salvar simulação
-                  </label>
-                )}
-                {saveTrib && (
-                  <>
-                    <Input placeholder="Título" value={titleTrib} onChange={(e) => setTitleTrib(e.target.value)} className="w-40 h-9 text-sm" />
-                    <select
-                      className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
-                      value={clientIdTrib}
-                      onChange={(e) => setClientIdTrib(e.target.value)}
-                      required={saveTrib}
-                    >
-                      <option value="">Cliente</option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
               </div>
             </form>
           </Card>
@@ -1154,6 +1192,46 @@ export function SimuladorIN2306() {
                     Exportar para PDF
                   </Button>
                 </div>
+
+                {/* Salvar simulação no histórico (botão após resultado) */}
+                <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden">
+                  <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Salve esta simulação para consultar depois no Histórico.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="min-w-[200px]">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                      <select
+                        className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                        value={clientIdTrib}
+                        onChange={(e) => setClientIdTrib(e.target.value)}
+                      >
+                        <option value="">Selecione um cliente</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="min-w-[180px]">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+                      <Input
+                        placeholder="Ex: Simulação 2025"
+                        value={titleTrib}
+                        onChange={(e) => setTitleTrib(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleSaveToHistoryTrib}
+                      disabled={loading || !clientIdTrib}
+                    >
+                      {loading ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                  </div>
+                </Card>
 
                 {/* Cards dos cenários — 3 se equiparação ativa, senão 2 */}
                 <div className={`grid grid-cols-1 gap-5 print:grid-cols-1 ${equiparacao && tributarioResult.cenario_equiparacao ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
@@ -1720,47 +1798,55 @@ export function SimuladorIN2306() {
                     </Button>
                   </>
                 )}
-                {!editingSimulationId && (
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formParcel.save_simulation ?? false}
-                      onChange={(e) => setFormParcel((f) => ({ ...f, save_simulation: e.target.checked }))}
-                      className="rounded border-slate-300"
-                    />
-                    Salvar simulação
-                  </label>
-                )}
-                {(formParcel.save_simulation ?? false) && (
-                  <>
-                    <Input
-                      placeholder="Título (opcional)"
-                      value={formParcel.title ?? ''}
-                      onChange={(e) => setFormParcel((f) => ({ ...f, title: e.target.value }))}
-                      className="w-40 h-9 text-sm"
-                    />
-                    <select
-                      className="h-9 min-w-[180px] border border-slate-200 rounded-md px-3 text-sm text-slate-700"
-                      value={formParcel.client_id ?? ''}
-                      onChange={(e) => setFormParcel((f) => ({ ...f, client_id: e.target.value || undefined }))}
-                      required={formParcel.save_simulation}
-                    >
-                      <option value="">Cliente *</option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
               </div>
             </form>
           </Card>
           {parcelamentoResult && (
-            <Card>
-              <h2 className="text-xl font-semibold text-slate-800 mb-4">Resultado</h2>
-              <p>Valor financiado: {formatMoney(parcelamentoResult.result_data.valor_financiado)}</p>
-              <p>Parcela: {parcelamentoResult.result_data.valor_parcela != null ? formatMoney(parcelamentoResult.result_data.valor_parcela) : '-'}</p>
-            </Card>
+            <>
+              <Card>
+                <h2 className="text-xl font-semibold text-slate-800 mb-4">Resultado</h2>
+                <p>Valor financiado: {formatMoney(parcelamentoResult.result_data.valor_financiado)}</p>
+                <p>Parcela: {parcelamentoResult.result_data.valor_parcela != null ? formatMoney(parcelamentoResult.result_data.valor_parcela) : '-'}</p>
+              </Card>
+              <Card className="p-5 border border-slate-200 bg-slate-50/50">
+                <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Salve esta simulação para consultar depois no Histórico.
+                </p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="min-w-[200px]">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                    <select
+                      className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                      value={saveClientIdParcel}
+                      onChange={(e) => setSaveClientIdParcel(e.target.value)}
+                    >
+                      <option value="">Selecione um cliente</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-[180px]">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+                    <Input
+                      placeholder="Ex: Parcelamento 2026"
+                      value={saveTitleParcel}
+                      onChange={(e) => setSaveTitleParcel(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleSaveToHistoryParcel}
+                    disabled={loading || !saveClientIdParcel}
+                  >
+                    {loading ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </div>
+              </Card>
+            </>
           )}
         </>
       )}

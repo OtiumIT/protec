@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
@@ -11,6 +11,7 @@ import {
   propertyService,
   type PropertyWithClient,
 } from '../services/property.service';
+import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import {
   BarChart,
   Bar,
@@ -89,10 +90,40 @@ export function PropertyDetail() {
     valor: '0',
     observacao: '',
   });
+  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const [saveClientId, setSaveClientId] = useState('');
+  const [saveTitle, setSaveTitle] = useState('');
+  /** Último input enviado na simulação (para Salvar no histórico após resultado). */
+  const lastSimulationInputRef = useRef<{
+    ano: number;
+    property_ids: string[];
+    aliquota_efetiva_dirpf?: number;
+    aplicar_presuncao_16_servicos?: boolean;
+    aplicar_equiparacao_hospitalar?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (id) loadProperty();
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await clientService.list();
+        if (!cancelled && Array.isArray(list)) setClients(list);
+      } catch {
+        if (!cancelled) setClients([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (property && (property as { client_id?: string }).client_id && !saveClientId) {
+      setSaveClientId((property as { client_id: string }).client_id);
+    }
+  }, [property]);
 
   useEffect(() => {
     if (id && year && property) {
@@ -277,20 +308,48 @@ export function PropertyDetail() {
 
   const handleSimulate = async () => {
     if (!id) return;
+    const input = {
+      ano: year,
+      property_ids: [id],
+      aliquota_efetiva_dirpf: aliquotaDirpf ? parseFloat(aliquotaDirpf) : undefined,
+      aplicar_presuncao_16_servicos: aplicarPresuncao16,
+      aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
+    };
     setIsSimulating(true);
     setSimulation(null);
     try {
-      const result = await propertyService.simulate({
-        ano: year,
-        property_ids: [id],
-        aliquota_efetiva_dirpf: aliquotaDirpf ? parseFloat(aliquotaDirpf) : undefined,
-        aplicar_presuncao_16_servicos: aplicarPresuncao16,
-        aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
-      });
+      const result = await propertyService.simulate(input);
+      lastSimulationInputRef.current = input;
       setSimulation(result);
       setShowSimulation(true);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro na simulação');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleSaveToHistory = async () => {
+    if (!saveClientId) {
+      showError('Selecione um cliente para salvar a simulação');
+      return;
+    }
+    const input = lastSimulationInputRef.current;
+    if (!input || !id) {
+      showError('Execute uma simulação antes de salvar');
+      return;
+    }
+    setIsSimulating(true);
+    try {
+      const { result } = await propertyService.simulateAndSaveFromProperties({
+        ...input,
+        client_id: saveClientId,
+        title: saveTitle || undefined,
+      });
+      setSimulation(result);
+      success('Simulação salva no histórico.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
     } finally {
       setIsSimulating(false);
     }
@@ -606,6 +665,7 @@ export function PropertyDetail() {
 
             {/* Resultado Simulação */}
             {simulation && showSimulation && (
+              <>
               <Card className="mb-6">
                 <h2 className="text-xl font-semibold text-slate-900 mb-4">
                   Resultado da Simulação - Ano {simulation.ano}
@@ -763,6 +823,47 @@ export function PropertyDetail() {
                   </div>
                 )}
               </Card>
+
+              {/* Salvar simulação no histórico (botão após resultado) */}
+              <Card className="mb-6 p-5 border border-slate-200 bg-slate-50/50">
+                <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Salve esta simulação para consultar depois no Histórico do Simulador Imobiliário.
+                </p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="min-w-[200px]">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                    <select
+                      className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                      value={saveClientId}
+                      onChange={(e) => setSaveClientId(e.target.value)}
+                    >
+                      <option value="">Selecione um cliente</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-[180px]">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+                    <Input
+                      placeholder="Ex: Simulação 2025"
+                      value={saveTitle}
+                      onChange={(e) => setSaveTitle(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleSaveToHistory}
+                    disabled={isSimulating || !saveClientId}
+                  >
+                    {isSimulating ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </div>
+              </Card>
+              </>
             )}
           </>
         )}

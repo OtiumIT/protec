@@ -672,13 +672,24 @@ export class RatingValidatorService {
   async update(
     id: string,
     input: SimulateRatingInput,
-    userId?: string
+    _userId?: string
   ): Promise<{
-    validation: Awaited<ReturnType<typeof this.ratingValidatorRepo.findById>>;
+    validation: Awaited<ReturnType<RatingValidatorRepository['fullUpdate']>>;
     result: {
       calculated_values: CalculatedValues;
       indicators: Indicators;
-      indicator_analysis: ReturnType<typeof this.getIndicatorAnalysis>;
+      indicator_analysis: Array<{
+        id: string;
+        name: string;
+        formula: string;
+        value: number;
+        value_formatted: string;
+        score: number;
+        max_score: number;
+        level: 'A' | 'B' | 'C' | 'D';
+        thresholds_by_level: { D: string; C: string; B: string; A: string };
+        gap_message: string;
+      }>;
       rating_estimado: Rating;
       rating_real?: Rating;
       has_discrepancy: boolean;
