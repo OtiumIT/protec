@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -148,6 +148,7 @@ export function SimuladorImoveis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
+  const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
@@ -178,15 +179,6 @@ export function SimuladorImoveis() {
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
-
-  /** Perfil de locação diagnosticado a partir das receitas digitadas (longa + curta). */
-  const { receitaLongaTotal, receitaShortTotal, perfilLocacao } = useMemo(() => {
-    const longa = meses.reduce((s, m) => s + (Number(m.receita_aluguel_tradicional) || 0), 0);
-    const curta = meses.reduce((s, m) => s + (Number(m.receita_aluguel_curto) || 0), 0);
-    const perfil: PerfilLocacaoReforma =
-      longa > 0 && curta > 0 ? 'ambos' : curta > 0 ? 'hospedagem_temporada' : 'residencial_comum';
-    return { receitaLongaTotal: round2(longa), receitaShortTotal: round2(curta), perfilLocacao: perfil };
-  }, [meses]);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -493,6 +485,7 @@ export function SimuladorImoveis() {
         setMeses(input.meses.map((m) => ({ ...m })));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
+      setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
       if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
@@ -703,19 +696,14 @@ export function SimuladorImoveis() {
               <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
               <select
                 value={perfilLocacao}
-                disabled
-                aria-label="Perfil de locação (atualizado automaticamente pelas receitas informadas)"
-                className="rounded-md border-2 border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 min-w-[280px] cursor-default"
-                title="Opção definida automaticamente conforme as receitas de longa e curta duração informadas na tabela acima."
+                onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
               >
                 <option value="residencial_comum">Locação de longa duração (Redutor 70%)</option>
                 <option value="hospedagem_temporada">Locação de curta temporada (Redutor 50%)</option>
                 <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
               </select>
-              <span className="text-xs text-slate-500">
-                Longa duração: R$ {receitaLongaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Curta temporada: R$ {receitaShortTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. A opção acima é atualizada automaticamente ao alterar a tabela de receitas.
-              </span>
-              <span className="text-xs text-slate-500">Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032</span>
+              <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
             </div>
           </div>
         </Card>
