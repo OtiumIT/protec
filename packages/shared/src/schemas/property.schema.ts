@@ -141,7 +141,7 @@ export const SimulateStandaloneInputSchema = z.object({
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
   receita_locacao_residencial_anual: monetaryValue.optional(),
-  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  /** Receita anual de locação de imóveis não residenciais (sem redutor social). */
   receita_locacao_nao_residencial_anual: monetaryValue.optional(),
 });
 
@@ -165,7 +165,7 @@ export const SimulatePropertyTaxInputSchema = z.object({
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */
   receita_locacao_residencial_anual: monetaryValue.optional(),
-  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  /** Receita anual de locação de imóveis não residenciais (sem redutor social). */
   receita_locacao_nao_residencial_anual: monetaryValue.optional(),
 });
 

@@ -176,7 +176,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 **Redutor social (Art. 260):** R$ 600/mês por imóvel residencial, deduzido da **base de cálculo** (não do imposto). Base tributável = máx(0, receita residencial − 600 × 12 × n imóveis).
 
-**Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: residencial recebe redutor social na base e redutor da alíquota; não residencial tributa à alíquota plena (sem redutor).
+**Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: residencial recebe redutor social na base e redutor da alíquota; não residencial não tem redutor social.
 
 **Ótica PJ (somente IBS/CBS sobre a atividade):**
 

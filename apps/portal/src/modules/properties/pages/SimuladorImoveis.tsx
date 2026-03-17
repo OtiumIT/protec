@@ -745,7 +745,7 @@ export function SimuladorImoveis() {
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
                 />
                 <span className="text-xs text-slate-500">
-                  Usados apenas para verificar se a PF se torna contribuinte de IBS/CBS (limites de 3 imóveis e receita anual de R$ 240k/288k).
+                  Entra na contagem total de imóveis (residenciais + comerciais) para verificar se a PF se torna contribuinte de IBS/CBS (limite de 3 imóveis). Ex.: 2 residenciais + 2 comerciais = 4 imóveis.
                 </span>
               </div>
             </div>
@@ -797,7 +797,7 @@ export function SimuladorImoveis() {
                     onChange={setReceitaLocacaoNaoResidencialAnual}
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
-                  <span className="text-xs text-slate-500">Alíquota plena, sem redutor.</span>
+                  <span className="text-xs text-slate-500">Sem redutor social.</span>
                 </div>
               </div>
             )}

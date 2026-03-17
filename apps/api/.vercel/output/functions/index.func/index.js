@@ -69429,7 +69429,7 @@ var SimulateStandaloneInputSchema = external_exports.object({
   quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
   receita_locacao_residencial_anual: monetaryValue4.optional(),
-  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  /** Receita anual de locação de imóveis não residenciais (sem redutor social). */
   receita_locacao_nao_residencial_anual: monetaryValue4.optional()
 });
 var SimulateStandaloneAndSaveInputSchema = SimulateStandaloneInputSchema.extend({
@@ -69450,7 +69450,7 @@ var SimulatePropertyTaxInputSchema = external_exports.object({
   quantidade_imoveis_comerciais: external_exports.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */
   receita_locacao_residencial_anual: monetaryValue4.optional(),
-  /** Receita anual de locação de imóveis não residenciais (alíquota plena, sem redutor). */
+  /** Receita anual de locação de imóveis não residenciais (sem redutor social). */
   receita_locacao_nao_residencial_anual: monetaryValue4.optional()
 });
 var SimulatePropertyTaxAndSaveInputSchema = SimulatePropertyTaxInputSchema.extend({
@@ -90589,7 +90589,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-17T11:21:13.957Z";
+var API_UPDATED_AT = "2026-03-17T13:55:06.366Z";
 
 // src/modules/index.ts
 var app = new Hono2();

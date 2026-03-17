@@ -394,7 +394,7 @@ export interface OpcoesReformaCalculo {
   receita_short_total?: number;
   /** Receita anual de locação residencial (para modelo com split residencial/não residencial). */
   receita_locacao_residencial_anual?: number;
-  /** Receita anual de locação não residencial (alíquota plena, sem redutor). */
+  /** Receita anual de locação não residencial (sem redutor social). */
   receita_locacao_nao_residencial_anual?: number;
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
