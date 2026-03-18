@@ -288,6 +288,33 @@ export function SimuladorImoveis() {
     success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
 
+  const fillDemo2Bruno = useCallback(() => {
+    // Cenário Bruno: 2 residenciais curta (120k), 1 residencial longa (60k), 2 não residenciais longa (114k)
+    const anoDemo = anoAtual;
+    setAno(anoDemo);
+    setPerfilLocacao('ambos');
+    setAnoReferenciaReforma(2033);
+    setAliquotaPlenaIBS(19);
+    setAliquotaCBS(9);
+    setQuantidadeImoveisResidenciais(3);
+    setQuantidadeImoveisComerciais(2);
+    setReceitaLocacaoResidencialAnual(180_000);
+    setReceitaLocacaoNaoResidencialAnual(114_000);
+    // Distribui receita anual de forma uniforme apenas para referência nos meses
+    const mensalLonga = round2(60_000 / 12);
+    const mensalCurta = round2(120_000 / 12);
+    setMeses((prev) =>
+      prev.map((m, i) => ({
+        ...m,
+        mes_referencia: `${anoDemo}-${String(i + 1).padStart(2, '0')}`,
+        receita_aluguel_tradicional: mensalLonga,
+        receita_aluguel_curto: mensalCurta,
+      }))
+    );
+    setResult(null);
+    success('Demo carregada: cenário Bruno (2 res. curta, 1 res. longa, 2 não res.), pronto para comparar IBS/CBS com a planilha.');
+  }, [anoAtual, success]);
+
   /** Nome do cliente para o relatório: viewingSimulation > saveClientId > reportClientName (manual) */
   const effectiveClientName =
     (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)?.name) ??
@@ -336,15 +363,27 @@ export function SimuladorImoveis() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (waitingDemoDigitRef.current && e.key === '1') {
-        e.preventDefault();
-        waitingDemoDigitRef.current = 0;
-        if (demoKeyTimeoutRef.current) {
-          clearTimeout(demoKeyTimeoutRef.current);
-          demoKeyTimeoutRef.current = null;
+      if (waitingDemoDigitRef.current) {
+        if (e.key === '1') {
+          e.preventDefault();
+          waitingDemoDigitRef.current = 0;
+          if (demoKeyTimeoutRef.current) {
+            clearTimeout(demoKeyTimeoutRef.current);
+            demoKeyTimeoutRef.current = null;
+          }
+          fillDemo1();
+          return;
         }
-        fillDemo1();
-        return;
+        if (e.key === '2') {
+          e.preventDefault();
+          waitingDemoDigitRef.current = 0;
+          if (demoKeyTimeoutRef.current) {
+            clearTimeout(demoKeyTimeoutRef.current);
+            demoKeyTimeoutRef.current = null;
+          }
+          fillDemo2Bruno();
+          return;
+        }
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
@@ -361,7 +400,7 @@ export function SimuladorImoveis() {
       window.removeEventListener('keydown', onKeyDown);
       if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
     };
-  }, [fillDemo1]);
+  }, [fillDemo1, fillDemo2Bruno]);
 
   useEffect(() => {
     let cancelled = false;
