@@ -1105,12 +1105,27 @@ export function SimuladorImoveis() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>
               <h2 className="text-lg font-bold text-slate-900 mb-1">Resultado da simulação – Simulador Imobiliário</h2>
-              <p className="text-sm text-slate-600">
-                Ano <strong>{result.ano}</strong>
-                {result.fluxo_caixa?.[0] && (
-                  <> · Receita total: <strong>{formatMoney(result.fluxo_caixa[0].receita_total)}</strong></>
-                )}
-              </p>
+              <div className="space-y-0.5 text-sm text-slate-600">
+                <p>
+                  Ano <strong>{result.ano}</strong>
+                  {result.fluxo_caixa?.[0] && (
+                    <> · Receita PF/PJ (Carnê-Leão / Lucro Presumido): <strong>{formatMoney(result.fluxo_caixa[0].receita_total)}</strong></>
+                  )}
+                </p>
+                {(() => {
+                  const receitaReforma =
+                    result.cenarios.reforma_2027_pf?.receita_bruta_total ??
+                    result.cenarios.reforma_2027?.receita_bruta_total;
+                  if (!receitaReforma || !result.fluxo_caixa?.[0]) return null;
+                  if (Math.round(receitaReforma) === Math.round(result.fluxo_caixa[0].receita_total)) return null;
+                  return (
+                    <p className="text-xs text-slate-500">
+                      Receita considerada na Reforma (residencial + não residencial):{' '}
+                      <strong>{formatMoney(receitaReforma)}</strong>
+                    </p>
+                  );
+                })()}
+              </div>
             </div>
             <Button
               type="button"

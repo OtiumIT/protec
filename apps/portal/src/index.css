@@ -34,7 +34,9 @@
 @media print {
   @page {
     size: A4;
-    margin: 1.2cm;
+    /* Margens um pouco menores para aproveitar mais a largura,
+       mas ainda com respiro profissional nas bordas */
+    margin: 1.6cm 0.7cm 1.4cm 0.7cm;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -166,11 +168,14 @@
   #simulador-imoveis-print-wrapper {
     position: relative;
     width: 100%;
-    max-width: 210mm;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 0 1rem;
+    /* Conteúdo mais largo, mas ainda com um leve respiro interno */
+    padding: 0.2cm 0.1cm;
+    /* Garante que o conteúdo comece abaixo do cabeçalho fixo
+       e termine acima do rodapé fixo em todas as páginas */
     padding-top: 2.2cm;
-    padding-bottom: 1.5cm;
+    padding-bottom: 1.6cm;
     background: white;
     overflow: visible;
     box-sizing: border-box;
