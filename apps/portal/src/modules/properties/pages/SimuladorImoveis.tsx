@@ -288,8 +288,8 @@ export function SimuladorImoveis() {
     success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
 
-  const fillDemo2Bruno = useCallback(() => {
-    // Cenário Bruno: 2 residenciais curta (120k), 1 residencial longa (60k), 2 não residenciais longa (114k)
+  const fillDemo2CenarioIbsCbs = useCallback(() => {
+    // Cenário referência IBS/CBS: 2 residenciais curta (120k), 1 residencial longa (60k), 2 não residenciais longa (114k)
     const anoDemo = anoAtual;
     setAno(anoDemo);
     setPerfilLocacao('ambos');
@@ -312,7 +312,7 @@ export function SimuladorImoveis() {
       }))
     );
     setResult(null);
-    success('Demo carregada: cenário Bruno (2 res. curta, 1 res. longa, 2 não res.), pronto para comparar IBS/CBS com a planilha.');
+    success('Demo carregada: cenário de referência IBS/CBS (2 res. curta, 1 res. longa, 2 não res.), pronto para comparar com a planilha.');
   }, [anoAtual, success]);
 
   /** Nome do cliente para o relatório: viewingSimulation > saveClientId > reportClientName (manual) */
@@ -381,7 +381,7 @@ export function SimuladorImoveis() {
             clearTimeout(demoKeyTimeoutRef.current);
             demoKeyTimeoutRef.current = null;
           }
-          fillDemo2Bruno();
+          fillDemo2CenarioIbsCbs();
           return;
         }
       }
@@ -400,7 +400,7 @@ export function SimuladorImoveis() {
       window.removeEventListener('keydown', onKeyDown);
       if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
     };
-  }, [fillDemo1, fillDemo2Bruno]);
+  }, [fillDemo1, fillDemo2CenarioIbsCbs]);
 
   useEffect(() => {
     let cancelled = false;
