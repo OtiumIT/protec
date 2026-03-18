@@ -841,6 +841,7 @@ export function SimuladorImoveis() {
                   <span className="text-xs text-slate-500">
                     Sem redutor social, mas com o mesmo redutor setorial de alíquota configurado acima (70% longa duração ou 50% curta, conforme perfil).
                   </span>
+                </div>
               </div>
             )}
           </div>

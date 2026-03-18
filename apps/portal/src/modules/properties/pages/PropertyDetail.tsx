@@ -311,8 +311,6 @@ export function PropertyDetail() {
     const input = {
       ano: year,
       property_ids: [id],
-      quantidade_imoveis_residenciais: 1,
-      quantidade_imoveis_comerciais: 0,
       aliquota_efetiva_dirpf: aliquotaDirpf ? parseFloat(aliquotaDirpf) : undefined,
       aplicar_presuncao_16_servicos: aplicarPresuncao16,
       aplicar_equiparacao_hospitalar: aplicarEquiparacaoHospitalar,
@@ -345,8 +343,6 @@ export function PropertyDetail() {
     try {
       const { result } = await propertyService.simulateAndSaveFromProperties({
         ...input,
-        quantidade_imoveis_residenciais: 1,
-        quantidade_imoveis_comerciais: 0,
         client_id: saveClientId,
         title: saveTitle || undefined,
       });
