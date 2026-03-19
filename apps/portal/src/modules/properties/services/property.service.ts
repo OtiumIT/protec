@@ -314,6 +314,10 @@ export const propertyService = {
       contrato_antes_16012025?: boolean;
       perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
     };
+    quantidade_imoveis_residenciais?: number;
+    quantidade_imoveis_comerciais?: number;
+    receita_locacao_residencial_anual?: number;
+    receita_locacao_nao_residencial_anual?: number;
   }): Promise<PropertyTaxSimulationResponse> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: PropertyTaxSimulationResponse }>(
