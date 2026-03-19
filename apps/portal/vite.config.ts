@@ -15,6 +15,6 @@ export default defineConfig({
     include: ['@shared/core'],
   },
   server: {
-    port: 5173,
+    port: 5174,
   },
 });

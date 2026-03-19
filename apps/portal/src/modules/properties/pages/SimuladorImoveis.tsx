@@ -5,7 +5,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
-import { propertyService } from '../services/property.service';
+import { propertyService, type PropertyWithClient } from '../services/property.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Modal } from '../../../shared/components/ui/Modal';
 import {
@@ -160,6 +160,13 @@ export function SimuladorImoveis() {
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const printPreviewContentRef = useRef<HTMLDivElement>(null);
   const printWrapperRef = useRef<HTMLDivElement>(null);
+  /** Última simulação por imóveis (para Salvar no histórico). */
+  const lastImoveisSimulationRef = useRef<{
+    ano: number;
+    property_ids: string[];
+    client_id: string;
+    opcoes_reforma: Record<string, unknown>;
+  } | null>(null);
   /** Payload da última simulação (para Salvar no histórico após o resultado). */
   const lastSimulationPayloadRef = useRef<{
     ano: number;
@@ -186,6 +193,11 @@ export function SimuladorImoveis() {
   const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
   const [receitaLocacaoResidencialAnual, setReceitaLocacaoResidencialAnual] = useState<number>(0);
   const [receitaLocacaoNaoResidencialAnual, setReceitaLocacaoNaoResidencialAnual] = useState<number>(0);
+  const [modoEntrada, setModoEntrada] = useState<'manual' | 'imoveis'>('manual');
+  const [imoveisClientId, setImoveisClientId] = useState('');
+  const [imoveisList, setImoveisList] = useState<PropertyWithClient[]>([]);
+  const [imoveisSelectedIds, setImoveisSelectedIds] = useState<Set<string>>(new Set());
+  const [imoveisLoading, setImoveisLoading] = useState(false);
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
@@ -423,6 +435,45 @@ export function SimuladorImoveis() {
     }
   }, [result]);
 
+  useEffect(() => {
+    if (modoEntrada !== 'imoveis' || !imoveisClientId) {
+      setImoveisList([]);
+      setImoveisSelectedIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    setImoveisLoading(true);
+    propertyService.list({ client_id: imoveisClientId, limit: 100 }).then(
+      (data) => {
+        if (!cancelled) {
+          setImoveisList(data.properties);
+          setImoveisSelectedIds(new Set(data.properties.map((p) => p.id)));
+        }
+      },
+      () => {
+        if (!cancelled) {
+          setImoveisList([]);
+          setImoveisSelectedIds(new Set());
+        }
+      }
+    ).finally(() => {
+      if (!cancelled) setImoveisLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [modoEntrada, imoveisClientId]);
+
+  const toggleImovelSelection = (id: string) => {
+    setImoveisSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllImoveis = () => setImoveisSelectedIds(new Set(imoveisList.map((p) => p.id)));
+  const clearAllImoveis = () => setImoveisSelectedIds(new Set());
+
   const buildMesesParaEnvio = (): SimulateStandaloneMesInput[] =>
     meses.map((m, i) => {
       const mesRef = m.mes_referencia || `${ano}-${String(i + 1).padStart(2, '0')}`;
@@ -449,6 +500,48 @@ export function SimuladorImoveis() {
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (modoEntrada === 'imoveis') {
+      const ids = Array.from(imoveisSelectedIds);
+      if (ids.length === 0) {
+        showError('Selecione pelo menos um imóvel para simular.');
+        return;
+      }
+      setLoading(true);
+      setResult(null);
+      try {
+        const opcoes = {
+          ano_referencia_reforma: anoReferenciaReforma,
+          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
+          aliquota_ibs_plena: aliquotaPlenaIBS,
+          aliquota_cbs_estimada: aliquotaCBS,
+          redutor_short_stay_pct: 50,
+          contrato_antes_16012025: contratoAntes16012025,
+          perfil_locacao: perfilLocacao,
+        };
+        const res = await propertyService.simulate({
+          ano,
+          property_ids: ids,
+          opcoes_reforma: opcoes,
+          quantidade_imoveis_residenciais: ids.length,
+          quantidade_imoveis_comerciais: 0,
+        });
+        setResult(res);
+        setSaveClientId(imoveisClientId);
+        lastImoveisSimulationRef.current = {
+          ano,
+          property_ids: ids,
+          client_id: imoveisClientId,
+          opcoes_reforma: opcoes,
+        };
+        lastSimulationPayloadRef.current = null;
+        success('Simulação concluída.');
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Erro ao simular');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     if (editingSimulationId) {
       setLoading(true);
       setResult(null);
@@ -475,6 +568,7 @@ export function SimuladorImoveis() {
           receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
         });
         setResult(res);
+      lastImoveisSimulationRef.current = null;
       lastSimulationPayloadRef.current = {
         ano,
         meses: mesesParaEnvio,
@@ -522,6 +616,7 @@ export function SimuladorImoveis() {
         receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
       });
       setResult(res);
+      lastImoveisSimulationRef.current = null;
       lastSimulationPayloadRef.current = {
         ano,
         meses: mesesParaEnvio,
@@ -662,19 +757,48 @@ export function SimuladorImoveis() {
 
   /** Salvar a simulação atual no histórico (botão após resultado). */
   const handleSaveToHistory = async () => {
+    const imoveisPayload = lastImoveisSimulationRef.current;
+    const standalonePayload = lastSimulationPayloadRef.current;
+
+    if (imoveisPayload) {
+      const clientId = saveClientId || imoveisPayload.client_id;
+      if (!clientId) {
+        showError('Selecione um cliente para salvar a simulação');
+        return;
+      }
+      setLoading(true);
+      try {
+        const { result: res } = await propertyService.simulateAndSaveFromProperties({
+          ano: imoveisPayload.ano,
+          property_ids: imoveisPayload.property_ids,
+          client_id: clientId,
+          title: saveTitle || undefined,
+          opcoes_reforma: imoveisPayload.opcoes_reforma as Parameters<typeof propertyService.simulateAndSaveFromProperties>[0]['opcoes_reforma'],
+        });
+        setResult(res);
+        success('Simulação salva no histórico.');
+        const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+        setSimulations(listRes.simulations);
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!saveClientId) {
       showError('Selecione um cliente para salvar a simulação');
       return;
     }
-    const payload = lastSimulationPayloadRef.current;
-    if (!payload) {
+    if (!standalonePayload) {
       showError('Execute uma simulação antes de salvar');
       return;
     }
     setLoading(true);
     try {
       const { result: res } = await propertyService.simulateStandaloneAndSave({
-        ...payload,
+        ...standalonePayload,
         client_id: saveClientId,
         title: saveTitle || undefined,
       } as Parameters<typeof propertyService.simulateStandaloneAndSave>[0]);
@@ -705,6 +829,86 @@ export function SimuladorImoveis() {
       </div>
 
       <form onSubmit={handleSimulate} className="space-y-6">
+        {/* Modo de entrada */}
+        <Card className="p-5 border-slate-200">
+          <h3 className="font-semibold text-slate-800 mb-3">Modo de entrada</h3>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="modoEntrada"
+                checked={modoEntrada === 'manual'}
+                onChange={() => setModoEntrada('manual')}
+                className="rounded-full border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Manual (preencher 12 meses)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="modoEntrada"
+                checked={modoEntrada === 'imoveis'}
+                onChange={() => setModoEntrada('imoveis')}
+                className="rounded-full border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">Imóveis cadastrados</span>
+            </label>
+          </div>
+          {modoEntrada === 'imoveis' && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                <select
+                  className="w-full max-w-xs bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700"
+                  value={imoveisClientId}
+                  onChange={(e) => setImoveisClientId(e.target.value)}
+                >
+                  <option value="">Selecione um cliente</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              {imoveisClientId && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Imóveis do cliente</label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={selectAllImoveis} className="text-xs text-brand hover:underline">
+                        Marcar todos
+                      </button>
+                      <span className="text-slate-400">|</span>
+                      <button type="button" onClick={clearAllImoveis} className="text-xs text-slate-600 hover:underline">
+                        Desmarcar
+                      </button>
+                    </div>
+                  </div>
+                  {imoveisLoading ? (
+                    <p className="text-sm text-slate-500">Carregando imóveis...</p>
+                  ) : imoveisList.length === 0 ? (
+                    <p className="text-sm text-slate-500">Nenhum imóvel cadastrado para este cliente. Cadastre em Imóveis.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      {imoveisList.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={imoveisSelectedIds.has(p.id)}
+                            onChange={() => toggleImovelSelection(p.id)}
+                            className="rounded border-slate-300 text-brand focus:ring-brand"
+                          />
+                          <span className="text-sm text-slate-700">{p.identificador}</span>
+                          <span className="text-xs text-slate-500">({p.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'})</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+
         {/* Ano e ação principal */}
         <Card className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -720,7 +924,15 @@ export function SimuladorImoveis() {
               />
             </div>
             <div className="flex flex-wrap items-center gap-4">
-              <Button type="submit" variant="primary" disabled={loading} className="min-w-[200px]">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={
+                  loading ||
+                  (modoEntrada === 'imoveis' && (!imoveisClientId || imoveisSelectedIds.size === 0))
+                }
+                className="min-w-[200px]"
+              >
                 {loading ? 'Simulando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
               </Button>
               {editingSimulationId && (
@@ -906,6 +1118,8 @@ export function SimuladorImoveis() {
           </div>
         </Card>
 
+        {modoEntrada === 'manual' && (
+          <>
         {/* Preenchimento rápido – Rateio anual */}
         <Card className="p-5 border-slate-200 bg-slate-50/50">
           <h3 className="font-semibold text-slate-800 mb-4">Preenchimento rápido – Valores anuais</h3>
@@ -1084,6 +1298,8 @@ export function SimuladorImoveis() {
             {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
           </Button>
         </div>
+          </>
+        )}
       </form>
 
       {result && (
