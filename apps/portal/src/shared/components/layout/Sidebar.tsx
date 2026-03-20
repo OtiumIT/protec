@@ -548,13 +548,16 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           title={item.name}
           className={`
             flex items-center gap-3 rounded-lg transition-all duration-200
-            ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start px-4 py-3'}
+            ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start'}
+            ${isChild && !isCollapsed ? 'pl-3 pr-4 py-2.5' : 'px-4 py-3'}
             group relative
             ${active 
               ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
-              : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
+              : isChild 
+                ? 'text-slate-600 hover:bg-slate-50 hover:text-brand font-normal'
+                : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
             }
-            ${isChild ? 'ml-2 text-sm' : ''}
+            ${isChild ? 'text-sm' : ''}
             focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
           `}
           aria-current={active ? 'page' : undefined}
@@ -586,15 +589,23 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
   /** Renderiza os itens de uma categoria (links ou filhos de itens com children) */
   const renderCategoryItems = (cat: MenuCategory) => {
-    const itemsToRender: MenuItem[] = [];
+    const result: React.ReactNode[] = [];
     cat.items.forEach((item) => {
       if (item.children && item.children.length > 0 && !item.path) {
-        itemsToRender.push(...item.children);
+        result.push(
+          <li key={item.name} className="list-none">
+            <div className={`mt-0.5 pl-2 border-l-2 border-slate-200 bg-slate-50/50 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`}>
+              <ul className="space-y-0.5 list-none">
+                {item.children.map((child) => renderMenuLink(child, true))}
+              </ul>
+            </div>
+          </li>
+        );
       } else {
-        itemsToRender.push(item);
+        result.push(renderMenuLink(item, false));
       }
     });
-    return itemsToRender.map((item) => renderMenuLink(item, false));
+    return result;
   };
 
   // Itens de menu baseados no tipo de usuário
@@ -741,7 +752,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
             if (cat.directLink) {
               return (
-                <div key={cat.id} className="mb-2">
+                <div key={cat.id} className="mb-4">
                   <Link
                     to={cat.directLink}
                     title={cat.name}
@@ -770,7 +781,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             const buttonId = `category-btn-${cat.id}`;
 
             return (
-              <div key={cat.id} className="mb-2">
+              <div key={cat.id} className={`mb-4 ${cat.id === 'administracao' ? 'pt-4 border-t border-slate-100' : ''}`}>
                 <button
                   id={buttonId}
                   aria-expanded={isExpanded}
