@@ -300,6 +300,82 @@ export const propertyService = {
     return response.data;
   },
 
+  async aggregatePreview(
+    propertyIds: string[],
+    ano: number
+  ): Promise<{
+    meses: Array<{
+      mes_referencia: string;
+      receita_aluguel_tradicional: number;
+      receita_aluguel_curto: number;
+      receita_garagem: number;
+      receita_outras: number;
+      iptu: number;
+      condominio: number;
+      seguro_imovel: number;
+      juros_financiamento: number;
+      manutencao_conservacao: number;
+      outras_dedutiveis: number;
+      reformas_melhorias: number;
+      mobilia_equipamentos: number;
+      limpeza_higienizacao: number;
+      comissao_corretagem: number;
+      taxa_plataforma: number;
+      outros_custos: number;
+    }>;
+    receita_total: number;
+    despesas_dedutiveis_total: number;
+    custos_operacionais_total: number;
+  }> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams();
+    params.set('property_ids', propertyIds.join(','));
+    params.set('ano', String(ano));
+    const response = await apiRequest<{ data: unknown }>(
+      `/api/v1/properties/aggregate-preview?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data as {
+      meses: Array<{
+        mes_referencia: string;
+        receita_aluguel_tradicional: number;
+        receita_aluguel_curto: number;
+        receita_garagem: number;
+        receita_outras: number;
+        iptu: number;
+        condominio: number;
+        seguro_imovel: number;
+        juros_financiamento: number;
+        manutencao_conservacao: number;
+        outras_dedutiveis: number;
+        reformas_melhorias: number;
+        mobilia_equipamentos: number;
+        limpeza_higienizacao: number;
+        comissao_corretagem: number;
+        taxa_plataforma: number;
+        outros_custos: number;
+      }>;
+      receita_total: number;
+      despesas_dedutiveis_total: number;
+      custos_operacionais_total: number;
+    };
+  },
+
+  async checkExists(
+    clientId: string,
+    identificador: string
+  ): Promise<{ exists: boolean; property_id?: string }> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams();
+    params.set('client_id', clientId);
+    params.set('identificador', identificador);
+    const response = await apiRequest<{ data: { exists: boolean; property_id?: string } }>(
+      `/api/v1/properties/check-exists?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data;
+  },
+
   async simulate(params: {
     ano: number;
     property_ids: string[];

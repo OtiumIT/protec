@@ -163,13 +163,6 @@ export function SimuladorImoveis() {
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const printPreviewContentRef = useRef<HTMLDivElement>(null);
   const printWrapperRef = useRef<HTMLDivElement>(null);
-  /** Última simulação por imóveis (para Salvar no histórico). */
-  const lastImoveisSimulationRef = useRef<{
-    ano: number;
-    property_ids: string[];
-    client_id: string;
-    opcoes_reforma: Record<string, unknown>;
-  } | null>(null);
   /** Payload da última simulação (para Salvar no histórico após o resultado). */
   const lastSimulationPayloadRef = useRef<{
     ano: number;
@@ -204,6 +197,17 @@ export function SimuladorImoveis() {
   const [showClientModal, setShowClientModal] = useState(false);
   const [showPropertyModal, setShowPropertyModal] = useState(false);
   const [showTxModal, setShowTxModal] = useState<{ propertyId: string; identificador: string } | null>(null);
+  type ImovelTemporario = {
+    tempId: string;
+    identificador: string;
+    tipo_locacao: 'fixa' | 'flexivel';
+    client_id: string;
+    meses: SimulateStandaloneMesInput[];
+  };
+  const [imoveisTemporarios, setImoveisTemporarios] = useState<ImovelTemporario[]>([]);
+  const [showAddTemporarioModal, setShowAddTemporarioModal] = useState(false);
+  const [addTemporarioForm, setAddTemporarioForm] = useState({ identificador: '', tipo_locacao: 'fixa' as 'fixa' | 'flexivel' });
+  const [editingTemporarioId, setEditingTemporarioId] = useState<string | null>(null);
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
@@ -489,6 +493,137 @@ export function SimuladorImoveis() {
   const selectAllImoveis = () => setImoveisSelectedIds(new Set(imoveisList.map((p) => p.id)));
   const clearAllImoveis = () => setImoveisSelectedIds(new Set());
 
+  const handleAddTemporario = () => {
+    const { identificador, tipo_locacao } = addTemporarioForm;
+    if (!imoveisClientId || !identificador.trim()) return;
+    const tempId = crypto.randomUUID();
+    const novosMeses = Array.from({ length: 12 }, (_, i) => emptyMes(ano, i));
+    setImoveisTemporarios((prev) => [
+      ...prev,
+      { tempId, identificador, tipo_locacao, client_id: imoveisClientId, meses: novosMeses },
+    ]);
+    setShowAddTemporarioModal(false);
+    setAddTemporarioForm({ identificador: '', tipo_locacao: 'fixa' });
+  };
+
+  const handleRemoverTemporario = (tempId: string) => {
+    setImoveisTemporarios((prev) => prev.filter((t) => t.tempId !== tempId));
+    if (editingTemporarioId === tempId) setEditingTemporarioId(null);
+  };
+
+  const handleSalvarTemporario = async (t: ImovelTemporario) => {
+    try {
+      const check = await propertyService.checkExists(t.client_id, t.identificador);
+      if (check.exists) {
+        showError(`Já existe um imóvel com o identificador "${t.identificador}" para este cliente.`);
+        return;
+      }
+      const prop = await propertyService.create({
+        client_id: t.client_id,
+        identificador: t.identificador,
+        tipo_locacao: t.tipo_locacao,
+        modo_entrada: 'detalhado',
+      });
+      const txs = t.meses.flatMap((m) => {
+        const rec = (m.receita_aluguel_tradicional ?? 0) + (m.receita_aluguel_curto ?? 0) + (m.receita_garagem ?? 0) + (m.receita_outras ?? 0);
+        const desp = (m.iptu ?? 0) + (m.condominio ?? 0) + (m.seguro_imovel ?? 0) + (m.juros_financiamento ?? 0) + (m.manutencao_conservacao ?? 0) + (m.outras_dedutiveis ?? 0);
+        const custo = (m.reformas_melhorias ?? 0) + (m.mobilia_equipamentos ?? 0) + (m.limpeza_higienizacao ?? 0) + (m.comissao_corretagem ?? 0) + (m.taxa_plataforma ?? 0) + (m.outros_custos ?? 0);
+        const items: Array<{ mes_referencia: string; tipo: 'receita' | 'despesa_dedutivel' | 'custo_operacional'; categoria: string; valor: number }> = [];
+        if (rec > 0) items.push({ mes_referencia: m.mes_referencia, tipo: 'receita', categoria: 'aluguel', valor: rec });
+        if (desp > 0) items.push({ mes_referencia: m.mes_referencia, tipo: 'despesa_dedutivel', categoria: 'outros', valor: desp });
+        if (custo > 0) items.push({ mes_referencia: m.mes_referencia, tipo: 'custo_operacional', categoria: 'outros', valor: custo });
+        return items;
+      });
+      if (txs.length > 0) {
+        await propertyService.addTransactionsBatch(prop.id, txs);
+      }
+      setImoveisTemporarios((prev) => prev.filter((x) => x.tempId !== t.tempId));
+      setEditingTemporarioId(null);
+      if (imoveisClientId === t.client_id) {
+        const data = await propertyService.list({ client_id: t.client_id, limit: 100 });
+        setImoveisList(data.properties);
+        setImoveisSelectedIds((prev) => new Set([...prev, prop.id]));
+      }
+      success('Imóvel salvo no sistema.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao salvar imóvel');
+    }
+  };
+
+  /** Sincroniza a grid com dados agregados dos imóveis selecionados + temporários. */
+  useEffect(() => {
+    if (modoEntrada !== 'imoveis') return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ids = Array.from(imoveisSelectedIds);
+      const hasCadastrados = ids.length > 0;
+      const temporariosAtual = imoveisTemporarios.filter((x) => x.client_id === imoveisClientId);
+      const hasTemporarios = temporariosAtual.length > 0;
+
+      if (!hasCadastrados && !hasTemporarios) {
+        if (!cancelled) {
+          setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(ano, i)));
+        }
+        return;
+      }
+
+      let baseMeses: SimulateStandaloneMesInput[] = Array.from({ length: 12 }, (_, i) => emptyMes(ano, i));
+
+      if (hasCadastrados) {
+        try {
+          const preview = await propertyService.aggregatePreview(ids, ano);
+          if (!cancelled) baseMeses = preview.meses;
+        } catch {
+          if (!cancelled) baseMeses = Array.from({ length: 12 }, (_, i) => emptyMes(ano, i));
+        }
+      }
+
+      if (cancelled) return;
+
+      if (hasTemporarios) {
+        const merged = baseMeses.map((m, i) => {
+          let receita = (m.receita_aluguel_tradicional ?? 0) + (m.receita_aluguel_curto ?? 0) + (m.receita_garagem ?? 0) + (m.receita_outras ?? 0);
+          let desp = (m.iptu ?? 0) + (m.condominio ?? 0) + (m.seguro_imovel ?? 0) + (m.juros_financiamento ?? 0) + (m.manutencao_conservacao ?? 0) + (m.outras_dedutiveis ?? 0);
+          let custo = (m.reformas_melhorias ?? 0) + (m.mobilia_equipamentos ?? 0) + (m.limpeza_higienizacao ?? 0) + (m.comissao_corretagem ?? 0) + (m.taxa_plataforma ?? 0) + (m.outros_custos ?? 0);
+          for (const t of temporariosAtual) {
+            const tm = t.meses[i];
+            if (tm) {
+              receita += (tm.receita_aluguel_tradicional ?? 0) + (tm.receita_aluguel_curto ?? 0) + (tm.receita_garagem ?? 0) + (tm.receita_outras ?? 0);
+              desp += (tm.iptu ?? 0) + (tm.condominio ?? 0) + (tm.seguro_imovel ?? 0) + (tm.juros_financiamento ?? 0) + (tm.manutencao_conservacao ?? 0) + (tm.outras_dedutiveis ?? 0);
+              custo += (tm.reformas_melhorias ?? 0) + (tm.mobilia_equipamentos ?? 0) + (tm.limpeza_higienizacao ?? 0) + (tm.comissao_corretagem ?? 0) + (tm.taxa_plataforma ?? 0) + (tm.outros_custos ?? 0);
+            }
+          }
+          return {
+            ...m,
+            receita_aluguel_tradicional: round2(receita),
+            receita_aluguel_curto: 0,
+            receita_garagem: 0,
+            receita_outras: 0,
+            iptu: 0,
+            condominio: 0,
+            seguro_imovel: 0,
+            juros_financiamento: 0,
+            manutencao_conservacao: 0,
+            outras_dedutiveis: round2(desp),
+            reformas_melhorias: 0,
+            mobilia_equipamentos: 0,
+            limpeza_higienizacao: 0,
+            comissao_corretagem: 0,
+            taxa_plataforma: 0,
+            outros_custos: round2(custo),
+          };
+        });
+        setMeses(merged);
+      } else {
+        setMeses(baseMeses);
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [modoEntrada, imoveisSelectedIds, imoveisTemporarios, imoveisClientId, ano]);
+
   const buildMesesParaEnvio = (): SimulateStandaloneMesInput[] =>
     meses.map((m, i) => {
       const mesRef = m.mes_referencia || `${ano}-${String(i + 1).padStart(2, '0')}`;
@@ -515,46 +650,8 @@ export function SimuladorImoveis() {
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (modoEntrada === 'imoveis') {
-      const ids = Array.from(imoveisSelectedIds);
-      if (ids.length === 0) {
-        showError('Selecione pelo menos um imóvel para simular.');
-        return;
-      }
-      setLoading(true);
-      setResult(null);
-      try {
-        const opcoes = {
-          ano_referencia_reforma: anoReferenciaReforma,
-          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
-          aliquota_ibs_plena: aliquotaPlenaIBS,
-          aliquota_cbs_estimada: aliquotaCBS,
-          redutor_short_stay_pct: 50,
-          contrato_antes_16012025: contratoAntes16012025,
-          perfil_locacao: perfilLocacao,
-        };
-        const res = await propertyService.simulate({
-          ano,
-          property_ids: ids,
-          opcoes_reforma: opcoes,
-          quantidade_imoveis_residenciais: ids.length,
-          quantidade_imoveis_comerciais: 0,
-        });
-        setResult(res);
-        setSaveClientId(imoveisClientId);
-        lastImoveisSimulationRef.current = {
-          ano,
-          property_ids: ids,
-          client_id: imoveisClientId,
-          opcoes_reforma: opcoes,
-        };
-        lastSimulationPayloadRef.current = null;
-        success('Simulação concluída.');
-      } catch (err) {
-        showError(err instanceof Error ? err.message : 'Erro ao simular');
-      } finally {
-        setLoading(false);
-      }
+    if (modoEntrada === 'imoveis' && imoveisSelectedIds.size === 0 && imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).length === 0) {
+      showError('Selecione pelo menos um imóvel ou adicione um imóvel não cadastrado para simular.');
       return;
     }
     if (editingSimulationId) {
@@ -583,7 +680,6 @@ export function SimuladorImoveis() {
           receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
         });
         setResult(res);
-      lastImoveisSimulationRef.current = null;
       lastSimulationPayloadRef.current = {
         ano,
         meses: mesesParaEnvio,
@@ -619,26 +715,29 @@ export function SimuladorImoveis() {
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
       };
+      const qtdTotal = modoEntrada === 'imoveis'
+        ? imoveisSelectedIds.size + imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).length
+        : quantidadeImoveisTotal;
       const res = await propertyService.simulateStandalone({
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: quantidadeImoveisTotal,
-        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        quantidade_imoveis: qtdTotal || 1,
+        quantidade_imoveis_residenciais: modoEntrada === 'imoveis' ? qtdTotal : quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: modoEntrada === 'imoveis' ? 0 : quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
         receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
       });
       setResult(res);
-      lastImoveisSimulationRef.current = null;
+      setSaveClientId(modoEntrada === 'imoveis' ? imoveisClientId : saveClientId);
       lastSimulationPayloadRef.current = {
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: quantidadeImoveisTotal,
-        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        quantidade_imoveis: qtdTotal || 1,
+        quantidade_imoveis_residenciais: modoEntrada === 'imoveis' ? qtdTotal : quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: modoEntrada === 'imoveis' ? 0 : quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
         receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
@@ -772,35 +871,7 @@ export function SimuladorImoveis() {
 
   /** Salvar a simulação atual no histórico (botão após resultado). */
   const handleSaveToHistory = async () => {
-    const imoveisPayload = lastImoveisSimulationRef.current;
     const standalonePayload = lastSimulationPayloadRef.current;
-
-    if (imoveisPayload) {
-      const clientId = saveClientId || imoveisPayload.client_id;
-      if (!clientId) {
-        showError('Selecione um cliente para salvar a simulação');
-        return;
-      }
-      setLoading(true);
-      try {
-        const { result: res } = await propertyService.simulateAndSaveFromProperties({
-          ano: imoveisPayload.ano,
-          property_ids: imoveisPayload.property_ids,
-          client_id: clientId,
-          title: saveTitle || undefined,
-          opcoes_reforma: imoveisPayload.opcoes_reforma as Parameters<typeof propertyService.simulateAndSaveFromProperties>[0]['opcoes_reforma'],
-        });
-        setResult(res);
-        success('Simulação salva no histórico.');
-        const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
-        setSimulations(listRes.simulations);
-      } catch (err) {
-        showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
 
     if (!saveClientId) {
       showError('Selecione um cliente para salvar a simulação');
@@ -910,52 +981,89 @@ export function SimuladorImoveis() {
                   </div>
                   {imoveisLoading ? (
                     <p className="text-sm text-slate-500">Carregando imóveis...</p>
-                  ) : imoveisList.length === 0 ? (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-sm text-slate-500">Nenhum imóvel cadastrado para este cliente.</p>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setShowPropertyModal(true)}
-                      >
-                        + Cadastrar imóvel
-                      </Button>
-                    </div>
                   ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {imoveisList.map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50"
-                        >
-                          <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={imoveisSelectedIds.has(p.id)}
-                              onChange={() => toggleImovelSelection(p.id)}
-                              className="rounded border-slate-300 text-brand focus:ring-brand shrink-0"
-                            />
-                            <span className="text-sm text-slate-700 truncate">{p.identificador}</span>
-                            <span className="text-xs text-slate-500 shrink-0">({p.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'})</span>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setShowTxModal({ propertyId: p.id, identificador: p.identificador })}
-                            className="text-xs text-brand hover:text-brand-dark hover:underline shrink-0"
-                          >
-                            Editar lançamentos
-                          </button>
+                    <div className="space-y-4">
+                      {(imoveisList.length > 0 || imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).length > 0) && (
+                        <div className="flex flex-wrap gap-3">
+                          {imoveisList.map((p) => (
+                            <div
+                              key={p.id}
+                              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50"
+                            >
+                              <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={imoveisSelectedIds.has(p.id)}
+                                  onChange={() => toggleImovelSelection(p.id)}
+                                  className="rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+                                />
+                                <span className="text-sm text-slate-700 truncate">{p.identificador}</span>
+                                <span className="text-xs text-slate-500 shrink-0">({p.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'})</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setShowTxModal({ propertyId: p.id, identificador: p.identificador })}
+                                className="text-xs text-brand hover:text-brand-dark hover:underline shrink-0"
+                              >
+                                Editar lançamentos
+                              </button>
+                            </div>
+                          ))}
+                          {imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).map((t) => (
+                            <div
+                              key={t.tempId}
+                              className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md"
+                            >
+                              <span className="text-sm text-slate-700 truncate">{t.identificador}</span>
+                              <span className="text-xs text-amber-700 shrink-0">(não salvo)</span>
+                              <span className="text-xs text-slate-500 shrink-0">· {t.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'}</span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingTemporarioId(t.tempId)}
+                                className="text-xs text-brand hover:text-brand-dark hover:underline shrink-0"
+                              >
+                                Editar valores
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSalvarTemporario(t)}
+                                className="text-xs text-brand hover:text-brand-dark hover:underline shrink-0"
+                              >
+                                Salvar no sistema
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoverTemporario(t.tempId)}
+                                className="text-xs text-red-600 hover:text-red-700 shrink-0"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="tertiary"
-                        size="sm"
-                        onClick={() => setShowPropertyModal(true)}
-                      >
-                        + Cadastrar imóvel
-                      </Button>
+                      )}
+                      {imoveisList.length === 0 && imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).length === 0 && (
+                        <p className="text-sm text-slate-500">Nenhum imóvel na simulação. Adicione abaixo.</p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="tertiary"
+                          size="sm"
+                          onClick={() => setShowPropertyModal(true)}
+                        >
+                          + Cadastrar imóvel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="tertiary"
+                          size="sm"
+                          onClick={() => setShowAddTemporarioModal(true)}
+                        disabled={!imoveisClientId}
+                        >
+                          + Adicionar imóvel (não cadastrado)
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -984,7 +1092,7 @@ export function SimuladorImoveis() {
                 variant="primary"
                 disabled={
                   loading ||
-                  (modoEntrada === 'imoveis' && (!imoveisClientId || imoveisSelectedIds.size === 0))
+                  (modoEntrada === 'imoveis' && imoveisSelectedIds.size === 0 && imoveisTemporarios.filter((x) => x.client_id === imoveisClientId).length === 0)
                 }
                 className="min-w-[200px]"
               >
@@ -1173,8 +1281,6 @@ export function SimuladorImoveis() {
           </div>
         </Card>
 
-        {modoEntrada === 'manual' && (
-          <>
         {/* Preenchimento rápido – Rateio anual */}
         <Card className="p-5 border-slate-200 bg-slate-50/50">
           <h3 className="font-semibold text-slate-800 mb-2">Preenchimento rápido – Valores anuais</h3>
@@ -1356,8 +1462,6 @@ export function SimuladorImoveis() {
             {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
           </Button>
         </div>
-          </>
-        )}
       </form>
 
       {result && (
@@ -2536,6 +2640,144 @@ export function SimuladorImoveis() {
           </svg>
         </button>
       )}
+
+      {editingTemporarioId && (() => {
+        const t = imoveisTemporarios.find((x) => x.tempId === editingTemporarioId);
+        if (!t) return null;
+        return (
+          <Modal
+            isOpen={!!t}
+            onClose={() => setEditingTemporarioId(null)}
+            title={`Editar valores — ${t.identificador}`}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">Informe os totais anuais para ratear nos 12 meses.</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Receita anual</label>
+                  <MoneyInput
+                    value={t.meses.reduce((s, m) => s + (m.receita_aluguel_tradicional ?? 0) + (m.receita_aluguel_curto ?? 0) + (m.receita_garagem ?? 0) + (m.receita_outras ?? 0), 0)}
+                    onChange={(v) => {
+                      const mensal = round2(v / 12);
+                      setImoveisTemporarios((prev) =>
+                        prev.map((x) =>
+                          x.tempId === t.tempId
+                            ? {
+                                ...x,
+                                meses: x.meses.map((m) => ({
+                                  ...m,
+                                  receita_aluguel_tradicional: mensal,
+                                  receita_aluguel_curto: 0,
+                                  receita_garagem: 0,
+                                  receita_outras: 0,
+                                })),
+                              }
+                            : x
+                        )
+                      );
+                    }}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Despesas dedutíveis anuais</label>
+                  <MoneyInput
+                    value={t.meses.reduce((s, m) => s + (m.iptu ?? 0) + (m.condominio ?? 0) + (m.seguro_imovel ?? 0) + (m.juros_financiamento ?? 0) + (m.manutencao_conservacao ?? 0) + (m.outras_dedutiveis ?? 0), 0)}
+                    onChange={(v) => {
+                      const mensal = round2(v / 12);
+                      setImoveisTemporarios((prev) =>
+                        prev.map((x) =>
+                          x.tempId === t.tempId
+                            ? {
+                                ...x,
+                                meses: x.meses.map((m) => ({
+                                  ...m,
+                                  iptu: 0,
+                                  condominio: 0,
+                                  seguro_imovel: 0,
+                                  juros_financiamento: 0,
+                                  manutencao_conservacao: 0,
+                                  outras_dedutiveis: mensal,
+                                })),
+                              }
+                            : x
+                        )
+                      );
+                    }}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Custos operacionais anuais</label>
+                  <MoneyInput
+                    value={t.meses.reduce((s, m) => s + (m.reformas_melhorias ?? 0) + (m.mobilia_equipamentos ?? 0) + (m.limpeza_higienizacao ?? 0) + (m.comissao_corretagem ?? 0) + (m.taxa_plataforma ?? 0) + (m.outros_custos ?? 0), 0)}
+                    onChange={(v) => {
+                      const mensal = round2(v / 12);
+                      setImoveisTemporarios((prev) =>
+                        prev.map((x) =>
+                          x.tempId === t.tempId
+                            ? {
+                                ...x,
+                                meses: x.meses.map((m) => ({
+                                  ...m,
+                                  reformas_melhorias: 0,
+                                  mobilia_equipamentos: 0,
+                                  limpeza_higienizacao: 0,
+                                  comissao_corretagem: 0,
+                                  taxa_plataforma: 0,
+                                  outros_custos: mensal,
+                                })),
+                              }
+                            : x
+                        )
+                      );
+                    }}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <Button type="button" variant="secondary" onClick={() => setEditingTemporarioId(null)}>
+                Fechar
+              </Button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      <Modal
+        isOpen={showAddTemporarioModal}
+        onClose={() => { setShowAddTemporarioModal(false); setAddTemporarioForm({ identificador: '', tipo_locacao: 'fixa' }); }}
+        title="Adicionar imóvel (não cadastrado)"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">Preencha os dados. Os valores serão inseridos na grid para você editar.</p>
+          <Input
+            label="Identificador (endereço ou nome)"
+            value={addTemporarioForm.identificador}
+            onChange={(e) => setAddTemporarioForm((f) => ({ ...f, identificador: e.target.value }))}
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de locação</label>
+            <select
+              className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2"
+              value={addTemporarioForm.tipo_locacao}
+              onChange={(e) => setAddTemporarioForm((f) => ({ ...f, tipo_locacao: e.target.value as 'fixa' | 'flexivel' }))}
+            >
+              <option value="fixa">Fixa (Mensal)</option>
+              <option value="flexivel">Flexível (Airbnb)</option>
+            </select>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={handleAddTemporario} disabled={!addTemporarioForm.identificador.trim()}>
+              Adicionar
+            </Button>
+            <Button type="button" variant="tertiary" onClick={() => setShowAddTemporarioModal(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <ClientFormModal
         isOpen={showClientModal}

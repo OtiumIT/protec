@@ -108,6 +108,21 @@ export class PropertyRepository extends BaseRepository {
     await this.query('DELETE FROM properties WHERE id = $1', [id], false);
   }
 
+  async findByClientAndIdentificador(
+    clientId: string,
+    identificador: string
+  ): Promise<Property | null> {
+    const result = await this.query<Property>(
+      `SELECT id, client_id, tipo_locacao, identificador, COALESCE(modo_entrada, 'detalhado') as modo_entrada, created_at, updated_at
+       FROM properties
+       WHERE client_id = $1 AND TRIM(LOWER(identificador)) = TRIM(LOWER($2))
+       LIMIT 1`,
+      [clientId, identificador],
+      false
+    );
+    return result.rows[0] || null;
+  }
+
   async list(options: {
     client_id?: string;
     page?: number;

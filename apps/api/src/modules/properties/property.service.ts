@@ -103,6 +103,17 @@ export class PropertyService {
     if (!client) {
       throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
     }
+    const existing = await this.repo.findByClientAndIdentificador(
+      data.client_id,
+      data.identificador
+    );
+    if (existing) {
+      throw new AppError(
+        `Já existe um imóvel com o identificador "${data.identificador}" para este cliente.`,
+        'PROPERTY_DUPLICATE',
+        409
+      );
+    }
     return this.repo.create({
       client_id: data.client_id,
       tipo_locacao: data.tipo_locacao,
@@ -204,6 +215,117 @@ export class PropertyService {
   ) {
     await this.getById(propertyId);
     return this.repo.listTransactions(propertyId, options);
+  }
+
+  /**
+   * Retorna dados agregados dos imóveis em formato compatível com a grid do simulador standalone.
+   * Usado para preencher a grid quando o usuário seleciona imóveis cadastrados.
+   */
+  async checkExists(clientId: string, identificador: string) {
+    const prop = await this.repo.findByClientAndIdentificador(clientId, identificador);
+    return {
+      exists: !!prop,
+      property_id: prop?.id,
+    };
+  }
+
+  async aggregatePreview(propertyIds: string[], ano: number) {
+    if (propertyIds.length === 0) {
+      const emptyMeses = Array.from({ length: 12 }, (_, i) => ({
+        mes_referencia: `${ano}-${String(i + 1).padStart(2, '0')}`,
+        receita_aluguel_tradicional: 0,
+        receita_aluguel_curto: 0,
+        receita_garagem: 0,
+        receita_outras: 0,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
+        outras_dedutiveis: 0,
+        reformas_melhorias: 0,
+        mobilia_equipamentos: 0,
+        limpeza_higienizacao: 0,
+        comissao_corretagem: 0,
+        taxa_plataforma: 0,
+        outros_custos: 0,
+      }));
+      return {
+        meses: emptyMeses,
+        receita_total: 0,
+        despesas_dedutiveis_total: 0,
+        custos_operacionais_total: 0,
+      };
+    }
+
+    const aggregatedMap = await this.repo.aggregateByPropertiesYear(propertyIds, ano);
+
+    let receitaTotal = 0;
+    let despesasDedutiveisTotal = 0;
+    let custosOperacionaisTotal = 0;
+    const meses: Array<{
+      mes_referencia: string;
+      receita_aluguel_tradicional: number;
+      receita_aluguel_curto: number;
+      receita_garagem: number;
+      receita_outras: number;
+      iptu: number;
+      condominio: number;
+      seguro_imovel: number;
+      juros_financiamento: number;
+      manutencao_conservacao: number;
+      outras_dedutiveis: number;
+      reformas_melhorias: number;
+      mobilia_equipamentos: number;
+      limpeza_higienizacao: number;
+      comissao_corretagem: number;
+      taxa_plataforma: number;
+      outros_custos: number;
+    }> = [];
+
+    for (let m = 1; m <= 12; m++) {
+      const mesStr = `${ano}-${String(m).padStart(2, '0')}`;
+      let rec = 0;
+      let desp = 0;
+      let custo = 0;
+      for (const [, entry] of aggregatedMap) {
+        const mesData = entry.aggregated.meses.find((x) => x.mes === mesStr);
+        if (mesData) {
+          rec += mesData.receita;
+          desp += mesData.despesas_dedutiveis;
+          custo += mesData.custos_operacionais;
+        }
+      }
+      meses.push({
+        mes_referencia: mesStr,
+        receita_aluguel_tradicional: Math.round(rec * 100) / 100,
+        receita_aluguel_curto: 0,
+        receita_garagem: 0,
+        receita_outras: 0,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
+        outras_dedutiveis: Math.round(desp * 100) / 100,
+        reformas_melhorias: 0,
+        mobilia_equipamentos: 0,
+        limpeza_higienizacao: 0,
+        comissao_corretagem: 0,
+        taxa_plataforma: 0,
+        outros_custos: Math.round(custo * 100) / 100,
+      });
+      receitaTotal += rec;
+      despesasDedutiveisTotal += desp;
+      custosOperacionaisTotal += custo;
+    }
+
+    return {
+      meses,
+      receita_total: Math.round(receitaTotal * 100) / 100,
+      despesas_dedutiveis_total: Math.round(despesasDedutiveisTotal * 100) / 100,
+      custos_operacionais_total: Math.round(custosOperacionaisTotal * 100) / 100,
+    };
   }
 
   // --- Simulation ---

@@ -89242,6 +89242,17 @@ var PropertyService = class {
     if (!client) {
       throw new AppError("Cliente n\xE3o encontrado", "CLIENT_NOT_FOUND", 404);
     }
+    const existing = await this.repo.findByClientAndIdentificador(
+      data.client_id,
+      data.identificador
+    );
+    if (existing) {
+      throw new AppError(
+        `J\xE1 existe um im\xF3vel com o identificador "${data.identificador}" para este cliente.`,
+        "PROPERTY_DUPLICATE",
+        409
+      );
+    }
     return this.repo.create({
       client_id: data.client_id,
       tipo_locacao: data.tipo_locacao,
@@ -89326,6 +89337,93 @@ var PropertyService = class {
   async listTransactions(propertyId, options) {
     await this.getById(propertyId);
     return this.repo.listTransactions(propertyId, options);
+  }
+  /**
+   * Retorna dados agregados dos imóveis em formato compatível com a grid do simulador standalone.
+   * Usado para preencher a grid quando o usuário seleciona imóveis cadastrados.
+   */
+  async checkExists(clientId, identificador) {
+    const prop = await this.repo.findByClientAndIdentificador(clientId, identificador);
+    return {
+      exists: !!prop,
+      property_id: prop?.id
+    };
+  }
+  async aggregatePreview(propertyIds, ano) {
+    if (propertyIds.length === 0) {
+      const emptyMeses = Array.from({ length: 12 }, (_, i) => ({
+        mes_referencia: `${ano}-${String(i + 1).padStart(2, "0")}`,
+        receita_aluguel_tradicional: 0,
+        receita_aluguel_curto: 0,
+        receita_garagem: 0,
+        receita_outras: 0,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
+        outras_dedutiveis: 0,
+        reformas_melhorias: 0,
+        mobilia_equipamentos: 0,
+        limpeza_higienizacao: 0,
+        comissao_corretagem: 0,
+        taxa_plataforma: 0,
+        outros_custos: 0
+      }));
+      return {
+        meses: emptyMeses,
+        receita_total: 0,
+        despesas_dedutiveis_total: 0,
+        custos_operacionais_total: 0
+      };
+    }
+    const aggregatedMap = await this.repo.aggregateByPropertiesYear(propertyIds, ano);
+    let receitaTotal = 0;
+    let despesasDedutiveisTotal = 0;
+    let custosOperacionaisTotal = 0;
+    const meses = [];
+    for (let m = 1; m <= 12; m++) {
+      const mesStr = `${ano}-${String(m).padStart(2, "0")}`;
+      let rec = 0;
+      let desp = 0;
+      let custo = 0;
+      for (const [, entry] of aggregatedMap) {
+        const mesData = entry.aggregated.meses.find((x) => x.mes === mesStr);
+        if (mesData) {
+          rec += mesData.receita;
+          desp += mesData.despesas_dedutiveis;
+          custo += mesData.custos_operacionais;
+        }
+      }
+      meses.push({
+        mes_referencia: mesStr,
+        receita_aluguel_tradicional: Math.round(rec * 100) / 100,
+        receita_aluguel_curto: 0,
+        receita_garagem: 0,
+        receita_outras: 0,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
+        outras_dedutiveis: Math.round(desp * 100) / 100,
+        reformas_melhorias: 0,
+        mobilia_equipamentos: 0,
+        limpeza_higienizacao: 0,
+        comissao_corretagem: 0,
+        taxa_plataforma: 0,
+        outros_custos: Math.round(custo * 100) / 100
+      });
+      receitaTotal += rec;
+      despesasDedutiveisTotal += desp;
+      custosOperacionaisTotal += custo;
+    }
+    return {
+      meses,
+      receita_total: Math.round(receitaTotal * 100) / 100,
+      despesas_dedutiveis_total: Math.round(despesasDedutiveisTotal * 100) / 100,
+      custos_operacionais_total: Math.round(custosOperacionaisTotal * 100) / 100
+    };
   }
   // --- Simulation ---
   async simulate(input) {
@@ -89878,6 +89976,17 @@ var PropertyRepository = class extends BaseRepository {
   async delete(id) {
     await this.query("DELETE FROM properties WHERE id = $1", [id], false);
   }
+  async findByClientAndIdentificador(clientId, identificador) {
+    const result = await this.query(
+      `SELECT id, client_id, tipo_locacao, identificador, COALESCE(modo_entrada, 'detalhado') as modo_entrada, created_at, updated_at
+       FROM properties
+       WHERE client_id = $1 AND TRIM(LOWER(identificador)) = TRIM(LOWER($2))
+       LIMIT 1`,
+      [clientId, identificador],
+      false
+    );
+    return result.rows[0] || null;
+  }
   async list(options) {
     const page = options.page ?? 1;
     const limit2 = options.limit ?? 20;
@@ -90378,6 +90487,45 @@ propertyRoutes.post(
   }
 );
 propertyRoutes.get(
+  "/check-exists",
+  zValidator(
+    "query",
+    external_exports.object({
+      client_id: external_exports.string().uuid(),
+      identificador: external_exports.string().min(1)
+    })
+  ),
+  async (c) => {
+    try {
+      const { client_id, identificador } = c.req.valid("query");
+      const result = await propertyService.checkExists(client_id, identificador);
+      return c.json({ data: result });
+    } catch (err) {
+      return errorHandler2(err, c);
+    }
+  }
+);
+propertyRoutes.get(
+  "/aggregate-preview",
+  zValidator(
+    "query",
+    external_exports.object({
+      property_ids: external_exports.string().optional().default(""),
+      ano: external_exports.coerce.number().int().min(2020).max(2030)
+    })
+  ),
+  async (c) => {
+    try {
+      const { property_ids, ano } = c.req.valid("query");
+      const ids = (property_ids || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const result = await propertyService.aggregatePreview(ids, ano);
+      return c.json({ data: result });
+    } catch (err) {
+      return errorHandler2(err, c);
+    }
+  }
+);
+propertyRoutes.get(
   "/",
   zValidator("query", ListPropertiesQuerySchema),
   async (c) => {
@@ -90633,7 +90781,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-20T21:35:26.416Z";
+var API_UPDATED_AT = "2026-03-20T22:32:59.666Z";
 
 // src/modules/index.ts
 var app = new Hono2();

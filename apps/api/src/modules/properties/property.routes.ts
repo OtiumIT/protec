@@ -185,6 +185,49 @@ propertyRoutes.post(
   }
 );
 
+/** GET /properties/check-exists - Verificar se imóvel já existe (client_id + identificador) */
+propertyRoutes.get(
+  '/check-exists',
+  zValidator(
+    'query',
+    z.object({
+      client_id: z.string().uuid(),
+      identificador: z.string().min(1),
+    })
+  ),
+  async (c) => {
+    try {
+      const { client_id, identificador } = c.req.valid('query');
+      const result = await propertyService.checkExists(client_id, identificador);
+      return c.json({ data: result });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** GET /properties/aggregate-preview - Preview de dados agregados para a grid (deve vir antes de /:id) */
+propertyRoutes.get(
+  '/aggregate-preview',
+  zValidator(
+    'query',
+    z.object({
+      property_ids: z.string().optional().default(''),
+      ano: z.coerce.number().int().min(2020).max(2030),
+    })
+  ),
+  async (c) => {
+    try {
+      const { property_ids, ano } = c.req.valid('query');
+      const ids = (property_ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const result = await propertyService.aggregatePreview(ids, ano);
+      return c.json({ data: result });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
 /** GET /properties - Listar imóveis */
 propertyRoutes.get(
   '/',
