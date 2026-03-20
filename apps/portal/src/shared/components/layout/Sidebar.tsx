@@ -450,7 +450,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
       const adminItems: MenuItem[] = [tenants, plans, modules, editais, documentacao].filter(Boolean) as MenuItem[];
       if (gestaoUsuarios) {
-        adminItems.push(...(gestaoUsuarios.children ?? [gestaoUsuarios]));
+        adminItems.push(gestaoUsuarios);
       }
       if (adminItems.length)
         categories.push({ id: 'administracao', name: 'Administração', icon: CATEGORY_ICONS.cogSliders, items: adminItems });
