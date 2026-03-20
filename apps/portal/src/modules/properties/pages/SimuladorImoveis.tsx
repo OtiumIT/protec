@@ -7,6 +7,9 @@ import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService, type PropertyWithClient } from '../services/property.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { ClientFormModal } from '../../clients/components/ClientFormModal';
+import { PropertyFormModal } from '../components/PropertyFormModal';
+import { PropertyTransactionsModal } from '../components/PropertyTransactionsModal';
 import { Modal } from '../../../shared/components/ui/Modal';
 import {
   BarChart,
@@ -198,6 +201,9 @@ export function SimuladorImoveis() {
   const [imoveisList, setImoveisList] = useState<PropertyWithClient[]>([]);
   const [imoveisSelectedIds, setImoveisSelectedIds] = useState<Set<string>>(new Set());
   const [imoveisLoading, setImoveisLoading] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [showTxModal, setShowTxModal] = useState<{ propertyId: string; identificador: string } | null>(null);
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
@@ -413,6 +419,15 @@ export function SimuladorImoveis() {
       if (demoKeyTimeoutRef.current) clearTimeout(demoKeyTimeoutRef.current);
     };
   }, [fillDemo1, fillDemo2CenarioIbsCbs]);
+
+  const loadClients = useCallback(async () => {
+    try {
+      const data = await clientService.list();
+      setClients(Array.isArray(data) ? data : []);
+    } catch {
+      setClients([]);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -858,16 +873,26 @@ export function SimuladorImoveis() {
             <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
-                <select
-                  className="w-full max-w-xs bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700"
-                  value={imoveisClientId}
-                  onChange={(e) => setImoveisClientId(e.target.value)}
-                >
-                  <option value="">Selecione um cliente</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2 items-center">
+                  <select
+                    className="flex-1 max-w-xs bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700"
+                    value={imoveisClientId}
+                    onChange={(e) => setImoveisClientId(e.target.value)}
+                  >
+                    <option value="">Selecione um cliente</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    size="sm"
+                    onClick={() => setShowClientModal(true)}
+                  >
+                    + Novo cliente
+                  </Button>
+                </div>
               </div>
               {imoveisClientId && (
                 <div>
@@ -886,21 +911,51 @@ export function SimuladorImoveis() {
                   {imoveisLoading ? (
                     <p className="text-sm text-slate-500">Carregando imóveis...</p>
                   ) : imoveisList.length === 0 ? (
-                    <p className="text-sm text-slate-500">Nenhum imóvel cadastrado para este cliente. Cadastre em Imóveis.</p>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-slate-500">Nenhum imóvel cadastrado para este cliente.</p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowPropertyModal(true)}
+                      >
+                        + Cadastrar imóvel
+                      </Button>
+                    </div>
                   ) : (
                     <div className="flex flex-wrap gap-3">
                       {imoveisList.map((p) => (
-                        <label key={p.id} className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50">
-                          <input
-                            type="checkbox"
-                            checked={imoveisSelectedIds.has(p.id)}
-                            onChange={() => toggleImovelSelection(p.id)}
-                            className="rounded border-slate-300 text-brand focus:ring-brand"
-                          />
-                          <span className="text-sm text-slate-700">{p.identificador}</span>
-                          <span className="text-xs text-slate-500">({p.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'})</span>
-                        </label>
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50"
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={imoveisSelectedIds.has(p.id)}
+                              onChange={() => toggleImovelSelection(p.id)}
+                              className="rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+                            />
+                            <span className="text-sm text-slate-700 truncate">{p.identificador}</span>
+                            <span className="text-xs text-slate-500 shrink-0">({p.tipo_locacao === 'fixa' ? 'Fixa' : 'Flexível'})</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowTxModal({ propertyId: p.id, identificador: p.identificador })}
+                            className="text-xs text-brand hover:text-brand-dark hover:underline shrink-0"
+                          >
+                            Editar lançamentos
+                          </button>
+                        </div>
                       ))}
+                      <Button
+                        type="button"
+                        variant="tertiary"
+                        size="sm"
+                        onClick={() => setShowPropertyModal(true)}
+                      >
+                        + Cadastrar imóvel
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -2480,6 +2535,40 @@ export function SimuladorImoveis() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </button>
+      )}
+
+      <ClientFormModal
+        isOpen={showClientModal}
+        onClose={() => setShowClientModal(false)}
+        onSuccess={(client) => {
+          loadClients();
+          setImoveisClientId(client.id);
+        }}
+      />
+
+      <PropertyFormModal
+        isOpen={showPropertyModal}
+        onClose={() => setShowPropertyModal(false)}
+        onSuccess={() => {
+          if (imoveisClientId) {
+            propertyService.list({ client_id: imoveisClientId, limit: 100 }).then((data) => {
+              setImoveisList(data.properties);
+              setImoveisSelectedIds(new Set(data.properties.map((p) => p.id)));
+            });
+          }
+        }}
+        clients={clients}
+        defaultClientId={imoveisClientId}
+      />
+
+      {showTxModal && (
+        <PropertyTransactionsModal
+          isOpen={!!showTxModal}
+          onClose={() => setShowTxModal(null)}
+          propertyId={showTxModal.propertyId}
+          identificador={showTxModal.identificador}
+          ano={ano}
+        />
       )}
     </Layout>
   );

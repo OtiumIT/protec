@@ -14,6 +14,7 @@ import {
 } from '../services/property.service';
 import { clientService } from '../../clients/services/client.service';
 import type { ClientWithCreatedAt } from '../../clients/services/client.service';
+import { ClientFormModal } from '../../clients/components/ClientFormModal';
 
 export function Properties() {
   const { error: showError, ToastContainer } = useToast();
@@ -43,6 +44,7 @@ export function Properties() {
     identificador: '',
     modo_entrada: 'reduzido' as 'detalhado' | 'reduzido',
   });
+  const [showClientModal, setShowClientModal] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -162,21 +164,41 @@ export function Properties() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Filtrar por Cliente
               </label>
-              <select
-                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand"
-                value={clientFilter}
-                onChange={(e) => setClientFilter(e.target.value)}
-              >
-                <option value="">Todos os clientes</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand"
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value)}
+                >
+                  <option value="">Todos os clientes</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowClientModal(true)}
+                  className="shrink-0"
+                >
+                  + Novo cliente
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
+
+        <ClientFormModal
+          isOpen={showClientModal}
+          onClose={() => setShowClientModal(false)}
+          onSuccess={(client) => {
+            loadClients();
+            setClientFilter(client.id);
+          }}
+        />
 
         <Card>
           {isLoading ? (
