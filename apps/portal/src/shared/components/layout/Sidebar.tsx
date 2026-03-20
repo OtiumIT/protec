@@ -587,25 +587,43 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     );
   };
 
-  /** Renderiza os itens de uma categoria (links ou filhos de itens com children) */
+  /** Wrapper tab line padrão para conteúdo de categoria */
+  const tabLineWrapperClass = `mt-0.5 pl-2 border-l-2 border-slate-200 bg-slate-50/50 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`;
+
+  /** Renderiza os itens de uma categoria com wrapper tab line unificado */
   const renderCategoryItems = (cat: MenuCategory) => {
-    const result: React.ReactNode[] = [];
-    cat.items.forEach((item) => {
-      if (item.children && item.children.length > 0 && !item.path) {
-        result.push(
-          <li key={item.name} className="list-none">
-            <div className={`mt-0.5 pl-2 border-l-2 border-slate-200 bg-slate-50/50 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`}>
-              <ul className="space-y-0.5 list-none">
-                {item.children.map((child) => renderMenuLink(child, true))}
-              </ul>
-            </div>
-          </li>
-        );
-      } else {
-        result.push(renderMenuLink(item, false));
-      }
-    });
-    return result;
+    const hasSingleItemWithChildren =
+      cat.items.length === 1 && cat.items[0].children?.length && !cat.items[0].path;
+
+    return (
+      <li className="list-none">
+        <div className={tabLineWrapperClass}>
+          <ul className="space-y-0.5 list-none">
+            {cat.items.map((item) => {
+              if (item.children && item.children.length > 0 && !item.path) {
+                if (hasSingleItemWithChildren) {
+                  return item.children.map((child) => renderMenuLink(child, true));
+                }
+                return (
+                  <li key={item.name} className="list-none">
+                    <div className="flex items-center gap-2 pl-2 py-2 text-sm font-medium text-slate-600">
+                      <span className="text-slate-500 flex-shrink-0">{item.icon}</span>
+                      {item.name}
+                    </div>
+                    <div className="ml-2 pl-2 border-l-2 border-slate-200/80 space-y-0.5">
+                      <ul className="space-y-0.5 list-none">
+                        {item.children.map((child) => renderMenuLink(child, true))}
+                      </ul>
+                    </div>
+                  </li>
+                );
+              }
+              return renderMenuLink(item, true);
+            })}
+          </ul>
+        </div>
+      </li>
+    );
   };
 
   // Itens de menu baseados no tipo de usuário
@@ -759,7 +777,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                     className={`
                       w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
                       group relative
-                      ${hasActive ? 'bg-brand/5 text-brand' : 'text-slate-700 hover:bg-slate-50 hover:text-brand'}
+                      ${hasActive ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
                       ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}
                       focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
                     `}
@@ -794,7 +812,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                   className={`
                     w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
                     group relative
-                    ${hasActive ? 'bg-brand/5 text-brand' : 'text-slate-700 hover:bg-slate-50 hover:text-brand'}
+                    ${hasActive || isExpanded ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
                     ${isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'}
                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
                   `}
