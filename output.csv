@@ -1,0 +1,17 @@
+﻿Cálculo IBS/CBS,,,,
+,,,,
+2 imóveis residenciais curta duração ,,,,
+Valor anual ,Redutor social,Base líquida ,Alíquota (redutor 50%),Valor IBS/CBS
+" 120,000.00 "," 14,400.00 "," 105,600.00 ",14%," 14,784.00 "
+,,,,
+1 imóvel residencial longa duração ,,,,
+Valor anual ,Redutor social,Base líquida ,Alíquota (redutor 70%),Valor IBS/CBS
+" 60,000.00 "," 7,200.00 "," 52,800.00 ",8.4%," 4,435.20 "
+,,,,
+2 imóveis não residenciais longa duração ,,,,
+Valor anual ,Redutor social,Base líquida ,Alíquota (redutor 70%),Valor IBS/CBS
+" 114,000.00 ",," 114,000.00 ",8.4%," 9,576.00 "
+,,,Total IBS/CBS," 28,795.20 "
+,,,,
+Total da receita ,IBS/CBS %,,,
+" 294,000.00 ", 9.79 ,,,

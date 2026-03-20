@@ -336,7 +336,7 @@ export const rulesImoveis: RuleDocumentation[] = [
     modulo: 'simulador-imoveis',
     nome: 'Reforma Tributaria 2027 (IBS/CBS)',
     descricao:
-      'A partir de 2027, locacao de imoveis (residenciais e nao residenciais) passa a pagar IBS e CBS com redutor setorial da aliquota (nao "redutor de ajuste"). Locacao residencial comum e locacao nao residencial de longa duracao utilizam redutor de 70%; hospedagem/temporada (short stay) utiliza redutor de 50%. O perfil "ambos" aplica os dois redutores proporcionalmente. Redutor social Art. 260: R$ 600/mes por imovel residencial, deduzido da BASE de calculo apenas na parte residencial. Quando misto (residencial+comercial), informar receita_locacao_residencial_anual e receita_locacao_nao_residencial_anual separadamente para que o motor aplique o redutor social apenas na parcela residencial.',
+      'A partir de 2027, locacao de imoveis (residenciais e nao residenciais) passa a pagar IBS e CBS com redutor setorial da aliquota (nao "redutor de ajuste"). Locacao de longa duracao (acima de 90 dias) e locacao nao residencial utilizam redutor de 70%; curta temporada (ate 90 dias, equiparada a hotelaria) utiliza redutor de 50%. O perfil "ambos" aplica os dois redutores proporcionalmente. Redutor social Art. 260 LC 214/2025: R$ 600/mes por imovel residencial, deduzido da BASE de calculo apenas na parcela de longa duracao - curta temporada (ate 90 dias) NAO recebe redutor social. Quando misto (residencial+comercial), informar receita_locacao_residencial_anual e receita_locacao_nao_residencial_anual separadamente.',
     formula: 'Aliquota\\_Efetiva = Aliquota\\_Nominal \\times (1 - Redutor)',
     formula_explicada:
       'Se a aliquota nominal for 26,5% e o redutor for 70%, a efetiva e 26,5% x 30% = 7,95%.',
@@ -408,10 +408,10 @@ export const rulesImoveis: RuleDocumentation[] = [
       'A partir de 2029: CBS plena + IBS progressivo (10% em 2029, 20% em 2030, 30% em 2031, 40% em 2032, 100% em 2033).',
       'O redutor de 70% resulta em carga efetiva próxima a 8% sobre receita após 2033.',
       'Perfil "ambos": quando há receita de longa duração e de curta temporada, o simulador aplica 70% na parte longa e 50% na curta, proporcionalmente. O redutor da alíquota é exibido no card e em "Ver cálculo IBS/CBS".',
-      'Redutor social (Art. 260 LC 214/2025): R$ 600/mês por imóvel residencial deduzido da BASE de cálculo. Locação não residencial não tem redutor social, mas utiliza o mesmo redutor setorial de alíquota (70% ou 50%, conforme o perfil da locação definido pelo usuário).',
+      'Redutor social (Art. 260 LC 214/2025): R$ 600/mês por imóvel residencial deduzido da BASE apenas na parcela de longa duração (acima de 90 dias). Curta temporada (até 90 dias) e locação não residencial não recebem redutor social.',
       'Para PF: só é contribuinte se mais de 3 imóveis + receita > R$ 240k, ou receita > R$ 288k.',
     ],
-    ultima_atualizacao: '2026-03-17',
+    ultima_atualizacao: '2026-03-20',
     tags: ['reforma', 'ibs', 'cbs', 'redutor'],
     vigencia: {
       inicio: '2027-01-01',

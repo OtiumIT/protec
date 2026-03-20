@@ -500,14 +500,12 @@ export function calcularReforma2027(
     const receitaResidencialLong = receitaResidencial * partLongResidencial;
     const receitaResidencialShort = receitaResidencial * partShortResidencial;
 
-    // Distribuição proporcional do redutor social entre longa e curta
-    const redutorSocialLong =
-      redutorSocialAnual > 0 ? redutorSocialAnual * partLongResidencial : 0;
-    const redutorSocialShort =
-      redutorSocialAnual > 0 ? redutorSocialAnual * partShortResidencial : 0;
+    // LC 214/2025 Art. 260: redutor social apenas na longa duração (acima de 90 dias). Curta temporada (até 90 dias) não recebe.
+    const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual : 0;
+    const redutorSocialShort = 0;
 
     const baseResidencialLong = Math.max(0, round2(receitaResidencialLong - redutorSocialLong));
-    const baseResidencialShort = Math.max(0, round2(receitaResidencialShort - redutorSocialShort));
+    const baseResidencialShort = receitaResidencialShort;
 
     const ibsCbsResidencialLong = round2(baseResidencialLong * rateLong);
     const ibsCbsResidencialShort = round2(baseResidencialShort * rateShort);
@@ -530,44 +528,49 @@ export function calcularReforma2027(
       receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
     );
     redutorSocialAplicado = round2(
-      (Math.min(receitaResidencialLong, redutorSocialLong) * rateLong) +
-      (Math.min(receitaResidencialShort, redutorSocialShort) * rateShort)
+      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong
     );
     ibsCbsAntesRedutorSocial = round2(
       impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
     );
   } else {
-    // Modelo unificado: redutor social na BASE (Art. 260), não no imposto
-    const baseTributavel = redutorSocialAnual > 0
-      ? Math.max(0, round2(receita_total - redutorSocialAnual))
-      : receita_total;
+    // Modelo unificado: redutor social na BASE (Art. 260) apenas na longa duração. Curta (até 90 dias) não recebe.
+    const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+    const aliquotaEfetivaRate = (aliquotaNominal / 100) * (1 - redutor / 100);
+    const rateLong = (aliquotaNominal / 100) * (1 - redutorLong / 100);
+    const rateShort = (aliquotaNominal / 100) * (1 - redutorShort / 100);
+    const aplicaRedutorSocial = redutorSocialAnual > 0 && (usarRedutorDiferenciado ? receitaLonga > 0 : redutor === REDUTOR_LOCACAO_RESIDENCIAL); // LC 214/2025: só longa (>90 dias) recebe
 
     if (usarRedutorDiferenciado) {
-      const partLong = receitaLonga / receita_total;
-      const partShort = receitaShort / receita_total;
-      const rateLong = (aliquotaNominal / 100) * (1 - redutorLong / 100);
-      const rateShort = (aliquotaNominal / 100) * (1 - redutorShort / 100);
-      const aliquotaEfetivaMedia = partLong * rateLong + partShort * rateShort;
-      ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaMedia);
-      const rateMedio = receita_total > 0 ? (baseTributavel * aliquotaEfetivaMedia) / receita_total : 0;
+      const baseLonga = aplicaRedutorSocial
+        ? Math.max(0, round2(receitaLonga - redutorSocialAnual))
+        : receitaLonga;
+      const baseShort = receitaShort;
+      const baseTributavel = baseLonga + baseShort;
+      ibsCbsReceita = round2(baseLonga * rateLong + baseShort * rateShort);
+      const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
       creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
       redutorExibicao = redutorLong;
-      redutorSocialAplicado = redutorSocialAnual > 0
-        ? round2(Math.min(receita_total, redutorSocialAnual) * (partLong * rateLong + partShort * rateShort))
+      redutorSocialAplicado = aplicaRedutorSocial
+        ? round2(Math.min(receitaLonga, redutorSocialAnual) * rateLong)
         : 0;
-      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado
-        ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
+      ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
+        ? (() => {
+            const debitoSemRedutor = receitaLonga * rateLong + receitaShort * rateShort;
+            return round2(Math.max(0, debitoSemRedutor - creditosIbsCbs) + redutorSocialAplicado);
+          })()
         : undefined;
     } else {
-      const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
-      const aliquotaEfetivaRate = (aliquotaNominal / 100) * (1 - redutor / 100);
+      const baseTributavel = aplicaRedutorSocial
+        ? Math.max(0, round2(receita_total - redutorSocialAnual))
+        : receita_total;
       ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaRate);
       creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate);
       redutorExibicao = redutor;
-      redutorSocialAplicado = redutorSocialAnual > 0
+      redutorSocialAplicado = aplicaRedutorSocial
         ? round2(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate)
         : 0;
-      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado
+      ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
         ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
         : undefined;
     }

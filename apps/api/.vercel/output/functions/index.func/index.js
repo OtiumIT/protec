@@ -89072,10 +89072,10 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
     const rateShort = aliquotaBase * (1 - redutorShort / 100);
     const receitaResidencialLong = receitaResidencial * partLongResidencial;
     const receitaResidencialShort = receitaResidencial * partShortResidencial;
-    const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual * partLongResidencial : 0;
-    const redutorSocialShort = redutorSocialAnual > 0 ? redutorSocialAnual * partShortResidencial : 0;
+    const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual : 0;
+    const redutorSocialShort = 0;
     const baseResidencialLong = Math.max(0, round28(receitaResidencialLong - redutorSocialLong));
-    const baseResidencialShort = Math.max(0, round28(receitaResidencialShort - redutorSocialShort));
+    const baseResidencialShort = receitaResidencialShort;
     const ibsCbsResidencialLong = round28(baseResidencialLong * rateLong);
     const ibsCbsResidencialShort = round28(baseResidencialShort * rateShort);
     const rateNaoResidencial = rateLong;
@@ -89089,33 +89089,37 @@ function calcularReforma2027(aggregated, aliquotaIbsCbsOverride, redutorLocacaoP
       receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
     );
     redutorSocialAplicado = round28(
-      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong + Math.min(receitaResidencialShort, redutorSocialShort) * rateShort
+      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong
     );
     ibsCbsAntesRedutorSocial = round28(
       impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
     );
   } else {
-    const baseTributavel = redutorSocialAnual > 0 ? Math.max(0, round28(receita_total - redutorSocialAnual)) : receita_total;
+    const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
+    const aliquotaEfetivaRate = aliquotaNominal / 100 * (1 - redutor / 100);
+    const rateLong = aliquotaNominal / 100 * (1 - redutorLong / 100);
+    const rateShort = aliquotaNominal / 100 * (1 - redutorShort / 100);
+    const aplicaRedutorSocial = redutorSocialAnual > 0 && (usarRedutorDiferenciado ? receitaLonga > 0 : redutor === REDUTOR_LOCACAO_RESIDENCIAL);
     if (usarRedutorDiferenciado) {
-      const partLong = receitaLonga / receita_total;
-      const partShort = receitaShort / receita_total;
-      const rateLong = aliquotaNominal / 100 * (1 - redutorLong / 100);
-      const rateShort = aliquotaNominal / 100 * (1 - redutorShort / 100);
-      const aliquotaEfetivaMedia = partLong * rateLong + partShort * rateShort;
-      ibsCbsReceita = round28(baseTributavel * aliquotaEfetivaMedia);
-      const rateMedio = receita_total > 0 ? baseTributavel * aliquotaEfetivaMedia / receita_total : 0;
+      const baseLonga = aplicaRedutorSocial ? Math.max(0, round28(receitaLonga - redutorSocialAnual)) : receitaLonga;
+      const baseShort = receitaShort;
+      const baseTributavel = baseLonga + baseShort;
+      ibsCbsReceita = round28(baseLonga * rateLong + baseShort * rateShort);
+      const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
       creditosIbsCbs = round28(custos_operacionais_total * rateMedio);
       redutorExibicao = redutorLong;
-      redutorSocialAplicado = redutorSocialAnual > 0 ? round28(Math.min(receita_total, redutorSocialAnual) * (partLong * rateLong + partShort * rateShort)) : 0;
-      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado ? round28(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado) : void 0;
+      redutorSocialAplicado = aplicaRedutorSocial ? round28(Math.min(receitaLonga, redutorSocialAnual) * rateLong) : 0;
+      ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado ? (() => {
+        const debitoSemRedutor = receitaLonga * rateLong + receitaShort * rateShort;
+        return round28(Math.max(0, debitoSemRedutor - creditosIbsCbs) + redutorSocialAplicado);
+      })() : void 0;
     } else {
-      const redutor = redutorLocacaoPct ?? opcoes?.redutor_locacao_pct ?? REDUTOR_LOCACAO_RESIDENCIAL;
-      const aliquotaEfetivaRate = aliquotaNominal / 100 * (1 - redutor / 100);
+      const baseTributavel = aplicaRedutorSocial ? Math.max(0, round28(receita_total - redutorSocialAnual)) : receita_total;
       ibsCbsReceita = round28(baseTributavel * aliquotaEfetivaRate);
       creditosIbsCbs = round28(custos_operacionais_total * aliquotaEfetivaRate);
       redutorExibicao = redutor;
-      redutorSocialAplicado = redutorSocialAnual > 0 ? round28(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate) : 0;
-      ibsCbsAntesRedutorSocial = redutorSocialAnual > 0 && redutorSocialAplicado ? round28(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado) : void 0;
+      redutorSocialAplicado = aplicaRedutorSocial ? round28(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate) : 0;
+      ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado ? round28(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado) : void 0;
     }
   }
   let ibsCbsLiquido = Math.max(0, round28(ibsCbsReceita - creditosIbsCbs));
@@ -90629,7 +90633,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-20T10:14:51.895Z";
+var API_UPDATED_AT = "2026-03-20T11:40:12.399Z";
 
 // src/modules/index.ts
 var app = new Hono2();

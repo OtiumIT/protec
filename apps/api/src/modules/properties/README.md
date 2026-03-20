@@ -58,7 +58,8 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 ### Regra 8: Cenário Reforma 2027
 
 - IBS/CBS com alíquota nominal estimada configurável (padrão 26,5%; faixa típica 26,5% a 28%)
-- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota → efetiva = nominal × 30% (ex.: 28% → 8,4%). Padrão `redutor_locacao_pct: 70`.
+- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota (longa duração, acima de 90 dias) e 50% (curta temporada, até 90 dias) → efetiva = nominal × (1 − redutor). Padrão `redutor_locacao_pct: 70`.
+- **Redutor social (Art. 260 LC 214/2025)**: R$ 600/mês por imóvel residencial, deduzido da base **apenas** na parcela de longa duração. Curta temporada (até 90 dias) não recebe redutor social.
 - **Reforma PJ**: `reforma_2027_pj.imposto_total` = IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS; IRPJ e CSLL sobre lucro presumido).
 - **Reforma PF**: quando a PF **não** é contribuinte de IBS/CBS (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k), `reforma_2027_pf.imposto_total` = apenas IR (Carnê-Leão), `reforma_2027_pf.ibs_cbs_liquido` = 0. No comparativo de cenários do portal, a coluna Reforma PF exibe "—" (não se aplica) nesses casos.
 - Créditos sobre custos operacionais deduzem do imposto sobre receita
