@@ -89525,7 +89525,7 @@ var PropertyService = class {
         custos_operacionais: custosOperacionais
       };
     });
-    const receitaTotal = mesesSoma.reduce((s, x) => s + x.receita, 0);
+    let receitaTotal = mesesSoma.reduce((s, x) => s + x.receita, 0);
     const despesasDedutiveisTotal = mesesSoma.reduce(
       (s, x) => s + x.despesas_dedutiveis,
       0
@@ -89542,6 +89542,30 @@ var PropertyService = class {
       (s, m) => s + (m.receita_aluguel_curto ?? 0),
       0
     );
+    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
+    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
+    const receitaTotalFromSplit = receitaResidencial + receitaNaoResidencial;
+    if (receitaResidencial > 0 && receitaNaoResidencial > 0 && receitaTotalFromSplit > 0) {
+      if (receitaTotal > 0) {
+        const fator = receitaTotalFromSplit / receitaTotal;
+        for (let i = 0; i < mesesSoma.length; i++) {
+          mesesSoma[i] = {
+            ...mesesSoma[i],
+            receita: Math.round(mesesSoma[i].receita * fator * 100) / 100
+          };
+        }
+      } else {
+        const mensal = Math.round(receitaTotalFromSplit / 12 * 100) / 100;
+        for (let i = 0; i < mesesSoma.length; i++) {
+          const ultimo = i === 11;
+          mesesSoma[i] = {
+            ...mesesSoma[i],
+            receita: ultimo ? Math.round((receitaTotalFromSplit - mensal * 11) * 100) / 100 : mensal
+          };
+        }
+      }
+      receitaTotal = receitaTotalFromSplit;
+    }
     const quantidadeImoveisResidenciaisStandalone = input.quantidade_imoveis_residenciais ?? // fallback: se não informado, assumir que todos os imóveis são residenciais
     input.quantidade_imoveis ?? 0;
     const redutorSocialResidencialAnualStandalone = quantidadeImoveisResidenciaisStandalone > 0 ? 600 * 12 * quantidadeImoveisResidenciaisStandalone : void 0;
@@ -89552,8 +89576,6 @@ var PropertyService = class {
       custos_operacionais_total: custosOperacionaisTotal,
       meses: mesesSoma
     };
-    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
-    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
     const aggregatedReforma = receitaResidencial > 0 && receitaNaoResidencial > 0 ? {
       ...aggregatedTotal,
       receita_total: receitaResidencial + receitaNaoResidencial
@@ -90607,7 +90629,7 @@ debugRoutes.get("/modules-db", async (c) => {
 
 // src/version.generated.ts
 var API_VERSION = "1.0.0";
-var API_UPDATED_AT = "2026-03-20T01:30:27.311Z";
+var API_UPDATED_AT = "2026-03-20T02:59:56.023Z";
 
 // src/modules/index.ts
 var app = new Hono2();

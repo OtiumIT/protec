@@ -491,7 +491,7 @@ export class PropertyService {
         custos_operacionais: custosOperacionais,
       };
     });
-    const receitaTotal = mesesSoma.reduce((s, x) => s + x.receita, 0);
+    let receitaTotal = mesesSoma.reduce((s, x) => s + x.receita, 0);
     const despesasDedutiveisTotal = mesesSoma.reduce(
       (s, x) => s + x.despesas_dedutiveis,
       0
@@ -508,6 +508,35 @@ export class PropertyService {
       (s, m) => s + (m.receita_aluguel_curto ?? 0),
       0
     );
+
+    // Bug 1.1: Quando receita residencial e não residencial são ambas informadas,
+    // usar a soma como base para PF/PJ (não apenas a soma dos meses).
+    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
+    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
+    const receitaTotalFromSplit = receitaResidencial + receitaNaoResidencial;
+    if (receitaResidencial > 0 && receitaNaoResidencial > 0 && receitaTotalFromSplit > 0) {
+      if (receitaTotal > 0) {
+        const fator = receitaTotalFromSplit / receitaTotal;
+        for (let i = 0; i < mesesSoma.length; i++) {
+          mesesSoma[i] = {
+            ...mesesSoma[i],
+            receita: Math.round(mesesSoma[i].receita * fator * 100) / 100,
+          };
+        }
+      } else {
+        const mensal = Math.round((receitaTotalFromSplit / 12) * 100) / 100;
+        for (let i = 0; i < mesesSoma.length; i++) {
+          const ultimo = i === 11;
+          mesesSoma[i] = {
+            ...mesesSoma[i],
+            receita: ultimo
+              ? Math.round((receitaTotalFromSplit - mensal * 11) * 100) / 100
+              : mensal,
+          };
+        }
+      }
+      receitaTotal = receitaTotalFromSplit;
+    }
 
     const quantidadeImoveisResidenciaisStandalone =
       input.quantidade_imoveis_residenciais ??
@@ -529,8 +558,6 @@ export class PropertyService {
     };
 
     // Para Reforma com split residencial/não residencial, usar receita segregada
-    const receitaResidencial = input.receita_locacao_residencial_anual ?? 0;
-    const receitaNaoResidencial = input.receita_locacao_nao_residencial_anual ?? 0;
     const aggregatedReforma =
       receitaResidencial > 0 && receitaNaoResidencial > 0
         ? {

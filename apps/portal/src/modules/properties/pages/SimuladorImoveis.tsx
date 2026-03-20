@@ -1122,7 +1122,10 @@ export function SimuladorImoveis() {
           <>
         {/* Preenchimento rápido – Rateio anual */}
         <Card className="p-5 border-slate-200 bg-slate-50/50">
-          <h3 className="font-semibold text-slate-800 mb-4">Preenchimento rápido – Valores anuais</h3>
+          <h3 className="font-semibold text-slate-800 mb-2">Preenchimento rápido – Valores anuais</h3>
+          <p className="text-xs text-slate-600 mb-4 bg-sky-50 border border-sky-200 rounded px-3 py-2">
+            A <strong>grid de meses</strong> (aluguel tradicional + curto prazo) é a base para PF, PJ e Reforma. O botão &quot;Aplicar rateio&quot; distribui os totais anuais nos 12 meses. Se você preencher apenas os totais no topo (receita residencial/não residencial) sem aplicar rateio na grid, o cálculo usará os valores já presentes nos meses — mantenha a grid atualizada. Quando há misto residencial + comercial, informe também os campos de receita anual residencial e não residencial acima para o redutor social e a segregação correta na Reforma.
+          </p>
 
           {/* Bloco Receitas */}
           <div className="mb-4 pb-4 border-b border-slate-200 last:border-b-0 last:mb-0 last:pb-0">
@@ -2267,7 +2270,7 @@ export function SimuladorImoveis() {
         const pres16 = (result.memoria_calculo as { aplicar_presuncao_16_servicos?: boolean })?.aplicar_presuncao_16_servicos;
         const acoes: string[] = [];
         if (pjVence && economiaReais > 0) {
-          acoes.push(`Recomendação: considerar estruturação em PJ (ME/EPP) para esta atividade — economia estimada de ${formatMoney(economiaReais)} (${economiaPct.toFixed(0)}% sobre a carga em PF).`);
+          acoes.push(`Recomendação: considerar estruturação em PJ para esta atividade — economia estimada de ${formatMoney(economiaReais)} (${economiaPct.toFixed(0)}% sobre a carga em PF).`);
         } else if (!pjVence && economiaReais > 0) {
           acoes.push(`Manter como Pessoa Física é mais vantajoso neste nível de receita — você pagaria ${formatMoney(economiaReais)} a mais em impostos se optasse por PJ.`);
         }
@@ -2336,6 +2339,9 @@ export function SimuladorImoveis() {
             Break-even: {formatMoney(result.break_even.valor_mensal_break_even)}/mês
           </p>
           <p className="text-sm text-slate-600">{result.break_even.descricao}</p>
+          <p className="text-sm text-slate-600 mt-1">
+            Devem ser considerados para tanto os custos envolvidos na constituição da PJ (ITBI, honorários advocatícios e contábeis etc.).
+          </p>
         </Card>
       )}
 

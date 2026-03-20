@@ -720,7 +720,15 @@ export function PropertyDetail() {
                       {formatCurrency((simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.imposto_total ?? 0)}
                     </p>
                     <p className="text-sm text-slate-600 mt-1">
-                      Alíquota efetiva total: {(simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}% (redutor 70% locação).
+                      Alíquota efetiva total: {(simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
+                      {(() => {
+                        const ref = simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027;
+                        const ext = ref as { redutor_diferenciado_short?: boolean; redutor_long_pct?: number; redutor_short_pct?: number; redutor_locacao_aplicado_pct?: number };
+                        if (ext?.redutor_diferenciado_short && ext.redutor_long_pct != null && ext.redutor_short_pct != null) {
+                          return ` (redutor ${ext.redutor_long_pct}% longa duração e ${ext.redutor_short_pct}% curta temporada)`;
+                        }
+                        return ` (redutor ${ext?.redutor_locacao_aplicado_pct ?? 70}% locação)`;
+                      })()}
                     </p>
                     {(() => {
                       const ref = simulation.cenarios.reforma_2027_pj ?? simulation.cenarios.reforma_2027;
@@ -819,6 +827,9 @@ export function PropertyDetail() {
                     </p>
                     <p className="text-sm text-slate-600">
                       {simulation.break_even.descricao}
+                    </p>
+                    <p className="text-sm text-slate-600 mt-1">
+                      Devem ser considerados para tanto os custos envolvidos na constituição da PJ (ITBI, honorários advocatícios e contábeis etc.).
                     </p>
                   </div>
                 )}
