@@ -13,6 +13,7 @@
     "build:api": "turbo run build --filter=api",
     "build:vercel": "pnpm install && cd apps/api && pnpm run build:vercel",
     "build:vercel:output": "pnpm install && cd apps/api && pnpm run build:vercel:output",
+    "build:lambda": "pnpm install && cd apps/api && pnpm run build:lambda",
     "build:portal": "turbo run build --filter=portal",
     "deploy:portal": "pnpm run build:portal && cd apps/portal && npx wrangler pages deploy dist --project-name=${CLOUDFLARE_PAGES_PROJECT:-iatax}",
     "lint": "turbo run lint",

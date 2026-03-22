@@ -1,0 +1,86 @@
+# Deploy API para AWS Lambda
+# Pré-requisitos: configurar OIDC na AWS e secrets no GitHub (ver docs/DEPLOY_LAMBDA.md)
+
+name: Deploy API Lambda
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Lambda bundle
+        run: pnpm run build:lambda
+
+      - name: Setup SAM CLI
+        run: |
+          pip install aws-sam-cli
+          sam --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: SAM Build
+        run: sam build -t infra/template.yaml
+
+      - name: SAM Deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN || '' }}
+          CORS_ORIGIN_DOMAINS: ${{ vars.CORS_ORIGIN_DOMAINS || '' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name protec-api \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --parameter-overrides \
+              DatabaseUrl="$DATABASE_URL" \
+              JwtSecret="$JWT_SECRET" \
+              RefreshTokenSecret="$REFRESH_TOKEN_SECRET" \
+              CorsOrigin="$CORS_ORIGIN" \
+              CorsOriginDomains="$CORS_ORIGIN_DOMAINS" \
+              SupabaseUrl="$SUPABASE_URL" \
+              SupabaseServiceKey="$SUPABASE_SERVICE_KEY" \
+              SupabaseAnonKey="$SUPABASE_ANON_KEY" \
+              StripeSecretKey="$STRIPE_SECRET_KEY" \
+              StripeWebhookSecret="$STRIPE_WEBHOOK_SECRET" \
+              OpenaiApiKey="$OPENAI_API_KEY" \
+              ForceAllModulesActive=false

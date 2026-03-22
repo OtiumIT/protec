@@ -10,6 +10,7 @@
     "build": "tsc",
     "build:vercel": "node scripts/build-vercel.mjs",
     "build:vercel:output": "node scripts/build-vercel-output.mjs",
+    "build:lambda": "node scripts/build-lambda.mjs",
     "start": "node dist/index.js",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",

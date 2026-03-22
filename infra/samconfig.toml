@@ -1,0 +1,30 @@
+# SAM CLI configuration
+# Para migrar de conta: altere stack_name, region e use perfil/credenciais da nova conta.
+# Uso: sam build && sam deploy
+#
+# Variáveis sensíveis: use --parameter-overrides na linha de comando ou
+# configure os parâmetros em parameter_overrides (não commitar valores reais).
+
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "protec-api"
+s3_prefix = "protec-api"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+parameter_overrides = [
+  "DatabaseUrl=REPLACE_ME",
+  "JwtSecret=REPLACE_ME",
+  "RefreshTokenSecret=REPLACE_ME",
+  "CorsOrigin=",
+  "CorsOriginDomains=",
+  "SupabaseUrl=REPLACE_ME",
+  "SupabaseServiceKey=REPLACE_ME",
+  "SupabaseAnonKey=REPLACE_ME",
+  "StripeSecretKey=",
+  "StripeWebhookSecret=",
+  "OpenaiApiKey=",
+  "ForceAllModulesActive=false"
+]
