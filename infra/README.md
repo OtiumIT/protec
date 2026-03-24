@@ -8,6 +8,17 @@ API Protec rodando em Lambda + API Gateway HTTP API.
 - [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 - Node.js 20+ e pnpm
 
+## Setup inicial (uma vez)
+
+Antes do primeiro deploy, crie os parâmetros no SSM:
+
+```bash
+chmod +x infra/setup-ssm.sh
+./infra/setup-ssm.sh
+```
+
+O script lê o `.env` e cria os parâmetros em `/protec-api/*`. No Windows, use Git Bash ou WSL.
+
 ## Deploy manual
 
 1. **Build da API** (na raiz do monorepo):

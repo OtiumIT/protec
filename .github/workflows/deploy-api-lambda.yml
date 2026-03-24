@@ -50,46 +50,11 @@ jobs:
       - name: SAM Build
         run: sam build -t infra/template.yaml
 
-      - name: Validar secrets obrigatórios
-        run: |
-          MISSING=""
-          [ -z "${{ secrets.DATABASE_URL }}" ] && MISSING="$MISSING DATABASE_URL"
-          [ -z "${{ secrets.JWT_SECRET }}" ] && MISSING="$MISSING JWT_SECRET"
-          [ -z "${{ secrets.REFRESH_TOKEN_SECRET }}" ] && MISSING="$MISSING REFRESH_TOKEN_SECRET"
-          [ -z "${{ secrets.SUPABASE_URL }}" ] && MISSING="$MISSING SUPABASE_URL"
-          [ -z "${{ secrets.SUPABASE_SERVICE_KEY }}" ] && MISSING="$MISSING SUPABASE_SERVICE_KEY"
-          [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ] && MISSING="$MISSING SUPABASE_ANON_KEY"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Secrets obrigatórios não configurados:$MISSING"
-            echo "Configure em https://github.com/OtiumIT/protec/settings/secrets/actions"
-            echo "Se o repositório for um FORK, os secrets do repositório original não são repassados."
-            echo "Adicione os secrets nas configurações do SEU repositório (Settings > Secrets)."
-            exit 1
-          fi
-
       - name: SAM Deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
-          CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
-          CORS_ORIGIN_DOMAINS: ${{ vars.CORS_ORIGIN_DOMAINS }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          PARAMS="DatabaseUrl=\"$DATABASE_URL\" JwtSecret=\"$JWT_SECRET\" RefreshTokenSecret=\"$REFRESH_TOKEN_SECRET\""
-          PARAMS="$PARAMS CorsOrigin=\"${CORS_ORIGIN:-}\" CorsOriginDomains=\"${CORS_ORIGIN_DOMAINS:-}\""
-          PARAMS="$PARAMS SupabaseUrl=\"$SUPABASE_URL\" SupabaseServiceKey=\"$SUPABASE_SERVICE_KEY\" SupabaseAnonKey=\"$SUPABASE_ANON_KEY\""
-          PARAMS="$PARAMS StripeSecretKey=\"${STRIPE_SECRET_KEY:-}\" StripeWebhookSecret=\"${STRIPE_WEBHOOK_SECRET:-}\" OpenaiApiKey=\"${OPENAI_API_KEY:-}\""
-          PARAMS="$PARAMS ForceAllModulesActive=false"
           sam deploy \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --stack-name protec-api \
             --capabilities CAPABILITY_IAM \
-            --resolve-s3 \
-            --parameter-overrides "$PARAMS"
+            --resolve-s3

@@ -1,61 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Protec API - Lambda + API Gateway HTTP API
-
-Parameters:
-  DatabaseUrl:
-    Type: String
-    NoEcho: true
-    Description: PostgreSQL connection string (Supabase DATABASE_URL)
-  JwtSecret:
-    Type: String
-    NoEcho: true
-    Description: JWT secret key
-  RefreshTokenSecret:
-    Type: String
-    NoEcho: true
-    Description: Refresh token secret key
-  CorsOrigin:
-    Type: String
-    Default: ''
-    Description: CORS allowed origins (comma-separated), e.g. https://example.com
-  CorsOriginDomains:
-    Type: String
-    Default: ''
-    Description: CORS allowed domains (comma-separated), e.g. example.com
-  SupabaseUrl:
-    Type: String
-    Description: Supabase project URL
-  SupabaseServiceKey:
-    Type: String
-    NoEcho: true
-    Description: Supabase service role key
-  SupabaseAnonKey:
-    Type: String
-    NoEcho: true
-    Description: Supabase anon key
-  StripeSecretKey:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Stripe secret key (optional, for billing)
-  StripeWebhookSecret:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Stripe webhook secret (optional, for billing)
-  OpenaiApiKey:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: OpenAI API key (optional, for IRPF module)
-  ForceAllModulesActive:
-    Type: String
-    Default: 'false'
-    AllowedValues:
-      - 'true'
-      - 'false'
-    Description: Force all modules active (dev/demo only)
+# Parâmetros vêm do AWS SSM Parameter Store (prefixo /protec-api/). Execute infra/setup-ssm.sh uma vez.
 
 Globals:
   Function:
@@ -90,18 +36,18 @@ Resources:
       Environment:
         Variables:
           NODE_ENV: production
-          DATABASE_URL: !Ref DatabaseUrl
-          JWT_SECRET: !Ref JwtSecret
-          REFRESH_TOKEN_SECRET: !Ref RefreshTokenSecret
-          CORS_ORIGIN: !Ref CorsOrigin
-          CORS_ORIGIN_DOMAINS: !Ref CorsOriginDomains
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SERVICE_KEY: !Ref SupabaseServiceKey
-          SUPABASE_ANON_KEY: !Ref SupabaseAnonKey
-          STRIPE_SECRET_KEY: !Ref StripeSecretKey
-          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
-          OPENAI_API_KEY: !Ref OpenaiApiKey
-          FORCE_ALL_MODULES_ACTIVE: !Ref ForceAllModulesActive
+          DATABASE_URL: !Sub '{{resolve:ssm:/protec-api/DATABASE_URL}}'
+          JWT_SECRET: !Sub '{{resolve:ssm:/protec-api/JWT_SECRET}}'
+          REFRESH_TOKEN_SECRET: !Sub '{{resolve:ssm:/protec-api/REFRESH_TOKEN_SECRET}}'
+          CORS_ORIGIN: !Sub '{{resolve:ssm:/protec-api/CORS_ORIGIN}}'
+          CORS_ORIGIN_DOMAINS: !Sub '{{resolve:ssm:/protec-api/CORS_ORIGIN_DOMAINS}}'
+          SUPABASE_URL: !Sub '{{resolve:ssm:/protec-api/SUPABASE_URL}}'
+          SUPABASE_SERVICE_KEY: !Sub '{{resolve:ssm:/protec-api/SUPABASE_SERVICE_KEY}}'
+          SUPABASE_ANON_KEY: !Sub '{{resolve:ssm:/protec-api/SUPABASE_ANON_KEY}}'
+          STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/protec-api/STRIPE_SECRET_KEY}}'
+          STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/protec-api/STRIPE_WEBHOOK_SECRET}}'
+          OPENAI_API_KEY: !Sub '{{resolve:ssm:/protec-api/OPENAI_API_KEY}}'
+          FORCE_ALL_MODULES_ACTIVE: 'false'
 
 Outputs:
   ApiUrl:
