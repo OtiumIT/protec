@@ -40,22 +40,11 @@ jobs:
           pip install aws-sam-cli
           sam --version
 
-      - name: Validar secrets AWS
-        run: |
-          ROLE_ARN="${{ secrets.AWS_OIDC_ROLE_ARN }}${{ vars.AWS_OIDC_ROLE_ARN }}"
-          if [ -z "$ROLE_ARN" ]; then
-            echo "::error::AWS_OIDC_ROLE_ARN não encontrado."
-            echo "Adicione como SECRET em Settings > Secrets and variables > Actions > Secrets"
-            echo "Ou como VARIABLE em Settings > Secrets and variables > Actions > Variables"
-            echo "Nome: AWS_OIDC_ROLE_ARN"
-            echo "Valor: arn:aws:iam::688123783562:role/iatax_github"
-            exit 1
-          fi
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN }}
+          # ARN fixo da role (não é secreto; segurança está na trust policy na AWS)
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: SAM Build
