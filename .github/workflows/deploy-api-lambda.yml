@@ -50,11 +50,26 @@ jobs:
       - name: SAM Build
         run: sam build -t infra/template.yaml
 
+      # Bucket próprio evita o stack aws-sam-cli-managed-default (costuma falhar com ROLLBACK_FAILED)
+      - name: Garantir bucket S3 para artefatos SAM
+        env:
+          SAM_BUCKET: protec-sam-artifacts-688123783562
+        run: |
+          if aws s3api head-bucket --bucket "$SAM_BUCKET" 2>/dev/null; then
+            echo "Bucket $SAM_BUCKET já existe"
+          else
+            aws s3 mb "s3://$SAM_BUCKET" --region "${AWS_REGION:-us-east-1}"
+            echo "Bucket $SAM_BUCKET criado"
+          fi
+
       - name: SAM Deploy
+        env:
+          SAM_BUCKET: protec-sam-artifacts-688123783562
         run: |
           sam deploy \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --stack-name protec-api \
             --capabilities CAPABILITY_IAM \
-            --resolve-s3
+            --s3-bucket "$SAM_BUCKET" \
+            --region "${AWS_REGION:-us-east-1}"

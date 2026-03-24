@@ -95,3 +95,17 @@ Ver `infra/README.md` para parâmetros e detalhes.
 4. Opcional: altere `AWS_REGION` se usar outra região.
 5. O workflow fará o deploy na nova conta. Atualize `VITE_API_URL` com a nova URL.
 
+## Troubleshooting
+
+### `ROLLBACK_FAILED` no stack `aws-sam-cli-managed-default`
+
+O workflow usa o bucket `protec-sam-artifacts-688123783562` em vez de `--resolve-s3`, para não depender desse stack.
+
+Se ainda aparecer erro antigo, no CloudFormation **exclua** o stack `aws-sam-cli-managed-default` (se existir e estiver em falha).
+
+### Permissões da role `iatax_github`
+
+Inclua na policy:
+
+- `s3:CreateBucket`, `s3:HeadBucket`, `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` no bucket `protec-sam-artifacts-688123783562` (ou `arn:aws:s3:::protec-sam-artifacts-688123783562/*`)
+
