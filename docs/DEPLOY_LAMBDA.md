@@ -97,6 +97,10 @@ Ver `infra/README.md` para parâmetros e detalhes.
 
 ## Troubleshooting
 
+### `Stack is in ROLLBACK_FAILED state and can not be updated`
+
+O workflow tenta **excluir** automaticamente o stack `protec-api` nesses estados antes do deploy. Se a exclusão travar (ex.: role IAM presa), apague manualmente a role órfã em **IAM → Roles** e depois **Delete stack** no CloudFormation.
+
 ### `ROLLBACK_FAILED` no stack `aws-sam-cli-managed-default`
 
 O workflow usa o bucket `protec-sam-artifacts-688123783562` em vez de `--resolve-s3`, para não depender desse stack.

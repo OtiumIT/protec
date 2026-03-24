@@ -62,6 +62,31 @@ jobs:
             echo "Bucket $SAM_BUCKET criado"
           fi
 
+      # Stack em ROLLBACK_FAILED não aceita CreateChangeSet — precisa excluir antes
+      - name: Remover stack protec-api se estiver em falha
+        run: |
+          set +e
+          STATUS=$(aws cloudformation describe-stacks --stack-name protec-api --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ] || [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
+            echo "Stack protec-api não existe ou não consultável — seguindo."
+            exit 0
+          fi
+          echo "Status atual: $STATUS"
+          case "$STATUS" in
+            ROLLBACK_FAILED|CREATE_FAILED|DELETE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED)
+              echo "::warning::Removendo stack em estado $STATUS para permitir novo deploy"
+              aws cloudformation delete-stack --stack-name protec-api
+              echo "Aguardando exclusão (até ~40 min)..."
+              aws cloudformation wait stack-delete-complete --stack-name protec-api
+              echo "Stack removido."
+              ;;
+            *)
+              echo "Stack em estado utilizável ($STATUS) — não removendo."
+              ;;
+          esac
+
       - name: SAM Deploy
         env:
           SAM_BUCKET: protec-sam-artifacts-688123783562
