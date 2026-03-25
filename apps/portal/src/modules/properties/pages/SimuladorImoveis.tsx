@@ -217,6 +217,9 @@ export function SimuladorImoveis() {
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
+  const monthlyGridRef = useRef<HTMLDivElement>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showLoadedHighlight, setShowLoadedHighlight] = useState(false);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -660,7 +663,25 @@ export function SimuladorImoveis() {
       setMeses(baseMeses);
     }
     success('Dados carregados no painel. Ajuste se necessário e clique em Simular.');
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
+    }
+    setShowLoadedHighlight(true);
+    highlightTimerRef.current = setTimeout(() => {
+      setShowLoadedHighlight(false);
+      highlightTimerRef.current = null;
+    }, 2500);
+    setTimeout(() => {
+      monthlyGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   }, [imoveisSelectedIds, imoveisTemporarios, imoveisTemporariosInSimulacao, imoveisClientId, ano, success]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
   const buildMesesParaEnvio = (): SimulateStandaloneMesInput[] =>
     meses.map((m, i) => {
@@ -1185,7 +1206,7 @@ export function SimuladorImoveis() {
                       (imoveisSelectedIds.size === 0 && imoveisTemporarios.filter((x) => x.client_id === clientId).filter((t) => imoveisTemporariosInSimulacao.has(t.tempId)).length === 0)
                     }
                   >
-                    Iniciar simulação
+                    Carregar na simulação
                   </Button>
                 </div>
               </div>
@@ -1505,12 +1526,18 @@ export function SimuladorImoveis() {
         </Card>
 
         {/* Seções por categoria */}
+        <div ref={monthlyGridRef} />
         {(['receita', 'despesa', 'custo'] as SectionKey[]).map((sectionKey) => {
           const config = SECTION_CONFIG[sectionKey];
           const sectionRows = ROWS.filter((r) => r.section === sectionKey);
           if (sectionRows.length === 0) return null;
           return (
-            <Card key={sectionKey} className={`overflow-hidden border-2 ${config.border} ${config.bg}`}>
+            <Card
+              key={sectionKey}
+              className={`overflow-hidden border-2 transition-all duration-300 ${
+                showLoadedHighlight ? 'ring-2 ring-brand/40 shadow-lg' : ''
+              } ${config.border} ${config.bg}`}
+            >
               <div className={`flex items-center gap-3 px-5 py-4 border-b ${config.headerBg}`}>
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-sm">
                   {config.icon}
@@ -1567,7 +1594,9 @@ export function SimuladorImoveis() {
                             <MoneyInput
                               value={(m[row.field] as number) ?? 0}
                               onChange={(v) => updateMes(i, row.field, v)}
-                              className="!py-1.5 text-sm min-w-[11rem]"
+                              className={`!py-1.5 text-sm min-w-[11rem] transition-colors duration-300 ${
+                                showLoadedHighlight ? 'bg-amber-50/60 border-amber-300' : ''
+                              }`}
                             />
                           </td>
                         ))}
