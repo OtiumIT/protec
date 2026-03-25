@@ -31,12 +31,14 @@ import { IrpfComparativoChart } from '../components/IrpfComparativoChart';
 import { IrpfCustoPfPjChart } from '../components/IrpfCustoPfPjChart';
 import { RemoveConfirmModal } from '../../../shared/components/ui/RemoveConfirmModal';
 import { InfoModal } from '../../../shared/components/ui/InfoModal';
+import { Modal } from '../../../shared/components/ui/Modal';
 import { ParametrosSimulacaoPrint } from '../components/ParametrosSimulacaoPrint';
 import html2pdf from 'html2pdf.js';
 import {
   buildReportPdfFilename,
   getDefaultReportHtml2PdfOptions,
-  ReportExportChoiceModal,
+  ReportPrintFooter,
+  ReportPrintHeader,
   stripReportExcludedFromClone,
 } from '../../../lib/report-pdf';
 
@@ -231,6 +233,7 @@ export function IrpfAltaRenda() {
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfContentRef = useRef<HTMLDivElement>(null);
   const pdfResultPlaceholderRef = useRef<HTMLDivElement>(null);
+  const pdfPreviewContentRef = useRef<HTMLDivElement>(null);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -452,6 +455,7 @@ export function IrpfAltaRenda() {
 
   const startPdfExport = (includeParams: boolean) => {
     setPdfExportIncludeParams(includeParams);
+    setPdfExportModalOpen(false);
     setPdfExporting(true);
   };
 
@@ -499,6 +503,17 @@ export function IrpfAltaRenda() {
     };
     runExport();
   }, [pdfExporting, result, ano, contribuinteNome, success, showError]);
+
+  useEffect(() => {
+    if (!pdfExportModalOpen || !result || !pdfPreviewContentRef.current) return;
+    const resultEl = document.getElementById('irpf-alta-renda-resultado-print');
+    if (!resultEl) return;
+    const clone = resultEl.cloneNode(true) as HTMLElement;
+    stripReportExcludedFromClone(clone, 'preview');
+    stripReportExcludedFromClone(clone, 'pdf');
+    pdfPreviewContentRef.current.innerHTML = '';
+    pdfPreviewContentRef.current.appendChild(clone);
+  }, [pdfExportModalOpen, result]);
 
   const buildInput = (): SimulateIrpfAltaRendaInput => ({
     ano,
@@ -1419,22 +1434,49 @@ export function IrpfAltaRenda() {
           </p>
         </InfoModal>
 
-        <ReportExportChoiceModal
+        <Modal
           isOpen={pdfExportModalOpen}
           onClose={() => setPdfExportModalOpen(false)}
           title="Exportar para PDF"
-          intro="O que deseja incluir no PDF?"
-          optionA={{
-            title: 'Apenas resultado',
-            description: 'KPIs, tabelas, gráficos, sugestões de planejamento e memória de cálculo.',
-            onSelect: () => startPdfExport(false),
-          }}
-          optionB={{
-            title: 'Resultado + parâmetros',
-            description: 'Inclui os parâmetros da simulação (Etapa 2) antes do resultado.',
-            onSelect: () => startPdfExport(true),
-          }}
-        />
+          size="xl"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Visualize o relatório e escolha o formato da exportação.
+            </p>
+            <div
+              className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
+              style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+            >
+              <div className="report-preview-inner p-4">
+                <ReportPrintHeader
+                  variant="previewModal"
+                  reportTitle="IRPF Alta Renda — Resultado da simulação"
+                  metaLine={[
+                    `Ano ${ano}`,
+                    contribuinteNome ? `Contribuinte: ${contribuinteNome}` : null,
+                    result ? `BCC: ${formatCurrency(result.base_calculo_combinada)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+                <div ref={pdfPreviewContentRef} className="report-preview-content" />
+                <ReportPrintFooter variant="previewModal" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="secondary" onClick={() => setPdfExportModalOpen(false)}>
+                Fechar
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => startPdfExport(false)}>
+                Exportar: apenas resultado
+              </Button>
+              <Button type="button" onClick={() => startPdfExport(true)}>
+                Exportar: resultado + parametros
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         {pdfExporting && result && (
           <div
@@ -2039,7 +2081,7 @@ export function IrpfAltaRenda() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Exportar para PDF
+                    Visualizar / Exportar PDF
                   </>
                 )}
               </Button>
