@@ -1,13 +1,17 @@
-const PRODUCTION_API_URL = 'https://api.iataxsistemas.com.br';
 const DEV_API_URL = 'http://localhost:3001';
 
-/** Base URL da API. Avaliada em tempo de requisição para garantir uso correto em produção (Cloudflare, etc.). */
+/** Base URL da API. Em produção o Vite injeta VITE_API_URL no build (Cloudflare Pages, etc.) — não há fallback fixo para um domínio. */
 export function getApiUrl(): string {
-  const fromEnv = (import.meta.env?.VITE_API_URL as string)?.trim();
-  if (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) return DEV_API_URL;
-  if (fromEnv) return fromEnv;
-  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) return PRODUCTION_API_URL;
-  if (import.meta.env.PROD) return PRODUCTION_API_URL;
+  const fromEnv = (import.meta.env?.VITE_API_URL as string | undefined)?.trim() ?? '';
+  if (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) {
+    return DEV_API_URL;
+  }
+  if (fromEnv) {
+    return fromEnv;
+  }
+  if (import.meta.env.PROD) {
+    return '';
+  }
   return DEV_API_URL;
 }
 
@@ -113,7 +117,9 @@ export async function apiRequest<T>(
 
   const baseUrl = getApiUrl().replace(/\/$/, '');
   if (!baseUrl || typeof baseUrl !== 'string') {
-    throw new Error('API base URL is not configured. Set VITE_API_URL or deploy to production.');
+    throw new Error(
+      'API base URL is not configured. No build-time VITE_API_URL — set it in Cloudflare Pages (Production) and redeploy.',
+    );
   }
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${baseUrl}${path}`;
