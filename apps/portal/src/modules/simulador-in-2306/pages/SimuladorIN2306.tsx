@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
+import { ReportExportChoiceModal } from '../../../lib/report-pdf/ReportExportChoiceModal';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   simuladorIN2306Service,
@@ -114,26 +116,27 @@ export function SimuladorIN2306() {
   const [saveClientIdParcel, setSaveClientIdParcel] = useState('');
   const [saveTitleParcel, setSaveTitleParcel] = useState('');
 
+  const clientNameTrib = useMemo(() => clients.find((c) => c.id === clientIdTrib)?.name, [clients, clientIdTrib]);
+
   const handlePrintPdf = useCallback((resumida: boolean) => {
-    setPrintModalOpen(false);
+    const wrapper = document.getElementById('simulador-tributario-print-wrapper');
     const el = document.getElementById('simulador-tributario-resultado-print');
-    if (!el) return;
+    if (!wrapper || !el) return;
     el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
 
-    // Move o bloco para o body temporariamente (evita corte pelo Layout com altura fixa)
-    const parent = el.parentElement;
+    const parent = wrapper.parentElement;
     const placeholder = document.createElement('div');
     placeholder.id = 'simulador-tributario-print-placeholder';
     if (parent) {
-      parent.insertBefore(placeholder, el);
-      document.body.appendChild(el);
-      el.setAttribute('data-print-moved', 'true');
+      parent.insertBefore(placeholder, wrapper);
+      document.body.appendChild(wrapper);
+      wrapper.setAttribute('data-print-moved', 'true');
     }
     const cleanup = () => {
-      el.removeAttribute('data-print-moved');
-      if (parent && placeholder.parentElement && el.parentElement === document.body) {
-        document.body.removeChild(el);
-        parent.replaceChild(el, placeholder);
+      wrapper.removeAttribute('data-print-moved');
+      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
+        document.body.removeChild(wrapper);
+        parent.replaceChild(wrapper, placeholder);
       }
       el.removeAttribute('data-print-resumida');
       window.removeEventListener('afterprint', cleanup);
@@ -1160,6 +1163,18 @@ export function SimuladorIN2306() {
 
           {tributarioResult && (
             <>
+              <div id="simulador-tributario-print-wrapper" className="report-print-wrapper mt-6">
+                <ReportPrintHeader
+                  variant="printSheet"
+                  reportTitle="Simulador tributário – LC 224/2025 (IN RFB 2.306/2026)"
+                  metaLine={[
+                    `Ano ${tributarioResult.ano}`,
+                    `Receita total informada: ${formatMoney(receitaTotalInformada)}`,
+                    clientNameTrib ? `Cliente: ${clientNameTrib}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
               <div ref={resultadoTributarioRef} id="simulador-tributario-resultado-print" className="space-y-6">
                 {/* Cabeçalho do resultado: título + resumo + botão PDF */}
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
@@ -1722,52 +1737,25 @@ export function SimuladorIN2306() {
                 </p>
               </div>
               </div>
+              <ReportPrintFooter variant="printSheet" />
+              </div>
 
-              {/* Modal de opções de impressão */}
-              <Modal
+              <ReportExportChoiceModal
                 isOpen={printModalOpen}
                 onClose={() => setPrintModalOpen(false)}
                 title="Exportar para PDF"
-                size="md"
-              >
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-600">
-                    Escolha o formato da impressão:
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handlePrintPdf(true)}
-                      className="flex items-start gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors text-left"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-slate-900">Impressão resumida</h4>
-                        <p className="text-sm text-slate-600 mt-0.5">Cenários, comparativo e gráficos. Sem a memória de cálculo detalhada.</p>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePrintPdf(false)}
-                      className="flex items-start gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors text-left"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-slate-900">Impressão completa</h4>
-                        <p className="text-sm text-slate-600 mt-0.5">Inclui cenários, comparativo, memória de cálculo e base legal.</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </Modal>
+                intro="Escolha o formato da impressão:"
+                optionA={{
+                  title: 'Impressão resumida',
+                  description: 'Cenários, comparativo e gráficos. Sem a memória de cálculo detalhada.',
+                  onSelect: () => handlePrintPdf(true),
+                }}
+                optionB={{
+                  title: 'Impressão completa',
+                  description: 'Inclui cenários, comparativo, memória de cálculo e base legal.',
+                  onSelect: () => handlePrintPdf(false),
+                }}
+              />
             </>
           )}
         </>

@@ -11,6 +11,8 @@ import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { PropertyFormModal } from '../components/PropertyFormModal';
 import { PropertyTransactionsModal } from '../components/PropertyTransactionsModal';
 import { Modal } from '../../../shared/components/ui/Modal';
+import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
+import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
 import {
   BarChart,
   Bar,
@@ -357,7 +359,7 @@ export function SimuladorImoveis() {
     const el = document.getElementById('simulador-imoveis-resultado-print');
     if (!el) return;
     const clone = el.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('[data-preview-exclude]').forEach((n) => n.remove());
+    stripReportExcludedFromClone(clone, 'preview');
     printPreviewContentRef.current.innerHTML = '';
     printPreviewContentRef.current.appendChild(clone);
   }, [showPrintPreview, result]);
@@ -1586,19 +1588,17 @@ export function SimuladorImoveis() {
       </form>
 
       {result && (
-        <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="mt-6">
-          {/* Cabeçalho para impressão – exibido em cada folha via @media print */}
-          <header className="print-report-header hidden print:flex" aria-hidden="true">
-            <img src="/logo-iatax.png" alt="" className="h-9 w-9 object-contain" aria-hidden />
-            <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold text-slate-900 truncate">Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025</h2>
-              <p className="text-xs text-slate-600">
-                {effectiveClientName && <>Cliente: {effectiveClientName} · </>}
-                {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </p>
-              <p className="text-[10px] text-slate-500">IATax Soluções Inteligentes</p>
-            </div>
-          </header>
+        <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="report-print-wrapper mt-6">
+          <ReportPrintHeader
+            variant="printSheet"
+            reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
+            metaLine={[
+              effectiveClientName ? `Cliente: ${effectiveClientName}` : null,
+              new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          />
           <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 print:pt-2">
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
@@ -1632,7 +1632,7 @@ export function SimuladorImoveis() {
               onClick={handleOpenPrintPreview}
               className="print:hidden shrink-0 inline-flex items-center gap-2"
               aria-label="Exportar resultado para PDF"
-              data-preview-exclude
+              data-report-exclude="preview"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1642,7 +1642,7 @@ export function SimuladorImoveis() {
           </div>
 
           {/* Salvar simulação no histórico (botão após resultado) */}
-          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden" data-preview-exclude>
+          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden" data-report-exclude="preview">
             <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
             <p className="text-sm text-slate-600 mb-4">
               Salve esta simulação para consultar depois no Histórico.
@@ -2626,13 +2626,7 @@ export function SimuladorImoveis() {
       )}
 
           </div>
-          {/* Rodapé para impressão – exibido em cada folha via @media print */}
-          <footer className="print-report-footer hidden print:flex" aria-hidden="true">
-            <span className="text-[10px] text-slate-500">IATax Soluções Inteligentes</span>
-            <span className="text-[10px] text-slate-500">
-              {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-            </span>
-          </footer>
+          <ReportPrintFooter variant="printSheet" />
         </div>
       )}
 
@@ -2718,22 +2712,18 @@ export function SimuladorImoveis() {
             style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
           >
             <div className="report-preview-inner p-4">
-              <header className="print-report-header flex items-center gap-3 border-b border-slate-200 pb-3 mb-4">
-                <img src="/logo-iatax.png" alt="" className="h-9 w-9 object-contain" />
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-slate-900">Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025</h2>
-                  <p className="text-xs text-slate-600">
-                    {(effectiveClientName || reportClientName) && <>Cliente: {effectiveClientName || reportClientName} · </>}
-                    {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                  </p>
-                  <p className="text-[10px] text-slate-500">IATax Soluções Inteligentes</p>
-                </div>
-              </header>
+              <ReportPrintHeader
+                variant="previewModal"
+                reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
+                metaLine={[
+                  (effectiveClientName || reportClientName) && `Cliente: ${effectiveClientName || reportClientName}`,
+                  new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
               <div ref={printPreviewContentRef} className="report-preview-content" />
-              <footer className="print-report-footer flex items-center justify-between pt-3 mt-4 border-t border-slate-200 text-[10px] text-slate-500">
-                <span>IATax Soluções Inteligentes</span>
-                <span>{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-              </footer>
+              <ReportPrintFooter variant="previewModal" />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

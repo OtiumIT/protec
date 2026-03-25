@@ -47,12 +47,17 @@
   body * {
     visibility: hidden;
   }
+  /* Relatórios window.print: wrapper com cabeçalho/rodapé por página */
+  .report-print-wrapper,
+  .report-print-wrapper * {
+    visibility: visible;
+  }
   #simulador-tributario-resultado-print,
   #simulador-tributario-resultado-print * {
     visibility: visible;
   }
   /* Quando movido para body: esconder irmãos (Layout) para evitar páginas em branco */
-  body > *:not(#simulador-tributario-resultado-print):not(#simulador-imoveis-resultado-print):not(#simulador-imoveis-print-wrapper) {
+  body > *:not(.report-print-wrapper):not(#rating-validator-resultado-print) {
     display: none !important;
   }
   /* Impressão resumida: esconder Memória de Cálculo */
@@ -81,12 +86,13 @@
     min-height: unset !important;
     height: auto !important;
   }
-  #simulador-tributario-resultado-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    width: auto;
+  /* Resultado dentro do wrapper: fluxo normal; sem absolute (evita sobreposição ao cabeçalho fixo) */
+  .report-print-wrapper #simulador-tributario-resultado-print {
+    position: static !important;
+    left: auto;
+    top: auto;
+    right: auto;
+    width: 100% !important;
     height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
@@ -96,11 +102,6 @@
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-  /* Quando movido para body: fluxo normal para impressão multi-página */
-  #simulador-tributario-resultado-print[data-print-moved="true"] {
-    position: static !important;
-    width: 100% !important;
   }
   #simulador-tributario-resultado-print * {
     overflow: visible !important;
@@ -160,20 +161,13 @@
     background: white;
   }
 
-  /* Impressão: resultado do Simulador Imobiliário (PF vs PJ vs Reforma) */
-  #simulador-imoveis-print-wrapper,
-  #simulador-imoveis-print-wrapper * {
-    visibility: visible;
-  }
-  #simulador-imoveis-print-wrapper {
+  /* Impressão: Simulador Imobiliário e Simulador IN 2306 (wrapper institucional) */
+  .report-print-wrapper {
     position: relative;
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
-    /* Conteúdo mais largo, mas ainda com um leve respiro interno */
     padding: 0.2cm 0.1cm;
-    /* Garante que o conteúdo comece abaixo do cabeçalho fixo
-       e termine acima do rodapé fixo em todas as páginas */
     padding-top: 2.2cm;
     padding-bottom: 1.6cm;
     background: white;
@@ -182,8 +176,7 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Quando movido para body: fluxo normal para impressão multi-página */
-  #simulador-imoveis-print-wrapper[data-print-moved="true"] {
+  .report-print-wrapper[data-print-moved="true"] {
     position: static !important;
     width: 100% !important;
     max-width: 210mm !important;
@@ -192,8 +185,8 @@
     max-height: none !important;
     min-height: 0 !important;
   }
-  /* Cabeçalho fixo em cada folha A4 */
-  #simulador-imoveis-print-wrapper .print-report-header {
+  .report-print-wrapper .print-report-header,
+  .report-print-wrapper .report-print-header {
     position: fixed;
     top: 0;
     left: 0;
@@ -209,8 +202,8 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Rodapé fixo em cada folha A4 */
-  #simulador-imoveis-print-wrapper .print-report-footer {
+  .report-print-wrapper .print-report-footer,
+  .report-print-wrapper .report-print-footer {
     position: fixed;
     bottom: 0;
     left: 0;
@@ -246,10 +239,10 @@
     page-break-inside: avoid;
   }
   /* Cards e blocos: evitar corte no meio */
-  #simulador-imoveis-print-wrapper .grid > *,
-  #simulador-imoveis-print-wrapper .rounded-xl,
-  #simulador-imoveis-print-wrapper .rounded-2xl,
-  #simulador-imoveis-print-wrapper .rounded-lg {
+  .report-print-wrapper .grid > *,
+  .report-print-wrapper .rounded-xl,
+  .report-print-wrapper .rounded-2xl,
+  .report-print-wrapper .rounded-lg {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -317,24 +310,33 @@
   overflow-wrap: break-word;
 }
 
-/* PDF: usar toda a largura A4 (margem 8mm = 194mm), conteúdo em 1 coluna */
+/* PDF html2pdf: largura A4 (margem 8mm ≈ 194mm), conteúdo em 1 coluna */
+.report-html2pdf-root,
 #irpf-pdf-export-root,
 #irpf-pdf-content #irpf-pdf-export-root {
   width: 194mm !important;
   min-width: 194mm !important;
 }
+.report-html2pdf-root .irpf-pdf-resultado,
 #irpf-pdf-export-root .irpf-pdf-resultado,
 #irpf-pdf-export-root .irpf-pdf-resultado > * {
   width: 100% !important;
   max-width: 100% !important;
 }
+.report-html2pdf-root .grid,
 #irpf-pdf-export-root .grid {
   grid-template-columns: 1fr !important;
 }
+.report-html2pdf-root .recharts-responsive-container,
+.report-html2pdf-root [class*="ResponsiveContainer"],
 #irpf-pdf-export-root .recharts-responsive-container,
 #irpf-pdf-export-root [class*="ResponsiveContainer"] {
   width: 100% !important;
 }
+.report-html2pdf-root .rounded-md,
+.report-html2pdf-root .rounded-lg,
+.report-html2pdf-root .rounded-xl,
+.report-html2pdf-root .rounded-2xl,
 #irpf-pdf-export-root .rounded-md,
 #irpf-pdf-export-root .rounded-lg,
 #irpf-pdf-export-root .rounded-xl,

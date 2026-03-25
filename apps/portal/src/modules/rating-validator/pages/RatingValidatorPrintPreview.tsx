@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { useState } from 'react';
+import { buildReportPdfFilename, getDefaultReportHtml2PdfOptions } from '../../../lib/report-pdf';
 import type { RatingSimulationResult } from '../services/rating-validator.service';
 
 const FALLBACK_THRESHOLDS: Record<string, { D: string; C: string; B: string; A: string }> = {
@@ -46,14 +47,8 @@ export function RatingValidatorPrintPreview() {
     if (!el) return;
     setPdfExporting(true);
     try {
-      const opt = {
-        margin: 8,
-        filename: `IATax-Transacao-Tributaria-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-        pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
-      };
+      const filename = buildReportPdfFilename({ productSlug: 'Transacao-Tributaria' });
+      const opt = getDefaultReportHtml2PdfOptions({ filename });
       await html2pdf().set(opt as any).from(el).save();
     } catch (e) {
       console.error(e);

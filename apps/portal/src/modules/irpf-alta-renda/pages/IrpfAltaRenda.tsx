@@ -31,9 +31,14 @@ import { IrpfComparativoChart } from '../components/IrpfComparativoChart';
 import { IrpfCustoPfPjChart } from '../components/IrpfCustoPfPjChart';
 import { RemoveConfirmModal } from '../../../shared/components/ui/RemoveConfirmModal';
 import { InfoModal } from '../../../shared/components/ui/InfoModal';
-import { Modal } from '../../../shared/components/ui/Modal';
 import { ParametrosSimulacaoPrint } from '../components/ParametrosSimulacaoPrint';
 import html2pdf from 'html2pdf.js';
+import {
+  buildReportPdfFilename,
+  getDefaultReportHtml2PdfOptions,
+  ReportExportChoiceModal,
+  stripReportExcludedFromClone,
+} from '../../../lib/report-pdf';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const DEMO_KEY_WINDOW_MS = 1500;
@@ -445,9 +450,8 @@ export function IrpfAltaRenda() {
 
   const handleOpenPdfModal = () => setPdfExportModalOpen(true);
 
-  const handleExportPdf = (includeParams: boolean) => {
+  const startPdfExport = (includeParams: boolean) => {
     setPdfExportIncludeParams(includeParams);
-    setPdfExportModalOpen(false);
     setPdfExporting(true);
   };
 
@@ -464,14 +468,17 @@ export function IrpfAltaRenda() {
       if (placeholder) {
         placeholder.innerHTML = '';
         const clone = resultEl.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove());
+        stripReportExcludedFromClone(clone, 'pdf');
         placeholder.appendChild(clone);
       }
       await new Promise((r) => setTimeout(r, 250));
       try {
-        const opt = {
-          margin: 8,
-          filename: `IRPF-Alta-Renda-${ano}-${contribuinteNome || 'simulacao'}.pdf`.replace(/[^a-zA-Z0-9.-]/g, '_'),
+        const filename = buildReportPdfFilename({
+          productSlug: 'IRPF-Alta-Renda',
+          extra: `${ano}-${contribuinteNome || 'simulacao'}`,
+        });
+        const opt = getDefaultReportHtml2PdfOptions({
+          filename,
           image: { type: 'jpeg' as const, quality: 0.95 },
           html2canvas: {
             scale: 2,
@@ -480,9 +487,7 @@ export function IrpfAltaRenda() {
             width: contentEl.scrollWidth,
             windowWidth: contentEl.scrollWidth,
           },
-          jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-          pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
-        };
+        });
         await html2pdf().set(opt as any).from(contentEl).save();
         success('PDF exportado com sucesso.');
       } catch (e) {
@@ -1414,55 +1419,22 @@ export function IrpfAltaRenda() {
           </p>
         </InfoModal>
 
-        <Modal
+        <ReportExportChoiceModal
           isOpen={pdfExportModalOpen}
           onClose={() => setPdfExportModalOpen(false)}
           title="Exportar para PDF"
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">O que deseja incluir no PDF?</p>
-            <div className="space-y-2">
-              <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input
-                  type="radio"
-                  name="pdfExportOption"
-                  checked={!pdfExportIncludeParams}
-                  onChange={() => setPdfExportIncludeParams(false)}
-                  className="mt-1"
-                />
-                <div>
-                  <span className="font-medium text-slate-800">Apenas resultado</span>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    KPIs, tabelas, gráficos, sugestões de planejamento e memória de cálculo.
-                  </p>
-                </div>
-              </label>
-              <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input
-                  type="radio"
-                  name="pdfExportOption"
-                  checked={pdfExportIncludeParams}
-                  onChange={() => setPdfExportIncludeParams(true)}
-                  className="mt-1"
-                />
-                <div>
-                  <span className="font-medium text-slate-800">Resultado + parâmetros</span>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Inclui os parâmetros da simulação (Etapa 2) antes do resultado.
-                  </p>
-                </div>
-              </label>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="secondary" onClick={() => setPdfExportModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" onClick={() => handleExportPdf(pdfExportIncludeParams)}>
-                Exportar
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          intro="O que deseja incluir no PDF?"
+          optionA={{
+            title: 'Apenas resultado',
+            description: 'KPIs, tabelas, gráficos, sugestões de planejamento e memória de cálculo.',
+            onSelect: () => startPdfExport(false),
+          }}
+          optionB={{
+            title: 'Resultado + parâmetros',
+            description: 'Inclui os parâmetros da simulação (Etapa 2) antes do resultado.',
+            onSelect: () => startPdfExport(true),
+          }}
+        />
 
         {pdfExporting && result && (
           <div
@@ -1471,7 +1443,12 @@ export function IrpfAltaRenda() {
             className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-slate-200/90 p-6 text-slate-900"
             style={{ boxSizing: 'border-box' }}
           >
-            <div ref={pdfContentRef} id="irpf-pdf-export-root" className="bg-white shadow-xl p-6 w-full" style={{ width: '194mm', minWidth: '194mm', maxWidth: '194mm', boxSizing: 'border-box' }}>
+            <div
+              ref={pdfContentRef}
+              id="irpf-pdf-export-root"
+              className="report-html2pdf-root bg-white shadow-xl p-6 w-full"
+              style={{ width: '194mm', minWidth: '194mm', maxWidth: '194mm', boxSizing: 'border-box' }}
+            >
             <div className="keep space-y-2 mb-4 pb-3 border-b border-slate-200">
               <p className="text-xs text-slate-500">
                 Simulado em{' '}
@@ -2053,7 +2030,7 @@ export function IrpfAltaRenda() {
                 disabled={pdfExporting}
                 className="print:hidden shrink-0 inline-flex items-center gap-2"
                 aria-label="Exportar resultado para PDF"
-                data-pdf-exclude
+                data-report-exclude="pdf"
               >
                 {pdfExporting ? (
                   'Gerando PDF...'
@@ -2391,7 +2368,7 @@ export function IrpfAltaRenda() {
               </div>
             )}
 
-            <div className="mt-4 pt-4 border-t border-slate-200" data-pdf-exclude>
+            <div className="mt-4 pt-4 border-t border-slate-200" data-report-exclude="pdf">
               <h4 className="text-sm font-medium text-slate-700 mb-2">
                 {editingSimulationId ? 'Atualizar ou salvar como novo' : 'Salvar simulação'}
               </h4>

@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
+import {
+  buildReportPdfFilename,
+  getDefaultReportHtml2PdfOptions,
+  stripReportExcludedFromClone,
+} from '../../../lib/report-pdf';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   ratingValidatorService,
@@ -422,7 +427,15 @@ export function RatingValidator() {
     if (!el) return;
     setPdfExporting(true);
     const clone = el.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('[data-pdf-exclude]').forEach((n) => n.remove());
+    stripReportExcludedFromClone(clone, 'pdf');
+    const ratingClientName =
+      (saveClientIdForRating && clients.find((c) => c.id === saveClientIdForRating)?.name) ||
+      (formData.client_id && clients.find((c) => c.id === formData.client_id)?.name) ||
+      undefined;
+    const filename = buildReportPdfFilename({
+      productSlug: 'Transacao-Tributaria',
+      extra: ratingClientName || undefined,
+    });
     const placeholder = document.createElement('div');
     placeholder.style.position = 'fixed';
     placeholder.style.left = '-9999px';
@@ -432,14 +445,7 @@ export function RatingValidator() {
     document.body.appendChild(placeholder);
     const run = async () => {
       try {
-        const opt = {
-          margin: 8,
-          filename: `IATax-Transacao-Tributaria-${new Date().toISOString().slice(0, 10)}.pdf`,
-          image: { type: 'jpeg' as const, quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-          pagebreak: { mode: ['css', 'legacy'] as const, avoid: ['.keep', 'tr', 'table'] },
-        };
+        const opt = getDefaultReportHtml2PdfOptions({ filename });
         await html2pdf().set(opt as any).from(clone).save();
         success('PDF exportado com sucesso.');
       } catch (e) {
@@ -451,7 +457,7 @@ export function RatingValidator() {
       }
     };
     run();
-  }, [success, showError]);
+  }, [success, showError, clients, saveClientIdForRating, formData.client_id]);
 
   const loadValidations = useCallback(async () => {
     setValidationsLoading(true);
@@ -2009,7 +2015,7 @@ export function RatingValidator() {
                     disabled={pdfExporting}
                     className="print:hidden shrink-0 inline-flex items-center gap-2"
                     aria-label="Exportar resultado para PDF"
-                    data-pdf-exclude
+                    data-report-exclude="pdf"
                   >
                     {pdfExporting ? (
                       'Gerando PDF...'
@@ -2360,7 +2366,8 @@ export function RatingValidator() {
                     <Button
                       variant="tertiary"
                       onClick={() => setShowDebtSimulator(!showDebtSimulator)}
-                      className="print:hidden pdf-exclude"
+                      className="print:hidden"
+                      data-report-exclude="pdf"
                     >
                       {showDebtSimulator ? 'Ocultar' : 'Mostrar Simulador'}
                     </Button>
