@@ -1,5 +1,5 @@
 /**
- * Gerado em tempo de build - migrations de tenant embutidas (para Lambda/serverless).
+ * Gerado em tempo de build - migrations de tenant embutidas (para Vercel/serverless).
  * NÃO editar manualmente.
  */
 export const EMBEDDED_TENANT_MIGRATIONS: Record<string, string> = {

@@ -1,5 +1,5 @@
 ---
-description: "Workflow de push: build da API Lambda + commit + push"
+description: "Workflow de push: build da API Vercel + commit + push"
 globs: []
 alwaysApply: true
 ---
@@ -15,10 +15,10 @@ pnpm run push "feat: descrição da alteração"
 ```
 
 Isso executa automaticamente:
-1. `pnpm run build:lambda` (reconstrói bundle da API para Lambda)
-2. `git add` de alterações (inclui version.generated.ts, migrations-embedded.ts)
+1. `pnpm run build:vercel:output` (bundle para deploy na Vercel)
+2. `git add` (inclui `.vercel/output`, version.generated.ts, migrations-embedded.ts)
 3. `git commit -m "<mensagem>"`
-4. `git push` (GitHub Actions faz deploy na AWS Lambda)
+4. `git push`
 
 ## Uso
 
@@ -28,5 +28,10 @@ Isso executa automaticamente:
 ## Arquivos incluídos no commit
 
 - Código alterado
+- `apps/api/.vercel/output/`
 - `apps/api/src/version.generated.ts`
 - `apps/api/src/db/migrations-embedded.ts`
+
+## Nota: deploy na AWS Lambda
+
+O workflow GitHub Actions executa `build:lambda` no CI; não depende deste script.
