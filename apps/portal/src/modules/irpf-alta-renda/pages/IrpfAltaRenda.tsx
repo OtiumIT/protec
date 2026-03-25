@@ -221,7 +221,7 @@ export function IrpfAltaRenda() {
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
   const [decDbkFileName, setDecDbkFileName] = useState<string | null>(null);
   const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
-  const [pdfExportIncludeParams, setPdfExportIncludeParams] = useState(false);
+  const [pdfExportMode, setPdfExportMode] = useState<'resumo' | 'completo'>('resumo');
   const [pdfExporting, setPdfExporting] = useState(false);
   const [listAnoFilter, setListAnoFilter] = useState<number | ''>('');
   const [listSearchContribuinte, setListSearchContribuinte] = useState('');
@@ -453,8 +453,7 @@ export function IrpfAltaRenda() {
 
   const handleOpenPdfModal = () => setPdfExportModalOpen(true);
 
-  const startPdfExport = (includeParams: boolean) => {
-    setPdfExportIncludeParams(includeParams);
+  const startPdfExport = () => {
     setPdfExportModalOpen(false);
     setPdfExporting(true);
   };
@@ -502,7 +501,7 @@ export function IrpfAltaRenda() {
       }
     };
     runExport();
-  }, [pdfExporting, result, ano, contribuinteNome, success, showError]);
+  }, [pdfExporting, result, ano, contribuinteNome, success, showError, pdfExportMode]);
 
   useEffect(() => {
     if (!pdfExportModalOpen || !result || !pdfPreviewContentRef.current) return;
@@ -1441,9 +1440,32 @@ export function IrpfAltaRenda() {
           size="xl"
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Visualize o relatório e escolha o formato da exportação.
-            </p>
+            <p className="text-sm text-slate-600">Visualize o relatório e escolha o formato da exportação.</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-700 mb-2">Formato do relatório</p>
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="irpf-pdf-mode"
+                    checked={pdfExportMode === 'resumo'}
+                    onChange={() => setPdfExportMode('resumo')}
+                    className="rounded border-slate-300 text-brand focus:ring-brand"
+                  />
+                  Resumo
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="irpf-pdf-mode"
+                    checked={pdfExportMode === 'completo'}
+                    onChange={() => setPdfExportMode('completo')}
+                    className="rounded border-slate-300 text-brand focus:ring-brand"
+                  />
+                  Completo (com parâmetros)
+                </label>
+              </div>
+            </div>
             <div
               className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
               style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
@@ -1460,6 +1482,27 @@ export function IrpfAltaRenda() {
                     .filter(Boolean)
                     .join(' · ')}
                 />
+                {pdfExportMode === 'completo' && (
+                  <ParametrosSimulacaoPrint
+                    contribuinteNome={contribuinteNome}
+                    contribuinteCpf={contribuinteCpf}
+                    ano={ano}
+                    rendimentosTributaveis={rendimentosTributaveis}
+                    dividendos={dividendos}
+                    lucrosAprovadosAte31dez2025={lucrosAprovadosAte31dez2025}
+                    ganhoCapitalExcluido={ganhoCapitalExcluido}
+                    rendimentosFiisExcluidos={rendimentosFiisExcluidos}
+                    outrosExcluidosArt16A={outrosExcluidosArt16A}
+                    outrosIsentosQueEntramBase={outrosIsentosQueEntramBase}
+                    rendimentosLei7713={rendimentosLei7713}
+                    optouAjusteAnualLei7713={optouAjusteAnualLei7713}
+                    impostoJaPagoRetencao={impostoJaPagoRetencao}
+                    impostoJaPagoCarneLeao={impostoJaPagoCarneLeao}
+                    impostoJaPagoAplicacoes={impostoJaPagoAplicacoes}
+                    impostoAntecipadoDividendos={impostoAntecipadoDividendos}
+                    bccCalculado={bccCalculado}
+                  />
+                )}
                 <div ref={pdfPreviewContentRef} className="report-preview-content" />
                 <ReportPrintFooter variant="previewModal" />
               </div>
@@ -1468,11 +1511,8 @@ export function IrpfAltaRenda() {
               <Button type="button" variant="secondary" onClick={() => setPdfExportModalOpen(false)}>
                 Fechar
               </Button>
-              <Button type="button" variant="secondary" onClick={() => startPdfExport(false)}>
-                Exportar: apenas resultado
-              </Button>
-              <Button type="button" onClick={() => startPdfExport(true)}>
-                Exportar: resultado + parametros
+              <Button type="button" onClick={startPdfExport}>
+                Exportar PDF ({pdfExportMode === 'resumo' ? 'resumo' : 'completo'})
               </Button>
             </div>
           </div>
@@ -1491,6 +1531,17 @@ export function IrpfAltaRenda() {
               className="report-html2pdf-root bg-white shadow-xl p-6 w-full"
               style={{ width: '194mm', minWidth: '194mm', maxWidth: '194mm', boxSizing: 'border-box' }}
             >
+            <ReportPrintHeader
+              variant="previewModal"
+              reportTitle="IRPF Alta Renda — Resultado da simulação"
+              metaLine={[
+                `Ano ${ano}`,
+                contribuinteNome ? `Contribuinte: ${contribuinteNome}` : null,
+                result ? `BCC: ${formatCurrency(result.base_calculo_combinada)}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            />
             <div className="keep space-y-2 mb-4 pb-3 border-b border-slate-200">
               <p className="text-xs text-slate-500">
                 Simulado em{' '}
@@ -1525,7 +1576,7 @@ export function IrpfAltaRenda() {
                 )}
               </div>
             </div>
-            {pdfExportIncludeParams && (
+            {pdfExportMode === 'completo' && (
               <ParametrosSimulacaoPrint
                 contribuinteNome={contribuinteNome}
                 contribuinteCpf={contribuinteCpf}
@@ -1547,6 +1598,7 @@ export function IrpfAltaRenda() {
               />
             )}
             <div ref={pdfResultPlaceholderRef} className="irpf-pdf-resultado" />
+            <ReportPrintFooter variant="previewModal" />
             </div>
           </div>
         )}
