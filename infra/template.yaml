@@ -18,6 +18,8 @@ Resources:
   ApiFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Tags:
+        CORSRefresh: '2026-03-25'
       Handler: index.handler
       CodeUri: ../apps/api/dist-lambda
       Events:
