@@ -1,6 +1,6 @@
-# Rollback para Vercel
+# Rollback para Vercel (emergência)
 
-Se precisar voltar a usar a API na Vercel:
+O fluxo padrão é **Lambda + API Gateway** (`docs/DEPLOY_LAMBDA.md`). Use este guia só se precisar **voltar** a usar a API na Vercel:
 
 ## 1. Reconectar projeto no Vercel
 
@@ -16,8 +16,8 @@ Se precisar voltar a usar a API na Vercel:
 Altere o comando de push para usar o build Vercel:
 
 - Em `scripts/push-with-build.mjs`: troque `build:lambda` por `build:vercel:output`
-- Em `scripts/push-with-build.mjs`: volte a incluir `apps/api/.vercel/output` no `git add`
-- Em `.cursor/rules/push-workflow/rule.mdc`: atualize a documentação
+- Em `scripts/push-with-build.mjs`: volte a incluir `apps/api/.vercel/output` no `git add -f`
+- Em `.cursor/rules/push-workflow/rule.mdc`: documente o fluxo Vercel de novo
 
 ## 3. Atualizar VITE_API_URL
 

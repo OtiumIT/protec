@@ -28,7 +28,7 @@ Somente o app **portal** (frontend React/Vite) é publicado no Cloudflare Pages.
 |----------|--------|-------------|
 | **NODE_VERSION** | `24` | Recomendado |
 | **PNPM_VERSION** | `8` | Se usar pnpm |
-| **VITE_API_URL** | `https://protec-api.vercel.app` | **Sim** – para o login e as chamadas de API apontarem para o backend na Vercel em vez de localhost |
+| **VITE_API_URL** | `https://xxxx.execute-api.us-east-1.amazonaws.com` ou domínio customizado no API Gateway | **Sim** – URL base da API (Lambda + API Gateway); veja `docs/DEPLOY_LAMBDA.md` |
 
 Configure **VITE_API_URL** em **Settings → Environment variables** do projeto Pages (variáveis de produção).
 

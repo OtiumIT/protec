@@ -2,6 +2,15 @@
 
 A API roda em **Lambda + API Gateway HTTP API**. O deploy é feito automaticamente via GitHub Actions em cada push na `main`.
 
+## Descontinuar a Vercel (API)
+
+1. **Pare de usar** o projeto Vercel da API (pode arquivar/remover o projeto ou desligar o domínio apontando para a Vercel).
+2. **DNS / HTTPS:** use uma destas opções:
+   - **Rápido:** `VITE_API_URL` = URL do **Output** `ApiUrl` do CloudFormation (ex.: `https://xxxx.execute-api.us-east-1.amazonaws.com`) — o certificado TLS é válido para esse hostname.
+   - **Domínio próprio** (ex.: `api.iataxsistemas.com.br`): crie um **Custom domain** no API Gateway + certificado **ACM** na mesma região da API, com registro DNS (CNAME) conforme a AWS indicar. Sem isso, o browser pode retornar `ERR_CERT_COMMON_NAME_INVALID`.
+3. **CORS:** no SSM (`CORS_ORIGIN` / `CORS_ORIGIN_DOMAINS`), mantenha a origem do portal (ex.: `https://iataxsistemas.com.br` ou o domínio do Cloudflare Pages).
+4. **Push local:** `pnpm run push` executa `build:lambda` e envia o código; o deploy da Lambda é o workflow **Deploy API Lambda**.
+
 ## Pré-requisitos
 
 - Conta AWS
