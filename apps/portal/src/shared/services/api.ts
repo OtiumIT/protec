@@ -1,5 +1,25 @@
 const DEV_API_URL = 'http://localhost:3001';
 
+/**
+ * Evita Mixed Content: se VITE_API_URL vier com `http://` (variável antiga ou typo no CI),
+ * força `https://` para qualquer host que não seja desenvolvimento local.
+ */
+function normalizeApiBaseUrl(url: string): string {
+  const u = url.trim();
+  if (!u.startsWith('http://')) {
+    return u;
+  }
+  try {
+    const host = new URL(u).hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+      return u;
+    }
+  } catch {
+    return u;
+  }
+  return `https://${u.slice('http://'.length)}`;
+}
+
 /** Base URL da API. Em produção o Vite injeta VITE_API_URL no build (Cloudflare Pages, etc.) — não há fallback fixo para um domínio. */
 export function getApiUrl(): string {
   const fromEnv = (import.meta.env?.VITE_API_URL as string | undefined)?.trim() ?? '';
@@ -7,7 +27,7 @@ export function getApiUrl(): string {
     return DEV_API_URL;
   }
   if (fromEnv) {
-    return fromEnv;
+    return normalizeApiBaseUrl(fromEnv);
   }
   if (import.meta.env.PROD) {
     return '';

@@ -1,3 +1,5 @@
+import { getApiUrl } from './api';
+
 /**
  * Reporta erros do frontend para o backend (fire-and-forget).
  * Usado para correlacionar falhas de API com logs do servidor.
@@ -12,7 +14,7 @@ export function logClientError(payload: {
   const token = localStorage.getItem('accessToken');
   if (!token) return;
 
-  const baseUrl = (import.meta.env.VITE_API_URL ?? '').toString().replace(/\/$/, '') || '';
+  const baseUrl = getApiUrl().replace(/\/$/, '');
   if (!baseUrl) return;
 
   const tenantId = localStorage.getItem('tenantId');
