@@ -176,6 +176,14 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  /* IN 2306: ajustar offset para não sobrepor o conteúdo no topo */
+  #simulador-tributario-print-wrapper {
+    padding-top: 2.3cm !important;
+    padding-bottom: 1.45cm !important;
+  }
+  #simulador-tributario-print-wrapper #simulador-tributario-resultado-print {
+    padding-top: 0.15cm !important;
+  }
   .report-print-wrapper[data-print-moved="true"] {
     position: static !important;
     width: 100% !important;
@@ -260,6 +268,13 @@
   #irpf-alta-renda-print-wrapper * {
     visibility: visible;
   }
+  /* IRPF: diminuir respiro vertical para evitar 1ª página “vazia” */
+  #irpf-alta-renda-print-wrapper {
+    /* cabeçalho fixo = 2cm; usar apenas um gap discreto */
+    padding-top: 2.05cm !important;
+    /* rodapé fixo = 1.2cm; manter folga menor */
+    padding-bottom: 1.35cm !important;
+  }
   #irpf-alta-renda-print-wrapper[data-print-mode="resumo"] .irpf-print-params {
     display: none !important;
   }
@@ -267,7 +282,8 @@
     position: static !important;
     width: 100% !important;
     max-width: 100%;
-    padding: 1rem 1.25rem;
+    /* Evita “buraco” no topo: wrapper já reserva espaço do header */
+    padding: 0.35cm 0.2cm !important;
     background: white;
     overflow: visible !important;
   }
@@ -309,6 +325,11 @@
 #irpf-pdf-content th {
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+/* Rating Validator: modo resumo vs completo no preview/exportação */
+#rating-validator-resultado-print[data-pdf-mode="resumo"] .pdf-only-complete {
+  display: none !important;
 }
 
 /* PDF html2pdf: largura A4 (margem 8mm ≈ 194mm), conteúdo em 1 coluna */

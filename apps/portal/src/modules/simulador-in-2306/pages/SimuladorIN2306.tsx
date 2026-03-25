@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
-import { ReportExportChoiceModal } from '../../../lib/report-pdf/ReportExportChoiceModal';
+import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   simuladorIN2306Service,
@@ -109,8 +109,10 @@ export function SimuladorIN2306() {
   const [memoriaTab, setMemoriaTab] = useState<0 | 1 | 2>(0);
   const [detalhesAbertos, setDetalhesAbertos] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printPreviewMode, setPrintPreviewMode] = useState<'resumida' | 'completa'>('resumida');
   const simulacoesSalvasRef = useRef<HTMLDivElement>(null);
   const resultadoTributarioRef = useRef<HTMLDivElement>(null);
+  const printPreviewContentRef = useRef<HTMLDivElement>(null);
   /** Último input enviado na simulação de parcelamento (para Salvar no histórico após resultado). */
   const lastParcelInputRef = useRef<SimulateIN2306Input | null>(null);
   const [saveClientIdParcel, setSaveClientIdParcel] = useState('');
@@ -119,6 +121,7 @@ export function SimuladorIN2306() {
   const clientNameTrib = useMemo(() => clients.find((c) => c.id === clientIdTrib)?.name, [clients, clientIdTrib]);
 
   const handlePrintPdf = useCallback((resumida: boolean) => {
+    setPrintModalOpen(false);
     const wrapper = document.getElementById('simulador-tributario-print-wrapper');
     const el = document.getElementById('simulador-tributario-resultado-print');
     if (!wrapper || !el) return;
@@ -144,6 +147,17 @@ export function SimuladorIN2306() {
     window.addEventListener('afterprint', cleanup);
     setTimeout(() => window.print(), 150);
   }, []);
+
+  useEffect(() => {
+    if (!printModalOpen || !tributarioResult || !printPreviewContentRef.current) return;
+    const el = document.getElementById('simulador-tributario-resultado-print');
+    if (!el) return;
+    const clone = el.cloneNode(true) as HTMLElement;
+    stripReportExcludedFromClone(clone, 'preview');
+    clone.setAttribute('data-print-resumida', printPreviewMode === 'resumida' ? 'true' : 'false');
+    printPreviewContentRef.current.innerHTML = '';
+    printPreviewContentRef.current.appendChild(clone);
+  }, [printModalOpen, tributarioResult, printPreviewMode]);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1200,6 +1214,7 @@ export function SimuladorIN2306() {
                     onClick={() => setPrintModalOpen(true)}
                     className="print:hidden shrink-0 inline-flex items-center gap-2"
                     aria-label="Exportar resultado para PDF"
+                    data-report-exclude="preview"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1209,7 +1224,7 @@ export function SimuladorIN2306() {
                 </div>
 
                 {/* Salvar simulação no histórico (botão após resultado) */}
-                <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden">
+                <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden" data-report-exclude="preview">
                   <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
                   <p className="text-sm text-slate-600 mb-4">
                     Salve esta simulação para consultar depois no Histórico.
@@ -1306,7 +1321,7 @@ export function SimuladorIN2306() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 print:hidden">
+                <div className="flex items-center gap-2 print:hidden" data-report-exclude="preview">
                 <label className="flex items-center gap-2 text-sm text-slate-600">
                   <input type="checkbox" checked={includePisCofins} onChange={(e) => setIncludePisCofins(e.target.checked)} className="rounded border-slate-300" />
                   Incluir PIS e COFINS no total de tributos
@@ -1740,22 +1755,69 @@ export function SimuladorIN2306() {
               <ReportPrintFooter variant="printSheet" />
               </div>
 
-              <ReportExportChoiceModal
+              <Modal
                 isOpen={printModalOpen}
                 onClose={() => setPrintModalOpen(false)}
                 title="Exportar para PDF"
-                intro="Escolha o formato da impressão:"
-                optionA={{
-                  title: 'Impressão resumida',
-                  description: 'Cenários, comparativo e gráficos. Sem a memória de cálculo detalhada.',
-                  onSelect: () => handlePrintPdf(true),
-                }}
-                optionB={{
-                  title: 'Impressão completa',
-                  description: 'Inclui cenários, comparativo, memória de cálculo e base legal.',
-                  onSelect: () => handlePrintPdf(false),
-                }}
-              />
+                size="xl"
+              >
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600">Visualize o relatório e escolha o formato da impressão.</p>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-medium text-slate-700 mb-2">Formato do relatório</p>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="radio"
+                          name="in2306-print-mode"
+                          checked={printPreviewMode === 'resumida'}
+                          onChange={() => setPrintPreviewMode('resumida')}
+                          className="rounded border-slate-300 text-brand focus:ring-brand"
+                        />
+                        Resumida
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="radio"
+                          name="in2306-print-mode"
+                          checked={printPreviewMode === 'completa'}
+                          onChange={() => setPrintPreviewMode('completa')}
+                          className="rounded border-slate-300 text-brand focus:ring-brand"
+                        />
+                        Completa
+                      </label>
+                    </div>
+                  </div>
+                  <div
+                    className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
+                    style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+                  >
+                    <div className="report-preview-inner p-4">
+                      <ReportPrintHeader
+                        variant="previewModal"
+                        reportTitle="Simulador tributário – LC 224/2025 (IN RFB 2.306/2026)"
+                        metaLine={[
+                          `Ano ${tributarioResult.ano}`,
+                          `Receita total informada: ${formatMoney(receitaTotalInformada)}`,
+                          clientNameTrib ? `Cliente: ${clientNameTrib}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      />
+                      <div ref={printPreviewContentRef} className="report-preview-content" />
+                      <ReportPrintFooter variant="previewModal" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="secondary" onClick={() => setPrintModalOpen(false)}>
+                      Fechar
+                    </Button>
+                    <Button type="button" onClick={() => handlePrintPdf(printPreviewMode === 'resumida')}>
+                      Imprimir / Exportar PDF ({printPreviewMode})
+                    </Button>
+                  </div>
+                </div>
+              </Modal>
             </>
           )}
         </>

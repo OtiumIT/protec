@@ -4,6 +4,8 @@ import html2pdf from 'html2pdf.js';
 import {
   buildReportPdfFilename,
   getDefaultReportHtml2PdfOptions,
+  ReportPrintFooter,
+  ReportPrintHeader,
   stripReportExcludedFromClone,
 } from '../../../lib/report-pdf';
 import { Layout } from '../../../shared/components/layout/Layout';
@@ -124,6 +126,8 @@ export function RatingValidator() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<RatingSimulationResult | null>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
+  const [pdfExportMode, setPdfExportMode] = useState<'resumo' | 'completo'>('resumo');
   const [validations, setValidations] = useState<RatingValidation[]>([]);
   const [validationsLoading, setValidationsLoading] = useState(false);
   const [viewingValidation, setViewingValidation] = useState<RatingValidation | null>(null);
@@ -151,6 +155,7 @@ export function RatingValidator() {
 
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pdfPreviewContentRef = useRef<HTMLDivElement>(null);
   const ecdPdfInputRef = useRef<HTMLInputElement>(null);
   const [isExtractingEcdPdf, setIsExtractingEcdPdf] = useState(false);
   const [ecdProcessingStage, setEcdProcessingStage] = useState('');
@@ -422,12 +427,15 @@ export function RatingValidator() {
     };
   }, [fillDemoBToC]);
 
+  const handleOpenPdfModal = useCallback(() => setPdfExportModalOpen(true), []);
+
   const handleExportPdf = useCallback(() => {
     const el = document.getElementById('rating-validator-resultado-print');
     if (!el) return;
     setPdfExporting(true);
     const clone = el.cloneNode(true) as HTMLElement;
     stripReportExcludedFromClone(clone, 'pdf');
+    clone.setAttribute('data-pdf-mode', pdfExportMode);
     const ratingClientName =
       (saveClientIdForRating && clients.find((c) => c.id === saveClientIdForRating)?.name) ||
       (formData.client_id && clients.find((c) => c.id === formData.client_id)?.name) ||
@@ -457,7 +465,19 @@ export function RatingValidator() {
       }
     };
     run();
-  }, [success, showError, clients, saveClientIdForRating, formData.client_id]);
+  }, [success, showError, clients, saveClientIdForRating, formData.client_id, pdfExportMode]);
+
+  useEffect(() => {
+    if (!pdfExportModalOpen || !simulationResult || !pdfPreviewContentRef.current) return;
+    const el = document.getElementById('rating-validator-resultado-print');
+    if (!el) return;
+    const clone = el.cloneNode(true) as HTMLElement;
+    stripReportExcludedFromClone(clone, 'preview');
+    stripReportExcludedFromClone(clone, 'pdf');
+    clone.setAttribute('data-pdf-mode', pdfExportMode);
+    pdfPreviewContentRef.current.innerHTML = '';
+    pdfPreviewContentRef.current.appendChild(clone);
+  }, [pdfExportModalOpen, simulationResult, pdfExportMode]);
 
   const loadValidations = useCallback(async () => {
     setValidationsLoading(true);
@@ -2011,11 +2031,11 @@ export function RatingValidator() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={handleExportPdf}
+                    onClick={handleOpenPdfModal}
                     disabled={pdfExporting}
                     className="print:hidden shrink-0 inline-flex items-center gap-2"
                     aria-label="Exportar resultado para PDF"
-                    data-report-exclude="pdf"
+                    data-report-exclude="preview"
                   >
                     {pdfExporting ? (
                       'Gerando PDF...'
@@ -2335,7 +2355,7 @@ export function RatingValidator() {
                 </Card>
 
                 {/* Embasamento Legal - para advogados e contadores */}
-                <Card className="pdf-keep-together p-6 bg-slate-50/80 border-slate-200">
+                <Card className="pdf-keep-together pdf-only-complete p-6 bg-slate-50/80 border-slate-200">
                   <h2 className="text-lg font-semibold text-slate-800 mb-2">Embasamento legal</h2>
                   <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">Fundamentação normativa para uso em peças e pareceres</p>
                   <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
@@ -2355,7 +2375,7 @@ export function RatingValidator() {
                 </Card>
 
                 {/* Simulador de Parcelamento */}
-                <Card className="pdf-keep-together p-6">
+                <Card className="pdf-keep-together pdf-only-complete p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold">Simulador de Parcelamento de Dívida</h2>
@@ -2367,7 +2387,7 @@ export function RatingValidator() {
                       variant="tertiary"
                       onClick={() => setShowDebtSimulator(!showDebtSimulator)}
                       className="print:hidden"
-                      data-report-exclude="pdf"
+                      data-report-exclude="preview"
                     >
                       {showDebtSimulator ? 'Ocultar' : 'Mostrar Simulador'}
                     </Button>
@@ -3153,6 +3173,72 @@ export function RatingValidator() {
             )}
           </Card>
         )}
+
+        <Modal
+          isOpen={pdfExportModalOpen}
+          onClose={() => setPdfExportModalOpen(false)}
+          title="Exportar para PDF"
+          size="xl"
+        >
+          {simulationResult && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">Visualize o relatório e escolha o formato da exportação.</p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-700 mb-2">Formato do relatório</p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="radio"
+                      name="rating-pdf-mode"
+                      checked={pdfExportMode === 'resumo'}
+                      onChange={() => setPdfExportMode('resumo')}
+                      className="rounded border-slate-300 text-brand focus:ring-brand"
+                    />
+                    Resumo
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="radio"
+                      name="rating-pdf-mode"
+                      checked={pdfExportMode === 'completo'}
+                      onChange={() => setPdfExportMode('completo')}
+                      className="rounded border-slate-300 text-brand focus:ring-brand"
+                    />
+                    Completo
+                  </label>
+                </div>
+              </div>
+              <div
+                className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
+                style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+              >
+                <div className="report-preview-inner p-4">
+                  <ReportPrintHeader
+                    variant="previewModal"
+                    reportTitle="Transação Tributária — Rating Validator"
+                    metaLine={[
+                      `Rating estimado: ${simulationResult.rating_estimado}`,
+                      simulationResult.rating_real ? `Rating RF: ${simulationResult.rating_real}` : null,
+                      `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
+                  <div ref={pdfPreviewContentRef} className="report-preview-content" />
+                  <ReportPrintFooter variant="previewModal" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="secondary" onClick={() => setPdfExportModalOpen(false)}>
+                  Fechar
+                </Button>
+                <Button type="button" onClick={handleExportPdf} disabled={pdfExporting}>
+                  {pdfExporting ? 'Gerando PDF...' : `Exportar PDF (${pdfExportMode})`}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
 
         {/* Modal Visualizar Validação */}
         <Modal
