@@ -33,10 +33,7 @@ import { RemoveConfirmModal } from '../../../shared/components/ui/RemoveConfirmM
 import { InfoModal } from '../../../shared/components/ui/InfoModal';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ParametrosSimulacaoPrint } from '../components/ParametrosSimulacaoPrint';
-import html2pdf from 'html2pdf.js';
 import {
-  buildReportPdfFilename,
-  getDefaultReportHtml2PdfOptions,
   ReportPrintFooter,
   ReportPrintHeader,
   stripReportExcludedFromClone,
@@ -222,7 +219,7 @@ export function IrpfAltaRenda() {
   const [decDbkFileName, setDecDbkFileName] = useState<string | null>(null);
   const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
   const [pdfExportMode, setPdfExportMode] = useState<'resumo' | 'completo'>('resumo');
-  const [pdfExporting, setPdfExporting] = useState(false);
+  const [printExporting, setPrintExporting] = useState(false);
   const [listAnoFilter, setListAnoFilter] = useState<number | ''>('');
   const [listSearchContribuinte, setListSearchContribuinte] = useState('');
   const [listPage, setListPage] = useState(1);
@@ -230,10 +227,8 @@ export function IrpfAltaRenda() {
   const LIST_LIMIT = 50;
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const resultadoRef = useRef<HTMLDivElement>(null);
-  const pdfContainerRef = useRef<HTMLDivElement>(null);
-  const pdfContentRef = useRef<HTMLDivElement>(null);
-  const pdfResultPlaceholderRef = useRef<HTMLDivElement>(null);
   const pdfPreviewContentRef = useRef<HTMLDivElement>(null);
+  const printWrapperRef = useRef<HTMLDivElement>(null);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -454,54 +449,31 @@ export function IrpfAltaRenda() {
   const handleOpenPdfModal = () => setPdfExportModalOpen(true);
 
   const startPdfExport = () => {
+    const wrapper = document.getElementById('irpf-alta-renda-print-wrapper');
+    if (!wrapper) return;
     setPdfExportModalOpen(false);
-    setPdfExporting(true);
-  };
-
-  useEffect(() => {
-    if (!pdfExporting || !result) return;
-    const runExport = async () => {
-      const contentEl = pdfContentRef.current;
-      const placeholder = pdfResultPlaceholderRef.current;
-      const resultEl = document.getElementById('irpf-alta-renda-resultado-print');
-      if (!contentEl || !resultEl) {
-        setPdfExporting(false);
-        return;
+    wrapper.setAttribute('data-print-mode', pdfExportMode);
+    const parent = wrapper.parentElement;
+    const placeholder = document.createElement('div');
+    placeholder.id = 'irpf-alta-renda-print-placeholder';
+    if (parent) {
+      parent.insertBefore(placeholder, wrapper);
+      document.body.appendChild(wrapper);
+      wrapper.setAttribute('data-print-moved', 'true');
+    }
+    setPrintExporting(true);
+    const cleanup = () => {
+      wrapper.removeAttribute('data-print-moved');
+      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
+        document.body.removeChild(wrapper);
+        parent.replaceChild(wrapper, placeholder);
       }
-      if (placeholder) {
-        placeholder.innerHTML = '';
-        const clone = resultEl.cloneNode(true) as HTMLElement;
-        stripReportExcludedFromClone(clone, 'pdf');
-        placeholder.appendChild(clone);
-      }
-      await new Promise((r) => setTimeout(r, 250));
-      try {
-        const filename = buildReportPdfFilename({
-          productSlug: 'IRPF-Alta-Renda',
-          extra: `${ano}-${contribuinteNome || 'simulacao'}`,
-        });
-        const opt = getDefaultReportHtml2PdfOptions({
-          filename,
-          image: { type: 'jpeg' as const, quality: 0.95 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            width: contentEl.scrollWidth,
-            windowWidth: contentEl.scrollWidth,
-          },
-        });
-        await html2pdf().set(opt as any).from(contentEl).save();
-        success('PDF exportado com sucesso.');
-      } catch (e) {
-        console.error(e);
-        showError('Falha ao exportar PDF. Tente novamente.');
-      } finally {
-        setPdfExporting(false);
-      }
+      window.removeEventListener('afterprint', cleanup);
+      setPrintExporting(false);
     };
-    runExport();
-  }, [pdfExporting, result, ano, contribuinteNome, success, showError, pdfExportMode]);
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(() => window.print(), 150);
+  };
 
   useEffect(() => {
     if (!pdfExportModalOpen || !result || !pdfPreviewContentRef.current) return;
@@ -1518,91 +1490,6 @@ export function IrpfAltaRenda() {
           </div>
         </Modal>
 
-        {pdfExporting && result && (
-          <div
-            ref={pdfContainerRef}
-            id="irpf-pdf-content"
-            className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-slate-200/90 p-6 text-slate-900"
-            style={{ boxSizing: 'border-box' }}
-          >
-            <div
-              ref={pdfContentRef}
-              id="irpf-pdf-export-root"
-              className="report-html2pdf-root bg-white shadow-xl p-6 w-full"
-              style={{ width: '194mm', minWidth: '194mm', maxWidth: '194mm', boxSizing: 'border-box' }}
-            >
-            <ReportPrintHeader
-              variant="previewModal"
-              reportTitle="IRPF Alta Renda — Resultado da simulação"
-              metaLine={[
-                `Ano ${ano}`,
-                contribuinteNome ? `Contribuinte: ${contribuinteNome}` : null,
-                result ? `BCC: ${formatCurrency(result.base_calculo_combinada)}` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            />
-            <div className="keep space-y-2 mb-4 pb-3 border-b border-slate-200">
-              <p className="text-xs text-slate-500">
-                Simulado em{' '}
-                {new Date().toLocaleString('pt-BR', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
-              <p className="text-xs text-slate-600 italic">
-                Simulação para fins de planejamento tributário. Não substitui a apuração oficial da DAA. Consulte seu contador ou advogado.
-              </p>
-              <p className="text-xs text-slate-600">
-                Base legal: Lei 15.270/2025 – Art. 16-A
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                <span>
-                  Faixa: {result.faixa === 'isento' ? 'Isento' : result.faixa === 'progressiva' ? 'Progressiva (até 10%)' : 'Fixa 10%'}
-                </span>
-                <span>
-                  Alíquota efetiva:{' '}
-                  {result.base_calculo_combinada > 0
-                    ? ((result.imposto_estimado / result.base_calculo_combinada) * 100).toFixed(2)
-                    : '0'}%
-                </span>
-                {result.risco_retencao_mensal && (
-                  <span className="text-amber-700">
-                    Risco de retenção mensal (10% na fonte). Avaliação indicativa: média anual; gatilho real &gt; R$ 50.000/mês.
-                  </span>
-                )}
-              </div>
-            </div>
-            {pdfExportMode === 'completo' && (
-              <ParametrosSimulacaoPrint
-                contribuinteNome={contribuinteNome}
-                contribuinteCpf={contribuinteCpf}
-                ano={ano}
-                rendimentosTributaveis={rendimentosTributaveis}
-                dividendos={dividendos}
-                lucrosAprovadosAte31dez2025={lucrosAprovadosAte31dez2025}
-                ganhoCapitalExcluido={ganhoCapitalExcluido}
-                rendimentosFiisExcluidos={rendimentosFiisExcluidos}
-                outrosExcluidosArt16A={outrosExcluidosArt16A}
-                outrosIsentosQueEntramBase={outrosIsentosQueEntramBase}
-                rendimentosLei7713={rendimentosLei7713}
-                optouAjusteAnualLei7713={optouAjusteAnualLei7713}
-                impostoJaPagoRetencao={impostoJaPagoRetencao}
-                impostoJaPagoCarneLeao={impostoJaPagoCarneLeao}
-                impostoJaPagoAplicacoes={impostoJaPagoAplicacoes}
-                impostoAntecipadoDividendos={impostoAntecipadoDividendos}
-                bccCalculado={bccCalculado}
-              />
-            )}
-            <div ref={pdfResultPlaceholderRef} className="irpf-pdf-resultado" />
-            <ReportPrintFooter variant="previewModal" />
-            </div>
-          </div>
-        )}
-
         {showFormSection && (
         <Card
           title={
@@ -2109,6 +1996,44 @@ export function IrpfAltaRenda() {
 
         {result && (
           <div ref={resultadoRef} id="etapa-3-resultado" className="space-y-4 scroll-mt-6">
+          <div
+            id="irpf-alta-renda-print-wrapper"
+            ref={printWrapperRef}
+            className="report-print-wrapper mt-6"
+            data-print-mode={pdfExportMode}
+          >
+          <ReportPrintHeader
+            variant="printSheet"
+            reportTitle="IRPF Alta Renda — Resultado da simulação"
+            metaLine={[
+              `Ano ${ano}`,
+              contribuinteNome ? `Contribuinte: ${contribuinteNome}` : null,
+              result ? `BCC: ${formatCurrency(result.base_calculo_combinada)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          />
+          <div className="irpf-print-params hidden print:block px-5 pb-3">
+            <ParametrosSimulacaoPrint
+              contribuinteNome={contribuinteNome}
+              contribuinteCpf={contribuinteCpf}
+              ano={ano}
+              rendimentosTributaveis={rendimentosTributaveis}
+              dividendos={dividendos}
+              lucrosAprovadosAte31dez2025={lucrosAprovadosAte31dez2025}
+              ganhoCapitalExcluido={ganhoCapitalExcluido}
+              rendimentosFiisExcluidos={rendimentosFiisExcluidos}
+              outrosExcluidosArt16A={outrosExcluidosArt16A}
+              outrosIsentosQueEntramBase={outrosIsentosQueEntramBase}
+              rendimentosLei7713={rendimentosLei7713}
+              optouAjusteAnualLei7713={optouAjusteAnualLei7713}
+              impostoJaPagoRetencao={impostoJaPagoRetencao}
+              impostoJaPagoCarneLeao={impostoJaPagoCarneLeao}
+              impostoJaPagoAplicacoes={impostoJaPagoAplicacoes}
+              impostoAntecipadoDividendos={impostoAntecipadoDividendos}
+              bccCalculado={bccCalculado}
+            />
+          </div>
           <div id="irpf-alta-renda-resultado-print" className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
               <div>
@@ -2121,13 +2046,13 @@ export function IrpfAltaRenda() {
                 type="button"
                 variant="secondary"
                 onClick={handleOpenPdfModal}
-                disabled={pdfExporting}
+                disabled={printExporting}
                 className="print:hidden shrink-0 inline-flex items-center gap-2"
                 aria-label="Exportar resultado para PDF"
                 data-report-exclude="pdf"
               >
-                {pdfExporting ? (
-                  'Gerando PDF...'
+                {printExporting ? (
+                  'Preparando impressão...'
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -2497,6 +2422,8 @@ export function IrpfAltaRenda() {
               </form>
             </div>
           </Card>
+          </div>
+          <ReportPrintFooter variant="printSheet" />
           </div>
           </div>
         )}

@@ -255,18 +255,19 @@
     padding: 0.3rem 0.4rem !important;
   }
 
-  /* Impressão: resultado da simulação IRPF Alta Renda */
-  #irpf-alta-renda-resultado-print,
-  #irpf-alta-renda-resultado-print * {
+  /* Impressão: IRPF Alta Renda no mesmo padrão do Simulador Imobiliário */
+  #irpf-alta-renda-print-wrapper,
+  #irpf-alta-renda-print-wrapper * {
     visibility: visible;
   }
-  #irpf-alta-renda-resultado-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  #irpf-alta-renda-print-wrapper[data-print-mode="resumo"] .irpf-print-params {
+    display: none !important;
+  }
+  #irpf-alta-renda-print-wrapper #irpf-alta-renda-resultado-print {
+    position: static !important;
+    width: 100% !important;
     max-width: 100%;
-    padding: 1.5rem 2rem;
+    padding: 1rem 1.25rem;
     background: white;
     overflow: visible !important;
   }
