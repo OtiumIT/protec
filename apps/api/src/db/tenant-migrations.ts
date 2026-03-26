@@ -22,6 +22,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '045_clients_person_type.sql',
   '046_property_simulations.sql',
   '048_rating_parcelamento_pgfn.sql',
+  '049_fiscal_sped_calibrator_rules.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {

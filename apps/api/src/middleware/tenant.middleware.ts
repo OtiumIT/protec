@@ -10,6 +10,7 @@ import { verifyAccessToken } from '../shared/utils/jwt';
  * 3. Payload do JWT (preferencial para rotas autenticadas)
  */
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
+  const isCalibratorRoute = c.req.path.includes('/api/v1/fiscal-files/calibrator');
   let companyId: string | undefined;
 
   // 1. Tentar extrair do header X-Tenant-ID
@@ -96,11 +97,22 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     [companyId]
   );
 
+  if (isCalibratorRoute) {
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H5',location:'apps/api/src/middleware/tenant.middleware.ts:company-check',message:'Tenant middleware evaluated calibrator request',data:{path:c.req.path,companyId,companyFound:company.rows.length>0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }
+
   // #region agent log
   fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:company-check',message:'Company lookup result',data:{companyId,found:company.rows.length>0,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
 
   if (company.rows.length === 0) {
+    if (isCalibratorRoute) {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H5',location:'apps/api/src/middleware/tenant.middleware.ts:return-404',message:'Returning TENANT_NOT_FOUND on calibrator request',data:{path:c.req.path,companyId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
     // #region agent log
     fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:return-404',message:'Returning 404 TENANT_NOT_FOUND',data:{companyId,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
     // #endregion

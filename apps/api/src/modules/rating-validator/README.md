@@ -3,7 +3,7 @@
 ## Descrição
 Valida o Rating PGFN (CAPAG) através de cálculo de indicadores financeiros baseados na Portaria PGFN nº 6.757/2022. O módulo oferece duas versões:
 1. **Versão Simulação**: Usuário inputa parâmetros granulares manualmente
-2. **Versão Real**: Leitura automática de dados de Balanço e DRE da ECD (preparado, aguarda exemplos)
+2. **Versão Real**: Leitura automática de dados de Balanço e DRE da ECD processada
 
 ## Regras de Negócio
 
@@ -73,14 +73,19 @@ A classificação é baseada nos três indicadores calculados:
   4. Identificar erros de classificação para desconto em transações
 
 ### Regra 6: Validação Real (ECD)
-- **Quando aplicar**: Endpoint `POST /rating-validator/validate/:fiscal_file_id`
-- **Status**: Preparado, aguarda exemplos de arquivos ECD
-- **Processo** (quando implementado):
-  1. Buscar arquivo ECD com status 'processed'
-  2. Buscar dados extraídos de `extracted_fiscal_data` (data_type: 'balance_sheet', 'dre')
-  3. Mapear dados JSONB para estrutura esperada
-  4. Reutilizar lógica de cálculo da simulação
-  5. Salvar validação em `rating_validations`
+- **Quando aplicar**: Fluxo principal por competência (`GET /prefill-by-competence`, `POST /validate-by-competence`); fluxo legado por arquivo (`GET /prefill/:fiscal_file_id`, `POST /validate/:fiscal_file_id`)
+- **Status**: Implementado para ECD já processados e dados em `extracted_fiscal_data`
+- **Processo**:
+  1. Buscar linhas em `extracted_fiscal_data` para `client_id` + `competence` e tipos `module_prefill_rating_validator`, `balance_sheet`, `dre` (ordenadas por `created_at DESC`)
+  2. **Consolidação**: para cada `data_type`, usar apenas o registro mais recente (primeiro da lista ordenada)
+  3. Mapear JSONB para a estrutura da simulação (`buildInputFromExtractedData`) e aplicar `overrides` opcionais do body
+  4. Calcular indicadores, classificar rating, gerar `indicator_analysis` (paridade com simulação)
+  5. Persistir em `rating_validations` com `is_simulation = false`
+  6. **`fiscal_file_id` na validação**: arquivo do bloco consolidado com `created_at` mais recente entre os tipos escolhidos (referência principal); metadados completos em `input_data._validation_sources` (`source_fiscal_file_ids`, `by_data_type`, `conflicts` quando houver mais de um arquivo por tipo)
+
+### Regra 7: Conflitos entre arquivos na mesma competência
+- Se existirem vários ECD com extrações para o mesmo `data_type`, o sistema mantém o mais recente e sinaliza conflito na resposta do prefill (`source_conflicts`, `multiple_sources_warning`)
+- O usuário deve revisar/editar overrides antes de validar
 
 ## Dependências
 - **Módulos**: 
@@ -129,6 +134,16 @@ A classificação é baseada nos três indicadores calculados:
 - **Resposta**: `{ data: { validations: [], total: number, page: number, limit: number } }`
 - **Autenticação**: Requerida
 
+### GET /rating-validator/processed-ecd-competences
+- **Descrição**: Lista competências (`YYYY-MM`) **distintas** com ao menos um ECD `processed` para o cliente. Evita omitir competências quando `processed-ecd-files` usa `LIMIT` + `ORDER BY created_at` (muitos arquivos na mesma competência empurram outras para fora da janela).
+- **Query**: `client_id` (UUID obrigatório)
+- **Resposta**: `{ data: { competences: string[] } }`
+
+### GET /rating-validator/processed-ecd-files
+- **Descrição**: Lista arquivos ECD processados (com filtros opcionais e limite).
+- **Query**: `client_id?`, `competence?`, `limit?` (máx. 200)
+- **Resposta**: `{ data: { files: [] } }`
+
 ### GET /rating-validator/:id
 - **Descrição**: Buscar validação por ID
 - **Resposta**: `{ data: { validation } }`
@@ -141,16 +156,41 @@ A classificação é baseada nos três indicadores calculados:
 - **Autenticação**: Requerida
 - **Validação**: ID deve ser UUID válido
 
-### POST /rating-validator/validate/:fiscal_file_id
-- **Descrição**: Validar rating a partir de arquivo ECD processado
-- **Body**: `{ rating_real?: 'A' | 'B' | 'C' | 'D' }` (opcional)
-- **Resposta**: `{ data: { calculated_values, indicators, rating_estimado, rating_real?, has_discrepancy, discrepancy_details?, validation_id, is_simulation: false } }`
+### POST /rating-validator/validate-by-competence
+- **Descrição**: Validar rating consolidando dados extraídos de todos os ECD da competência (regra: último por `data_type`).
+- **Body**: `{ client_id: UUID, competence: YYYY-MM, rating_real?: 'A'|'B'|'C'|'D', overrides?: RealValidationOverrides }`
+- **Resposta**: `{ data: { calculated_values, indicators, indicator_analysis, rating_estimado, rating_real?, has_discrepancy, discrepancy_details?, validation_id, is_simulation: false } }`
 - **Autenticação**: Requerida
-- **Status**: Preparado, aguarda exemplos de dados ECD (retorna 501 NOT_IMPLEMENTED)
+- **Erros**: `CLIENT_NOT_FOUND`, `NO_EXTRACTED_DATA`
+
+### POST /rating-validator/validate/:fiscal_file_id
+- **Descrição**: Validar rating a partir de um único arquivo ECD processado (compatibilidade)
+- **Body**: `{ rating_real?: 'A' | 'B' | 'C' | 'D', overrides?: { ativo_circulante_total?, realizavel_longo_prazo_total?, outros_ativos_nao_circulantes?, passivo_circulante_total?, passivo_nao_circulante_total?, patrimonio_liquido_total?, dre? } }`
+- **Resposta**: `{ data: { calculated_values, indicators, indicator_analysis, rating_estimado, rating_real?, has_discrepancy, discrepancy_details?, validation_id, is_simulation: false } }`
+- **Autenticação**: Requerida
+- **Status**: Ativo para ECD processado
 - **Validação**: 
   - Arquivo deve existir e ser do tipo 'ecd'
   - Arquivo deve ter status 'processed'
   - Dados extraídos devem existir em `extracted_fiscal_data`
+
+### GET /rating-validator/prefill-by-competence
+- **Descrição**: Pré-preenchimento consolidado por `client_id` + `competence` (query obrigatória).
+- **Query**: `client_id`, `competence` (YYYY-MM)
+- **Resposta**: `{ data: { client_id, competence, fiscal_file?, source_by_data_type, source_fiscal_file_ids, multiple_sources_warning, source_conflicts, prefill, prefilled_fields, source_data_types } }`
+
+### GET /rating-validator/prefill/:fiscal_file_id
+- **Descrição**: Retorna resumo dos campos pré-preenchidos para validação real com base em um ECD processado (legado).
+- **Resposta**: `{ data: { fiscal_file, prefill, prefilled_fields, source_data_types } }`
+- **Uso**: Frontend ou integrações que fixam um arquivo específico.
+
+## Checklist de testes manuais (validação real por competência)
+
+1. **Prefill**: cliente + competência com ECD processado e dados em `extracted_fiscal_data` → prefill carrega sem erro; campos editáveis.
+2. **Conflito**: duas extrações do mesmo `data_type` em arquivos diferentes → aviso `multiple_sources_warning` / `source_conflicts` no portal; tabela “Origem por tipo”.
+3. **Validar**: após ajustar overrides → `POST validate-by-competence` → redireciona ao relatório na aba simulação com `indicator_analysis`, memória de cálculo e quadro de conferência.
+4. **PDF**: exportar PDF do resultado da validação real → conteúdo alinhado ao da simulação (sem versão reduzida por falta de `indicator_analysis`).
+5. **Histórico**: nova entrada com `is_simulation = false`; `fiscal_file_name` coerente quando houver arquivo canônico vinculado.
 
 ## Estrutura de Dados de Entrada (Simulação)
 
@@ -235,11 +275,11 @@ O sistema calcula automaticamente:
 4. Backend valida com `EcdExtractedSchema` e mapeia para entrada da simulação via `ecdExtractedToSimulateRatingInput`
 5. Frontend recebe `ecd` e `simulação_prefill`, preenche o formulário; usuário revisa/ajusta e segue o fluxo de simulação (calcular classificação)
 
-### Fluxo de Validação Real (quando implementado)
+### Fluxo de Validação Real
 1. Worker processa arquivo ECD e salva em `extracted_fiscal_data`
 2. Usuário solicita validação via `POST /rating-validator/validate/:fiscal_file_id`
 3. Backend busca arquivo ECD e dados extraídos
-4. Backend mapeia dados JSONB para estrutura esperada
+4. Backend prioriza `module_prefill_rating_validator` e aplica fallback para `balance_sheet` e `dre`
 5. Backend reutiliza lógica de cálculo da simulação
 6. Backend salva validação em `rating_validations`
 7. Backend retorna resultado completo

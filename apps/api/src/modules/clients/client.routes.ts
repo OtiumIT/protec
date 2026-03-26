@@ -4,6 +4,9 @@ import { ClientService } from './client.service';
 import { ClientRepository } from './client.repository';
 import { CompanyService } from '../companies/company.service';
 import { CompanyRepository } from '../companies/company.repository';
+import { SubscriptionRepository } from '../subscriptions/subscription.repository';
+import { PlanRepository } from '../plans/plan.repository';
+import { SubscriptionService } from '../subscriptions/subscription.service';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { CreateClientSchema, UpdateClientSchema, CreateCompanySchema } from '@shared/core';
@@ -19,7 +22,10 @@ clientRoutes.use('/*', tenantMiddleware);
 
 // Instanciar services
 const clientRepo = new ClientRepository();
-const clientService = new ClientService(clientRepo);
+const subscriptionRepo = new SubscriptionRepository();
+const planRepo = new PlanRepository();
+const subscriptionService = new SubscriptionService(subscriptionRepo, planRepo);
+const clientService = new ClientService(clientRepo, subscriptionService);
 const companyRepo = new CompanyRepository();
 const companyService = new CompanyService(companyRepo);
 
@@ -259,7 +265,7 @@ clientRoutes.post(
 
       const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
       const cpfDigits = (data.cpf || '').replace(/\D/g, '');
-      const client = await clientService.create({
+      const client = await clientService.create(companyId, {
         name: data.name,
         person_type: data.person_type || 'pj',
         cnpj: cnpjDigits || undefined,

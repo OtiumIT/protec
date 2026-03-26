@@ -2,15 +2,24 @@ import {
   RatingValidatorRepository,
   CreateRatingValidationData,
   FullUpdateRatingValidationData,
+  ProcessedEcdFiscalFileRow,
+  type ExtractedFiscalDataRow,
 } from './rating-validator.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import { ClientRepository } from '../clients/client.repository';
 import { FiscalFileRepository } from '../fiscal-files/fiscal-file.repository';
-import { SimulateRatingSchema, ParcelamentoPGFNSchema } from '@shared/core';
+import {
+  SimulateRatingSchema,
+  ParcelamentoPGFNSchema,
+  RealValidationOverridesSchema,
+} from '@shared/core';
 import type { z } from 'zod';
 
 type SimulateRatingInput = z.infer<typeof SimulateRatingSchema>;
 type ParcelamentoPGFN = z.infer<typeof ParcelamentoPGFNSchema>;
+type RealValidationOverrides = z.infer<typeof RealValidationOverridesSchema> & {
+  outros_ativos_nao_circulantes?: number;
+};
 
 /**
  * Benefícios por Rating conforme Portaria PGFN nº 6.757/2022
@@ -94,6 +103,13 @@ interface Indicators {
 }
 
 type Rating = 'A' | 'B' | 'C' | 'D';
+type ValidateRealInput = SimulateRatingInput;
+
+const RATING_VALIDATOR_EXTRACT_DATA_TYPES = [
+  'module_prefill_rating_validator',
+  'balance_sheet',
+  'dre',
+] as const;
 
 export class RatingValidatorService {
   constructor(
@@ -101,6 +117,372 @@ export class RatingValidatorService {
     private clientRepo: ClientRepository,
     private fiscalFileRepo: FiscalFileRepository
   ) {}
+
+  private createBaseValidateInput(clientId: string, competence: string): ValidateRealInput {
+    return {
+      ativo_circulante: {
+        caixa_equivalentes: 0,
+        aplicacoes_financeiras: 0,
+        contas_receber: 0,
+        estoques: 0,
+        tributos_recuperar: 0,
+        despesas_antecipadas: 0,
+        outros_ativos_circulantes: 0,
+      },
+      ativo_nao_circulante: {
+        realizavel_longo_prazo: {
+          contas_receber_lp: 0,
+          emprestimos_concedidos: 0,
+          outros_creditos_lp: 0,
+        },
+        investimentos: 0,
+        imobilizado: 0,
+        intangivel: 0,
+        outros_ativos_nao_circulantes: 0,
+      },
+      passivo_circulante: {
+        fornecedores: 0,
+        emprestimos_financiamentos: 0,
+        obrigacoes_trabalhistas: 0,
+        tributos_pagar: 0,
+        contas_pagar: 0,
+        provisoes: 0,
+        outros_passivos_circulantes: 0,
+      },
+      passivo_nao_circulante: {
+        emprestimos_financiamentos_lp: 0,
+        obrigacoes_trabalhistas_lp: 0,
+        tributos_pagar_lp: 0,
+        provisoes_lp: 0,
+        outros_passivos_nao_circulantes: 0,
+      },
+      patrimonio_liquido: {
+        capital_social: 0,
+        reservas_capital: 0,
+        reservas_lucros: 0,
+        lucros_prejuizos_acumulados: 0,
+        outros_ajustes: 0,
+      },
+      competencia: competence,
+      client_id: clientId,
+      save_simulation: false,
+    };
+  }
+
+  private toNumberOrUndefined(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const normalized = trimmed
+        .replace(/\s/g, '')
+        .replace(/\.(?=\d{3}(\D|$))/g, '')
+        .replace(',', '.');
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  }
+
+  private buildInputFromExtractedData(
+    clientId: string,
+    competence: string,
+    extractedRows: Array<{ data_type: string; data: Record<string, any> }>
+  ): ValidateRealInput {
+    const input = this.createBaseValidateInput(clientId, competence);
+    const getLatestData = (dataType: string) => extractedRows.find((r) => r.data_type === dataType)?.data || null;
+
+    const modulePrefill = getLatestData('module_prefill_rating_validator');
+    const balanceSheet = getLatestData('balance_sheet');
+    const dre = getLatestData('dre');
+
+    if (modulePrefill) {
+      input.ativo_circulante_total = this.toNumberOrUndefined(modulePrefill.ativo_circulante_total);
+      input.realizavel_longo_prazo_total = this.toNumberOrUndefined(
+        modulePrefill.realizavel_longo_prazo_total
+      );
+      input.passivo_circulante_total = this.toNumberOrUndefined(modulePrefill.passivo_circulante_total);
+      input.passivo_nao_circulante_total = this.toNumberOrUndefined(
+        modulePrefill.passivo_nao_circulante_total
+      );
+      input.patrimonio_liquido_total = this.toNumberOrUndefined(modulePrefill.patrimonio_liquido_total);
+
+      const moduleDre = modulePrefill.dre;
+      if (moduleDre && typeof moduleDre === 'object') {
+        input.dre = {
+          receita_bruta: this.toNumberOrUndefined(moduleDre.receita_bruta) ?? 0,
+          deducoes_vendas:
+            this.toNumberOrUndefined(moduleDre.deducoes_vendas) ??
+            this.toNumberOrUndefined(moduleDre.deducoes) ??
+            0,
+          receita_liquida: this.toNumberOrUndefined(moduleDre.receita_liquida),
+          custos_vendas: this.toNumberOrUndefined(moduleDre.custos_vendas) ?? 0,
+          despesas_operacionais: this.toNumberOrUndefined(moduleDre.despesas_operacionais) ?? 0,
+          resultado_financeiro: this.toNumberOrUndefined(moduleDre.resultado_financeiro) ?? 0,
+          outros_resultados:
+            this.toNumberOrUndefined(moduleDre.outros_resultados) ??
+            this.toNumberOrUndefined(moduleDre.resultado_periodo) ??
+            0,
+        };
+      }
+    }
+
+    if (balanceSheet) {
+      input.ativo_circulante_total ??= this.toNumberOrUndefined(balanceSheet.ativo_circulante);
+      input.passivo_circulante_total ??= this.toNumberOrUndefined(balanceSheet.passivo_circulante);
+      input.passivo_nao_circulante_total ??= this.toNumberOrUndefined(balanceSheet.passivo_nao_circulante);
+      input.patrimonio_liquido_total ??= this.toNumberOrUndefined(balanceSheet.patrimonio_liquido);
+      input.realizavel_longo_prazo_total ??= this.toNumberOrUndefined(balanceSheet.realizavel_longo_prazo);
+
+      const ativoNaoCirculante = this.toNumberOrUndefined(balanceSheet.ativo_nao_circulante);
+      const realizavelLP = input.realizavel_longo_prazo_total ?? 0;
+      if (ativoNaoCirculante != null) {
+        const outrosNc = Math.max(0, ativoNaoCirculante - realizavelLP);
+        if ((input.ativo_nao_circulante.outros_ativos_nao_circulantes || 0) === 0) {
+          input.ativo_nao_circulante.outros_ativos_nao_circulantes = outrosNc;
+        }
+      }
+    }
+
+    if (!input.dre && dre) {
+      input.dre = {
+        receita_bruta: this.toNumberOrUndefined(dre.receita_bruta) ?? 0,
+        deducoes_vendas: this.toNumberOrUndefined(dre.deducoes_vendas) ?? this.toNumberOrUndefined(dre.deducoes) ?? 0,
+        receita_liquida: this.toNumberOrUndefined(dre.receita_liquida),
+        custos_vendas: this.toNumberOrUndefined(dre.custos_vendas) ?? 0,
+        despesas_operacionais: this.toNumberOrUndefined(dre.despesas_operacionais) ?? 0,
+        resultado_financeiro: this.toNumberOrUndefined(dre.resultado_financeiro) ?? 0,
+        outros_resultados:
+          this.toNumberOrUndefined(dre.outros_resultados) ??
+          this.toNumberOrUndefined(dre.resultado_periodo) ??
+          0,
+      };
+    }
+
+    return input;
+  }
+
+  private buildPrefilledFieldsList(input: ValidateRealInput): string[] {
+    const fields: string[] = [];
+    const pushIfDefined = (key: string, value: unknown) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        fields.push(key);
+      }
+    };
+
+    pushIfDefined('ativo_circulante_total', input.ativo_circulante_total);
+    pushIfDefined('realizavel_longo_prazo_total', input.realizavel_longo_prazo_total);
+    pushIfDefined('passivo_circulante_total', input.passivo_circulante_total);
+    pushIfDefined('passivo_nao_circulante_total', input.passivo_nao_circulante_total);
+    pushIfDefined('patrimonio_liquido_total', input.patrimonio_liquido_total);
+    pushIfDefined(
+      'ativo_nao_circulante.outros_ativos_nao_circulantes',
+      input.ativo_nao_circulante?.outros_ativos_nao_circulantes
+    );
+
+    if (input.dre) {
+      const dreFields: Array<keyof NonNullable<ValidateRealInput['dre']>> = [
+        'receita_bruta',
+        'deducoes_vendas',
+        'receita_liquida',
+        'custos_vendas',
+        'despesas_operacionais',
+        'resultado_financeiro',
+        'outros_resultados',
+      ];
+      for (const field of dreFields) {
+        if (typeof input.dre[field] === 'number' && Number.isFinite(input.dre[field])) {
+          fields.push(`dre.${field}`);
+        }
+      }
+    }
+
+    return fields;
+  }
+
+  private applyRealValidationOverrides(
+    input: ValidateRealInput,
+    overrides?: RealValidationOverrides
+  ): ValidateRealInput {
+    if (!overrides) return input;
+
+    const merged: ValidateRealInput = {
+      ...input,
+      ativo_circulante_total:
+        overrides.ativo_circulante_total ?? input.ativo_circulante_total,
+      realizavel_longo_prazo_total:
+        overrides.realizavel_longo_prazo_total ?? input.realizavel_longo_prazo_total,
+      passivo_circulante_total:
+        overrides.passivo_circulante_total ?? input.passivo_circulante_total,
+      passivo_nao_circulante_total:
+        overrides.passivo_nao_circulante_total ?? input.passivo_nao_circulante_total,
+      patrimonio_liquido_total:
+        overrides.patrimonio_liquido_total ?? input.patrimonio_liquido_total,
+      ativo_nao_circulante: {
+        ...input.ativo_nao_circulante,
+        outros_ativos_nao_circulantes:
+          overrides.outros_ativos_nao_circulantes ??
+          input.ativo_nao_circulante.outros_ativos_nao_circulantes,
+      },
+    };
+
+    if (overrides.dre) {
+      merged.dre = {
+        receita_bruta:
+          overrides.dre.receita_bruta ?? input.dre?.receita_bruta ?? 0,
+        deducoes_vendas:
+          overrides.dre.deducoes_vendas ?? input.dre?.deducoes_vendas ?? 0,
+        receita_liquida:
+          overrides.dre.receita_liquida ?? input.dre?.receita_liquida,
+        custos_vendas:
+          overrides.dre.custos_vendas ?? input.dre?.custos_vendas ?? 0,
+        despesas_operacionais:
+          overrides.dre.despesas_operacionais ?? input.dre?.despesas_operacionais ?? 0,
+        resultado_financeiro:
+          overrides.dre.resultado_financeiro ?? input.dre?.resultado_financeiro ?? 0,
+        outros_resultados:
+          overrides.dre.outros_resultados ?? input.dre?.outros_resultados ?? 0,
+      };
+    }
+
+    return merged;
+  }
+
+  /**
+   * Consolida por data_type: usa o registro mais recente (created_at DESC) por tipo.
+   */
+  private consolidateExtractedRowsForCompetence(rows: ExtractedFiscalDataRow[]): {
+    rowsForBuild: Array<{ data_type: string; data: Record<string, any> }>;
+    winnersMeta: Array<{ data_type: string; fiscal_file_id: string; created_at: Date }>;
+    conflicts: Array<{ data_type: string; distinct_file_ids: string[] }>;
+    source_fiscal_file_ids: string[];
+  } {
+    const orderedTypes = [...RATING_VALIDATOR_EXTRACT_DATA_TYPES];
+    const firstByType = new Map<string, ExtractedFiscalDataRow>();
+    const fileIdsByType = new Map<string, Set<string>>();
+
+    for (const r of rows) {
+      if (!orderedTypes.includes(r.data_type as (typeof orderedTypes)[number])) continue;
+      if (!fileIdsByType.has(r.data_type)) {
+        fileIdsByType.set(r.data_type, new Set());
+      }
+      fileIdsByType.get(r.data_type)!.add(r.fiscal_file_id);
+      if (!firstByType.has(r.data_type)) {
+        firstByType.set(r.data_type, r);
+      }
+    }
+
+    const conflicts = orderedTypes
+      .filter((t) => (fileIdsByType.get(t)?.size ?? 0) > 1)
+      .map((t) => ({
+        data_type: t,
+        distinct_file_ids: [...(fileIdsByType.get(t) ?? [])],
+      }));
+
+    const winnersMeta = orderedTypes
+      .filter((t) => firstByType.has(t))
+      .map((t) => {
+        const w = firstByType.get(t)!;
+        return { data_type: t, fiscal_file_id: w.fiscal_file_id, created_at: w.created_at };
+      });
+
+    const rowsForBuild = winnersMeta.map((w) => ({
+      data_type: w.data_type,
+      data: firstByType.get(w.data_type)!.data,
+    }));
+
+    const source_fiscal_file_ids = [...new Set(winnersMeta.map((w) => w.fiscal_file_id))];
+
+    return { rowsForBuild, winnersMeta, conflicts, source_fiscal_file_ids };
+  }
+
+  private toIso(d: Date): string {
+    return d instanceof Date ? d.toISOString() : String(d);
+  }
+
+  /**
+   * Persiste validação real com análise por indicador (paridade com simulação).
+   */
+  private async persistRealValidation(
+    mergedInput: ValidateRealInput,
+    params: {
+      clientId: string;
+      competence: string;
+      fiscalFileId: string | null;
+      ratingReal?: Rating;
+      userId?: string;
+      sourcesMeta: {
+        source_fiscal_file_ids: string[];
+        by_data_type: Record<string, { fiscal_file_id: string; created_at: string }>;
+        conflicts?: Array<{ data_type: string; distinct_file_ids: string[] }>;
+      };
+    }
+  ): Promise<{
+    calculated_values: CalculatedValues;
+    indicators: Indicators;
+    indicator_analysis: Array<{
+      id: string;
+      name: string;
+      formula: string;
+      value: number;
+      value_formatted: string;
+      score: number;
+      max_score: number;
+      level: 'A' | 'B' | 'C' | 'D';
+      thresholds_by_level: { D: string; C: string; B: string; A: string };
+      gap_message: string;
+    }>;
+    rating_estimado: Rating;
+    rating_real?: Rating;
+    has_discrepancy: boolean;
+    discrepancy_details?: Record<string, any>;
+    validation_id: string;
+  }> {
+    const calculatedValues = this.calculateAggregatedValues(mergedInput);
+    const indicators = this.calculateIndicators(calculatedValues);
+    const ratingEstimado = this.classifyRating(indicators);
+    const comparison = this.compareRatings(ratingEstimado, params.ratingReal);
+    const indicator_analysis = this.getIndicatorAnalysis(
+      indicators,
+      params.ratingReal,
+      ratingEstimado
+    );
+
+    const inputData = {
+      ...(mergedInput as Record<string, unknown>),
+      _validation_sources: params.sourcesMeta,
+    };
+
+    const validation = await this.ratingValidatorRepo.create({
+      client_id: params.clientId,
+      competence: params.competence,
+      fiscal_file_id: params.fiscalFileId,
+      is_simulation: false,
+      input_data: inputData as any,
+      calculated_values: calculatedValues,
+      liquidez_corrente: indicators.liquidez_corrente,
+      liquidez_geral: indicators.liquidez_geral,
+      solvencia: indicators.solvencia,
+      rating_estimado: ratingEstimado,
+      rating_real: params.ratingReal || null,
+      has_discrepancy: comparison.has_discrepancy,
+      discrepancy_details: comparison.discrepancy_details || null,
+      created_by: params.userId || null,
+    });
+
+    return {
+      calculated_values: calculatedValues,
+      indicators,
+      indicator_analysis,
+      rating_estimado: ratingEstimado,
+      rating_real: params.ratingReal,
+      has_discrepancy: comparison.has_discrepancy,
+      discrepancy_details: comparison.discrepancy_details,
+      validation_id: validation.id,
+    };
+  }
 
   /**
    * Calcular valores agregados a partir de campos granulares
@@ -576,15 +958,267 @@ export class RatingValidatorService {
 
   /**
    * Validar rating a partir de arquivo ECD processado
-   * NOTA: Implementação preparada, aguarda exemplos de dados ECD
    */
+  async getRealValidationPrefill(fiscalFileId: string): Promise<{
+    fiscal_file: {
+      id: string;
+      client_id: string;
+      competence: string;
+      file_name: string;
+    };
+    prefill: {
+      competencia: string;
+      client_id: string;
+      ativo_circulante_total?: number;
+      realizavel_longo_prazo_total?: number;
+      outros_ativos_nao_circulantes?: number;
+      passivo_circulante_total?: number;
+      passivo_nao_circulante_total?: number;
+      patrimonio_liquido_total?: number;
+      dre?: ValidateRealInput['dre'];
+    };
+    prefilled_fields: string[];
+    source_data_types: string[];
+  }> {
+    const fiscalFile = await this.fiscalFileRepo.findById(fiscalFileId);
+    if (!fiscalFile) {
+      throw new AppError('Fiscal file not found', 'FISCAL_FILE_NOT_FOUND', 404);
+    }
+    if (fiscalFile.file_type !== 'ecd') {
+      throw new AppError('File must be of type ECD', 'INVALID_FILE_TYPE', 400);
+    }
+    if (fiscalFile.status !== 'processed') {
+      throw new AppError(
+        'Fiscal file must be processed before validation',
+        'FILE_NOT_PROCESSED',
+        400
+      );
+    }
+
+    const extractedData = await this.ratingValidatorRepo.findExtractedFiscalDataByFiscalFileId(
+      fiscalFile.id,
+      ['module_prefill_rating_validator', 'balance_sheet', 'dre']
+    );
+    if (extractedData.length === 0) {
+      throw new AppError(
+        'No extracted data found for this fiscal file',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const input = this.buildInputFromExtractedData(
+      fiscalFile.client_id,
+      fiscalFile.competence,
+      extractedData
+    );
+    return {
+      fiscal_file: {
+        id: fiscalFile.id,
+        client_id: fiscalFile.client_id,
+        competence: fiscalFile.competence,
+        file_name: fiscalFile.file_name,
+      },
+      prefill: {
+        competencia: fiscalFile.competence,
+        client_id: fiscalFile.client_id,
+        ativo_circulante_total: input.ativo_circulante_total,
+        realizavel_longo_prazo_total: input.realizavel_longo_prazo_total,
+        outros_ativos_nao_circulantes:
+          input.ativo_nao_circulante?.outros_ativos_nao_circulantes,
+        passivo_circulante_total: input.passivo_circulante_total,
+        passivo_nao_circulante_total: input.passivo_nao_circulante_total,
+        patrimonio_liquido_total: input.patrimonio_liquido_total,
+        dre: input.dre,
+      },
+      prefilled_fields: this.buildPrefilledFieldsList(input),
+      source_data_types: Array.from(new Set(extractedData.map((row) => row.data_type))),
+    };
+  }
+
+  /**
+   * Pré-preenchimento consolidado por cliente + competência (último registro por data_type).
+   */
+  async getRealValidationPrefillByCompetence(
+    clientId: string,
+    competence: string
+  ): Promise<{
+    client_id: string;
+    competence: string;
+    fiscal_file: {
+      id: string;
+      client_id: string;
+      competence: string;
+      file_name: string;
+    } | null;
+    source_by_data_type: Record<
+      string,
+      { fiscal_file_id: string; file_name: string; created_at: string }
+    >;
+    source_fiscal_file_ids: string[];
+    multiple_sources_warning: boolean;
+    source_conflicts: Array<{
+      data_type: string;
+      fiscal_files: Array<{ id: string; file_name: string }>;
+    }>;
+    prefill: {
+      competencia: string;
+      client_id: string;
+      ativo_circulante_total?: number;
+      realizavel_longo_prazo_total?: number;
+      outros_ativos_nao_circulantes?: number;
+      passivo_circulante_total?: number;
+      passivo_nao_circulante_total?: number;
+      patrimonio_liquido_total?: number;
+      dre?: ValidateRealInput['dre'];
+    };
+    prefilled_fields: string[];
+    source_data_types: string[];
+  }> {
+    const client = await this.clientRepo.findById(clientId);
+    if (!client) {
+      throw new AppError('Client not found', 'CLIENT_NOT_FOUND', 404);
+    }
+
+    const rows = await this.ratingValidatorRepo.findExtractedFiscalDataRowsByCompetence(
+      clientId,
+      competence,
+      [...RATING_VALIDATOR_EXTRACT_DATA_TYPES]
+    );
+    if (rows.length === 0) {
+      throw new AppError(
+        'No extracted data found for this client and competence',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const { rowsForBuild, winnersMeta, conflicts, source_fiscal_file_ids } =
+      this.consolidateExtractedRowsForCompetence(rows);
+    if (rowsForBuild.length === 0) {
+      throw new AppError(
+        'No extracted data found for this client and competence',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const processedFiles = await this.ratingValidatorRepo.listProcessedEcdFiscalFiles({
+      client_id: clientId,
+      competence,
+      limit: 200,
+    });
+    const nameByFileId = new Map(processedFiles.map((f) => [f.id, f.file_name]));
+
+    const resolveName = async (fid: string): Promise<string> => {
+      const n = nameByFileId.get(fid);
+      if (n) return n;
+      const ff = await this.fiscalFileRepo.findById(fid);
+      return ff?.file_name ?? fid;
+    };
+
+    const source_by_data_type: Record<
+      string,
+      { fiscal_file_id: string; file_name: string; created_at: string }
+    > = {};
+    for (const w of winnersMeta) {
+      source_by_data_type[w.data_type] = {
+        fiscal_file_id: w.fiscal_file_id,
+        file_name: await resolveName(w.fiscal_file_id),
+        created_at: this.toIso(w.created_at),
+      };
+    }
+
+    const source_conflicts: Array<{
+      data_type: string;
+      fiscal_files: Array<{ id: string; file_name: string }>;
+    }> = [];
+    for (const c of conflicts) {
+      const fiscal_files: Array<{ id: string; file_name: string }> = [];
+      for (const fid of c.distinct_file_ids) {
+        fiscal_files.push({ id: fid, file_name: await resolveName(fid) });
+      }
+      source_conflicts.push({ data_type: c.data_type, fiscal_files });
+    }
+
+    const sortedWinners = [...winnersMeta].sort(
+      (a, b) => b.created_at.getTime() - a.created_at.getTime()
+    );
+    const canonicalId = sortedWinners[0]?.fiscal_file_id ?? null;
+    let fiscal_file: {
+      id: string;
+      client_id: string;
+      competence: string;
+      file_name: string;
+    } | null = null;
+    if (canonicalId) {
+      const row = processedFiles.find((f) => f.id === canonicalId);
+      if (row) {
+        fiscal_file = {
+          id: row.id,
+          client_id: row.client_id,
+          competence: row.competence,
+          file_name: row.file_name,
+        };
+      } else {
+        const ff = await this.fiscalFileRepo.findById(canonicalId);
+        if (ff && ff.file_type === 'ecd') {
+          fiscal_file = {
+            id: ff.id,
+            client_id: ff.client_id,
+            competence: ff.competence,
+            file_name: ff.file_name,
+          };
+        }
+      }
+    }
+
+    const input = this.buildInputFromExtractedData(clientId, competence, rowsForBuild);
+
+    return {
+      client_id: clientId,
+      competence,
+      fiscal_file,
+      source_by_data_type,
+      source_fiscal_file_ids,
+      multiple_sources_warning: source_fiscal_file_ids.length > 1,
+      source_conflicts,
+      prefill: {
+        competencia: competence,
+        client_id: clientId,
+        ativo_circulante_total: input.ativo_circulante_total,
+        realizavel_longo_prazo_total: input.realizavel_longo_prazo_total,
+        outros_ativos_nao_circulantes: input.ativo_nao_circulante?.outros_ativos_nao_circulantes,
+        passivo_circulante_total: input.passivo_circulante_total,
+        passivo_nao_circulante_total: input.passivo_nao_circulante_total,
+        patrimonio_liquido_total: input.patrimonio_liquido_total,
+        dre: input.dre,
+      },
+      prefilled_fields: this.buildPrefilledFieldsList(input),
+      source_data_types: rowsForBuild.map((r) => r.data_type),
+    };
+  }
+
   async validateFromFiscalFile(
     fiscalFileId: string,
-    _ratingReal?: Rating,
-    _userId?: string
+    ratingReal?: Rating,
+    overrides?: RealValidationOverrides,
+    userId?: string
   ): Promise<{
     calculated_values: CalculatedValues;
     indicators: Indicators;
+    indicator_analysis: Array<{
+      id: string;
+      name: string;
+      formula: string;
+      value: number;
+      value_formatted: string;
+      score: number;
+      max_score: number;
+      level: 'A' | 'B' | 'C' | 'D';
+      thresholds_by_level: { D: string; C: string; B: string; A: string };
+      gap_message: string;
+    }>;
     rating_estimado: Rating;
     rating_real?: Rating;
     has_discrepancy: boolean;
@@ -609,11 +1243,10 @@ export class RatingValidatorService {
       );
     }
 
-    // Buscar dados extraídos
-    const extractedData = await this.ratingValidatorRepo.findExtractedFiscalData(
-      fiscalFile.client_id,
-      fiscalFile.competence,
-      ['balance_sheet', 'dre']
+    // Buscar dados extraídos já processados do arquivo alvo
+    const extractedData = await this.ratingValidatorRepo.findExtractedFiscalDataByFiscalFileId(
+      fiscalFile.id,
+      ['module_prefill_rating_validator', 'balance_sheet', 'dre']
     );
 
     if (extractedData.length === 0) {
@@ -624,13 +1257,132 @@ export class RatingValidatorService {
       );
     }
 
-    // TODO: Mapear dados extraídos para estrutura esperada
-    // Isso será implementado quando tivermos exemplos de dados ECD
-    throw new AppError(
-      'ECD data parsing not yet implemented. Waiting for ECD file examples.',
-      'NOT_IMPLEMENTED',
-      501
+    const input = this.buildInputFromExtractedData(
+      fiscalFile.client_id,
+      fiscalFile.competence,
+      extractedData
     );
+    const mergedInput = this.applyRealValidationOverrides(input, overrides);
+
+    const by_data_type: Record<string, { fiscal_file_id: string; created_at: string }> = {};
+    for (const r of extractedData) {
+      by_data_type[r.data_type] = {
+        fiscal_file_id: r.fiscal_file_id,
+        created_at: this.toIso(r.created_at),
+      };
+    }
+
+    return this.persistRealValidation(mergedInput, {
+      clientId: fiscalFile.client_id,
+      competence: fiscalFile.competence,
+      fiscalFileId: fiscalFile.id,
+      ratingReal,
+      userId,
+      sourcesMeta: {
+        source_fiscal_file_ids: [fiscalFile.id],
+        by_data_type,
+      },
+    });
+  }
+
+  /**
+   * Validação real consolidada por competência (vários ECD da mesma competência).
+   */
+  async validateFromCompetence(
+    clientId: string,
+    competence: string,
+    ratingReal?: Rating,
+    overrides?: RealValidationOverrides,
+    userId?: string
+  ): Promise<{
+    calculated_values: CalculatedValues;
+    indicators: Indicators;
+    indicator_analysis: Array<{
+      id: string;
+      name: string;
+      formula: string;
+      value: number;
+      value_formatted: string;
+      score: number;
+      max_score: number;
+      level: 'A' | 'B' | 'C' | 'D';
+      thresholds_by_level: { D: string; C: string; B: string; A: string };
+      gap_message: string;
+    }>;
+    rating_estimado: Rating;
+    rating_real?: Rating;
+    has_discrepancy: boolean;
+    discrepancy_details?: Record<string, any>;
+    validation_id: string;
+  }> {
+    const client = await this.clientRepo.findById(clientId);
+    if (!client) {
+      throw new AppError('Client not found', 'CLIENT_NOT_FOUND', 404);
+    }
+
+    const rows = await this.ratingValidatorRepo.findExtractedFiscalDataRowsByCompetence(
+      clientId,
+      competence,
+      [...RATING_VALIDATOR_EXTRACT_DATA_TYPES]
+    );
+    if (rows.length === 0) {
+      throw new AppError(
+        'No extracted data found for this client and competence',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const { rowsForBuild, winnersMeta, conflicts, source_fiscal_file_ids } =
+      this.consolidateExtractedRowsForCompetence(rows);
+    if (rowsForBuild.length === 0) {
+      throw new AppError(
+        'No extracted data found for this client and competence',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const input = this.buildInputFromExtractedData(clientId, competence, rowsForBuild);
+    const mergedInput = this.applyRealValidationOverrides(input, overrides);
+
+    const sortedWinners = [...winnersMeta].sort(
+      (a, b) => b.created_at.getTime() - a.created_at.getTime()
+    );
+    const canonicalFiscalFileId = sortedWinners[0]?.fiscal_file_id ?? null;
+
+    const by_data_type: Record<string, { fiscal_file_id: string; created_at: string }> = {};
+    for (const w of winnersMeta) {
+      by_data_type[w.data_type] = {
+        fiscal_file_id: w.fiscal_file_id,
+        created_at: this.toIso(w.created_at),
+      };
+    }
+
+    return this.persistRealValidation(mergedInput, {
+      clientId,
+      competence,
+      fiscalFileId: canonicalFiscalFileId,
+      ratingReal,
+      userId,
+      sourcesMeta: {
+        source_fiscal_file_ids,
+        by_data_type,
+        conflicts,
+      },
+    });
+  }
+
+  async listProcessedEcdFiscalFiles(options: {
+    client_id?: string;
+    competence?: string;
+    limit?: number;
+  }): Promise<ProcessedEcdFiscalFileRow[]> {
+    return this.ratingValidatorRepo.listProcessedEcdFiscalFiles(options);
+  }
+
+  async listDistinctProcessedEcdCompetences(clientId: string): Promise<string[]> {
+    return this.ratingValidatorRepo.listDistinctProcessedEcdCompetences(clientId);
   }
 
   /**

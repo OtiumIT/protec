@@ -1,15 +1,32 @@
 import { ClientRepository, CreateClientData, UpdateClientData } from './client.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import type { Client } from '@shared/core';
+import { SubscriptionService } from '../subscriptions/subscription.service';
 
 export class ClientService {
-  constructor(private clientRepo: ClientRepository) {}
+  constructor(
+    private clientRepo: ClientRepository,
+    private subscriptionService: SubscriptionService
+  ) {}
 
   /**
    * Criar cliente com validação de CNPJ/CPF único
    * NOTA: Schema já isola por tenant, não precisa companyId
    */
-  async create(data: CreateClientData): Promise<Client> {
+  async create(companyId: string, data: CreateClientData): Promise<Client> {
+    const subscription = await this.subscriptionService.getByCompany(companyId);
+    const maxClients = subscription.plan.max_clients ?? 0;
+    if (maxClients > 0) {
+      const currentClients = await this.clientRepo.countAll();
+      if (currentClients >= maxClients) {
+        throw new AppError(
+          'Client limit reached for current plan',
+          'CLIENT_LIMIT_REACHED',
+          409
+        );
+      }
+    }
+
     const personType = data.person_type || 'pj';
     const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
     const cpfDigits = (data.cpf || '').replace(/\D/g, '');

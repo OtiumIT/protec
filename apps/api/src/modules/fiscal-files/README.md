@@ -19,14 +19,30 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
   - Tamanho máximo: 50MB
   - MIME types validados
   - Cliente deve existir no tenant
-  - Competência no formato YYYY-MM
+  - `client_id` obrigatório
+  - `competence` e `file_type` podem ser enviados manualmente apenas como fallback
 - **Processo**:
   1. Validar dados de entrada (Zod)
   2. Validar tipo e tamanho do arquivo
   3. Verificar se cliente existe
-  4. Upload para Supabase Storage (estrutura: `{company_id}/{client_id}/{competence}/{filename}`)
-  5. Criar registro no banco com status `uploaded`
-  6. Retornar arquivo criado
+  4. Tentar inferir `file_type` e `competence` automaticamente:
+     - Prioriza dados enviados manualmente no request (quando houver fallback no frontend)
+     - Usa inspeção do conteúdo SPED (ECD/ECF) para tipo/período quando possível
+     - Usa extensão e padrão no nome do arquivo como heurística complementar
+  5. Se ainda faltar `file_type` ou `competence`, retornar `422 UPLOAD_METADATA_REQUIRED` para o frontend solicitar confirmação ao usuário
+  6. Upload para Supabase Storage (estrutura: `{company_id}/{client_id}/{competence}/{filename}`)
+  7. Criar registro no banco
+  8. Se houver dados estruturados, persistir em `extracted_fiscal_data`:
+     - `balance_sheet` (J100)
+     - `dre` (J150)
+     - `module_prefill_rating_validator`
+     - `module_prefill_simulador_in2306`
+     - `module_prefill_irpf_alta_renda`
+     - `ecf_tax_signals`
+     - `prefill_catalog`
+  9. Salvar metadados de inspeção completa em `fiscal_files.metadata`
+  10. Marcar status `processed` quando houver extração útil
+  11. Retornar arquivo criado
 
 ### Regra 3: Status do Arquivo
 - **Estados possíveis**:
@@ -51,6 +67,19 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
   3. Deletar registro do banco
   4. Log de erro se falhar storage (mas continua com deleção do registro)
 
+### Regra 6: Calibrador de Classificação SPED (IN 2.306)
+- **Quando aplicar**: Inspeção (`POST /fiscal-files/inspect`) e upload (`POST /fiscal-files/upload`) de SPED
+- **Objetivo**: Aprender aliases de contas por escritório/cliente para aumentar confiança no pré-preenchimento do módulo IN 2.306
+- **Persistência**: Tabela `fiscal_sped_calibrator_rules` no schema do tenant
+- **Escopo de regra**:
+  - `client_id = NULL`: regra global do tenant
+  - `client_id = UUID`: regra específica do cliente
+- **Processo**:
+  1. Carregar regras ativas (globais + cliente)
+  2. Tentar classificar descrição da conta por `pattern`
+  3. Se não houver match no calibrador, aplicar heurística padrão
+  4. Gerar `module_prefill.simulador_in2306` com confiança ajustada
+
 ## Dependências
 - **Módulos**: 
   - `clients` (validação de cliente antes de upload)
@@ -59,6 +88,7 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
 - **Tabelas**: 
   - `fiscal_files` (schema do tenant)
   - `clients` (schema do tenant)
+  - `fiscal_sped_calibrator_rules` (schema do tenant)
 - **Storage**: 
   - Supabase Storage bucket `fiscal-files`
 
@@ -66,13 +96,13 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
 
 ### POST /fiscal-files/upload
 - **Descrição**: Upload de arquivo fiscal via multipart/form-data
-- **Body (form-data)**: `file`, `client_id`, `competence`, `file_type`
+- **Body (form-data)**: `file`, `client_id`, `competence?`, `file_type?`
 - **Validação**: 
   - Arquivo obrigatório
   - Tipos: `.txt`, `.xml`, `.pdf` (máx. 50MB)
   - `client_id`: UUID válido
-  - `competence`: Formato YYYY-MM
-  - `file_type`: `sped`, `ecd`, `pgdas`, `xml`, `pdf`, `txt`, `outros`
+  - `competence?`: Formato YYYY-MM (opcional, fallback manual)
+  - `file_type?`: `sped`, `ecd`, `pgdas`, `xml`, `pdf`, `txt`, `outros` (opcional, fallback manual)
 - **Resposta**: `{ data: { fiscal_file } }` (201)
 - **Autenticação**: Requerida
 - **Módulo**: Requer módulo `FISCAL_FILES` ativo
@@ -122,6 +152,42 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
 - **Autenticação**: Requerida
 - **Validação**: `client_id` deve ser UUID válido
 
+### POST /fiscal-files/inspect
+- **Descrição**: Inspeciona arquivo SPED `.txt` para identificar tipo (ECD/ECF), CNPJ e razão social
+- **Body (form-data)**: `file`, `client_id?`
+- **Resposta**: `{ data: { inspection, matched_client, requires_client_registration } }`
+- **Uso principal**: autoidentificar cliente na tela de upload e bloquear envio quando o cliente não existir
+- **Autenticação**: Requerida
+
+### GET /fiscal-files/calibrator/rules
+- **Descrição**: Lista regras do calibrador (globais + opcionais por cliente)
+- **Query params**: `client_id?`
+- **Resposta**: `{ data: { rules: [] } }`
+- **Autenticação**: Requerida
+
+### POST /fiscal-files/calibrator/rules
+- **Descrição**: Cria regra de calibrador para classificação de contas SPED
+- **Body**: `{ client_id?, pattern, target_kind, target_field, confidence_override?, active?, notes? }`
+- **Resposta**: `{ data: { rule } }` (201)
+- **Autenticação**: Requerida
+
+### PUT /fiscal-files/calibrator/rules/:id
+- **Descrição**: Atualiza regra existente do calibrador
+- **Body**: mesmos campos do create (parciais)
+- **Resposta**: `{ data: { rule } }`
+- **Autenticação**: Requerida
+
+### DELETE /fiscal-files/calibrator/rules/:id
+- **Descrição**: Remove regra do calibrador
+- **Resposta**: `{ data: { success: true } }`
+- **Autenticação**: Requerida
+
+### GET /fiscal-files/:id/summary
+- **Descrição**: Resumo consolidado da extração para visualização no portal
+- **Resposta**: `{ data: { fiscal_file, extracted_data_types, extracted_data, prefill_confidence } }`
+- **Uso principal**: tela de detalhes com visão resumida e score de confiança para pré-preenchimento
+- **Autenticação**: Requerida
+
 ## Fluxos Importantes
 
 ### Fluxo de Upload
@@ -129,9 +195,12 @@ Gerencia upload, armazenamento e processamento de arquivos fiscais dos clientes 
 2. Validar dados (Zod)
 3. Validar tipo e tamanho do arquivo
 4. Verificar se cliente existe no tenant
-5. Upload para Supabase Storage
-6. Criar registro no banco (status: `uploaded`)
-7. Retornar arquivo criado
+5. Inspecionar SPED (ECD/ECF) quando aplicável
+6. Aplicar calibrador (se houver regras ativas para o cliente/tenant)
+6. Upload para Supabase Storage
+7. Criar registro no banco
+8. Persistir extrações (`balance_sheet`, `dre`) quando disponíveis
+9. Retornar arquivo criado
 
 ### Fluxo de Processamento (Workers)
 1. Worker busca arquivos com status `uploaded`

@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
-import { fiscalFileService } from '../services/fiscal-file.service';
+import {
+  fiscalFileService,
+  FiscalFileApiError,
+  type InspectSpedResult,
+} from '../services/fiscal-file.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { Link } from 'react-router-dom';
 
 interface FileUpload {
   file: File;
@@ -17,20 +22,36 @@ interface FileUpload {
   error?: string;
 }
 
+type FiscalFileType = 'sped' | 'ecd' | 'pgdas' | 'xml' | 'pdf' | 'txt' | 'outros';
+
+interface FileMetadataFallback {
+  required: boolean;
+  reason?: string;
+  suggested_competence?: string;
+  suggested_file_type?: FiscalFileType;
+  competence?: string;
+  file_type?: FiscalFileType;
+}
+
 export function FiscalFilesUpload() {
   const { success, error: showError, ToastContainer } = useToast();
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [competence, setCompetence] = useState<string>('');
-  const [fileType, setFileType] = useState<'sped' | 'ecd' | 'pgdas' | 'xml' | 'pdf' | 'txt' | 'outros'>('sped');
+  const [fileMetadataFallbacks, setFileMetadataFallbacks] = useState<Record<string, FileMetadataFallback>>({});
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   
   // Upload em lote
   const [filesToUpload, setFilesToUpload] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isInspectingFiles, setIsInspectingFiles] = useState(false);
+  const [inspectionResults, setInspectionResults] = useState<Record<string, InspectSpedResult>>({});
+  const [inspectionWarning, setInspectionWarning] = useState<string | null>(null);
+
+  const onlyDigits = (value?: string | null) => (value || '').replace(/\D/g, '');
 
   const getFileStatusLabel = (fileUpload: FileUpload): string => {
+    if (fileMetadataFallbacks[fileUpload.id]?.required) return 'Aguardando confirmação';
     if (fileUpload.status === 'pending') return 'Pendente';
     if (fileUpload.status === 'success') return 'Concluído';
     if (fileUpload.status === 'error') return 'Falha no processamento';
@@ -39,10 +60,54 @@ export function FiscalFilesUpload() {
     return 'Enviando arquivo...';
   };
 
+  const extractCompetenceFromFileName = (fileName: string): string | undefined => {
+    const baseName = fileName.replace(/\.[^/.]+$/, '');
+    const dashedDate = baseName.match(/(20\d{2})[-_](0[1-9]|1[0-2])[-_](0[1-9]|[12]\d|3[01])/);
+    if (dashedDate) return `${dashedDate[1]}-${dashedDate[2]}`;
+    const compactDate = baseName.match(/(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+    if (compactDate) return `${compactDate[1]}-${compactDate[2]}`;
+    const competenceToken = baseName.match(/(20\d{2})[-_]?((0[1-9])|(1[0-2]))/);
+    if (competenceToken) return `${competenceToken[1]}-${competenceToken[2]}`;
+    return undefined;
+  };
+
+  const inferFileTypeFromFileName = (fileName: string): FiscalFileType => {
+    const lowerName = fileName.toLowerCase();
+    if (lowerName.endsWith('.xml')) return 'xml';
+    if (lowerName.endsWith('.pdf')) return 'pdf';
+    if (lowerName.endsWith('.txt')) {
+      if (lowerName.includes('ecf')) return 'sped';
+      if (lowerName.includes('ecd')) return 'ecd';
+      return 'txt';
+    }
+    return 'outros';
+  };
+
+  const suggestMetadataForFile = (fileUpload: FileUpload): { competence?: string; fileType?: FiscalFileType } => {
+    const inspected = inspectionResults[fileUpload.id];
+    const byInspection =
+      inspected?.inspection?.header?.period_end?.slice(0, 7) ||
+      inspected?.inspection?.header?.period_start?.slice(0, 7);
+    const inspectedType = inspected?.inspection?.header?.type;
+    const byInspectionType: FiscalFileType | undefined =
+      inspectedType === 'ecd' ? 'ecd' : inspectedType === 'ecf' ? 'sped' : undefined;
+    return {
+      competence: byInspection || extractCompetenceFromFileName(fileUpload.file.name),
+      fileType: byInspectionType || inferFileTypeFromFileName(fileUpload.file.name),
+    };
+  };
+
   // Carregar clientes
   useEffect(() => {
     loadClients();
   }, []);
+
+  useEffect(() => {
+    if (filesToUpload.length > 0 && !isLoadingClients) {
+      void inspectClientFromFiles(filesToUpload);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients.length, isLoadingClients]);
 
   const loadClients = async () => {
     setIsLoadingClients(true);
@@ -95,8 +160,67 @@ export function FiscalFilesUpload() {
     }
 
     if (validFiles.length > 0) {
-      setFilesToUpload((prev) => [...prev, ...validFiles]);
+      const updatedFiles = [...filesToUpload, ...validFiles];
+      setFilesToUpload(updatedFiles);
+      void inspectClientFromFiles(updatedFiles);
     }
+  };
+
+  const inspectClientFromFiles = async (files: FileUpload[]) => {
+    if (files.length === 0) {
+      setInspectionResults({});
+      setInspectionWarning(null);
+      return;
+    }
+
+    setIsInspectingFiles(true);
+    setInspectionWarning(null);
+
+    const resultById: Record<string, InspectSpedResult> = {};
+    for (const fileUpload of files) {
+      try {
+        const inspected = await fiscalFileService.inspectSped(fileUpload.file, selectedClientId || undefined);
+        resultById[fileUpload.id] = inspected;
+      } catch {
+        // Não bloqueia o fluxo para arquivos não-SPED ou sem padrão.
+      }
+    }
+
+    setInspectionResults(resultById);
+    setIsInspectingFiles(false);
+
+    const detectedDocs = Object.values(resultById).filter((item) => item.inspection.header.company_cnpj);
+    if (detectedDocs.length === 0) {
+      return;
+    }
+
+    const uniqueCnpjs = Array.from(
+      new Set(detectedDocs.map((item) => onlyDigits(item.inspection.header.company_cnpj)).filter(Boolean))
+    );
+
+    if (uniqueCnpjs.length > 1) {
+      setInspectionWarning(
+        'Os arquivos selecionados possuem CNPJs diferentes. Separe por cliente para continuar.'
+      );
+      return;
+    }
+
+    const cnpj = uniqueCnpjs[0];
+    const matchedClient =
+      detectedDocs.find((item) => item.matched_client?.id)?.matched_client ||
+      clients.find((client) => onlyDigits(client.cnpj) === cnpj);
+
+    if (matchedClient?.id) {
+      setSelectedClientId(matchedClient.id);
+      setInspectionWarning(null);
+      return;
+    }
+
+    const companyName =
+      detectedDocs.find((item) => item.inspection.header.company_name)?.inspection.header.company_name || cnpj;
+    setInspectionWarning(
+      `Cliente não cadastrado para o CNPJ ${cnpj} (${companyName}). Cadastre o cliente para liberar o envio.`
+    );
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -120,23 +244,51 @@ export function FiscalFilesUpload() {
   };
 
   const removeFileFromUpload = (id: string) => {
-    setFilesToUpload((prev) => prev.filter((f) => f.id !== id));
+    const updated = filesToUpload.filter((f) => f.id !== id);
+    setFilesToUpload(updated);
+    setFileMetadataFallbacks((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    void inspectClientFromFiles(updated);
   };
 
   const clearAllFiles = () => {
     setFilesToUpload([]);
+    setInspectionResults({});
+    setInspectionWarning(null);
+    setFileMetadataFallbacks({});
   };
 
   const handleBatchUpload = async () => {
-    if (filesToUpload.length === 0 || !selectedClientId || !competence) {
-      showError('Preencha todos os campos obrigatórios e selecione pelo menos um arquivo');
+    const filesQueue = filesToUpload.filter((item) => item.status === 'pending' || item.status === 'error');
+    if (filesQueue.length === 0 || !selectedClientId) {
+      showError('Selecione um cliente e ao menos um arquivo pendente para envio');
+      return;
+    }
+    if (inspectionWarning) {
+      showError(inspectionWarning);
       return;
     }
 
-    // Validar formato de competência
-    if (!/^\d{4}-\d{2}$/.test(competence)) {
-      showError('Competência deve estar no formato YYYY-MM (ex: 2024-01)');
-      return;
+    const filesRequiringMetadata = filesQueue.filter((item) => fileMetadataFallbacks[item.id]?.required);
+    for (const fileUpload of filesRequiringMetadata) {
+      const fallback = fileMetadataFallbacks[fileUpload.id];
+      const competence = fallback?.competence?.trim();
+      if (!competence) {
+        showError(`Informe a competência para ${fileUpload.file.name}`);
+        return;
+      }
+      if (!/^\d{4}-\d{2}$/.test(competence)) {
+        showError(`Competência inválida em ${fileUpload.file.name}. Use o formato YYYY-MM`);
+        return;
+      }
+      if (!fallback?.file_type) {
+        showError(`Informe o tipo do arquivo para ${fileUpload.file.name}`);
+        return;
+      }
     }
 
     setIsUploading(true);
@@ -144,8 +296,8 @@ export function FiscalFilesUpload() {
     let errorCount = 0;
 
     // Upload sequencial com progresso
-    for (let i = 0; i < filesToUpload.length; i++) {
-      const fileUpload = filesToUpload[i];
+    for (let i = 0; i < filesQueue.length; i++) {
+      const fileUpload = filesQueue[i];
       
       setFilesToUpload((prev) =>
         prev.map((f) =>
@@ -173,10 +325,20 @@ export function FiscalFilesUpload() {
       }, 900);
 
       try {
+        const fileFallback = fileMetadataFallbacks[fileUpload.id];
+        const suggested = suggestMetadataForFile(fileUpload);
+        const inferredCompetence =
+          fileFallback?.competence?.trim() ||
+          suggested.competence ||
+          new Date().toISOString().slice(0, 7);
+        const inferredFileType =
+          fileFallback?.file_type ||
+          suggested.fileType ||
+          inferFileTypeFromFileName(fileUpload.file.name);
         await fiscalFileService.upload({
           client_id: selectedClientId,
-          competence,
-          file_type: fileType,
+          competence: inferredCompetence,
+          file_type: inferredFileType,
           file: fileUpload.file,
         });
 
@@ -188,9 +350,31 @@ export function FiscalFilesUpload() {
               : f
           )
         );
+        setFileMetadataFallbacks((prev) => {
+          if (!prev[fileUpload.id]) return prev;
+          const next = { ...prev };
+          delete next[fileUpload.id];
+          return next;
+        });
         successCount++;
       } catch (error) {
         window.clearInterval(progressInterval);
+        if (error instanceof FiscalFileApiError && error.code === 'UPLOAD_METADATA_REQUIRED') {
+          const suggested = suggestMetadataForFile(fileUpload);
+          setFileMetadataFallbacks((prev) => ({
+            ...prev,
+            [fileUpload.id]: {
+              required: true,
+              reason:
+                error.message ||
+                'Nao foi possivel identificar competencia/tipo automaticamente. Informe manualmente para continuar.',
+              suggested_competence: suggested.competence,
+              suggested_file_type: suggested.fileType,
+              competence: prev[fileUpload.id]?.competence || suggested.competence || '',
+              file_type: prev[fileUpload.id]?.file_type || suggested.fileType || 'txt',
+            },
+          }));
+        }
         setFilesToUpload((prev) =>
           prev.map((f) =>
             f.id === fileUpload.id
@@ -198,7 +382,10 @@ export function FiscalFilesUpload() {
                   ...f,
                   status: 'error',
                   stage: undefined,
-                  error: error instanceof Error ? error.message : 'Erro desconhecido',
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : 'Erro desconhecido',
                 }
               : f
           )
@@ -222,8 +409,8 @@ export function FiscalFilesUpload() {
       setFilesToUpload((prev) => prev.filter((f) => f.status !== 'success'));
       // Limpar formulário se todos foram enviados
       if (filesToUpload.every((f) => f.status === 'success' || f.status === 'error')) {
-        setCompetence('');
         setSelectedClientId('');
+        setFileMetadataFallbacks({});
       }
     }, 3000);
   };
@@ -237,7 +424,15 @@ export function FiscalFilesUpload() {
   const pendingFiles = filesToUpload.filter((f) => f.status === 'pending');
   const uploadingFiles = filesToUpload.filter((f) => f.status === 'uploading');
   const successFiles = filesToUpload.filter((f) => f.status === 'success');
-  const errorFiles = filesToUpload.filter((f) => f.status === 'error');
+  const errorFiles = filesToUpload.filter(
+    (f) => f.status === 'error' && !fileMetadataFallbacks[f.id]?.required
+  );
+  const detectedSpedFilesCount = Object.keys(inspectionResults).length;
+  const filesRequiringMetadataCount = filesToUpload.filter(
+    (fileUpload) =>
+      fileMetadataFallbacks[fileUpload.id]?.required &&
+      (fileUpload.status === 'pending' || fileUpload.status === 'error')
+  ).length;
 
   return (
     <Layout>
@@ -248,6 +443,11 @@ export function FiscalFilesUpload() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Upload de Arquivos Fiscais</h1>
         <p className="text-slate-600 mt-2">Faça upload de múltiplos arquivos fiscais de uma vez</p>
+        <div className="mt-3">
+          <Link to="/fiscal-files/calibrator" className="text-sm font-medium text-brand hover:underline">
+            Abrir calibrador IN 2.306
+          </Link>
+        </div>
       </div>
 
       {/* Formulário de Upload */}
@@ -279,43 +479,19 @@ export function FiscalFilesUpload() {
                 Nenhum cliente encontrado. Crie um cliente primeiro.
               </p>
             )}
-          </div>
-
-          {/* Competência e Tipo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Competência (YYYY-MM) *
-              </label>
-              <Input
-                type="text"
-                placeholder="2024-01"
-                value={competence}
-                onChange={(e) => setCompetence(e.target.value)}
-                pattern="\d{4}-\d{2}"
-                required
-              />
-              <p className="text-xs text-slate-500 mt-1">Formato: YYYY-MM</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Tipo de Arquivo *
-              </label>
-              <select
-                value={fileType}
-                onChange={(e) => setFileType(e.target.value as any)}
-                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="sped">SPED</option>
-                <option value="ecd">ECD</option>
-                <option value="pgdas">PGDAS</option>
-                <option value="xml">XML</option>
-                <option value="pdf">PDF</option>
-                <option value="txt">TXT</option>
-                <option value="outros">Outros</option>
-              </select>
-            </div>
+            {isInspectingFiles && (
+              <p className="text-xs text-slate-500 mt-1">Identificando cliente automaticamente pelos arquivos...</p>
+            )}
+            {inspectionWarning && (
+              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-xs text-amber-800">{inspectionWarning}</p>
+                <div className="mt-2">
+                  <Link to="/clients" className="text-xs font-medium text-amber-900 underline">
+                    Ir para cadastro de clientes
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Área de Upload Múltiplo */}
@@ -405,13 +581,85 @@ export function FiscalFilesUpload() {
                           {fileUpload.status === 'success' && (
                             <Badge variant="success" className="text-xs">Concluído</Badge>
                           )}
-                          {fileUpload.status === 'error' && (
+                          {fileMetadataFallbacks[fileUpload.id]?.required && (
+                            <Badge variant="warning" className="text-xs">Aguardando confirmação</Badge>
+                          )}
+                          {fileUpload.status === 'error' && !fileMetadataFallbacks[fileUpload.id]?.required && (
                             <Badge variant="error" className="text-xs">Falha no processamento</Badge>
                           )}
                         </div>
                         <p className="text-xs text-slate-600 mt-1">{getFileStatusLabel(fileUpload)}</p>
                         {fileUpload.error && (
                           <p className="text-xs text-red-600 mt-1">{fileUpload.error}</p>
+                        )}
+
+                        {fileMetadataFallbacks[fileUpload.id]?.required && (
+                          <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-xs font-medium text-amber-900">
+                              Confirmacao manual para este arquivo
+                            </p>
+                            {fileMetadataFallbacks[fileUpload.id]?.reason && (
+                              <p className="text-xs text-amber-800 mt-1">
+                                {fileMetadataFallbacks[fileUpload.id]?.reason}
+                              </p>
+                            )}
+                            {(fileMetadataFallbacks[fileUpload.id]?.suggested_competence ||
+                              fileMetadataFallbacks[fileUpload.id]?.suggested_file_type) && (
+                              <p className="text-xs text-amber-800 mt-1">
+                                Sugestao: 
+                                {fileMetadataFallbacks[fileUpload.id]?.suggested_competence
+                                  ? ` competencia ${fileMetadataFallbacks[fileUpload.id]?.suggested_competence}`
+                                  : ''}
+                                {fileMetadataFallbacks[fileUpload.id]?.suggested_competence &&
+                                fileMetadataFallbacks[fileUpload.id]?.suggested_file_type
+                                  ? ' |'
+                                  : ''}
+                                {fileMetadataFallbacks[fileUpload.id]?.suggested_file_type
+                                  ? ` tipo ${fileMetadataFallbacks[fileUpload.id]?.suggested_file_type?.toUpperCase()}`
+                                  : ''}
+                              </p>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                              <Input
+                                type="text"
+                                placeholder="Competência (YYYY-MM)"
+                                value={fileMetadataFallbacks[fileUpload.id]?.competence || ''}
+                                onChange={(e) =>
+                                  setFileMetadataFallbacks((prev) => ({
+                                    ...prev,
+                                    [fileUpload.id]: {
+                                      ...prev[fileUpload.id],
+                                      required: true,
+                                      competence: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                              <select
+                                value={fileMetadataFallbacks[fileUpload.id]?.file_type || 'txt'}
+                                onChange={(e) =>
+                                  setFileMetadataFallbacks((prev) => ({
+                                    ...prev,
+                                    [fileUpload.id]: {
+                                      ...prev[fileUpload.id],
+                                      required: true,
+                                      file_type: e.target.value as FiscalFileType,
+                                    },
+                                  }))
+                                }
+                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                              >
+                                <option value="sped">SPED</option>
+                                <option value="ecd">ECD</option>
+                                <option value="pgdas">PGDAS</option>
+                                <option value="xml">XML</option>
+                                <option value="pdf">PDF</option>
+                                <option value="txt">TXT</option>
+                                <option value="outros">Outros</option>
+                              </select>
+                            </div>
+                          </div>
                         )}
                       </div>
                       {fileUpload.status !== 'uploading' && (
@@ -434,6 +682,16 @@ export function FiscalFilesUpload() {
                     {pendingFiles.length > 0 && (
                       <span className="text-xs text-slate-500">
                         {pendingFiles.length} pendente(s)
+                      </span>
+                    )}
+                    {detectedSpedFilesCount > 0 && (
+                      <span className="text-xs text-slate-600">
+                        {detectedSpedFilesCount} arquivo(s) SPED inspecionado(s)
+                      </span>
+                    )}
+                    {filesRequiringMetadataCount > 0 && (
+                      <span className="text-xs text-amber-700">
+                        {filesRequiringMetadataCount} arquivo(s) aguardando competência/tipo
                       </span>
                     )}
                     {uploadingFiles.length > 0 && (
@@ -462,7 +720,8 @@ export function FiscalFilesUpload() {
             disabled={
               filesToUpload.length === 0 ||
               !selectedClientId ||
-              !competence ||
+              !!inspectionWarning ||
+              isInspectingFiles ||
               isUploading ||
               filesToUpload.some((f) => f.status === 'uploading')
             }

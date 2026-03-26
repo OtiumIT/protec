@@ -14,6 +14,9 @@ import {
   type SimulateRatingInput,
   type RatingSimulationResult,
   type ExtractEcdPdfResult,
+  type ProcessedEcdFiscalFile,
+  type RealValidationOverrides,
+  type RealValidationPrefill,
 } from '../services/rating-validator.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { judicialProcessService } from '../../judicial-processes/services/judicial-process.service';
@@ -28,6 +31,7 @@ import type { RatingValidation } from '@shared/core';
 
 type Tab = 'simulation' | 'scenarios' | 'real' | 'history';
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type HistoryFilter = 'all' | 'simulation' | 'real';
 
 const STEPS: { number: Step; title: string; description: string }[] = [
   { number: 1, title: 'Ativo Circulante', description: 'Informe os valores do ativo circulante' },
@@ -130,6 +134,7 @@ export function RatingValidator() {
   const [pdfExportMode, setPdfExportMode] = useState<'resumo' | 'completo'>('resumo');
   const [validations, setValidations] = useState<RatingValidation[]>([]);
   const [validationsLoading, setValidationsLoading] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [viewingValidation, setViewingValidation] = useState<RatingValidation | null>(null);
   const [viewLoadingId, setViewLoadingId] = useState<string | null>(null);
   const [editingValidationId, setEditingValidationId] = useState<string | null>(null);
@@ -161,6 +166,19 @@ export function RatingValidator() {
   const [ecdProcessingStage, setEcdProcessingStage] = useState('');
   const [ecdProcessingDetail, setEcdProcessingDetail] = useState('');
   const [ecdProcessingProgress, setEcdProcessingProgress] = useState(0);
+  /** Competências YYYY-MM com ECD processado (via DISTINCT no backend — não corta por LIMIT de arquivos) */
+  const [ecdCompetenceOptions, setEcdCompetenceOptions] = useState<string[]>([]);
+  const [ecdCompetencesLoading, setEcdCompetencesLoading] = useState(false);
+  /** ECD da competência selecionada (lista de auditoria — só após cliente + competência) */
+  const [auditEcdFiles, setAuditEcdFiles] = useState<ProcessedEcdFiscalFile[]>([]);
+  const [auditEcdLoading, setAuditEcdLoading] = useState(false);
+  const [realValidationClientId, setRealValidationClientId] = useState('');
+  const [realValidationCompetence, setRealValidationCompetence] = useState('');
+  const [realRatingReference, setRealRatingReference] = useState<'' | 'A' | 'B' | 'C' | 'D'>('');
+  const [isValidatingReal, setIsValidatingReal] = useState(false);
+  const [realPrefill, setRealPrefill] = useState<RealValidationPrefill | null>(null);
+  const [realPrefillLoading, setRealPrefillLoading] = useState(false);
+  const [realOverrides, setRealOverrides] = useState<RealValidationOverrides>({});
 
   // Estado para controlar modo granular vs total em cada seção
   const [useTotalMode, setUseTotalMode] = useState<{
@@ -271,6 +289,8 @@ export function RatingValidator() {
       passivo_total: passivoTotal,
     };
   }, [formData, useTotalMode]);
+
+  const showQuickFilledSummary = currentStep === 7 && simulationResult === null;
 
   useEffect(() => {
     loadClients();
@@ -482,20 +502,243 @@ export function RatingValidator() {
   const loadValidations = useCallback(async () => {
     setValidationsLoading(true);
     try {
-      const res = await ratingValidatorService.list({ is_simulation: true, page: 1, limit: 50 });
+      const isSimulationFilter =
+        historyFilter === 'all' ? undefined : historyFilter === 'simulation';
+      const res = await ratingValidatorService.list({
+        is_simulation: isSimulationFilter,
+        page: 1,
+        limit: 100,
+      });
       setValidations(res.validations);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao carregar histórico');
     } finally {
       setValidationsLoading(false);
     }
-  }, [showError]);
+  }, [historyFilter, showError]);
 
   useEffect(() => {
     if (activeTab === 'history') {
       loadValidations();
     }
-  }, [activeTab, loadValidations]);
+  }, [activeTab, loadValidations, historyFilter]);
+
+  const fetchEcdCompetencesForClient = useCallback(async () => {
+    if (!realValidationClientId) {
+      setEcdCompetenceOptions([]);
+      return;
+    }
+    setEcdCompetencesLoading(true);
+    try {
+      const competences = await ratingValidatorService.listProcessedEcdCompetences(
+        realValidationClientId
+      );
+      setEcdCompetenceOptions(competences);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar competências (ECD do cliente)');
+    } finally {
+      setEcdCompetencesLoading(false);
+    }
+  }, [realValidationClientId, showError]);
+
+  const fetchAuditEcdForSelection = useCallback(async () => {
+    if (!realValidationClientId || !realValidationCompetence) {
+      setAuditEcdFiles([]);
+      return;
+    }
+    setAuditEcdLoading(true);
+    try {
+      const files = await ratingValidatorService.listProcessedEcdFiles({
+        client_id: realValidationClientId,
+        competence: realValidationCompetence,
+        limit: 200,
+      });
+      setAuditEcdFiles(files);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar arquivos ECD da competência');
+    } finally {
+      setAuditEcdLoading(false);
+    }
+  }, [realValidationClientId, realValidationCompetence, showError]);
+
+  useEffect(() => {
+    if (activeTab !== 'real') return;
+    void fetchEcdCompetencesForClient();
+  }, [activeTab, fetchEcdCompetencesForClient]);
+
+  useEffect(() => {
+    if (activeTab !== 'real') return;
+    void fetchAuditEcdForSelection();
+  }, [activeTab, fetchAuditEcdForSelection]);
+
+  const refreshRealEcdLists = useCallback(() => {
+    void fetchEcdCompetencesForClient();
+    void fetchAuditEcdForSelection();
+  }, [fetchEcdCompetencesForClient, fetchAuditEcdForSelection]);
+
+  useEffect(() => {
+    if (!realValidationCompetence) return;
+    if (!ecdCompetenceOptions.includes(realValidationCompetence)) {
+      setRealValidationCompetence('');
+    }
+  }, [ecdCompetenceOptions, realValidationCompetence]);
+
+  const loadRealPrefillByCompetence = useCallback(
+    async (clientId: string, competence: string) => {
+      if (!clientId || !competence) {
+        setRealPrefill(null);
+        setRealOverrides({});
+        return;
+      }
+      setRealPrefillLoading(true);
+      try {
+        const prefillData = await ratingValidatorService.getRealValidationPrefillByCompetence(
+          clientId,
+          competence
+        );
+        setRealPrefill(prefillData);
+        setRealOverrides({
+          ativo_circulante_total: prefillData.prefill.ativo_circulante_total,
+          realizavel_longo_prazo_total: prefillData.prefill.realizavel_longo_prazo_total,
+          outros_ativos_nao_circulantes: prefillData.prefill.outros_ativos_nao_circulantes,
+          passivo_circulante_total: prefillData.prefill.passivo_circulante_total,
+          passivo_nao_circulante_total: prefillData.prefill.passivo_nao_circulante_total,
+          patrimonio_liquido_total: prefillData.prefill.patrimonio_liquido_total,
+          dre: prefillData.prefill.dre ? { ...prefillData.prefill.dre } : undefined,
+        });
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Erro ao carregar pré-preenchimento');
+        setRealPrefill(null);
+        setRealOverrides({});
+      } finally {
+        setRealPrefillLoading(false);
+      }
+    },
+    [showError]
+  );
+
+  useEffect(() => {
+    if (activeTab !== 'real') return;
+    loadRealPrefillByCompetence(realValidationClientId, realValidationCompetence);
+  }, [activeTab, realValidationClientId, realValidationCompetence, loadRealPrefillByCompetence]);
+
+  const handleRunRealValidation = useCallback(async () => {
+    if (!realValidationClientId || !realValidationCompetence) {
+      showError('Selecione o cliente e a competência.');
+      return;
+    }
+    setIsValidatingReal(true);
+    try {
+      const result = await ratingValidatorService.validateByCompetence(
+        realValidationClientId,
+        realValidationCompetence,
+        {
+          ratingReal: realRatingReference || undefined,
+          overrides: realOverrides,
+        }
+      );
+
+      const defaultAc = {
+        caixa_equivalentes: 0,
+        aplicacoes_financeiras: 0,
+        contas_receber: 0,
+        estoques: 0,
+        tributos_recuperar: 0,
+        despesas_antecipadas: 0,
+        outros_ativos_circulantes: 0,
+      };
+      const defaultRlp = { contas_receber_lp: 0, emprestimos_concedidos: 0, outros_creditos_lp: 0 };
+      const defaultPc = {
+        fornecedores: 0,
+        emprestimos_financiamentos: 0,
+        obrigacoes_trabalhistas: 0,
+        tributos_pagar: 0,
+        contas_pagar: 0,
+        provisoes: 0,
+        outros_passivos_circulantes: 0,
+      };
+      const defaultPnc = {
+        emprestimos_financiamentos_lp: 0,
+        obrigacoes_trabalhistas_lp: 0,
+        tributos_pagar_lp: 0,
+        provisoes_lp: 0,
+        outros_passivos_nao_circulantes: 0,
+      };
+      const defaultPl = {
+        capital_social: 0,
+        reservas_capital: 0,
+        reservas_lucros: 0,
+        lucros_prejuizos_acumulados: 0,
+        outros_ajustes: 0,
+      };
+
+      setUseTotalMode({
+        ativo_circulante: realOverrides.ativo_circulante_total != null,
+        realizavel_longo_prazo: realOverrides.realizavel_longo_prazo_total != null,
+        passivo_circulante: realOverrides.passivo_circulante_total != null,
+        passivo_nao_circulante: realOverrides.passivo_nao_circulante_total != null,
+        patrimonio_liquido: realOverrides.patrimonio_liquido_total != null,
+      });
+
+      const normalizedDre = realOverrides.dre
+        ? {
+            receita_bruta: realOverrides.dre.receita_bruta ?? 0,
+            deducoes_vendas: realOverrides.dre.deducoes_vendas ?? 0,
+            receita_liquida: realOverrides.dre.receita_liquida,
+            custos_vendas: realOverrides.dre.custos_vendas ?? 0,
+            despesas_operacionais: realOverrides.dre.despesas_operacionais ?? 0,
+            resultado_financeiro: realOverrides.dre.resultado_financeiro ?? 0,
+            outros_resultados: realOverrides.dre.outros_resultados ?? 0,
+          }
+        : undefined;
+
+      setFormData({
+        ativo_circulante: defaultAc,
+        ativo_nao_circulante: {
+          realizavel_longo_prazo: defaultRlp,
+          investimentos: 0,
+          imobilizado: 0,
+          intangivel: 0,
+          outros_ativos_nao_circulantes: realOverrides.outros_ativos_nao_circulantes ?? 0,
+        },
+        passivo_circulante: defaultPc,
+        passivo_nao_circulante: defaultPnc,
+        patrimonio_liquido: defaultPl,
+        dre: normalizedDre,
+        competencia: realPrefill?.prefill.competencia || realValidationCompetence || '',
+        client_id:
+          realPrefill?.prefill.client_id ||
+          realPrefill?.fiscal_file?.client_id ||
+          realValidationClientId ||
+          '',
+        save_simulation: false,
+        rating_real: realRatingReference || undefined,
+        ativo_circulante_total: realOverrides.ativo_circulante_total,
+        realizavel_longo_prazo_total: realOverrides.realizavel_longo_prazo_total,
+        passivo_circulante_total: realOverrides.passivo_circulante_total,
+        passivo_nao_circulante_total: realOverrides.passivo_nao_circulante_total,
+        patrimonio_liquido_total: realOverrides.patrimonio_liquido_total,
+      });
+
+      setSimulationResult({ ...result, is_simulation: false });
+      setCurrentStep(7);
+      setEditingValidationId(null);
+      setActiveTab('simulation');
+      success('Validação real concluída. Exibindo relatório completo.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao executar validação real');
+    } finally {
+      setIsValidatingReal(false);
+    }
+  }, [
+    realRatingReference,
+    realOverrides,
+    realPrefill,
+    realValidationCompetence,
+    realValidationClientId,
+    showError,
+    success,
+  ]);
 
   const handleViewValidation = async (id: string) => {
     setViewLoadingId(id);
@@ -1716,17 +1959,20 @@ export function RatingValidator() {
                   {STEPS.map((step, index) => (
                     <div key={step.number} className="flex items-center flex-1">
                       <div className="flex flex-col items-center flex-1">
-                        <div
+                        <button
+                          type="button"
+                          onClick={() => setCurrentStep(step.number)}
+                          aria-label={`Ir para etapa ${step.number}: ${step.title}`}
                           className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                             currentStep === step.number
                               ? 'bg-blue-600 text-white'
                               : currentStep > step.number
                               ? 'bg-brand text-white'
-                              : 'bg-slate-200 text-slate-600'
+                              : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                           }`}
                         >
                           {currentStep > step.number ? '✓' : step.number}
-                        </div>
+                        </button>
                         <div className="mt-2 text-xs text-center max-w-[100px]">
                           <div className="font-medium">{step.title}</div>
                         </div>
@@ -1746,6 +1992,33 @@ export function RatingValidator() {
               <div className="border-t border-slate-200 pt-6">
                 <h2 className="text-xl font-semibold mb-2">{STEPS[currentStep - 1].title}</h2>
                 <p className="text-sm text-slate-600 mb-6">{STEPS[currentStep - 1].description}</p>
+
+                {showQuickFilledSummary && (
+                  <Card className="p-5 border border-slate-200 bg-slate-50/60 mb-6">
+                    <h3 className="text-sm font-semibold text-slate-800 mb-3">Conferência rápida dos valores preenchidos</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <p className="font-medium text-slate-700">Balanço (Ativo)</p>
+                        <p className="text-slate-600">Ativo Circulante: <strong>{formatCurrency(calculatedTotals.ativo_circulante_total)}</strong></p>
+                        <p className="text-slate-600">Realizável LP: <strong>{formatCurrency(calculatedTotals.realizavel_longo_prazo_total)}</strong></p>
+                        <p className="text-slate-600">Outros Ativos NC: <strong>{formatCurrency(formData.ativo_nao_circulante.outros_ativos_nao_circulantes || 0)}</strong></p>
+                        <p className="text-slate-600">Total Ativo: <strong>{formatCurrency(calculatedTotals.ativo_total)}</strong></p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium text-slate-700">Passivo e PL</p>
+                        <p className="text-slate-600">Passivo Circulante: <strong>{formatCurrency(calculatedTotals.passivo_circulante_total)}</strong></p>
+                        <p className="text-slate-600">Passivo Não Circulante: <strong>{formatCurrency(calculatedTotals.passivo_nao_circulante_total)}</strong></p>
+                        <p className="text-slate-600">Patrimônio Líquido: <strong>{formatCurrency(calculatedTotals.patrimonio_liquido_total)}</strong></p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium text-slate-700">DRE (informada)</p>
+                        <p className="text-slate-600">Receita Bruta: <strong>{formatCurrency(formData.dre?.receita_bruta ?? 0)}</strong></p>
+                        <p className="text-slate-600">Deduções: <strong>{formatCurrency(formData.dre?.deducoes_vendas ?? 0)}</strong></p>
+                        <p className="text-slate-600">Receita Líquida: <strong>{formatCurrency(formData.dre?.receita_liquida ?? ((formData.dre?.receita_bruta ?? 0) - (formData.dre?.deducoes_vendas ?? 0)))}</strong></p>
+                      </div>
+                    </div>
+                  </Card>
+                )}
 
                 {renderStepContent()}
 
@@ -2011,6 +2284,38 @@ export function RatingValidator() {
               </div>
 
               <div id="rating-validator-resultado-print" className="space-y-6 pdf-export-root">
+                {simulationResult.is_simulation === false && (
+                  <Card className="p-4 border border-indigo-200 bg-indigo-50/70">
+                    <p className="text-sm text-indigo-900">
+                      <strong>Resultado de validação real:</strong> análise gerada a partir de ECD processado.
+                      {simulationResult.validation_id ? ` ID da validação: ${simulationResult.validation_id}.` : ''}
+                    </p>
+                  </Card>
+                )}
+                <Card className="p-4 border border-slate-200 bg-slate-50/60">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-3">Quadro de conferência dos dados informados</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">Ativo</p>
+                      <p className="text-slate-600">Ativo Circulante: <strong>{formatCurrency(calculatedTotals.ativo_circulante_total)}</strong></p>
+                      <p className="text-slate-600">Realizável LP: <strong>{formatCurrency(calculatedTotals.realizavel_longo_prazo_total)}</strong></p>
+                      <p className="text-slate-600">Outros Ativos NC: <strong>{formatCurrency(formData.ativo_nao_circulante.outros_ativos_nao_circulantes || 0)}</strong></p>
+                      <p className="text-slate-600">Total Ativo: <strong>{formatCurrency(calculatedTotals.ativo_total)}</strong></p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">Passivo e PL</p>
+                      <p className="text-slate-600">Passivo Circulante: <strong>{formatCurrency(calculatedTotals.passivo_circulante_total)}</strong></p>
+                      <p className="text-slate-600">Passivo Não Circulante: <strong>{formatCurrency(calculatedTotals.passivo_nao_circulante_total)}</strong></p>
+                      <p className="text-slate-600">Patrimônio Líquido: <strong>{formatCurrency(calculatedTotals.patrimonio_liquido_total)}</strong></p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">DRE</p>
+                      <p className="text-slate-600">Receita Bruta: <strong>{formatCurrency(formData.dre?.receita_bruta ?? 0)}</strong></p>
+                      <p className="text-slate-600">Deduções: <strong>{formatCurrency(formData.dre?.deducoes_vendas ?? 0)}</strong></p>
+                      <p className="text-slate-600">Receita Líquida: <strong>{formatCurrency(formData.dre?.receita_liquida ?? ((formData.dre?.receita_bruta ?? 0) - (formData.dre?.deducoes_vendas ?? 0)))}</strong></p>
+                    </div>
+                  </div>
+                </Card>
                 {/* Cabeçalho profissional para tela e impressão */}
                 <div id="pdf-header" className="pdf-keep-together flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-4">
@@ -2581,38 +2886,40 @@ export function RatingValidator() {
                   )}
                 </Card>
 
-                {/* Salvar simulação no histórico (botão após resultado) */}
-                <Card className="p-6 border border-slate-200 bg-slate-50/50">
-                  <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Salve esta simulação para consultar depois no Histórico.
-                  </p>
-                  <div className="flex flex-wrap items-end gap-4">
-                    <div className="min-w-[200px]">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
-                      <select
-                        value={saveClientIdForRating}
-                        onChange={(e) => setSaveClientIdForRating(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white"
-                        disabled={isLoadingClients}
+                {/* Salvar simulação no histórico (somente para resultados de simulação) */}
+                {simulationResult.is_simulation !== false && (
+                  <Card className="p-6 border border-slate-200 bg-slate-50/50">
+                    <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Salve esta simulação para consultar depois no Histórico.
+                    </p>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="min-w-[200px]">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                        <select
+                          value={saveClientIdForRating}
+                          onChange={(e) => setSaveClientIdForRating(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white"
+                          disabled={isLoadingClients}
+                        >
+                          <option value="">Selecione um cliente</option>
+                          {clients.map((client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={handleSaveToHistory}
+                        disabled={isSimulating || !saveClientIdForRating}
                       >
-                        <option value="">Selecione um cliente</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
+                        {isSimulating ? 'Salvando...' : 'Salvar'}
+                      </Button>
                     </div>
-                    <Button
-                      variant="secondary"
-                      onClick={handleSaveToHistory}
-                      disabled={isSimulating || !saveClientIdForRating}
-                    >
-                      {isSimulating ? 'Salvando...' : 'Salvar'}
-                    </Button>
-                  </div>
-                </Card>
+                  </Card>
+                )}
 
                 {/* Comparativo de Modalidades */}
                 {simulationResult && (
@@ -3103,23 +3410,454 @@ export function RatingValidator() {
         )}
 
         {activeTab === 'real' && (
-          <Card>
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold text-slate-700 mb-2">
-                Validação Real a partir de ECD
-              </h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                A validação automática a partir de arquivos ECD será implementada quando tivermos exemplos de dados.
-                Por enquanto, utilize a simulação manual.
-              </p>
-            </div>
-          </Card>
-        )}
+          <div className="space-y-6">
+            <Card>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-800">Validação real por competência</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Selecione o cliente e a competência. Os dados de balanço e DRE são consolidados automaticamente a partir de
+                    todos os ECD processados da competência (prioriza o registro mais recente por tipo de dado). Você pode
+                    revisar e editar os valores antes de validar.
+                  </p>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+                    <select
+                      value={realValidationClientId}
+                      onChange={(e) => {
+                        setRealValidationClientId(e.target.value);
+                        setRealValidationCompetence('');
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                    >
+                      <option value="">Selecione o cliente</option>
+                      {clients.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Competência</label>
+                    <select
+                      value={realValidationCompetence}
+                      onChange={(e) => setRealValidationCompetence(e.target.value)}
+                      disabled={!realValidationClientId}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <option value="">
+                        {!realValidationClientId
+                          ? 'Selecione o cliente primeiro'
+                          : ecdCompetencesLoading
+                            ? 'Carregando competências...'
+                            : ecdCompetenceOptions.length > 0
+                              ? 'Selecione a competência'
+                              : 'Sem competências com ECD processado para este cliente'}
+                      </option>
+                      {ecdCompetenceOptions.map((competence) => (
+                        <option key={competence} value={competence}>
+                          {competence}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Enquadramento RF (opcional)</label>
+                    <select
+                      value={realRatingReference}
+                      onChange={(e) =>
+                        setRealRatingReference((e.target.value as '' | 'A' | 'B' | 'C' | 'D') || '')
+                      }
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                    >
+                      <option value="">Não informar</option>
+                      <option value="A">A - Excelente</option>
+                      <option value="B">B - Bom</option>
+                      <option value="C">C - Regular</option>
+                      <option value="D">D - Insuficiente</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        if (!realValidationClientId) {
+                          showError('Selecione o cliente para atualizar.');
+                          return;
+                        }
+                        refreshRealEcdLists();
+                      }}
+                      disabled={!realValidationClientId || ecdCompetencesLoading || auditEcdLoading}
+                    >
+                      {ecdCompetencesLoading || auditEcdLoading ? 'Atualizando...' : 'Atualizar lista'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-2">Auditoria — ECD processados nesta seleção</h4>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Apenas referência: a validação usa a consolidação por competência, não um arquivo único.
+                  </p>
+                  {!realValidationClientId || !realValidationCompetence ? (
+                    <p className="text-sm text-slate-500">
+                      Selecione o cliente e a competência para listar os arquivos ECD processados.
+                    </p>
+                  ) : auditEcdLoading ? (
+                    <p className="text-sm text-slate-500">Carregando lista...</p>
+                  ) : auditEcdFiles.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      Nenhum ECD processado encontrado para o cliente e competência selecionados.
+                    </p>
+                  ) : (
+                    <ul className="text-sm text-slate-700 space-y-1 max-h-40 overflow-y-auto">
+                      {auditEcdFiles.map((file) => (
+                        <li key={file.id} className="flex flex-wrap gap-x-2 border-b border-slate-100 pb-1">
+                          <span className="font-mono text-xs text-slate-500">{file.id.slice(0, 8)}…</span>
+                          <span>{file.file_name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {realPrefill?.multiple_sources_warning ? (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <strong>Atenção:</strong> há mais de um arquivo ECD com dados extraídos para esta competência. Foi aplicada a
+                    regra do registro mais recente por tipo (<code>balance_sheet</code>, <code>dre</code>,{' '}
+                    <code>module_prefill_rating_validator</code>). Revise os valores e a tabela de origem abaixo.
+                  </div>
+                ) : null}
+
+                {realPrefill?.source_conflicts && realPrefill.source_conflicts.length > 0 ? (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+                    <p className="font-medium mb-1">Conflito entre arquivos (mesmo tipo, fontes diferentes)</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {realPrefill.source_conflicts.map((c) => (
+                        <li key={c.data_type}>
+                          <code>{c.data_type}</code>:{' '}
+                          {c.fiscal_files.map((f) => f.file_name).join(' · ')}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {realPrefill?.source_by_data_type && Object.keys(realPrefill.source_by_data_type).length > 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-xs">
+                    <p className="font-semibold text-slate-800 mb-2">Origem por tipo de dado (consolidado)</p>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="py-1 pr-2">Tipo</th>
+                          <th className="py-1 pr-2">Arquivo</th>
+                          <th className="py-1">Extraído em</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(realPrefill.source_by_data_type).map(([type, src]) => (
+                          <tr key={type} className="border-b border-slate-100">
+                            <td className="py-1 pr-2 font-mono">{type}</td>
+                            <td className="py-1 pr-2">{src.file_name}</td>
+                            <td className="py-1 text-slate-600">
+                              {src.created_at ? new Date(src.created_at).toLocaleString() : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+
+                <Card className="p-4 border border-slate-200 bg-slate-50/60">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h4 className="text-sm font-semibold text-slate-800">Resumo dos campos pré-preenchidos</h4>
+                    {realPrefill?.prefilled_fields?.length ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-xs">
+                        {realPrefill.prefilled_fields.length} campos identificados
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {realPrefillLoading ? (
+                    <p className="text-sm text-slate-500">Carregando pré-preenchimento...</p>
+                  ) : !realValidationClientId || !realValidationCompetence ? (
+                    <p className="text-sm text-slate-500">Selecione cliente e competência para carregar o pré-preenchimento.</p>
+                  ) : !realPrefill ? (
+                    <p className="text-sm text-slate-500">
+                      Não há dados extraídos para esta competência ou não foi possível carregar o pré-preenchimento.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-slate-600">
+                        Fonte: {realPrefill.source_data_types.join(', ') || 'dados extraídos'}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <MoneyInput
+                          label="Ativo Circulante Total"
+                          value={realOverrides.ativo_circulante_total ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, ativo_circulante_total: value }))
+                          }
+                        />
+                        <MoneyInput
+                          label="Realizável LP Total"
+                          value={realOverrides.realizavel_longo_prazo_total ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, realizavel_longo_prazo_total: value }))
+                          }
+                        />
+                        <MoneyInput
+                          label="Outros Ativos Não Circulantes"
+                          value={realOverrides.outros_ativos_nao_circulantes ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, outros_ativos_nao_circulantes: value }))
+                          }
+                        />
+                        <MoneyInput
+                          label="Passivo Circulante Total"
+                          value={realOverrides.passivo_circulante_total ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, passivo_circulante_total: value }))
+                          }
+                        />
+                        <MoneyInput
+                          label="Passivo Não Circulante Total"
+                          value={realOverrides.passivo_nao_circulante_total ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, passivo_nao_circulante_total: value }))
+                          }
+                        />
+                        <MoneyInput
+                          label="Patrimônio Líquido Total"
+                          value={realOverrides.patrimonio_liquido_total ?? 0}
+                          onChange={(value) =>
+                            setRealOverrides((prev) => ({ ...prev, patrimonio_liquido_total: value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <h5 className="text-sm font-medium text-slate-700 mb-2">DRE (editável)</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <MoneyInput
+                            label="Receita Bruta"
+                            value={realOverrides.dre?.receita_bruta ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), receita_bruta: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Deduções de Vendas"
+                            value={realOverrides.dre?.deducoes_vendas ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), deducoes_vendas: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Receita Líquida"
+                            value={realOverrides.dre?.receita_liquida ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), receita_liquida: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Custos de Vendas"
+                            value={realOverrides.dre?.custos_vendas ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), custos_vendas: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Despesas Operacionais"
+                            value={realOverrides.dre?.despesas_operacionais ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), despesas_operacionais: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Resultado Financeiro"
+                            value={realOverrides.dre?.resultado_financeiro ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), resultado_financeiro: value },
+                              }))
+                            }
+                          />
+                          <MoneyInput
+                            label="Outros Resultados"
+                            value={realOverrides.dre?.outros_resultados ?? 0}
+                            onChange={(value) =>
+                              setRealOverrides((prev) => ({
+                                ...prev,
+                                dre: { ...(prev.dre || {}), outros_resultados: value },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="tertiary"
+                          onClick={() =>
+                            setRealOverrides({
+                              ativo_circulante_total: realPrefill.prefill.ativo_circulante_total,
+                              realizavel_longo_prazo_total: realPrefill.prefill.realizavel_longo_prazo_total,
+                              outros_ativos_nao_circulantes: realPrefill.prefill.outros_ativos_nao_circulantes,
+                              passivo_circulante_total: realPrefill.prefill.passivo_circulante_total,
+                              passivo_nao_circulante_total: realPrefill.prefill.passivo_nao_circulante_total,
+                              patrimonio_liquido_total: realPrefill.prefill.patrimonio_liquido_total,
+                              dre: realPrefill.prefill.dre ? { ...realPrefill.prefill.dre } : undefined,
+                            })
+                          }
+                        >
+                          Restaurar pré-preenchimento
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="p-4 border border-indigo-200 bg-indigo-50/50">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">Resumo atual para validação real</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">Ativo</p>
+                      <p className="text-slate-600">Ativo Circulante: <strong>{formatCurrency(realOverrides.ativo_circulante_total ?? 0)}</strong></p>
+                      <p className="text-slate-600">Realizável LP: <strong>{formatCurrency(realOverrides.realizavel_longo_prazo_total ?? 0)}</strong></p>
+                      <p className="text-slate-600">Outros Ativos NC: <strong>{formatCurrency(realOverrides.outros_ativos_nao_circulantes ?? 0)}</strong></p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">Passivo e PL</p>
+                      <p className="text-slate-600">Passivo Circulante: <strong>{formatCurrency(realOverrides.passivo_circulante_total ?? 0)}</strong></p>
+                      <p className="text-slate-600">Passivo Não Circulante: <strong>{formatCurrency(realOverrides.passivo_nao_circulante_total ?? 0)}</strong></p>
+                      <p className="text-slate-600">Patrimônio Líquido: <strong>{formatCurrency(realOverrides.patrimonio_liquido_total ?? 0)}</strong></p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-700">DRE</p>
+                      <p className="text-slate-600">Receita Bruta: <strong>{formatCurrency(realOverrides.dre?.receita_bruta ?? 0)}</strong></p>
+                      <p className="text-slate-600">Deduções: <strong>{formatCurrency(realOverrides.dre?.deducoes_vendas ?? 0)}</strong></p>
+                      <p className="text-slate-600">Receita Líquida: <strong>{formatCurrency(realOverrides.dre?.receita_liquida ?? ((realOverrides.dre?.receita_bruta ?? 0) - (realOverrides.dre?.deducoes_vendas ?? 0)))}</strong></p>
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleRunRealValidation}
+                    disabled={
+                      !realValidationClientId ||
+                      !realValidationCompetence ||
+                      !realPrefill ||
+                      isValidatingReal ||
+                      realPrefillLoading
+                    }
+                  >
+                    {isValidatingReal ? 'Validando...' : 'Executar validação real'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {simulationResult?.is_simulation === false && (
+              <Card>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-sm text-slate-500">Resultado da validação real</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className={getRatingColor(simulationResult.rating_estimado)}>
+                        Rating calculado {simulationResult.rating_estimado}
+                      </Badge>
+                      {simulationResult.rating_real && (
+                        <Badge className={getRatingColor(simulationResult.rating_real)}>
+                          Enquadramento RF {simulationResult.rating_real}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button type="button" variant="tertiary" onClick={() => setActiveTab('simulation')}>
+                    Ver relatório completo
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                  <Card className="p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase">Liquidez Corrente</p>
+                    <p className="text-xl font-bold text-slate-900">
+                      {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase">Liquidez Geral</p>
+                    <p className="text-xl font-bold text-slate-900">
+                      {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
+                    </p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-xs font-medium text-slate-500 uppercase">Solvência</p>
+                    <p className="text-xl font-bold text-slate-900">
+                      {formatPercent(simulationResult.indicators.solvencia)}
+                    </p>
+                  </Card>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+        
         {activeTab === 'history' && (
           <Card>
-            <h2 className="text-xl font-semibold text-slate-800 mb-4">Validações salvas</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-semibold text-slate-800">Validações salvas</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={historyFilter === 'all' ? 'secondary' : 'tertiary'}
+                  onClick={() => setHistoryFilter('all')}
+                >
+                  Todas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={historyFilter === 'simulation' ? 'secondary' : 'tertiary'}
+                  onClick={() => setHistoryFilter('simulation')}
+                >
+                  Simulação
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={historyFilter === 'real' ? 'secondary' : 'tertiary'}
+                  onClick={() => setHistoryFilter('real')}
+                >
+                  Validação real
+                </Button>
+              </div>
+            </div>
             {validationsLoading ? (
               <p className="text-slate-500 py-4">Carregando...</p>
             ) : validations.length === 0 ? (
@@ -3139,6 +3877,16 @@ export function RatingValidator() {
                             Rating {v.rating_estimado}
                           </Badge>
                         </span>
+                        <span className="ml-2">
+                          <Badge className={v.is_simulation ? 'bg-slate-100 text-slate-700 border-slate-300 text-xs' : 'bg-indigo-100 text-indigo-700 border-indigo-300 text-xs'}>
+                            {v.is_simulation ? 'Simulação' : 'Validação real'}
+                          </Badge>
+                        </span>
+                        {!v.is_simulation && v.fiscal_file_name && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Fonte ECD: {v.fiscal_file_name}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         <Button
@@ -3149,14 +3897,16 @@ export function RatingValidator() {
                         >
                           {viewLoadingId === v.id ? 'Carregando...' : 'Visualizar'}
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleEditValidation(v.id)}
-                          disabled={viewLoadingId === v.id}
-                        >
-                          Editar
-                        </Button>
+                        {v.is_simulation && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleEditValidation(v.id)}
+                            disabled={viewLoadingId === v.id}
+                          >
+                            Editar
+                          </Button>
+                        )}
                         <Button
                           variant="tertiary"
                           size="sm"
@@ -3252,6 +4002,11 @@ export function RatingValidator() {
               <p className="text-sm text-slate-600">
                 Cliente: {clients.find((c) => c.id === viewingValidation.client_id)?.name ?? viewingValidation.client_id}
               </p>
+              {!viewingValidation.is_simulation && viewingValidation.fiscal_file_name && (
+                <p className="text-sm text-slate-600">
+                  Arquivo ECD usado: <span className="font-medium text-slate-700">{viewingValidation.fiscal_file_name}</span>
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card className="p-4">
                   <p className="text-xs font-medium text-slate-500 uppercase">Liquidez Corrente</p>

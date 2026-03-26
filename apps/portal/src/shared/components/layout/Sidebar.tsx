@@ -13,8 +13,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { moduleService, type ActiveModule } from '../../../modules/modules/services/module.service';
 
-/** Forçar exibir todos os itens de módulo no menu (Simulador, IRPF, etc.) sem depender de /modules/active. No publicado (Cloudflare) evita que o menu fique vazio se a API no Render não retornar todos os módulos. */
-const FORCE_SHOW_ALL_MODULES = true;
+/** Quando false, o menu respeita estritamente /modules/active para usuários de tenant. */
+const FORCE_SHOW_ALL_MODULES = false;
 
 /** Nomes de exibição dos módulos (mesmas categorias originais) */
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
@@ -182,8 +182,45 @@ const adminMenuItems: MenuItem[] = [
       </svg>
     ),
   },
-  // Arquivos Fiscais – escondido por hora (descomentar o bloco abaixo para exibir de novo)
-  // { name: 'Arquivos Fiscais', moduleKey: 'FISCAL_FILES', icon: <svg>...</svg>, children: [...] },
+  {
+    name: 'Arquivos Fiscais',
+    moduleKey: 'FISCAL_FILES',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3h6l4 4v14H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 3v4h4" />
+      </svg>
+    ),
+    children: [
+      {
+        name: 'Listar Arquivos',
+        path: '/fiscal-files',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Novo Upload',
+        path: '/fiscal-files/upload',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Calibrador IN 2.306',
+        path: '/fiscal-files/calibrator',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3a.75.75 0 00-.75.75V9h-5.25a.75.75 0 000 1.5H9v5.25a.75.75 0 001.5 0V10.5h5.25a.75.75 0 000-1.5H10.5V3.75A.75.75 0 009.75 3z" />
+          </svg>
+        ),
+      },
+    ],
+  },
   {
     name: 'Gestão de Usuários',
     path: '/users',
@@ -398,6 +435,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       if (['/tenants', '/plans', '/modules', '/editais', '/administrators', '/users', '/documentacao'].includes(pathname) || pathname.startsWith('/documentacao')) return 'administracao';
     } else {
       if (pathname === '/meu-plano' || pathname === '/gestao-assinatura' || pathname === '/clients') return 'administracao';
+      if (pathname === '/fiscal-files' || pathname.startsWith('/fiscal-files/')) return 'fiscal_files';
       if (pathname === '/rating-validator') return 'rating_validator';
       if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
       if (pathname === '/irpf-alta-renda') return 'irpf_alta_renda';
@@ -466,18 +504,21 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const clientes = get('/clients');
     const gestaoUsuarios = get('/users', 'Gestão de Usuários');
     const documentacao = get('/documentacao');
+    const fiscalFiles = get(undefined, undefined, 'FISCAL_FILES');
     const rating = get(undefined, undefined, 'RATING_VALIDATOR');
     const simulador = get(undefined, undefined, 'SIMULADOR_IN_2306');
     const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
 
     const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
+      { key: 'FISCAL_FILES', item: fiscalFiles },
       { key: 'RATING_VALIDATOR', item: rating },
       { key: 'SIMULADOR_IN_2306', item: simulador },
       { key: 'IRPF_ALTA_RENDA', item: irpf },
       { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
     ];
     const moduleIcons: Record<string, React.ReactNode> = {
+      FISCAL_FILES: CATEGORY_ICONS.bookOpen,
       RATING_VALIDATOR: CATEGORY_ICONS.balanceScale,
       SIMULADOR_IN_2306: CATEGORY_ICONS.chartEasel,
       IRPF_ALTA_RENDA: CATEGORY_ICONS.diamond,

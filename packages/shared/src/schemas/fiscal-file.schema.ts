@@ -2,8 +2,11 @@ import { z } from 'zod';
 
 export const UploadFiscalFileSchema = z.object({
   client_id: z.string().uuid(),
-  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
-  file_type: z.enum(['sped', 'ecd', 'pgdas', 'xml', 'pdf', 'txt', 'outros']),
+  competence: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM')
+    .optional(),
+  file_type: z.enum(['sped', 'ecd', 'pgdas', 'xml', 'pdf', 'txt', 'outros']).optional(),
 });
 
 export const UpdateFiscalFileStatusSchema = z.object({

@@ -119,6 +119,7 @@ export type RatingValidation = {
   client_id: string;
   competence: string; // YYYY-MM
   fiscal_file_id?: string | null;
+  fiscal_file_name?: string | null;
   is_simulation: boolean;
   input_data: Record<string, any>; // JSONB com dados granulares
   calculated_values?: Record<string, any> | null; // JSONB com valores agregados

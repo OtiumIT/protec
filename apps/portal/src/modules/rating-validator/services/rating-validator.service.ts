@@ -214,6 +214,76 @@ export interface RatingSimulationResult {
   comparativo_parcelamento?: ComparativoParcelamento;
 }
 
+export interface ProcessedEcdFiscalFile {
+  id: string;
+  client_id: string;
+  competence: string;
+  file_name: string;
+  created_at: string;
+}
+
+export interface RealValidationOverrides {
+  ativo_circulante_total?: number;
+  realizavel_longo_prazo_total?: number;
+  outros_ativos_nao_circulantes?: number;
+  passivo_circulante_total?: number;
+  passivo_nao_circulante_total?: number;
+  patrimonio_liquido_total?: number;
+  dre?: {
+    receita_bruta?: number;
+    deducoes_vendas?: number;
+    receita_liquida?: number;
+    custos_vendas?: number;
+    despesas_operacionais?: number;
+    resultado_financeiro?: number;
+    outros_resultados?: number;
+  };
+}
+
+export interface RealValidationPrefill {
+  /** Arquivo “canônico” (mais recente entre os tipos) ou modo legado por arquivo único */
+  fiscal_file?: {
+    id: string;
+    client_id: string;
+    competence: string;
+    file_name: string;
+  } | null;
+  /** Presente no fluxo por competência */
+  client_id?: string;
+  competence?: string;
+  source_by_data_type?: Record<
+    string,
+    { fiscal_file_id: string; file_name: string; created_at: string }
+  >;
+  source_fiscal_file_ids?: string[];
+  multiple_sources_warning?: boolean;
+  source_conflicts?: Array<{
+    data_type: string;
+    fiscal_files: Array<{ id: string; file_name: string }>;
+  }>;
+  prefill: {
+    competencia: string;
+    client_id: string;
+    ativo_circulante_total?: number;
+    realizavel_longo_prazo_total?: number;
+    outros_ativos_nao_circulantes?: number;
+    passivo_circulante_total?: number;
+    passivo_nao_circulante_total?: number;
+    patrimonio_liquido_total?: number;
+    dre?: {
+      receita_bruta?: number;
+      deducoes_vendas?: number;
+      receita_liquida?: number;
+      custos_vendas?: number;
+      despesas_operacionais?: number;
+      resultado_financeiro?: number;
+      outros_resultados?: number;
+    };
+  };
+  prefilled_fields: string[];
+  source_data_types: string[];
+}
+
 export const ratingValidatorService = {
   /**
    * Simular validação de rating com dados inputados
@@ -436,9 +506,37 @@ export const ratingValidatorService = {
   /**
    * Validar rating a partir de arquivo ECD
    */
+  async getRealValidationPrefill(fiscalFileId: string): Promise<RealValidationPrefill> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: RealValidationPrefill }>(
+      `/api/v1/rating-validator/prefill/${fiscalFileId}`,
+      {
+        token,
+        tenantId,
+      }
+    );
+    return response.data;
+  },
+
+  async getRealValidationPrefillByCompetence(
+    clientId: string,
+    competence: string
+  ): Promise<RealValidationPrefill> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams({ client_id: clientId, competence });
+    const response = await apiRequest<{ data: RealValidationPrefill }>(
+      `/api/v1/rating-validator/prefill-by-competence?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data;
+  },
+
   async validateFromFiscalFile(
     fiscalFileId: string,
-    ratingReal?: 'A' | 'B' | 'C' | 'D'
+    options?: {
+      ratingReal?: 'A' | 'B' | 'C' | 'D';
+      overrides?: RealValidationOverrides;
+    }
   ): Promise<RatingSimulationResult> {
     const { token, tenantId } = getAuthHeaders();
 
@@ -446,12 +544,73 @@ export const ratingValidatorService = {
       `/api/v1/rating-validator/validate/${fiscalFileId}`,
       {
         method: 'POST',
-        body: JSON.stringify({ rating_real: ratingReal }),
+        body: JSON.stringify({
+          rating_real: options?.ratingReal,
+          overrides: options?.overrides,
+        }),
         token,
         tenantId,
       }
     );
 
     return response.data;
+  },
+
+  async validateByCompetence(
+    clientId: string,
+    competence: string,
+    options?: {
+      ratingReal?: 'A' | 'B' | 'C' | 'D';
+      overrides?: RealValidationOverrides;
+    }
+  ): Promise<RatingSimulationResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: RatingSimulationResult }>(
+      '/api/v1/rating-validator/validate-by-competence',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          client_id: clientId,
+          competence,
+          rating_real: options?.ratingReal,
+          overrides: options?.overrides,
+        }),
+        token,
+        tenantId,
+      }
+    );
+    return response.data;
+  },
+
+  async listProcessedEcdFiles(options: {
+    client_id?: string;
+    competence?: string;
+    limit?: number;
+  } = {}): Promise<ProcessedEcdFiscalFile[]> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams();
+    if (options.client_id) params.append('client_id', options.client_id);
+    if (options.competence) params.append('competence', options.competence);
+    if (options.limit) params.append('limit', String(options.limit));
+
+    const response = await apiRequest<{ data: { files: ProcessedEcdFiscalFile[] } }>(
+      `/api/v1/rating-validator/processed-ecd-files?${params.toString()}`,
+      {
+        token,
+        tenantId,
+      }
+    );
+    return response.data.files;
+  },
+
+  /** Competências YYYY-MM distintas com ECD processado (sem depender de LIMIT na listagem de arquivos). */
+  async listProcessedEcdCompetences(clientId: string): Promise<string[]> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams({ client_id: clientId });
+    const response = await apiRequest<{ data: { competences: string[] } }>(
+      `/api/v1/rating-validator/processed-ecd-competences?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data.competences;
   },
 };

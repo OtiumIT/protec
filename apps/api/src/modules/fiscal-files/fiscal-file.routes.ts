@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import { FiscalFileService } from './fiscal-file.service';
 import { FiscalFileRepository } from './fiscal-file.repository';
 import { ClientRepository } from '../clients/client.repository';
@@ -7,7 +8,6 @@ import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { requireModule } from '../../middleware/module.middleware';
 import {
-  UploadFiscalFileSchema,
   UpdateFiscalFileStatusSchema,
   ListFiscalFilesQuerySchema,
   FiscalFileIdParamSchema,
@@ -27,6 +27,25 @@ fiscalFileRoutes.use('/*', requireModule('FISCAL_FILES'));
 const fiscalFileRepo = new FiscalFileRepository();
 const clientRepo = new ClientRepository();
 const fiscalFileService = new FiscalFileService(fiscalFileRepo, clientRepo);
+const UploadFiscalFilePayloadSchema = z.object({
+  client_id: z.string().uuid(),
+  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM').optional(),
+  file_type: z.enum(['sped', 'ecd', 'pgdas', 'xml', 'pdf', 'txt', 'outros']).optional(),
+});
+const CalibratorRuleSchema = z.object({
+  client_id: z.string().uuid().optional().nullable(),
+  pattern: z.string().min(2).max(255),
+  target_kind: z.enum(['receita', 'deducao', 'retencao']),
+  target_field: z.string().min(2).max(100),
+  confidence_override: z.number().min(0).max(1).optional().nullable(),
+  active: z.boolean().optional(),
+  notes: z.string().max(500).optional().nullable(),
+});
+const UpdateCalibratorRuleSchema = CalibratorRuleSchema.partial();
+const CalibratorRuleIdParamSchema = z.object({ id: z.string().uuid() });
+const ListCalibratorRulesQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
+});
 
 /**
  * POST /fiscal-files/upload
@@ -40,8 +59,10 @@ fiscalFileRoutes.post('/upload', async (c) => {
     // Extrair dados do form
     const file = formData.get('file') as File;
     const clientId = formData.get('client_id') as string;
-    const competence = formData.get('competence') as string;
-    const fileType = formData.get('file_type') as string;
+    const competenceValue = formData.get('competence');
+    const fileTypeValue = formData.get('file_type');
+    const competence = typeof competenceValue === 'string' && competenceValue.trim() ? competenceValue.trim() : undefined;
+    const fileType = typeof fileTypeValue === 'string' && fileTypeValue.trim() ? fileTypeValue.trim() : undefined;
 
     // Validações básicas
     if (!file) {
@@ -56,11 +77,11 @@ fiscalFileRoutes.post('/upload', async (c) => {
       );
     }
 
-    if (!clientId || !competence || !fileType) {
+    if (!clientId) {
       return c.json(
         {
           error: {
-            message: 'client_id, competence and file_type are required',
+            message: 'client_id is required',
             code: 'MISSING_FIELDS',
           },
         },
@@ -69,7 +90,7 @@ fiscalFileRoutes.post('/upload', async (c) => {
     }
 
     // Validar schema
-    const validation = UploadFiscalFileSchema.safeParse({
+    const validation = UploadFiscalFilePayloadSchema.safeParse({
       client_id: clientId,
       competence,
       file_type: fileType,
@@ -102,12 +123,14 @@ fiscalFileRoutes.post('/upload', async (c) => {
     const fiscalFile = await fiscalFileService.upload(
       companyId,
       validation.data.client_id,
-      validation.data.competence,
-      validation.data.file_type,
       buffer,
       file.name,
       file.type,
-      userId
+      userId,
+      {
+        competence: validation.data.competence,
+        file_type: validation.data.file_type,
+      }
     );
 
     return c.json(
@@ -133,6 +156,116 @@ fiscalFileRoutes.post('/upload', async (c) => {
 });
 
 /**
+ * POST /fiscal-files/inspect
+ * Inspecionar arquivo SPED (ECD/ECF) para sugerir cliente automaticamente
+ */
+fiscalFileRoutes.post('/inspect', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+
+    if (!file) {
+      return c.json(
+        {
+          error: {
+            message: 'File is required',
+            code: 'FILE_REQUIRED',
+          },
+        },
+        400
+      );
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const clientIdValue = formData.get('client_id');
+    const hintedClientId =
+      typeof clientIdValue === 'string' && clientIdValue.trim() ? clientIdValue.trim() : undefined;
+    const result = await fiscalFileService.inspectSpedCandidate(buffer, file.name, hintedClientId);
+
+    return c.json({
+      data: result,
+    });
+  } catch (error) {
+    return errorHandler(error, c);
+  }
+});
+
+/**
+ * GET /fiscal-files/calibrator/rules
+ * Listar regras de calibracao (globais do tenant + opcionais por cliente)
+ */
+fiscalFileRoutes.get(
+  '/calibrator/rules',
+  zValidator('query', ListCalibratorRulesQuerySchema),
+  async (c) => {
+    try {
+      const query = c.req.valid('query');
+      const rules = await fiscalFileService.listCalibratorRules(query.client_id);
+      return c.json({ data: { rules } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /fiscal-files/calibrator/rules
+ * Criar regra de calibracao.
+ */
+fiscalFileRoutes.post(
+  '/calibrator/rules',
+  zValidator('json', CalibratorRuleSchema),
+  async (c) => {
+    try {
+      const body = c.req.valid('json');
+      const rule = await fiscalFileService.createCalibratorRule(body);
+      return c.json({ data: { rule } }, 201);
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * PUT /fiscal-files/calibrator/rules/:id
+ * Atualizar regra de calibracao.
+ */
+fiscalFileRoutes.put(
+  '/calibrator/rules/:id',
+  zValidator('param', CalibratorRuleIdParamSchema),
+  zValidator('json', UpdateCalibratorRuleSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const body = c.req.valid('json');
+      const rule = await fiscalFileService.updateCalibratorRule(id, body);
+      return c.json({ data: { rule } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * DELETE /fiscal-files/calibrator/rules/:id
+ * Excluir regra de calibracao.
+ */
+fiscalFileRoutes.delete(
+  '/calibrator/rules/:id',
+  zValidator('param', CalibratorRuleIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      await fiscalFileService.deleteCalibratorRule(id);
+      return c.json({ data: { success: true } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
  * GET /fiscal-files
  * Listar arquivos fiscais com filtros
  */
@@ -154,6 +287,42 @@ fiscalFileRoutes.get(
       return c.json({
         data: result,
       });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /fiscal-files/summary/:id
+ * Alias para resumo consolidado da extração.
+ */
+fiscalFileRoutes.get(
+  '/summary/:id',
+  zValidator('param', FiscalFileIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const summary = await fiscalFileService.getExtractionSummary(id);
+      return c.json({ data: summary });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /fiscal-files/:id/summary
+ * Resumo consolidado de extração para visualização no frontend
+ */
+fiscalFileRoutes.get(
+  '/:id/summary',
+  zValidator('param', FiscalFileIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const summary = await fiscalFileService.getExtractionSummary(id);
+      return c.json({ data: summary });
     } catch (error) {
       return errorHandler(error, c);
     }

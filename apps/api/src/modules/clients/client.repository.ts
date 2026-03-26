@@ -233,4 +233,16 @@ export class ClientRepository extends BaseRepository {
       total,
     };
   }
+
+  /**
+   * Contar clientes no tenant atual (schema já isolado por tenant)
+   */
+  async countAll(): Promise<number> {
+    const result = await this.query<{ count: string }>(
+      'SELECT COUNT(*) AS count FROM clients',
+      [],
+      false
+    );
+    return Number(result.rows[0]?.count || 0);
+  }
 }

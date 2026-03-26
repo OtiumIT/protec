@@ -16,11 +16,13 @@ Gerencia clientes/empresas dos tenants. Cada tenant pode ter múltiplos clientes
   - Nome: mínimo 3 caracteres
   - CNPJ: formato válido e único por tenant
   - Email: formato válido
+  - Limite do plano: `count(clients) < subscription.plan.max_clients` quando `max_clients > 0`
 - **Processo**:
   1. Validar dados de entrada (Zod)
-  2. Verificar se CNPJ já existe no tenant
-  3. Criar cliente no banco
-  4. Retornar cliente criado
+  2. Verificar limite de clientes do plano
+  3. Verificar se CNPJ já existe no tenant
+  4. Criar cliente no banco
+  5. Retornar cliente criado
 
 ### Regra 3: Atualização de Cliente
 - **Quando aplicar**: Endpoint `PUT /clients/:id`
@@ -78,3 +80,4 @@ Gerencia clientes/empresas dos tenants. Cada tenant pode ter múltiplos clientes
 ## Casos Especiais
 - **CNPJ único**: CNPJ deve ser único por tenant (não globalmente)
 - **Soft Delete**: Considerar soft delete ao invés de hard delete
+- **Plano sem limite**: `max_clients = 0` significa ilimitado

@@ -10,6 +10,10 @@ import { requireModule } from '../../middleware/module.middleware';
 import {
   SimulateRatingSchema,
   ListRatingValidationsQuerySchema,
+  ListProcessedEcdFilesQuerySchema,
+  ProcessedEcdCompetencesQuerySchema,
+  PrefillByCompetenceQuerySchema,
+  ValidateByCompetenceBodySchema,
   RatingValidationIdParamSchema,
   RatingValidatorFiscalFileIdParamSchema,
   ValidateFromDataSchema,
@@ -199,6 +203,92 @@ ratingValidatorRoutes.get(
 );
 
 /**
+ * GET /rating-validator/processed-ecd-competences
+ * Lista competências (YYYY-MM) distintas com ECD processado para o cliente (sem viés de LIMIT nos arquivos).
+ */
+ratingValidatorRoutes.get(
+  '/processed-ecd-competences',
+  zValidator('query', ProcessedEcdCompetencesQuerySchema),
+  async (c) => {
+    try {
+      const query = c.req.valid('query');
+      const competences = await ratingValidatorService.listDistinctProcessedEcdCompetences(
+        query.client_id
+      );
+      return c.json({ data: { competences } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /rating-validator/processed-ecd-files
+ * Lista arquivos ECD processados elegíveis para validação real.
+ */
+ratingValidatorRoutes.get(
+  '/processed-ecd-files',
+  zValidator('query', ListProcessedEcdFilesQuerySchema),
+  async (c) => {
+    try {
+      const query = c.req.valid('query');
+      const files = await ratingValidatorService.listProcessedEcdFiscalFiles({
+        client_id: query.client_id,
+        competence: query.competence,
+        limit: query.limit,
+      });
+
+      return c.json({
+        data: {
+          files,
+        },
+      });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /rating-validator/prefill/:fiscal_file_id
+ * Retorna resumo dos campos pre-preenchidos da validacao real.
+ */
+ratingValidatorRoutes.get(
+  '/prefill/:fiscal_file_id',
+  zValidator('param', RatingValidatorFiscalFileIdParamSchema),
+  async (c) => {
+    try {
+      const { fiscal_file_id } = c.req.valid('param');
+      const data = await ratingValidatorService.getRealValidationPrefill(fiscal_file_id);
+      return c.json({ data }, 200);
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /rating-validator/prefill-by-competence
+ * Pré-preenchimento consolidado por cliente + competência (vários ECD).
+ */
+ratingValidatorRoutes.get(
+  '/prefill-by-competence',
+  zValidator('query', PrefillByCompetenceQuerySchema),
+  async (c) => {
+    try {
+      const q = c.req.valid('query');
+      const data = await ratingValidatorService.getRealValidationPrefillByCompetence(
+        q.client_id,
+        q.competence
+      );
+      return c.json({ data }, 200);
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
  * GET /rating-validator/:id
  * Buscar validação por ID
  */
@@ -296,6 +386,48 @@ ratingValidatorRoutes.delete(
 );
 
 /**
+ * POST /rating-validator/validate-by-competence
+ * Validação real consolidada por cliente + competência.
+ */
+ratingValidatorRoutes.post(
+  '/validate-by-competence',
+  zValidator('json', ValidateByCompetenceBodySchema),
+  async (c) => {
+    try {
+      const body = c.req.valid('json');
+      const userId = c.get('user')?.id;
+
+      const result = await ratingValidatorService.validateFromCompetence(
+        body.client_id,
+        body.competence,
+        body.rating_real,
+        body.overrides,
+        userId
+      );
+
+      return c.json(
+        {
+          data: {
+            calculated_values: result.calculated_values,
+            indicators: result.indicators,
+            indicator_analysis: result.indicator_analysis,
+            rating_estimado: result.rating_estimado,
+            rating_real: result.rating_real,
+            has_discrepancy: result.has_discrepancy,
+            discrepancy_details: result.discrepancy_details,
+            validation_id: result.validation_id,
+            is_simulation: false,
+          },
+        },
+        200
+      );
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
  * POST /rating-validator/validate/:fiscal_file_id
  * Validar rating a partir de arquivo ECD processado
  * NOTA: Implementação preparada, aguarda exemplos de dados ECD
@@ -313,6 +445,7 @@ ratingValidatorRoutes.post(
       const result = await ratingValidatorService.validateFromFiscalFile(
         fiscal_file_id,
         body.rating_real,
+        body.overrides,
         userId
       );
 
@@ -321,6 +454,7 @@ ratingValidatorRoutes.post(
           data: {
             calculated_values: result.calculated_values,
             indicators: result.indicators,
+            indicator_analysis: result.indicator_analysis,
             rating_estimado: result.rating_estimado,
             rating_real: result.rating_real,
             has_discrepancy: result.has_discrepancy,

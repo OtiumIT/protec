@@ -26,10 +26,61 @@ export interface CreateFiscalFileData {
   mime_type: string;
 }
 
+export interface CreateExtractedFiscalData {
+  fiscal_file_id: string;
+  client_id: string;
+  data_type: string;
+  competence: string;
+  data: Record<string, any>;
+}
+
 export interface UpdateFiscalFileData {
   status?: 'uploaded' | 'processing' | 'processed' | 'error';
   processing_error?: string | null;
   metadata?: Record<string, any> | null;
+}
+
+export interface ExtractedFiscalDataRow {
+  id: string;
+  fiscal_file_id: string;
+  client_id: string;
+  data_type: string;
+  competence: string;
+  data: Record<string, any>;
+  created_at: Date;
+}
+
+export interface SpedCalibratorRuleRow {
+  id: string;
+  client_id: string | null;
+  pattern: string;
+  target_module: 'simulador_in2306';
+  target_kind: 'receita' | 'deducao' | 'retencao';
+  target_field: string;
+  confidence_override: number | null;
+  active: boolean;
+  notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface CreateSpedCalibratorRuleData {
+  client_id?: string | null;
+  pattern: string;
+  target_kind: 'receita' | 'deducao' | 'retencao';
+  target_field: string;
+  confidence_override?: number | null;
+  active?: boolean;
+  notes?: string | null;
+}
+
+export interface UpdateSpedCalibratorRuleData {
+  pattern?: string;
+  target_kind?: 'receita' | 'deducao' | 'retencao';
+  target_field?: string;
+  confidence_override?: number | null;
+  active?: boolean;
+  notes?: string | null;
 }
 
 export class FiscalFileRepository extends BaseRepository {
@@ -205,5 +256,139 @@ export class FiscalFileRepository extends BaseRepository {
       false // Não requer company_id (isolado por schema)
     );
     return result.rows;
+  }
+
+  /**
+   * Persistir dados extraídos estruturados (JSONB) do arquivo fiscal
+   */
+  async createExtractedData(data: CreateExtractedFiscalData): Promise<void> {
+    await this.query(
+      `INSERT INTO extracted_fiscal_data
+       (fiscal_file_id, client_id, data_type, competence, data)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [
+        data.fiscal_file_id,
+        data.client_id,
+        data.data_type,
+        data.competence,
+        JSON.stringify(data.data),
+      ],
+      false // Não requer company_id (isolado por schema)
+    );
+  }
+
+  /**
+   * Buscar todos os dados extraídos relacionados a um arquivo fiscal.
+   */
+  async findExtractedDataByFiscalFileId(fiscalFileId: string): Promise<ExtractedFiscalDataRow[]> {
+    const result = await this.query<ExtractedFiscalDataRow>(
+      `SELECT id, fiscal_file_id, client_id, data_type, competence, data, created_at
+       FROM extracted_fiscal_data
+       WHERE fiscal_file_id = $1
+       ORDER BY created_at ASC`,
+      [fiscalFileId],
+      false
+    );
+    return result.rows;
+  }
+
+  async listCalibratorRules(clientId?: string): Promise<SpedCalibratorRuleRow[]> {
+    const params: any[] = [];
+    let whereClause = '';
+    if (clientId) {
+      whereClause = 'WHERE client_id IS NULL OR client_id = $1';
+      params.push(clientId);
+    }
+    const result = await this.query<SpedCalibratorRuleRow>(
+      `SELECT id, client_id, pattern, target_module, target_kind, target_field, confidence_override, active, notes, created_at, updated_at
+       FROM fiscal_sped_calibrator_rules
+       ${whereClause}
+       ORDER BY client_id NULLS FIRST, pattern ASC`,
+      params,
+      false
+    );
+    return result.rows;
+  }
+
+  async findCalibratorRuleById(id: string): Promise<SpedCalibratorRuleRow | null> {
+    const result = await this.query<SpedCalibratorRuleRow>(
+      `SELECT id, client_id, pattern, target_module, target_kind, target_field, confidence_override, active, notes, created_at, updated_at
+       FROM fiscal_sped_calibrator_rules
+       WHERE id = $1`,
+      [id],
+      false
+    );
+    return result.rows[0] || null;
+  }
+
+  async createCalibratorRule(data: CreateSpedCalibratorRuleData): Promise<SpedCalibratorRuleRow> {
+    const result = await this.query<SpedCalibratorRuleRow>(
+      `INSERT INTO fiscal_sped_calibrator_rules
+       (client_id, pattern, target_module, target_kind, target_field, confidence_override, active, notes)
+       VALUES ($1, $2, 'simulador_in2306', $3, $4, $5, $6, $7)
+       RETURNING id, client_id, pattern, target_module, target_kind, target_field, confidence_override, active, notes, created_at, updated_at`,
+      [
+        data.client_id || null,
+        data.pattern,
+        data.target_kind,
+        data.target_field,
+        data.confidence_override ?? null,
+        data.active ?? true,
+        data.notes ?? null,
+      ],
+      false
+    );
+    return result.rows[0];
+  }
+
+  async updateCalibratorRule(id: string, data: UpdateSpedCalibratorRuleData): Promise<SpedCalibratorRuleRow> {
+    const updates: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+    if (data.pattern !== undefined) {
+      updates.push(`pattern = $${idx++}`);
+      params.push(data.pattern);
+    }
+    if (data.target_kind !== undefined) {
+      updates.push(`target_kind = $${idx++}`);
+      params.push(data.target_kind);
+    }
+    if (data.target_field !== undefined) {
+      updates.push(`target_field = $${idx++}`);
+      params.push(data.target_field);
+    }
+    if (data.confidence_override !== undefined) {
+      updates.push(`confidence_override = $${idx++}`);
+      params.push(data.confidence_override);
+    }
+    if (data.active !== undefined) {
+      updates.push(`active = $${idx++}`);
+      params.push(data.active);
+    }
+    if (data.notes !== undefined) {
+      updates.push(`notes = $${idx++}`);
+      params.push(data.notes);
+    }
+    if (updates.length === 0) {
+      const existing = await this.findCalibratorRuleById(id);
+      if (!existing) {
+        throw new Error('RULE_NOT_FOUND');
+      }
+      return existing;
+    }
+    params.push(id);
+    const result = await this.query<SpedCalibratorRuleRow>(
+      `UPDATE fiscal_sped_calibrator_rules
+       SET ${updates.join(', ')}, updated_at = NOW()
+       WHERE id = $${idx}
+       RETURNING id, client_id, pattern, target_module, target_kind, target_field, confidence_override, active, notes, created_at, updated_at`,
+      params,
+      false
+    );
+    return result.rows[0];
+  }
+
+  async deleteCalibratorRule(id: string): Promise<void> {
+    await this.query('DELETE FROM fiscal_sped_calibrator_rules WHERE id = $1', [id], false);
   }
 }

@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
-import { fiscalFileService, type FiscalFile } from '../services/fiscal-file.service';
+import {
+  fiscalFileService,
+  type FiscalFile,
+  type FiscalFileExtractionSummary,
+} from '../services/fiscal-file.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -26,6 +30,7 @@ export function FiscalFiles() {
   
   // Detalhes do arquivo
   const [selectedFile, setSelectedFile] = useState<FiscalFile | null>(null);
+  const [selectedSummary, setSelectedSummary] = useState<FiscalFileExtractionSummary | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -46,11 +51,7 @@ export function FiscalFiles() {
 
   // Carregar arquivos quando filtros mudarem
   useEffect(() => {
-    if (selectedClientId) {
-      loadFiles();
-    } else {
-      setFiles([]);
-    }
+    loadFiles();
   }, [selectedClientId, statusFilter, competenceFilter, fileTypeFilter]);
 
   const loadClients = async () => {
@@ -109,8 +110,12 @@ export function FiscalFiles() {
 
   const handleViewDetails = async (file: FiscalFile) => {
     try {
-      const fullFile = await fiscalFileService.getById(file.id);
+      const [fullFile, summary] = await Promise.all([
+        fiscalFileService.getById(file.id),
+        fiscalFileService.getSummary(file.id),
+      ]);
       setSelectedFile(fullFile);
+      setSelectedSummary(summary);
       setIsDetailModalOpen(true);
     } catch (error) {
       showError('Erro ao carregar detalhes do arquivo');
@@ -173,6 +178,11 @@ export function FiscalFiles() {
     });
   };
 
+  const formatNumber = (value: unknown) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
+  };
+
   const clearFilters = () => {
     setStatusFilter('');
     setCompetenceFilter('');
@@ -180,6 +190,51 @@ export function FiscalFiles() {
   };
 
   const hasActiveFilters = statusFilter || competenceFilter || fileTypeFilter;
+  const spedInspection = selectedFile?.metadata?.sped_inspection as any;
+  const modulePrefill = selectedSummary?.fiscal_file?.metadata?.module_prefill as any;
+  const registerChartData = useMemo(() => {
+    const entries = Object.entries((spedInspection?.register_counts || {}) as Record<string, number>)
+      .filter(([, count]) => typeof count === 'number' && count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12);
+    const max = entries.length > 0 ? entries[0][1] : 1;
+    return entries.map(([reg, count]) => ({
+      reg,
+      count,
+      percent: Math.round((count / max) * 100),
+    }));
+  }, [spedInspection]);
+  const ecfQuarterSignals = (spedInspection?.ecf_tax_signals?.trimestres || []) as Array<any>;
+  const maxQuarterRevenue = useMemo(
+    () =>
+      ecfQuarterSignals.reduce(
+        (acc, item) => Math.max(acc, Number(item?.receitas_possiveis || 0)),
+        1
+      ),
+    [ecfQuarterSignals]
+  );
+  const dreBars = useMemo(
+    () =>
+      [
+        { label: 'Receita bruta', key: 'receita_bruta' },
+        { label: 'Deduções', key: 'deducoes' },
+        { label: 'Receita líquida', key: 'receita_liquida' },
+        { label: 'Lucro bruto', key: 'lucro_bruto' },
+        { label: 'Despesas operacionais', key: 'despesas_operacionais' },
+        { label: 'Resultado período', key: 'resultado_periodo' },
+      ]
+        .map((item) => ({
+          ...item,
+          value: Number(spedInspection?.dre?.[item.key] || 0),
+        }))
+        .filter((item) => item.value !== 0),
+    [spedInspection]
+  );
+  const maxDreValue = useMemo(
+    () =>
+      dreBars.reduce((acc, item) => Math.max(acc, Math.abs(item.value)), 1),
+    [dreBars]
+  );
 
   return (
     <Layout>
@@ -192,14 +247,19 @@ export function FiscalFiles() {
           <h1 className="text-3xl font-bold text-slate-900">Arquivos Fiscais</h1>
           <p className="text-slate-600 mt-2">Visualize e gerencie os arquivos fiscais enviados</p>
         </div>
-        <Link to="/fiscal-files/upload">
-          <Button>
-            <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Novo Upload
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/fiscal-files/calibrator">
+            <Button variant="tertiary">Calibrador IN 2.306</Button>
+          </Link>
+          <Link to="/fiscal-files/upload">
+            <Button>
+              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Novo Upload
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -278,29 +338,11 @@ export function FiscalFiles() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-slate-900">
-            Arquivos {selectedClientId && `(${files.length})`}
+            Arquivos ({files.length})
           </h2>
         </div>
 
-        {!selectedClientId ? (
-          <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-slate-400 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            <p className="text-slate-500 text-lg mb-2">Selecione um cliente para ver os arquivos</p>
-            <p className="text-slate-400 text-sm">Ou faça um novo upload de arquivos</p>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <p className="text-slate-500">Carregando...</p>
           </div>
@@ -402,6 +444,7 @@ export function FiscalFiles() {
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedFile(null);
+          setSelectedSummary(null);
         }}
         title={selectedFile ? `Detalhes: ${selectedFile.file_name}` : 'Detalhes do Arquivo'}
         size="large"
@@ -461,10 +504,266 @@ export function FiscalFiles() {
             {selectedFile.metadata && Object.keys(selectedFile.metadata).length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-3">Metadados</h3>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <pre className="text-xs text-slate-700 overflow-auto">
-                    {JSON.stringify(selectedFile.metadata, null, 2)}
-                  </pre>
+                <div className="space-y-4">
+                  {selectedSummary && (
+                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-4">
+                      <h4 className="text-sm font-semibold text-indigo-900">Painel analítico de pré-preenchimento</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { label: 'Rating Validator', value: selectedSummary.prefill_confidence.rating_validator },
+                          { label: 'Simulador IN 2.306', value: selectedSummary.prefill_confidence.simulador_in2306 },
+                          { label: 'IRPF Alta Renda', value: selectedSummary.prefill_confidence.irpf_alta_renda },
+                        ].map((item) => {
+                          const pct = Math.max(0, Math.min(100, Math.round(item.value * 100)));
+                          return (
+                            <div key={item.label} className="rounded-lg border border-indigo-200 bg-white p-3">
+                              <p className="text-xs text-indigo-700">{item.label}</p>
+                              <div className="mt-2 flex items-center gap-3">
+                                <div
+                                  className="h-10 w-10 rounded-full"
+                                  style={{
+                                    background: `conic-gradient(#4f46e5 ${pct}%, #e0e7ff ${pct}% 100%)`,
+                                  }}
+                                />
+                                <p className="text-lg font-semibold text-indigo-900">{pct}%</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="rounded border border-indigo-200 bg-white p-3">
+                          <p className="text-indigo-700">Tipos extraídos</p>
+                          <p className="mt-1 font-medium text-indigo-900">
+                            {selectedSummary.extracted_data_types.join(', ') || 'Nenhum'}
+                          </p>
+                        </div>
+                        <div className="rounded border border-indigo-200 bg-white p-3">
+                          <p className="text-indigo-700">Registros mapeados</p>
+                          <p className="mt-1 font-medium text-indigo-900">
+                            {Object.values(spedInspection?.register_counts || {}).reduce((acc: number, n: any) => acc + Number(n || 0), 0)}
+                          </p>
+                        </div>
+                        <div className="rounded border border-indigo-200 bg-white p-3">
+                          <p className="text-indigo-700">Dados estruturados persistidos</p>
+                          <p className="mt-1 font-medium text-indigo-900">{selectedSummary.extracted_data.length}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {spedInspection?.header && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-2">Resumo SPED</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div>
+                          <p className="text-slate-500">Tipo</p>
+                          <p className="font-medium text-slate-900 uppercase">{spedInspection.header.type || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">CNPJ</p>
+                          <p className="font-medium text-slate-900">{spedInspection.header.company_cnpj || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Razão social</p>
+                          <p className="font-medium text-slate-900">{spedInspection.header.company_name || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Período inicial</p>
+                          <p className="font-medium text-slate-900">{spedInspection.header.period_start || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Período final</p>
+                          <p className="font-medium text-slate-900">{spedInspection.header.period_end || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Registros mapeados</p>
+                          <p className="font-medium text-slate-900">
+                            {Object.keys(spedInspection.register_counts || {}).length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {spedInspection?.balance_sheet && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-2">Balanço (J100)</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div><p className="text-slate-500">Ativo total</p><p className="font-medium">{spedInspection.balance_sheet.ativo_total ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Ativo circulante</p><p className="font-medium">{spedInspection.balance_sheet.ativo_circulante ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Ativo não circulante</p><p className="font-medium">{spedInspection.balance_sheet.ativo_nao_circulante ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Passivo total</p><p className="font-medium">{spedInspection.balance_sheet.passivo_total ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Passivo circulante</p><p className="font-medium">{spedInspection.balance_sheet.passivo_circulante ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Patrimônio líquido</p><p className="font-medium">{spedInspection.balance_sheet.patrimonio_liquido ?? '-'}</p></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {spedInspection?.dre && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-2">DRE (J150)</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div><p className="text-slate-500">Receita bruta</p><p className="font-medium">{spedInspection.dre.receita_bruta ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Deduções</p><p className="font-medium">{spedInspection.dre.deducoes ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Receita líquida</p><p className="font-medium">{spedInspection.dre.receita_liquida ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Lucro bruto</p><p className="font-medium">{spedInspection.dre.lucro_bruto ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Despesas operacionais</p><p className="font-medium">{spedInspection.dre.despesas_operacionais ?? '-'}</p></div>
+                        <div><p className="text-slate-500">Resultado período</p><p className="font-medium">{spedInspection.dre.resultado_periodo ?? '-'}</p></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {modulePrefill && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-blue-900 mb-2">Pré-preenchimentos disponíveis</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {modulePrefill.rating_validator && <Badge variant="info">Rating Validator</Badge>}
+                        {modulePrefill.simulador_in2306 && <Badge variant="info">Simulador IN 2.306</Badge>}
+                        {modulePrefill.irpf_alta_renda && <Badge variant="info">IRPF Alta Renda</Badge>}
+                      </div>
+
+                      {modulePrefill.simulador_in2306 && (
+                        <div className="mt-3 rounded border border-blue-200 bg-white p-3">
+                          <p className="text-xs font-medium text-blue-900">
+                            IN 2.306 - payload estruturado
+                          </p>
+                          <p className="text-xs text-blue-800 mt-1">
+                            Ano: {modulePrefill.simulador_in2306.ano ?? '-'} | Confiança geral:{' '}
+                            {Math.round(((modulePrefill.simulador_in2306.confidence?.overall || 0) as number) * 100)}% | Cobertura:{' '}
+                            {Math.round(((modulePrefill.simulador_in2306.confidence?.coverage || 0) as number) * 100)}%
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {(modulePrefill.simulador_in2306.trimestres || []).map((t: any, idx: number) => (
+                              <p key={`in2306-quarter-${idx}`} className="text-xs text-blue-800">
+                                T{idx + 1}: produtos {t.produtos_mercadorias || 0} | serviços {t.servicos || 0} | demais {t.demais_receitas || 0}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {registerChartData.length > 0 && (
+                    <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-cyan-900 mb-2">Mapa de densidade de registros SPED</h4>
+                      <p className="text-xs text-cyan-800 mb-3">
+                        Top registros por ocorrência (indicador rápido de riqueza técnica do arquivo).
+                      </p>
+                      <div className="space-y-2">
+                        {registerChartData.map((item) => (
+                          <div key={item.reg}>
+                            <div className="flex items-center justify-between text-xs text-cyan-900">
+                              <span>|{item.reg}|</span>
+                              <span>{item.count}</span>
+                            </div>
+                            <div className="h-2 rounded bg-cyan-100">
+                              <div
+                                className="h-2 rounded bg-cyan-500"
+                                style={{ width: `${item.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {spedInspection?.ecf_tax_signals && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-emerald-900 mb-2">Sinais fiscais ECF (foco IN 2.306)</h4>
+                      <p className="text-xs text-emerald-800 mb-3">
+                        Receita anual estimada: {formatNumber(spedInspection.ecf_tax_signals.receita_bruta_anual_estimada)}
+                      </p>
+                      {ecfQuarterSignals.length > 0 && (
+                        <div className="mb-3 rounded border border-emerald-200 bg-white p-3">
+                          <p className="text-xs font-medium text-emerald-900 mb-2">Gráfico trimestral de receitas possíveis</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {ecfQuarterSignals.map((t: any, idx: number) => {
+                              const receitas = Number(t.receitas_possiveis || 0);
+                              const barPct = Math.max(6, Math.round((receitas / Math.max(maxQuarterRevenue, 1)) * 100));
+                              return (
+                                <div key={`ecf-chart-${idx}`} className="rounded border border-emerald-100 p-2">
+                                  <p className="text-[11px] text-emerald-800 mb-1">T{idx + 1}</p>
+                                  <div className="h-16 flex items-end">
+                                    <div className="w-full bg-emerald-500 rounded-t" style={{ height: `${barPct}%` }} />
+                                  </div>
+                                  <p className="text-[11px] text-emerald-900 mt-1">{formatNumber(receitas)}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {(spedInspection.ecf_tax_signals.trimestres || []).map((t: any, idx: number) => (
+                          <div key={`${t.inicio || idx}`} className="rounded border border-emerald-200 bg-white p-2 text-xs">
+                            <p className="font-medium text-emerald-900">
+                              Trimestre {idx + 1}: {t.inicio || '-'} a {t.fim || '-'}
+                            </p>
+                            <p className="text-emerald-800">
+                              Receitas possíveis: {formatNumber(t.receitas_possiveis)} | Despesas possíveis: {formatNumber(t.despesas_possiveis)} | Resultado aprox.: {formatNumber(t.resultado_aproximado)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {dreBars.length > 0 && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-amber-900 mb-2">Análise gráfica DRE</h4>
+                      <p className="text-xs text-amber-800 mb-3">
+                        Magnitude relativa dos principais indicadores da DRE.
+                      </p>
+                      <div className="space-y-2">
+                        {dreBars.map((item) => {
+                          const pct = Math.max(4, Math.round((Math.abs(item.value) / Math.max(maxDreValue, 1)) * 100));
+                          const isNegative = item.value < 0;
+                          return (
+                            <div key={item.key}>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-amber-900">{item.label}</span>
+                                <span className="text-amber-900">{formatNumber(item.value)}</span>
+                              </div>
+                              <div className="h-2 rounded bg-amber-100">
+                                <div
+                                  className={`h-2 rounded ${isNegative ? 'bg-red-500' : 'bg-amber-500'}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {spedInspection?.prefill_catalog?.length > 0 && (
+                    <div className="p-4 bg-violet-50 border border-violet-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-violet-900 mb-2">Catálogo de campos prontos (origem SPED)</h4>
+                      <div className="space-y-2">
+                        {spedInspection.prefill_catalog.map((item: any, idx: number) => (
+                          <div key={`${item.modulo}-${item.campo_destino}-${idx}`} className="rounded border border-violet-200 bg-white p-2 text-xs">
+                            <p className="font-medium text-violet-900">
+                              [{item.modulo}] {item.campo_destino}
+                            </p>
+                            <p className="text-violet-800">
+                              Origem: {item.origem_sped} | Transformação: {item.transformacao} | Confiança: {Math.round((item.confianca || 0) * 100)}%
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <details className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <summary className="text-sm font-medium text-slate-700 cursor-pointer">JSON completo dos metadados</summary>
+                    <pre className="text-xs text-slate-700 overflow-auto mt-3">
+                      {JSON.stringify(selectedFile.metadata, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               </div>
             )}
@@ -473,14 +772,34 @@ export function FiscalFiles() {
             {selectedFile.status === 'processed' && (
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-3">Dados Extraídos</h3>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <p className="text-sm text-slate-600">
-                    Os dados extraídos serão exibidos aqui quando disponíveis.
-                  </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    Esta funcionalidade será implementada quando os workers processarem os arquivos.
-                  </p>
-                </div>
+                {selectedSummary?.extracted_data?.length ? (
+                  <div className="space-y-3">
+                    {selectedSummary.extracted_data.map((row, idx) => (
+                      <div
+                        key={`${row.data_type}-${idx}`}
+                        className="p-4 bg-slate-50 border border-slate-200 rounded-lg"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {row.data_type}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatDate(row.created_at)}
+                          </p>
+                        </div>
+                        <pre className="text-xs text-slate-700 overflow-auto">
+                          {JSON.stringify(row.data, null, 2)}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <p className="text-sm text-slate-600">
+                      Nenhum dado estruturado foi persistido para este arquivo.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -500,6 +819,7 @@ export function FiscalFiles() {
                 onClick={() => {
                   setIsDetailModalOpen(false);
                   setSelectedFile(null);
+                  setSelectedSummary(null);
                 }}
               >
                 Fechar

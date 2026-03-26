@@ -21,6 +21,116 @@ import { errorHandler } from '../shared/utils/error-handler';
 import { API_VERSION, API_UPDATED_AT } from '../version';
 
 const app = new Hono();
+const API_DOCS_BASE = '/api/v1';
+
+const openApiSpec = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Protec API',
+    version: API_VERSION,
+    description: 'API principal da plataforma Protec.',
+  },
+  servers: [
+    { url: API_DOCS_BASE, description: 'API v1 (relative)' },
+    { url: 'http://localhost:3001/api/v1', description: 'Local dev' },
+  ],
+  tags: [
+    { name: 'Fiscal Files', description: 'Upload, consulta e extração fiscal' },
+    { name: 'System', description: 'Health e versão' },
+  ],
+  paths: {
+    '/fiscal-files': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Listar arquivos fiscais',
+      },
+    },
+    '/fiscal-files/upload': {
+      post: {
+        tags: ['Fiscal Files'],
+        summary: 'Upload de arquivo fiscal',
+      },
+    },
+    '/fiscal-files/inspect': {
+      post: {
+        tags: ['Fiscal Files'],
+        summary: 'Inspecionar arquivo SPED para autoidentificação',
+      },
+    },
+    '/fiscal-files/{id}': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Buscar arquivo fiscal por ID',
+      },
+      delete: {
+        tags: ['Fiscal Files'],
+        summary: 'Excluir arquivo fiscal',
+      },
+    },
+    '/fiscal-files/{id}/summary': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Resumo consolidado de extração (rota principal)',
+      },
+    },
+    '/fiscal-files/summary/{id}': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Resumo consolidado de extração (alias compatível)',
+      },
+    },
+    '/fiscal-files/{id}/download': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Obter URL de download',
+      },
+    },
+    '/fiscal-files/{id}/status': {
+      put: {
+        tags: ['Fiscal Files'],
+        summary: 'Atualizar status do arquivo',
+      },
+    },
+    '/fiscal-files/client/{client_id}': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Listar arquivos por cliente',
+      },
+    },
+    '/fiscal-files/calibrator/rules': {
+      get: {
+        tags: ['Fiscal Files'],
+        summary: 'Listar regras do calibrador',
+      },
+      post: {
+        tags: ['Fiscal Files'],
+        summary: 'Criar regra do calibrador',
+      },
+    },
+    '/fiscal-files/calibrator/rules/{id}': {
+      put: {
+        tags: ['Fiscal Files'],
+        summary: 'Atualizar regra do calibrador',
+      },
+      delete: {
+        tags: ['Fiscal Files'],
+        summary: 'Excluir regra do calibrador',
+      },
+    },
+    '/version': {
+      get: {
+        tags: ['System'],
+        summary: 'Versão da API',
+      },
+    },
+    '/health': {
+      get: {
+        tags: ['System'],
+        summary: 'Health check',
+      },
+    },
+  },
+};
 
 // CORS: lê env em tempo de requisição (Vercel injeta em runtime)
 // CORS_ORIGIN: URLs exatas separadas por vírgula
@@ -91,6 +201,30 @@ app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
 app.route('/api/v1/properties', propertyRoutes);
 app.route('/api/v1/debug', debugRoutes);
+
+app.get('/api/v1/swagger.json', (c) => c.json(openApiSpec));
+app.get('/api/v1/docs', (c) =>
+  c.html(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Protec API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.ui = SwaggerUIBundle({
+        url: '/api/v1/swagger.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+      });
+    </script>
+  </body>
+</html>`)
+);
 
 // Health
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));

@@ -260,10 +260,56 @@ export const RatingValidatorFiscalFileIdParamSchema = z.object({
   fiscal_file_id: z.string().uuid(),
 });
 
+export const RealValidationOverridesSchema = z.object({
+  ativo_circulante_total: monetaryValue.optional(),
+  realizavel_longo_prazo_total: monetaryValue.optional(),
+  outros_ativos_nao_circulantes: monetaryValue.optional(),
+  passivo_circulante_total: monetaryValue.optional(),
+  passivo_nao_circulante_total: monetaryValue.optional(),
+  patrimonio_liquido_total: monetaryValue.optional(),
+  dre: z
+    .object({
+      receita_bruta: signedMonetary.optional(),
+      deducoes_vendas: signedMonetary.optional(),
+      receita_liquida: signedMonetary.optional(),
+      custos_vendas: signedMonetary.optional(),
+      despesas_operacionais: signedMonetary.optional(),
+      resultado_financeiro: signedMonetary.optional(),
+      outros_resultados: signedMonetary.optional(),
+    })
+    .optional(),
+});
+
 // Schema para validação a partir de dados extraídos
 export const ValidateFromDataSchema = z.object({
   competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
   rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
+  overrides: RealValidationOverridesSchema.optional(),
+});
+
+export const ListProcessedEcdFilesQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
+  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM').optional(),
+  limit: z.coerce.number().int().positive().max(200).default(50),
+});
+
+/** Query GET /rating-validator/processed-ecd-competences — competências distintas com ECD processado */
+export const ProcessedEcdCompetencesQuerySchema = z.object({
+  client_id: z.string().uuid(),
+});
+
+/** Query GET /rating-validator/prefill-by-competence */
+export const PrefillByCompetenceQuerySchema = z.object({
+  client_id: z.string().uuid(),
+  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
+});
+
+/** Body POST /rating-validator/validate-by-competence */
+export const ValidateByCompetenceBodySchema = z.object({
+  client_id: z.string().uuid(),
+  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
+  rating_real: z.enum(['A', 'B', 'C', 'D']).optional(),
+  overrides: RealValidationOverridesSchema.optional(),
 });
 
 // Schema para extração de PDF do recibo PGFN (resposta da API)

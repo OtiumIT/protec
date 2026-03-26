@@ -154,6 +154,9 @@ export async function apiRequest<T>(
       ...fetchOptions,
       headers,
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H7',location:'apps/portal/src/shared/services/api.ts:after-fetch',message:'apiRequest received HTTP response',data:{url,responseUrl:response.url,status:response.status,ok:response.ok,method:(fetchOptions.method||'GET')},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   } catch (fetchError: unknown) {
     const msg = fetchError instanceof Error ? fetchError.message : '';
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
@@ -176,9 +179,11 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     let errorMessage = 'Request failed';
+    let errorCode: string | undefined;
     try {
       const error = await response.json();
       const errorMsg = error?.error?.message || error?.message;
+      errorCode = error?.error?.code || error?.code;
       if (errorMsg && typeof errorMsg === 'string') {
         errorMessage = errorMsg;
       } else {
@@ -194,6 +199,9 @@ export async function apiRequest<T>(
     if (response.status === 401) {
       clearSessionAndRedirectToLogin();
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H8',location:'apps/portal/src/shared/services/api.ts:non-ok',message:'apiRequest throwing non-ok response',data:{url,status:response.status,errorCode:errorCode||null,errorMessage},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     throw new Error(errorMessage);
   }
 

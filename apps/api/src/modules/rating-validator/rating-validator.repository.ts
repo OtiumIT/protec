@@ -42,6 +42,23 @@ export interface FullUpdateRatingValidationData {
   comparativo_parcelamento?: Record<string, any> | null;
 }
 
+export interface ProcessedEcdFiscalFileRow {
+  id: string;
+  client_id: string;
+  competence: string;
+  file_name: string;
+  created_at: Date;
+}
+
+/** Linha completa de extracted_fiscal_data (competência / consolidação). */
+export interface ExtractedFiscalDataRow {
+  id: string;
+  data_type: string;
+  data: Record<string, any>;
+  fiscal_file_id: string;
+  created_at: Date;
+}
+
 export class RatingValidatorRepository extends BaseRepository {
   /**
    * Buscar validação por ID
@@ -49,12 +66,15 @@ export class RatingValidatorRepository extends BaseRepository {
    */
   async findById(id: string): Promise<RatingValidation | null> {
     const result = await this.query<RatingValidation>(
-      `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
-              input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
-              rating_estimado, rating_real, has_discrepancy, discrepancy_details,
-              parcelamento_pgfn, comparativo_parcelamento,
-              created_by, created_at, updated_at 
-       FROM rating_validations WHERE id = $1`,
+      `SELECT rv.id, rv.client_id, rv.competence, rv.fiscal_file_id, rv.is_simulation,
+              rv.input_data, rv.calculated_values, rv.liquidez_corrente, rv.liquidez_geral, rv.solvencia,
+              rv.rating_estimado, rv.rating_real, rv.has_discrepancy, rv.discrepancy_details,
+              rv.parcelamento_pgfn, rv.comparativo_parcelamento,
+              ff.file_name AS fiscal_file_name,
+              rv.created_by, rv.created_at, rv.updated_at 
+       FROM rating_validations rv
+       LEFT JOIN fiscal_files ff ON ff.id = rv.fiscal_file_id
+       WHERE rv.id = $1`,
       [id],
       false // Não requer company_id (isolado por schema)
     );
@@ -226,19 +246,19 @@ export class RatingValidatorRepository extends BaseRepository {
     const conditions: string[] = [];
 
     if (options.client_id) {
-      conditions.push(`client_id = $${params.length + 1}`);
+      conditions.push(`rv.client_id = $${params.length + 1}`);
       params.push(options.client_id);
     }
     if (options.competence) {
-      conditions.push(`competence = $${params.length + 1}`);
+      conditions.push(`rv.competence = $${params.length + 1}`);
       params.push(options.competence);
     }
     if (options.is_simulation !== undefined) {
-      conditions.push(`is_simulation = $${params.length + 1}`);
+      conditions.push(`rv.is_simulation = $${params.length + 1}`);
       params.push(options.is_simulation);
     }
     if (options.rating_estimado) {
-      conditions.push(`rating_estimado = $${params.length + 1}`);
+      conditions.push(`rv.rating_estimado = $${params.length + 1}`);
       params.push(options.rating_estimado);
     }
 
@@ -246,7 +266,7 @@ export class RatingValidatorRepository extends BaseRepository {
 
     // Buscar total
     const countResult = await this.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM rating_validations ${whereClause}`,
+      `SELECT COUNT(*) as count FROM rating_validations rv ${whereClause}`,
       params,
       false // Não requer company_id (isolado por schema)
     );
@@ -256,14 +276,16 @@ export class RatingValidatorRepository extends BaseRepository {
     const limitParam = params.length + 1;
     const offsetParam = params.length + 2;
     const validationsResult = await this.query<RatingValidation>(
-      `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
-              input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
-              rating_estimado, rating_real, has_discrepancy, discrepancy_details,
-              parcelamento_pgfn, comparativo_parcelamento,
-              created_by, created_at, updated_at 
-       FROM rating_validations 
+      `SELECT rv.id, rv.client_id, rv.competence, rv.fiscal_file_id, rv.is_simulation,
+              rv.input_data, rv.calculated_values, rv.liquidez_corrente, rv.liquidez_geral, rv.solvencia,
+              rv.rating_estimado, rv.rating_real, rv.has_discrepancy, rv.discrepancy_details,
+              rv.parcelamento_pgfn, rv.comparativo_parcelamento,
+              ff.file_name AS fiscal_file_name,
+              rv.created_by, rv.created_at, rv.updated_at 
+       FROM rating_validations rv
+       LEFT JOIN fiscal_files ff ON ff.id = rv.fiscal_file_id
        ${whereClause}
-       ORDER BY created_at DESC 
+       ORDER BY rv.created_at DESC 
        LIMIT $${limitParam} OFFSET $${offsetParam}`,
       [...params, limit, offset],
       false // Não requer company_id (isolado por schema)
@@ -284,7 +306,7 @@ export class RatingValidatorRepository extends BaseRepository {
     competence: string,
     dataTypes: string[]
   ): Promise<Array<{ data_type: string; data: Record<string, any> }>> {
-    const placeholders = dataTypes.map((_, i) => `$${i + 2}`).join(', ');
+    const placeholders = dataTypes.map((_, i) => `$${i + 3}`).join(', ');
     const result = await this.query<{ data_type: string; data: Record<string, any> }>(
       `SELECT data_type, data 
        FROM extracted_fiscal_data 
@@ -297,19 +319,132 @@ export class RatingValidatorRepository extends BaseRepository {
   }
 
   /**
+   * Buscar dados extraídos por fiscal_file_id.
+   */
+  async findExtractedFiscalDataByFiscalFileId(
+    fiscalFileId: string,
+    dataTypes: string[]
+  ): Promise<Array<{ data_type: string; data: Record<string, any>; fiscal_file_id: string; created_at: Date }>> {
+    const placeholders = dataTypes.map((_, i) => `$${i + 2}`).join(', ');
+    const result = await this.query<{
+      data_type: string;
+      data: Record<string, any>;
+      fiscal_file_id: string;
+      created_at: Date;
+    }>(
+      `SELECT data_type, data, fiscal_file_id, created_at
+       FROM extracted_fiscal_data
+       WHERE fiscal_file_id = $1 AND data_type IN (${placeholders})
+       ORDER BY created_at DESC`,
+      [fiscalFileId, ...dataTypes],
+      false
+    );
+    return result.rows;
+  }
+
+  /**
+   * Todas as linhas extraídos da competência (ordenadas do mais recente ao mais antigo).
+   * Consolidação “último por data_type” deve ser feita no service.
+   */
+  async findExtractedFiscalDataRowsByCompetence(
+    clientId: string,
+    competence: string,
+    dataTypes: string[]
+  ): Promise<ExtractedFiscalDataRow[]> {
+    const placeholders = dataTypes.map((_, i) => `$${i + 3}`).join(', ');
+    const result = await this.query<ExtractedFiscalDataRow>(
+      `SELECT id, data_type, data, fiscal_file_id, created_at
+       FROM extracted_fiscal_data
+       WHERE client_id = $1
+         AND data_type IN (${placeholders})
+         AND (
+           competence = $2
+           OR fiscal_file_id IN (
+             SELECT ff.id
+             FROM fiscal_files ff
+             WHERE ff.client_id = $1
+               AND ff.competence = $2
+               AND ff.file_type = 'ecd'
+               AND ff.status = 'processed'
+           )
+         )
+       ORDER BY created_at DESC`,
+      [clientId, competence, ...dataTypes],
+      false
+    );
+    return result.rows;
+  }
+
+  /**
+   * Lista arquivos ECD processados elegíveis para validação real.
+   */
+  async listProcessedEcdFiscalFiles(options: {
+    client_id?: string;
+    competence?: string;
+    limit?: number;
+  }): Promise<ProcessedEcdFiscalFileRow[]> {
+    const params: any[] = [];
+    const conditions: string[] = [`ff.file_type = 'ecd'`, `ff.status = 'processed'`];
+
+    if (options.client_id) {
+      conditions.push(`ff.client_id = $${params.length + 1}`);
+      params.push(options.client_id);
+    }
+    if (options.competence) {
+      conditions.push(`ff.competence = $${params.length + 1}`);
+      params.push(options.competence);
+    }
+
+    const limit = options.limit ?? 50;
+    const limitParam = params.length + 1;
+    const result = await this.query<ProcessedEcdFiscalFileRow>(
+      `SELECT ff.id, ff.client_id, ff.competence, ff.file_name, ff.created_at
+       FROM fiscal_files ff
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY ff.created_at DESC
+       LIMIT $${limitParam}`,
+      [...params, limit],
+      false
+    );
+    return result.rows;
+  }
+
+  /**
+   * Competências distintas (YYYY-MM) que possuem ao menos um ECD processado para o cliente.
+   * Evita o viés de LIMIT + ORDER BY created_at, que pode omitir competências com arquivos mais antigos.
+   */
+  async listDistinctProcessedEcdCompetences(clientId: string): Promise<string[]> {
+    const result = await this.query<{ competence: string }>(
+      `SELECT DISTINCT ff.competence
+       FROM fiscal_files ff
+       WHERE ff.client_id = $1
+         AND ff.file_type = 'ecd'
+         AND ff.status = 'processed'
+         AND ff.competence IS NOT NULL
+         AND ff.competence ~ '^\\d{4}-\\d{2}$'
+       ORDER BY ff.competence DESC`,
+      [clientId],
+      false
+    );
+    return result.rows.map((r) => r.competence);
+  }
+
+  /**
    * Buscar validações por cliente
    * NOTA: Schema já isola por tenant, não precisa company_id
    */
   async findByClient(clientId: string): Promise<RatingValidation[]> {
     const result = await this.query<RatingValidation>(
-      `SELECT id, client_id, competence, fiscal_file_id, is_simulation,
-              input_data, calculated_values, liquidez_corrente, liquidez_geral, solvencia,
-              rating_estimado, rating_real, has_discrepancy, discrepancy_details,
-              parcelamento_pgfn, comparativo_parcelamento,
-              created_by, created_at, updated_at 
-       FROM rating_validations 
-       WHERE client_id = $1 
-       ORDER BY competence DESC, created_at DESC`,
+      `SELECT rv.id, rv.client_id, rv.competence, rv.fiscal_file_id, rv.is_simulation,
+              rv.input_data, rv.calculated_values, rv.liquidez_corrente, rv.liquidez_geral, rv.solvencia,
+              rv.rating_estimado, rv.rating_real, rv.has_discrepancy, rv.discrepancy_details,
+              rv.parcelamento_pgfn, rv.comparativo_parcelamento,
+              ff.file_name AS fiscal_file_name,
+              rv.created_by, rv.created_at, rv.updated_at 
+       FROM rating_validations rv
+       LEFT JOIN fiscal_files ff ON ff.id = rv.fiscal_file_id
+       WHERE rv.client_id = $1 
+       ORDER BY rv.competence DESC, rv.created_at DESC`,
       [clientId],
       false // Não requer company_id (isolado por schema)
     );

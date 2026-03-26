@@ -4,7 +4,8 @@
   "private": true,
   "description": "Python workers para processamento pesado",
   "scripts": {
-    "dev": "python3 -m uvicorn main:app --reload",
+    "dev": "python3 src/main.py --loop",
+    "run-once": "python3 src/main.py",
     "build": "echo 'Python não requer build'",
     "lint": "ruff check .",
     "type-check": "mypy .",

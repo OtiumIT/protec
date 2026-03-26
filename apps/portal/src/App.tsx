@@ -21,6 +21,7 @@ import { MeuPlano } from './modules/plans/pages/MeuPlano';
 import { GestaoAssinatura } from './modules/billing/pages/GestaoAssinatura';
 import { FiscalFiles } from './modules/fiscal-files/pages/FiscalFiles';
 import { FiscalFilesUpload } from './modules/fiscal-files/pages/FiscalFilesUpload';
+import { FiscalFilesCalibrator } from './modules/fiscal-files/pages/FiscalFilesCalibrator';
 import { Modules } from './modules/modules/pages/Modules';
 import { RatingValidator } from './modules/rating-validator/pages/RatingValidator';
 import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/RatingValidatorPrintPreview';
@@ -156,6 +157,18 @@ function AppRoutes() {
             <FiscalFilesUpload />
           </PrivateRoute>
         }
+      />
+      <Route
+        path="/fiscal-files/calibrator"
+        element={
+          <PrivateRoute>
+            <FiscalFilesCalibrator />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/fiscal-files/calibrador"
+        element={<Navigate to="/fiscal-files/calibrator" replace />}
       />
       <Route
         path="/modules"
