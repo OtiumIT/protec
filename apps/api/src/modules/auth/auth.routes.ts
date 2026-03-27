@@ -7,6 +7,8 @@ import { CompanyService } from '../companies/company.service';
 import { UserRepository } from '../users/user.repository';
 import { SubscriptionRepository } from '../subscriptions/subscription.repository';
 import { PlanRepository } from '../plans/plan.repository';
+import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
+import { FeatureToggleRepository } from '../feature-toggles/feature-toggle.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
@@ -19,12 +21,15 @@ const companyService = new CompanyService(companyRepo);
 const userRepo = new UserRepository();
 const subscriptionRepo = new SubscriptionRepository();
 const planRepo = new PlanRepository();
+const featureToggleRepo = new FeatureToggleRepository();
+const featureToggleService = new FeatureToggleService(featureToggleRepo);
 const authService = new AuthService(
   authRepo,
   companyService,
   userRepo,
   subscriptionRepo,
-  planRepo
+  planRepo,
+  featureToggleService
 );
 
 /**

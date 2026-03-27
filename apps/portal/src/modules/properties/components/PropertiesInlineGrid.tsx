@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PropertyWithClient } from '../services/property.service';
 import { Button } from '../../../shared/components/ui/Button';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
@@ -178,6 +178,28 @@ function formatMoneyTooltip(value: number): string {
   }).format(value || 0);
 }
 
+function isGridRowEmpty(row: GridRow): boolean {
+  return (
+    row.identificador.trim() === '' &&
+    row.tipo_locacao === '' &&
+    row.matricula_imovel.trim() === '' &&
+    row.inscricao_iptu.trim() === '' &&
+    row.cartorio_registro.trim() === '' &&
+    row.iptu_mensal_padrao === 0 &&
+    row.condominio_mensal_padrao === 0 &&
+    row.seguro_mensal_padrao === 0 &&
+    row.camareira_mensal_padrao === 0 &&
+    row.seguranca_mensal_padrao === 0 &&
+    row.material_limpeza_mensal_padrao === 0 &&
+    row.lavanderia_enxoval_mensal_padrao === 0 &&
+    row.checkin_checkout_mensal_padrao === 0 &&
+    row.taxas_pagamento_mensal_padrao === 0 &&
+    row.tarifas_bancarias_mensal_padrao === 0 &&
+    row.vacancia_mensal_padrao === 0 &&
+    row.inadimplencia_mensal_padrao === 0
+  );
+}
+
 function ensureDraftCapacity(inputRows: GridRow[]): GridRow[] {
   const rows = [...inputRows];
   const filledRows = rows.filter((r) => r.identificador.trim() !== '').length;
@@ -237,6 +259,7 @@ export function PropertiesInlineGrid({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showLoadSimulationModal, setShowLoadSimulationModal] = useState(false);
+  const debugShortcutArmedUntilRef = useRef<number>(0);
 
   const selectedPersistedIds = useMemo(
     () =>
@@ -261,24 +284,7 @@ export function PropertiesInlineGrid({
     });
   }, [properties]);
 
-  const isRowEmpty = (row: GridRow) =>
-    row.identificador.trim() === '' &&
-    row.tipo_locacao === '' &&
-    row.matricula_imovel.trim() === '' &&
-    row.inscricao_iptu.trim() === '' &&
-    row.cartorio_registro.trim() === '' &&
-    row.iptu_mensal_padrao === 0 &&
-    row.condominio_mensal_padrao === 0 &&
-    row.seguro_mensal_padrao === 0 &&
-    row.camareira_mensal_padrao === 0 &&
-    row.seguranca_mensal_padrao === 0 &&
-    row.material_limpeza_mensal_padrao === 0 &&
-    row.lavanderia_enxoval_mensal_padrao === 0 &&
-    row.checkin_checkout_mensal_padrao === 0 &&
-    row.taxas_pagamento_mensal_padrao === 0 &&
-    row.tarifas_bancarias_mensal_padrao === 0 &&
-    row.vacancia_mensal_padrao === 0 &&
-    row.inadimplencia_mensal_padrao === 0;
+  const isRowEmpty = (row: GridRow) => isGridRowEmpty(row);
 
   const selectedRowsWithData = rows.filter((r) => r.isSelected && !isRowEmpty(r));
   const selectedPersistedRows = selectedRowsWithData.filter((r) => r.isPersisted && r.propertyId);
@@ -294,6 +300,69 @@ export function PropertiesInlineGrid({
   const selectedSavedRowsCount = rows.filter(
     (r) => r.isSelected && getRowStatus(r) === 'saved'
   ).length;
+
+  const fillDebugRows = useCallback((count: number) => {
+    setRows((prev) => {
+      const next = [...prev];
+      let seed = 1;
+
+      for (let i = 0; i < next.length && seed <= count; i += 1) {
+        const row = next[i];
+        if (!isGridRowEmpty(row)) continue;
+
+        next[i] = {
+          ...row,
+          isPersisted: false,
+          isEditing: true,
+          identificador: `Teste Imovel ${seed}`,
+          tipo_locacao: seed % 2 === 0 ? 'flexivel' : 'fixa',
+          iptu_mensal_padrao: 120 * seed,
+          condominio_mensal_padrao: 180 * seed,
+          seguro_mensal_padrao: 60 * seed,
+          camareira_mensal_padrao: 90 * seed,
+          material_limpeza_mensal_padrao: 40 * seed,
+          checkin_checkout_mensal_padrao: 30 * seed,
+          taxas_pagamento_mensal_padrao: 25 * seed,
+        };
+        seed += 1;
+      }
+
+      return ensureDraftCapacity(next);
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
+        Boolean(target?.isContentEditable);
+      if (isTypingTarget) return;
+
+      if (event.ctrlKey && event.key.toLowerCase() === 'd') {
+        debugShortcutArmedUntilRef.current = Date.now() + 2000;
+        event.preventDefault();
+        return;
+      }
+
+      const isDebugCombo =
+        (event.ctrlKey && event.key === '3') ||
+        (event.key === '3' && Date.now() <= debugShortcutArmedUntilRef.current);
+
+      if (!isDebugCombo) return;
+
+      event.preventDefault();
+      debugShortcutArmedUntilRef.current = 0;
+      fillDebugRows(3);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [fillDebugRows]);
 
   const toggleSelect = (rowId: string) => {
     setRows((prev) =>

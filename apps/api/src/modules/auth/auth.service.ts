@@ -3,6 +3,7 @@ import { CompanyService } from '../companies/company.service';
 import { UserRepository } from '../users/user.repository';
 import { SubscriptionRepository } from '../subscriptions/subscription.repository';
 import { PlanRepository } from '../plans/plan.repository';
+import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
@@ -44,7 +45,8 @@ export class AuthService {
     private companyService: CompanyService,
     private userRepo: UserRepository,
     private subscriptionRepo: SubscriptionRepository,
-    private planRepo: PlanRepository
+    private planRepo: PlanRepository,
+    private featureToggleService: FeatureToggleService
   ) {}
 
   /**
@@ -85,6 +87,9 @@ export class AuthService {
       planId: freePlan.id,
       freePlanStartedAt: new Date(),
     });
+
+    // Ativa automaticamente os módulos padrão do plano para o novo tenant.
+    await this.featureToggleService.activatePlanModulesForTenant(company.id, freePlan.id);
 
     // Hash da senha e criar usuário admin do tenant
     const passwordHash = await hashPassword(data.user.password);
