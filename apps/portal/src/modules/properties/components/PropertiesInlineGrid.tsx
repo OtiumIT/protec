@@ -49,6 +49,26 @@ type GridRow = {
   inadimplencia_mensal_padrao: number;
 };
 
+type SaveRowInput = {
+  identificador: string;
+  tipo_locacao: 'fixa' | 'flexivel';
+  matricula_imovel?: string;
+  inscricao_iptu?: string;
+  cartorio_registro?: string;
+  iptu_mensal_padrao: number;
+  condominio_mensal_padrao: number;
+  seguro_mensal_padrao: number;
+  camareira_mensal_padrao: number;
+  seguranca_mensal_padrao: number;
+  material_limpeza_mensal_padrao: number;
+  lavanderia_enxoval_mensal_padrao: number;
+  checkin_checkout_mensal_padrao: number;
+  taxas_pagamento_mensal_padrao: number;
+  tarifas_bancarias_mensal_padrao: number;
+  vacancia_mensal_padrao: number;
+  inadimplencia_mensal_padrao: number;
+};
+
 const INITIAL_EMPTY_ROWS = 5;
 const TRAILING_EMPTY_ROWS = 3;
 
@@ -59,9 +79,7 @@ type Props = {
   loading: boolean;
   onRefreshClientProperties: () => Promise<void>;
   onRequireClientToSave: () => void;
-  onSaveRows: (
-    rows: Array<Omit<GridRow, 'rowId' | 'propertyId' | 'isPersisted' | 'isSelected' | 'isEditing'>>
-  ) => Promise<void>;
+  onSaveRows: (rows: SaveRowInput[]) => Promise<void>;
   onApplyToSimulation: (propertyIds: string[]) => Promise<void>;
   onDeletePersistedRows: (propertyIds: string[]) => Promise<void>;
 };
@@ -262,7 +280,6 @@ export function PropertiesInlineGrid({
     row.vacancia_mensal_padrao === 0 &&
     row.inadimplencia_mensal_padrao === 0;
 
-  const selectedCount = rows.filter((r) => r.isSelected).length;
   const selectedRowsWithData = rows.filter((r) => r.isSelected && !isRowEmpty(r));
   const selectedPersistedRows = selectedRowsWithData.filter((r) => r.isPersisted && r.propertyId);
   const deleteRequiredText = selectedRowsWithData.length <= 1 ? 'deletar' : `deletar ${selectedRowsWithData.length}`;

@@ -33,26 +33,6 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-function sumCustosOperacionaisMes(m: Partial<SimulateStandaloneMesInput>): number {
-  return (m.reformas_melhorias ?? 0) +
-    (m.mobilia_equipamentos ?? 0) +
-    (m.limpeza_higienizacao ?? 0) +
-    (m.comissao_corretagem ?? 0) +
-    (m.taxa_plataforma ?? 0) +
-    (m.custo_camareira ?? 0) +
-    (m.custo_seguranca ?? 0) +
-    (m.custo_material_limpeza ?? 0) +
-    (m.custo_lavanderia_enxoval ?? 0) +
-    (m.custo_checkin_checkout_terceiros ?? 0) +
-    (m.taxas_meios_pagamento ?? 0) +
-    (m.tarifas_bancarias ?? 0) +
-    (m.mao_de_obra_operacional ?? 0) +
-    (m.encargos_folha ?? 0) +
-    (m.vacancia_estimada ?? 0) +
-    (m.inadimplencia_estimada ?? 0) +
-    (m.outros_custos ?? 0);
-}
-
 type MesFields = Omit<SimulateStandaloneMesInput, 'mes_referencia'>;
 type SectionKey = 'receita' | 'despesa' | 'custo';
 
@@ -567,18 +547,6 @@ export function SimuladorImoveis() {
     });
     return () => { cancelled = true; };
   }, [clientId, ano]);
-
-  const toggleImovelSelection = (id: string) => {
-    setImoveisSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAllImoveis = () => setImoveisSelectedIds(new Set(imoveisList.map((p) => p.id)));
-  const clearAllImoveis = () => setImoveisSelectedIds(new Set());
 
   const handleDeleteProperty = async () => {
     if (!deletePropertyModal || deleteConfirmText.toLowerCase() !== 'excluir') return;

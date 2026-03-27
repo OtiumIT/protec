@@ -60,6 +60,12 @@ export function PropertyFormModal({
     }
   }, [isOpen, defaultClientId]);
 
+  useEffect(() => {
+    if (isOpen && !formData.client_id && clients.length > 0) {
+      setFormData((prev) => ({ ...prev, client_id: clients[0].id }));
+    }
+  }, [isOpen, clients, formData.client_id]);
+
   const handleClose = () => {
     setFormData({
       client_id: defaultClientId,

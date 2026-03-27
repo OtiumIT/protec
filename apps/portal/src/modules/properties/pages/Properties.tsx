@@ -68,7 +68,6 @@ export function Properties() {
     inadimplencia_mensal_padrao: 0,
   });
   const [showClientModal, setShowClientModal] = useState(false);
-  const [isLoadingCep, setIsLoadingCep] = useState(false);
   const isFixa = formData.tipo_locacao === 'fixa';
   const isFlexivel = formData.tipo_locacao === 'flexivel';
   const recomendadosFixaVazios = [
@@ -255,39 +254,6 @@ export function Properties() {
       loadProperties();
     } catch (err: unknown) {
       showError(err instanceof Error ? err.message : 'Erro ao salvar imóvel');
-    }
-  };
-
-  const handleCepChange = async (rawValue: string) => {
-    const onlyDigits = rawValue.replace(/\D/g, '').slice(0, 8);
-    const formatted = onlyDigits.length > 5
-      ? `${onlyDigits.slice(0, 5)}-${onlyDigits.slice(5)}`
-      : onlyDigits;
-    setFormData((prev) => ({ ...prev, cep: formatted }));
-
-    if (onlyDigits.length !== 8) return;
-    try {
-      setIsLoadingCep(true);
-      const res = await fetch(`https://viacep.com.br/ws/${onlyDigits}/json/`);
-      const data = await res.json() as {
-        erro?: boolean;
-        logradouro?: string;
-        bairro?: string;
-        localidade?: string;
-        uf?: string;
-      };
-      if (data.erro) return;
-      setFormData((prev) => ({
-        ...prev,
-        logradouro: data.logradouro || prev.logradouro,
-        bairro: data.bairro || prev.bairro,
-        cidade: data.localidade || prev.cidade,
-        uf: data.uf || prev.uf,
-      }));
-    } catch {
-      // silencioso: permite preenchimento manual em caso de falha
-    } finally {
-      setIsLoadingCep(false);
     }
   };
 
