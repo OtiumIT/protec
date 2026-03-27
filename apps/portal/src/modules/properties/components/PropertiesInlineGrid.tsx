@@ -110,9 +110,6 @@ const DEFAULT_VISIBLE_COLUMNS: ColumnId[] = [
   'iptu_mensal_padrao',
   'condominio_mensal_padrao',
   'seguro_mensal_padrao',
-  'camareira_mensal_padrao',
-  'material_limpeza_mensal_padrao',
-  'checkin_checkout_mensal_padrao',
   'taxas_pagamento_mensal_padrao',
 ];
 
@@ -297,6 +294,7 @@ export function PropertiesInlineGrid({
   };
 
   const hasRowsToSave = rows.some((r) => getRowStatus(r) === 'clock');
+  const filledRowsCount = rows.filter((r) => !isRowEmpty(r)).length;
   const selectedSavedRowsCount = rows.filter(
     (r) => r.isSelected && getRowStatus(r) === 'saved'
   ).length;
@@ -475,7 +473,7 @@ export function PropertiesInlineGrid({
             variant="secondary"
             size="sm"
             onClick={() => setShowLoadSimulationModal(true)}
-            disabled={allPersistedIds.length === 0}
+            disabled={filledRowsCount === 0}
           >
             Carregar simulação
           </Button>
@@ -488,10 +486,13 @@ export function PropertiesInlineGrid({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs text-slate-600 flex items-center gap-4">
+        <div className="text-xs text-slate-600 flex items-center gap-4 flex-wrap">
           <span>Legenda:</span>
           <span className="inline-flex items-center gap-1">✅ salva</span>
           <span className="inline-flex items-center gap-1">🕒 não salva</span>
+          <span className="text-slate-500">
+            Tipo: <strong>Fixa</strong> (locação contínua) | <strong>Flexível</strong> (curta temporada/Airbnb)
+          </span>
         </div>
         <div className="relative">
           <button
@@ -572,18 +573,30 @@ export function PropertiesInlineGrid({
                   {visibleColumns.includes('tipo_locacao') && (
                     <td
                       className="py-2 px-2 min-w-[170px]"
-                      title={row.tipo_locacao === 'fixa' ? 'Fixa' : row.tipo_locacao === 'flexivel' ? 'Flexível' : 'Selecione'}
+                      title={
+                        row.tipo_locacao === 'fixa'
+                          ? 'Fixa (locação contínua: mensal/tradicional)'
+                          : row.tipo_locacao === 'flexivel'
+                            ? 'Flexível (curta temporada/Airbnb)'
+                            : 'Selecione o tipo da locação'
+                      }
                     >
                       <select
                         className="w-full border border-slate-200 rounded px-2 py-1"
                         value={row.tipo_locacao}
                         onChange={(e) => updateRow(row.rowId, { tipo_locacao: e.target.value as 'fixa' | 'flexivel' | '' })}
                         disabled={!canEditCell(row)}
-                        title={row.tipo_locacao === 'fixa' ? 'Fixa' : row.tipo_locacao === 'flexivel' ? 'Flexível' : 'Selecione'}
+                        title={
+                          row.tipo_locacao === 'fixa'
+                            ? 'Fixa (locação contínua: mensal/tradicional)'
+                            : row.tipo_locacao === 'flexivel'
+                              ? 'Flexível (curta temporada/Airbnb)'
+                              : 'Selecione o tipo da locação'
+                        }
                       >
-                        <option value="">Selecione</option>
-                        <option value="fixa">Fixa</option>
-                        <option value="flexivel">Flexível</option>
+                        <option value="">Selecione o tipo</option>
+                        <option value="fixa">Fixa - locação contínua</option>
+                        <option value="flexivel">Flexível - curta temporada</option>
                       </select>
                     </td>
                   )}
@@ -745,6 +758,11 @@ export function PropertiesInlineGrid({
           <p className="text-sm text-slate-600">
             Deseja carregar a simulação com quais imóveis?
           </p>
+          {allPersistedIds.length === 0 && filledRowsCount > 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              Existem imóveis preenchidos, mas ainda não salvos. Salve os imóveis para habilitar o carregamento na simulação.
+            </p>
+          )}
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
@@ -767,12 +785,13 @@ export function PropertiesInlineGrid({
             <Button
               type="button"
               variant="primary"
+              disabled={allPersistedIds.length === 0}
               onClick={() => {
                 void onApplyToSimulation(allPersistedIds);
                 setShowLoadSimulationModal(false);
               }}
             >
-              Todos ({allPersistedIds.length})
+              Todos salvos ({allPersistedIds.length})
             </Button>
           </div>
         </div>

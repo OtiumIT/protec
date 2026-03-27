@@ -207,6 +207,7 @@ export function SimuladorImoveis() {
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [reportClientName, setReportClientName] = useState('');
+  const [reportTitleName, setReportTitleName] = useState('');
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const printPreviewContentRef = useRef<HTMLDivElement>(null);
   const printWrapperRef = useRef<HTMLDivElement>(null);
@@ -386,6 +387,11 @@ export function SimuladorImoveis() {
     (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)?.name) ??
     (saveClientId && clients.find((c) => c.id === saveClientId)?.name) ??
     reportClientName;
+  const effectiveReportTitle =
+    viewingSimulation?.title?.trim() ||
+    saveTitle.trim() ||
+    reportTitleName.trim() ||
+    'Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025';
 
   const handleOpenPrintPreview = useCallback(() => {
     setShowPrintPreview(true);
@@ -2609,6 +2615,17 @@ export function SimuladorImoveis() {
         size="xl"
       >
         <div className="space-y-4">
+          {!saveClientId && !viewingSimulation?.client_id && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do relatório (opcional)</label>
+              <Input
+                placeholder="Ex: Estudo tributário de locação 2026"
+                value={reportTitleName}
+                onChange={(e) => setReportTitleName(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          )}
           {!effectiveClientName && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cliente (opcional)</label>
@@ -2627,7 +2644,7 @@ export function SimuladorImoveis() {
             <div className="report-preview-inner p-4">
               <ReportPrintHeader
                 variant="previewModal"
-                reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
+                reportTitle={effectiveReportTitle}
                 metaLine={[
                   (effectiveClientName || reportClientName) && `Cliente: ${effectiveClientName || reportClientName}`,
                   new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
