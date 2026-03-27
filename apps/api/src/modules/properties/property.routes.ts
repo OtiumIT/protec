@@ -10,6 +10,7 @@ import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { requireModule } from '../../middleware/module.middleware';
 import {
   CreatePropertySchema,
+  CreatePropertiesBatchSchema,
   UpdatePropertySchema,
   PropertyTransactionSchema,
   SimulatePropertyTaxInputSchema,
@@ -30,12 +31,6 @@ import { errorHandler } from '../../shared/utils/error-handler';
 
 const propertyRoutes = new Hono();
 
-// #region agent log
-propertyRoutes.use('*', async (c, next) => {
-  fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H2',location:'property.routes.ts:entry',message:'Property routes received request',data:{path:c.req.path,method:c.req.method,url:c.req.url},timestamp:Date.now()})}).catch(()=>{});
-  await next();
-});
-// #endregion
 propertyRoutes.use('/*', tenantMiddleware);
 propertyRoutes.use('/*', authMiddleware);
 propertyRoutes.use('/*', requireModule('GESTAO_IMOVEIS'));
@@ -44,6 +39,88 @@ const propertyRepo = new PropertyRepository();
 const clientRepo = new ClientRepository();
 const simulationRepo = new PropertySimulationRepository();
 const propertyService = new PropertyService(propertyRepo, clientRepo, simulationRepo);
+
+function estimatePdfPages(buffer: Buffer): number {
+  const text = buffer.toString('latin1');
+  const matches = text.match(/\/Type\s*\/Page\b/g);
+  return matches?.length ?? 0;
+}
+
+function extractSuggestedFieldsFromText(text: string, documentType: 'matricula' | 'iptu') {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const warnings: string[] = [];
+  const suggested: Record<string, string | number> = {};
+
+  if (documentType === 'matricula') {
+    const matriculaMatch = normalized.match(/matr[íi]cula\s*(n[oº°]\s*)?[:\-]?\s*([a-z0-9\-\/\.]+)/i);
+    const cartorioMatch = normalized.match(/cart[óo]rio\s*(de)?\s*registro[^:]*[:\-]?\s*([^,.;]+)/i);
+    if (matriculaMatch?.[2]) suggested.matricula_imovel = matriculaMatch[2].trim();
+    if (cartorioMatch?.[2]) suggested.cartorio_registro = cartorioMatch[2].trim();
+  }
+
+  if (documentType === 'iptu') {
+    const inscricaoMatch = normalized.match(/inscri[cç][aã]o\s*(imobili[áa]ria|iptu)?\s*[:\-]?\s*([a-z0-9\-\/\.]+)/i);
+    if (inscricaoMatch?.[2]) suggested.inscricao_iptu = inscricaoMatch[2].trim();
+    const valorMatch = normalized.match(/(valor\s*(venal|total|iptu)?|iptu)\s*[:\-]?\s*r?\$?\s*([\d\.\,]+)/i);
+    if (valorMatch?.[3]) {
+      const parsed = Number(valorMatch[3].replace(/\./g, '').replace(',', '.'));
+      if (!Number.isNaN(parsed)) suggested.iptu_mensal_padrao = parsed;
+    }
+  }
+
+  if (Object.keys(suggested).length === 0) {
+    warnings.push('Não foi possível extrair campos com confiança. Revise manualmente.');
+  }
+
+  return { suggested, warnings };
+}
+
+propertyRoutes.post('/extract-property-doc', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    const documentType = formData.get('document_type');
+
+    if (!(file instanceof File)) {
+      return c.json({ error: { message: 'Arquivo é obrigatório', code: 'FILE_REQUIRED' } }, 400);
+    }
+    if (documentType !== 'matricula' && documentType !== 'iptu') {
+      return c.json({ error: { message: 'document_type inválido', code: 'INVALID_DOCUMENT_TYPE' } }, 400);
+    }
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      return c.json({ error: { message: 'Apenas PDF é suportado', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const maxBytes = 10 * 1024 * 1024;
+    if (buffer.length > maxBytes) {
+      return c.json({ error: { message: 'Arquivo acima de 10MB. Envie arquivo menor.', code: 'FILE_TOO_LARGE' } }, 400);
+    }
+
+    const pages = estimatePdfPages(buffer);
+    if (pages > 10) {
+      return c.json({ error: { message: 'Documento com mais de 10 páginas. Envie versão resumida.', code: 'TOO_MANY_PAGES' } }, 400);
+    }
+
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText().catch(() => ({ text: '' }));
+    const text = typeof result?.text === 'string' ? result.text : '';
+
+    const { suggested, warnings } = extractSuggestedFieldsFromText(text, documentType);
+
+    return c.json({
+      data: {
+        document_type: documentType,
+        pages_estimated: pages,
+        suggested_fields: suggested,
+        warnings,
+      },
+    });
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
 
 /** POST /properties/simulate - Simular carga tributária PF vs PJ vs Reforma (deve vir antes de /:id) */
 propertyRoutes.post(
@@ -171,9 +248,6 @@ propertyRoutes.post(
   '/simulate-standalone',
   zValidator('json', SimulateStandaloneInputSchema),
   async (c) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H2',location:'property.routes.ts:simulate-standalone-handler',message:'POST /simulate-standalone handler entered',data:{path:c.req.path,method:c.req.method},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     try {
       const input = c.req.valid('json');
       const result = await propertyService.simulateStandalone(input);
@@ -278,6 +352,21 @@ propertyRoutes.post(
       const data = c.req.valid('json');
       const property = await propertyService.create(data);
       return c.json({ data: { property } }, 201);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** POST /properties/batch - Criar imóveis em lote */
+propertyRoutes.post(
+  '/batch',
+  zValidator('json', CreatePropertiesBatchSchema),
+  async (c) => {
+    try {
+      const data = c.req.valid('json');
+      const result = await propertyService.createBatch(data);
+      return c.json({ data: result }, 201);
     } catch (err) {
       return errorHandler(err, c);
     }

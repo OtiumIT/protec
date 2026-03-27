@@ -21,6 +21,29 @@ function getAuthHeaders() {
 }
 
 export const propertyService = {
+  async extractPropertyDoc(file: File, documentType: 'matricula' | 'iptu'): Promise<{
+    document_type: 'matricula' | 'iptu';
+    pages_estimated: number;
+    suggested_fields: Record<string, string | number>;
+    warnings: string[];
+  }> {
+    const { token, tenantId } = getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', documentType);
+    const response = await apiRequest<{ data: {
+      document_type: 'matricula' | 'iptu';
+      pages_estimated: number;
+      suggested_fields: Record<string, string | number>;
+      warnings: string[];
+    } }>('/api/v1/properties/extract-property-doc', {
+      method: 'POST',
+      body: formData,
+      token,
+      tenantId,
+    });
+    return response.data;
+  },
   async list(params?: {
     client_id?: string;
     page?: number;
@@ -58,6 +81,28 @@ export const propertyService = {
     tipo_locacao: 'fixa' | 'flexivel';
     identificador: string;
     modo_entrada?: 'detalhado' | 'reduzido';
+    matricula_imovel?: string;
+    inscricao_iptu?: string;
+    cartorio_registro?: string;
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    uf?: string;
+    iptu_mensal_padrao?: number;
+    condominio_mensal_padrao?: number;
+    seguro_mensal_padrao?: number;
+    camareira_mensal_padrao?: number;
+    seguranca_mensal_padrao?: number;
+    material_limpeza_mensal_padrao?: number;
+    lavanderia_enxoval_mensal_padrao?: number;
+    checkin_checkout_mensal_padrao?: number;
+    taxas_pagamento_mensal_padrao?: number;
+    tarifas_bancarias_mensal_padrao?: number;
+    vacancia_mensal_padrao?: number;
+    inadimplencia_mensal_padrao?: number;
   }): Promise<Property> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: { property: Property } }>(
@@ -72,9 +117,52 @@ export const propertyService = {
     return response.data.property;
   },
 
+  async createBatch(input: {
+    client_id: string;
+    properties: Array<{
+      tipo_locacao: 'fixa' | 'flexivel';
+      identificador: string;
+      modo_entrada?: 'detalhado' | 'reduzido';
+      matricula_imovel?: string;
+      inscricao_iptu?: string;
+      cartorio_registro?: string;
+      cep?: string;
+      logradouro?: string;
+      numero?: string;
+      complemento?: string;
+      bairro?: string;
+      cidade?: string;
+      uf?: string;
+      iptu_mensal_padrao?: number;
+      condominio_mensal_padrao?: number;
+      seguro_mensal_padrao?: number;
+      camareira_mensal_padrao?: number;
+      seguranca_mensal_padrao?: number;
+      material_limpeza_mensal_padrao?: number;
+      lavanderia_enxoval_mensal_padrao?: number;
+      checkin_checkout_mensal_padrao?: number;
+      taxas_pagamento_mensal_padrao?: number;
+      tarifas_bancarias_mensal_padrao?: number;
+      vacancia_mensal_padrao?: number;
+      inadimplencia_mensal_padrao?: number;
+    }>;
+  }): Promise<Property[]> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: { properties: Property[] } }>(
+      '/api/v1/properties/batch',
+      {
+        method: 'POST',
+        body: JSON.stringify(input),
+        token,
+        tenantId,
+      }
+    );
+    return response.data.properties;
+  },
+
   async update(
     id: string,
-    data: Partial<{ client_id: string; tipo_locacao: 'fixa' | 'flexivel'; identificador: string; modo_entrada: 'detalhado' | 'reduzido' }>
+    data: Partial<{ client_id: string; tipo_locacao: 'fixa' | 'flexivel'; identificador: string; modo_entrada: 'detalhado' | 'reduzido'; matricula_imovel: string; inscricao_iptu: string; cartorio_registro: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; iptu_mensal_padrao: number; condominio_mensal_padrao: number; seguro_mensal_padrao: number; camareira_mensal_padrao: number; seguranca_mensal_padrao: number; material_limpeza_mensal_padrao: number; lavanderia_enxoval_mensal_padrao: number; checkin_checkout_mensal_padrao: number; taxas_pagamento_mensal_padrao: number; tarifas_bancarias_mensal_padrao: number; vacancia_mensal_padrao: number; inadimplencia_mensal_padrao: number; }>
   ): Promise<Property> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: { property: Property } }>(
@@ -121,6 +209,8 @@ export const propertyService = {
       tipo: 'receita' | 'despesa_dedutivel' | 'custo_operacional';
       categoria: string;
       valor: number;
+      gera_credito_ibs_cbs?: boolean;
+      tipo_credito?: 'insumo' | 'uso_consumo' | 'nao_creditavel';
       observacao?: string;
     }
   ): Promise<PropertyTransaction> {
@@ -321,11 +411,26 @@ export const propertyService = {
       limpeza_higienizacao: number;
       comissao_corretagem: number;
       taxa_plataforma: number;
+      custo_camareira: number;
+      custo_seguranca: number;
+      custo_material_limpeza: number;
+      custo_lavanderia_enxoval: number;
+      custo_checkin_checkout_terceiros: number;
+      taxas_meios_pagamento: number;
+      tarifas_bancarias: number;
+      mao_de_obra_operacional: number;
+      encargos_folha: number;
+      vacancia_estimada: number;
+      inadimplencia_estimada: number;
       outros_custos: number;
     }>;
     receita_total: number;
     despesas_dedutiveis_total: number;
     custos_operacionais_total: number;
+    metadata?: {
+      usou_defaults_cadastro: boolean;
+      quantidade_imoveis_com_defaults: number;
+    };
   }> {
     const { token, tenantId } = getAuthHeaders();
     const params = new URLSearchParams();
@@ -353,11 +458,26 @@ export const propertyService = {
         limpeza_higienizacao: number;
         comissao_corretagem: number;
         taxa_plataforma: number;
+        custo_camareira: number;
+        custo_seguranca: number;
+        custo_material_limpeza: number;
+        custo_lavanderia_enxoval: number;
+        custo_checkin_checkout_terceiros: number;
+        taxas_meios_pagamento: number;
+        tarifas_bancarias: number;
+        mao_de_obra_operacional: number;
+        encargos_folha: number;
+        vacancia_estimada: number;
+        inadimplencia_estimada: number;
         outros_custos: number;
       }>;
       receita_total: number;
       despesas_dedutiveis_total: number;
       custos_operacionais_total: number;
+      metadata?: {
+        usou_defaults_cadastro: boolean;
+        quantidade_imoveis_com_defaults: number;
+      };
     };
   },
 

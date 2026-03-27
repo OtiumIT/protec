@@ -7,6 +7,28 @@ export interface CreatePropertyData {
   tipo_locacao: string;
   identificador: string;
   modo_entrada?: 'detalhado' | 'reduzido';
+  matricula_imovel?: string;
+  inscricao_iptu?: string;
+  cartorio_registro?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  iptu_mensal_padrao?: number;
+  condominio_mensal_padrao?: number;
+  seguro_mensal_padrao?: number;
+  camareira_mensal_padrao?: number;
+  seguranca_mensal_padrao?: number;
+  material_limpeza_mensal_padrao?: number;
+  lavanderia_enxoval_mensal_padrao?: number;
+  checkin_checkout_mensal_padrao?: number;
+  taxas_pagamento_mensal_padrao?: number;
+  tarifas_bancarias_mensal_padrao?: number;
+  vacancia_mensal_padrao?: number;
+  inadimplencia_mensal_padrao?: number;
 }
 
 export interface UpdatePropertyData {
@@ -14,6 +36,28 @@ export interface UpdatePropertyData {
   tipo_locacao?: string;
   identificador?: string;
   modo_entrada?: 'detalhado' | 'reduzido';
+  matricula_imovel?: string;
+  inscricao_iptu?: string;
+  cartorio_registro?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  iptu_mensal_padrao?: number;
+  condominio_mensal_padrao?: number;
+  seguro_mensal_padrao?: number;
+  camareira_mensal_padrao?: number;
+  seguranca_mensal_padrao?: number;
+  material_limpeza_mensal_padrao?: number;
+  lavanderia_enxoval_mensal_padrao?: number;
+  checkin_checkout_mensal_padrao?: number;
+  taxas_pagamento_mensal_padrao?: number;
+  tarifas_bancarias_mensal_padrao?: number;
+  vacancia_mensal_padrao?: number;
+  inadimplencia_mensal_padrao?: number;
 }
 
 export interface CreateTransactionData {
@@ -22,6 +66,8 @@ export interface CreateTransactionData {
   tipo: string;
   categoria: string;
   valor: number;
+  gera_credito_ibs_cbs?: boolean;
+  tipo_credito?: string;
   observacao?: string;
 }
 
@@ -32,7 +78,7 @@ export interface PropertyWithClient extends Property {
 export class PropertyRepository extends BaseRepository {
   async findById(id: string): Promise<Property | null> {
     const result = await this.query<Property>(
-      `SELECT id, client_id, tipo_locacao, identificador, COALESCE(modo_entrada, 'detalhado') as modo_entrada, created_at, updated_at
+      `SELECT *
        FROM properties WHERE id = $1`,
       [id],
       false
@@ -42,7 +88,7 @@ export class PropertyRepository extends BaseRepository {
 
   async findByIdWithClient(id: string): Promise<PropertyWithClient | null> {
     const result = await this.query<PropertyWithClient>(
-      `SELECT p.id, p.client_id, p.tipo_locacao, p.identificador, COALESCE(p.modo_entrada, 'detalhado') as modo_entrada, p.created_at, p.updated_at,
+      `SELECT p.*,
               c.name as client_name
        FROM properties p
        LEFT JOIN clients c ON c.id = p.client_id
@@ -56,13 +102,49 @@ export class PropertyRepository extends BaseRepository {
   async create(data: CreatePropertyData): Promise<Property> {
     const modo = data.modo_entrada ?? 'detalhado';
     const result = await this.query<Property>(
-      `INSERT INTO properties (client_id, tipo_locacao, identificador, modo_entrada)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, client_id, tipo_locacao, identificador, modo_entrada, created_at, updated_at`,
-      [data.client_id, data.tipo_locacao, data.identificador, modo],
+      `INSERT INTO properties (
+        client_id, tipo_locacao, identificador, modo_entrada,
+        matricula_imovel, inscricao_iptu, cartorio_registro,
+        cep, logradouro, numero, complemento, bairro, cidade, uf,
+        iptu_mensal_padrao, condominio_mensal_padrao, seguro_mensal_padrao,
+        camareira_mensal_padrao, seguranca_mensal_padrao, material_limpeza_mensal_padrao,
+        lavanderia_enxoval_mensal_padrao, checkin_checkout_mensal_padrao,
+        taxas_pagamento_mensal_padrao, tarifas_bancarias_mensal_padrao,
+        vacancia_mensal_padrao, inadimplencia_mensal_padrao
+      )
+      VALUES (
+        $1, $2, $3, $4,
+        $5, $6, $7,
+        $8, $9, $10, $11, $12, $13, $14,
+        $15, $16, $17,
+        $18, $19, $20,
+        $21, $22,
+        $23, $24,
+        $25, $26
+      )
+      RETURNING *`,
+      [
+        data.client_id, data.tipo_locacao, data.identificador, modo,
+        data.matricula_imovel ?? null, data.inscricao_iptu ?? null, data.cartorio_registro ?? null,
+        data.cep ?? null, data.logradouro ?? null, data.numero ?? null, data.complemento ?? null, data.bairro ?? null, data.cidade ?? null, data.uf ?? null,
+        data.iptu_mensal_padrao ?? null, data.condominio_mensal_padrao ?? null, data.seguro_mensal_padrao ?? null,
+        data.camareira_mensal_padrao ?? null, data.seguranca_mensal_padrao ?? null, data.material_limpeza_mensal_padrao ?? null,
+        data.lavanderia_enxoval_mensal_padrao ?? null, data.checkin_checkout_mensal_padrao ?? null,
+        data.taxas_pagamento_mensal_padrao ?? null, data.tarifas_bancarias_mensal_padrao ?? null,
+        data.vacancia_mensal_padrao ?? null, data.inadimplencia_mensal_padrao ?? null,
+      ],
       false
     );
     return result.rows[0];
+  }
+
+  async createBatch(items: CreatePropertyData[]): Promise<Property[]> {
+    const created: Property[] = [];
+    for (const item of items) {
+      const row = await this.create(item);
+      created.push(row);
+    }
+    return created;
   }
 
   async update(id: string, data: UpdatePropertyData): Promise<Property> {
@@ -86,6 +168,28 @@ export class PropertyRepository extends BaseRepository {
       updates.push(`modo_entrada = $${idx++}`);
       params.push(data.modo_entrada);
     }
+    if (data.matricula_imovel !== undefined) { updates.push(`matricula_imovel = $${idx++}`); params.push(data.matricula_imovel); }
+    if (data.inscricao_iptu !== undefined) { updates.push(`inscricao_iptu = $${idx++}`); params.push(data.inscricao_iptu); }
+    if (data.cartorio_registro !== undefined) { updates.push(`cartorio_registro = $${idx++}`); params.push(data.cartorio_registro); }
+    if (data.cep !== undefined) { updates.push(`cep = $${idx++}`); params.push(data.cep); }
+    if (data.logradouro !== undefined) { updates.push(`logradouro = $${idx++}`); params.push(data.logradouro); }
+    if (data.numero !== undefined) { updates.push(`numero = $${idx++}`); params.push(data.numero); }
+    if (data.complemento !== undefined) { updates.push(`complemento = $${idx++}`); params.push(data.complemento); }
+    if (data.bairro !== undefined) { updates.push(`bairro = $${idx++}`); params.push(data.bairro); }
+    if (data.cidade !== undefined) { updates.push(`cidade = $${idx++}`); params.push(data.cidade); }
+    if (data.uf !== undefined) { updates.push(`uf = $${idx++}`); params.push(data.uf); }
+    if (data.iptu_mensal_padrao !== undefined) { updates.push(`iptu_mensal_padrao = $${idx++}`); params.push(data.iptu_mensal_padrao); }
+    if (data.condominio_mensal_padrao !== undefined) { updates.push(`condominio_mensal_padrao = $${idx++}`); params.push(data.condominio_mensal_padrao); }
+    if (data.seguro_mensal_padrao !== undefined) { updates.push(`seguro_mensal_padrao = $${idx++}`); params.push(data.seguro_mensal_padrao); }
+    if (data.camareira_mensal_padrao !== undefined) { updates.push(`camareira_mensal_padrao = $${idx++}`); params.push(data.camareira_mensal_padrao); }
+    if (data.seguranca_mensal_padrao !== undefined) { updates.push(`seguranca_mensal_padrao = $${idx++}`); params.push(data.seguranca_mensal_padrao); }
+    if (data.material_limpeza_mensal_padrao !== undefined) { updates.push(`material_limpeza_mensal_padrao = $${idx++}`); params.push(data.material_limpeza_mensal_padrao); }
+    if (data.lavanderia_enxoval_mensal_padrao !== undefined) { updates.push(`lavanderia_enxoval_mensal_padrao = $${idx++}`); params.push(data.lavanderia_enxoval_mensal_padrao); }
+    if (data.checkin_checkout_mensal_padrao !== undefined) { updates.push(`checkin_checkout_mensal_padrao = $${idx++}`); params.push(data.checkin_checkout_mensal_padrao); }
+    if (data.taxas_pagamento_mensal_padrao !== undefined) { updates.push(`taxas_pagamento_mensal_padrao = $${idx++}`); params.push(data.taxas_pagamento_mensal_padrao); }
+    if (data.tarifas_bancarias_mensal_padrao !== undefined) { updates.push(`tarifas_bancarias_mensal_padrao = $${idx++}`); params.push(data.tarifas_bancarias_mensal_padrao); }
+    if (data.vacancia_mensal_padrao !== undefined) { updates.push(`vacancia_mensal_padrao = $${idx++}`); params.push(data.vacancia_mensal_padrao); }
+    if (data.inadimplencia_mensal_padrao !== undefined) { updates.push(`inadimplencia_mensal_padrao = $${idx++}`); params.push(data.inadimplencia_mensal_padrao); }
 
     if (updates.length === 0) {
       const existing = await this.findById(id);
@@ -97,7 +201,7 @@ export class PropertyRepository extends BaseRepository {
     const result = await this.query<Property>(
       `UPDATE properties SET ${updates.join(', ')}, updated_at = NOW()
        WHERE id = $${idx} 
-       RETURNING id, client_id, tipo_locacao, identificador, COALESCE(modo_entrada, 'detalhado') as modo_entrada, created_at, updated_at`,
+       RETURNING *`,
       params,
       false
     );
@@ -113,7 +217,7 @@ export class PropertyRepository extends BaseRepository {
     identificador: string
   ): Promise<Property | null> {
     const result = await this.query<Property>(
-      `SELECT id, client_id, tipo_locacao, identificador, COALESCE(modo_entrada, 'detalhado') as modo_entrada, created_at, updated_at
+      `SELECT *
        FROM properties
        WHERE client_id = $1 AND TRIM(LOWER(identificador)) = TRIM(LOWER($2))
        LIMIT 1`,
@@ -151,7 +255,7 @@ export class PropertyRepository extends BaseRepository {
 
     params.push(limit, offset);
     const listResult = await this.query<PropertyWithClient>(
-      `SELECT p.id, p.client_id, p.tipo_locacao, p.identificador, COALESCE(p.modo_entrada, 'detalhado') as modo_entrada, p.created_at, p.updated_at,
+      `SELECT p.*,
               c.name as client_name
        FROM properties p
        LEFT JOIN clients c ON c.id = p.client_id
@@ -169,15 +273,17 @@ export class PropertyRepository extends BaseRepository {
 
   async createTransaction(data: CreateTransactionData): Promise<PropertyTransaction> {
     const result = await this.query<PropertyTransaction>(
-      `INSERT INTO property_transactions (property_id, mes_referencia, tipo, categoria, valor, observacao)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, property_id, mes_referencia, tipo, categoria, valor, observacao, created_at, updated_at`,
+      `INSERT INTO property_transactions (property_id, mes_referencia, tipo, categoria, valor, gera_credito_ibs_cbs, tipo_credito, observacao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, property_id, mes_referencia, tipo, categoria, valor, gera_credito_ibs_cbs, tipo_credito, observacao, created_at, updated_at`,
       [
         data.property_id,
         data.mes_referencia,
         data.tipo,
         data.categoria,
         data.valor,
+        data.gera_credito_ibs_cbs ?? null,
+        data.tipo_credito ?? null,
         data.observacao ?? null,
       ],
       false
@@ -187,7 +293,7 @@ export class PropertyRepository extends BaseRepository {
 
   async createTransactionsBatch(
     propertyId: string,
-    transactions: Array<{ mes_referencia: string; tipo: string; categoria: string; valor: number; observacao?: string }>
+    transactions: Array<{ mes_referencia: string; tipo: string; categoria: string; valor: number; gera_credito_ibs_cbs?: boolean; tipo_credito?: string; observacao?: string }>
   ): Promise<PropertyTransaction[]> {
     const results: PropertyTransaction[] = [];
     for (const t of transactions) {
@@ -202,7 +308,7 @@ export class PropertyRepository extends BaseRepository {
 
   async getTransactionById(txId: string): Promise<PropertyTransaction | null> {
     const result = await this.query<PropertyTransaction>(
-      `SELECT id, property_id, mes_referencia, tipo, categoria, valor, observacao, created_at, updated_at
+      `SELECT id, property_id, mes_referencia, tipo, categoria, valor, gera_credito_ibs_cbs, tipo_credito, observacao, created_at, updated_at
        FROM property_transactions WHERE id = $1`,
       [txId],
       false
@@ -236,7 +342,7 @@ export class PropertyRepository extends BaseRepository {
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
     const result = await this.query<PropertyTransaction>(
-      `SELECT id, property_id, mes_referencia, tipo, categoria, valor, observacao, created_at, updated_at
+      `SELECT id, property_id, mes_referencia, tipo, categoria, valor, gera_credito_ibs_cbs, tipo_credito, observacao, created_at, updated_at
        FROM property_transactions ${whereClause}
        ORDER BY mes_referencia ASC`,
       params,
@@ -325,6 +431,21 @@ export class PropertyRepository extends BaseRepository {
       {
         property_id: string;
         identificador: string;
+        tipo_locacao: string;
+        defaults: {
+          iptu_mensal_padrao?: number;
+          condominio_mensal_padrao?: number;
+          seguro_mensal_padrao?: number;
+          camareira_mensal_padrao?: number;
+          seguranca_mensal_padrao?: number;
+          material_limpeza_mensal_padrao?: number;
+          lavanderia_enxoval_mensal_padrao?: number;
+          checkin_checkout_mensal_padrao?: number;
+          taxas_pagamento_mensal_padrao?: number;
+          tarifas_bancarias_mensal_padrao?: number;
+          vacancia_mensal_padrao?: number;
+          inadimplencia_mensal_padrao?: number;
+        };
         aggregated: AggregatedYear;
       }
     >
@@ -334,6 +455,21 @@ export class PropertyRepository extends BaseRepository {
       {
         property_id: string;
         identificador: string;
+        tipo_locacao: string;
+        defaults: {
+          iptu_mensal_padrao?: number;
+          condominio_mensal_padrao?: number;
+          seguro_mensal_padrao?: number;
+          camareira_mensal_padrao?: number;
+          seguranca_mensal_padrao?: number;
+          material_limpeza_mensal_padrao?: number;
+          lavanderia_enxoval_mensal_padrao?: number;
+          checkin_checkout_mensal_padrao?: number;
+          taxas_pagamento_mensal_padrao?: number;
+          tarifas_bancarias_mensal_padrao?: number;
+          vacancia_mensal_padrao?: number;
+          inadimplencia_mensal_padrao?: number;
+        };
         aggregated: AggregatedYear;
       }
     >();
@@ -387,6 +523,21 @@ export class PropertyRepository extends BaseRepository {
         map.set(pid, {
           property_id: pid,
           identificador: prop.identificador,
+          tipo_locacao: prop.tipo_locacao,
+          defaults: {
+            iptu_mensal_padrao: Number((prop as any).iptu_mensal_padrao ?? 0),
+            condominio_mensal_padrao: Number((prop as any).condominio_mensal_padrao ?? 0),
+            seguro_mensal_padrao: Number((prop as any).seguro_mensal_padrao ?? 0),
+            camareira_mensal_padrao: Number((prop as any).camareira_mensal_padrao ?? 0),
+            seguranca_mensal_padrao: Number((prop as any).seguranca_mensal_padrao ?? 0),
+            material_limpeza_mensal_padrao: Number((prop as any).material_limpeza_mensal_padrao ?? 0),
+            lavanderia_enxoval_mensal_padrao: Number((prop as any).lavanderia_enxoval_mensal_padrao ?? 0),
+            checkin_checkout_mensal_padrao: Number((prop as any).checkin_checkout_mensal_padrao ?? 0),
+            taxas_pagamento_mensal_padrao: Number((prop as any).taxas_pagamento_mensal_padrao ?? 0),
+            tarifas_bancarias_mensal_padrao: Number((prop as any).tarifas_bancarias_mensal_padrao ?? 0),
+            vacancia_mensal_padrao: Number((prop as any).vacancia_mensal_padrao ?? 0),
+            inadimplencia_mensal_padrao: Number((prop as any).inadimplencia_mensal_padrao ?? 0),
+          },
           aggregated: {
             ano,
             receita_total,
@@ -475,6 +626,21 @@ export class PropertyRepository extends BaseRepository {
       map.set(pid, {
         property_id: pid,
         identificador,
+        tipo_locacao: prop.tipo_locacao,
+        defaults: {
+          iptu_mensal_padrao: Number((prop as any).iptu_mensal_padrao ?? 0),
+          condominio_mensal_padrao: Number((prop as any).condominio_mensal_padrao ?? 0),
+          seguro_mensal_padrao: Number((prop as any).seguro_mensal_padrao ?? 0),
+          camareira_mensal_padrao: Number((prop as any).camareira_mensal_padrao ?? 0),
+          seguranca_mensal_padrao: Number((prop as any).seguranca_mensal_padrao ?? 0),
+          material_limpeza_mensal_padrao: Number((prop as any).material_limpeza_mensal_padrao ?? 0),
+          lavanderia_enxoval_mensal_padrao: Number((prop as any).lavanderia_enxoval_mensal_padrao ?? 0),
+          checkin_checkout_mensal_padrao: Number((prop as any).checkin_checkout_mensal_padrao ?? 0),
+          taxas_pagamento_mensal_padrao: Number((prop as any).taxas_pagamento_mensal_padrao ?? 0),
+          tarifas_bancarias_mensal_padrao: Number((prop as any).tarifas_bancarias_mensal_padrao ?? 0),
+          vacancia_mensal_padrao: Number((prop as any).vacancia_mensal_padrao ?? 0),
+          inadimplencia_mensal_padrao: Number((prop as any).inadimplencia_mensal_padrao ?? 0),
+        },
         aggregated: {
           ano,
           receita_total,
@@ -486,5 +652,59 @@ export class PropertyRepository extends BaseRepository {
     }
 
     return map;
+  }
+
+  async getCreditoIbsCbsAproveitamento(
+    propertyIds: string[],
+    ano: number
+  ): Promise<{
+    total_custos_operacionais: number;
+    total_creditavel: number;
+    fator_aproveitamento: number;
+  }> {
+    if (propertyIds.length === 0) {
+      return {
+        total_custos_operacionais: 0,
+        total_creditavel: 0,
+        fator_aproveitamento: 1,
+      };
+    }
+
+    const placeholders = propertyIds.map((_, i) => `$${i + 1}`).join(',');
+    const params: Array<string> = [...propertyIds, `${ano}-%`];
+    const mesParam = `$${propertyIds.length + 1}`;
+
+    const result = await this.query<{
+      total_custos: string;
+      total_creditavel: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(valor), 0)::text AS total_custos,
+         COALESCE(SUM(
+           CASE
+             WHEN COALESCE(gera_credito_ibs_cbs, false) = true
+               AND COALESCE(tipo_credito, 'insumo') <> 'nao_creditavel'
+             THEN valor
+             ELSE 0
+           END
+         ), 0)::text AS total_creditavel
+       FROM property_transactions
+       WHERE property_id IN (${placeholders})
+         AND tipo = 'custo_operacional'
+         AND mes_referencia LIKE ${mesParam}`,
+      params,
+      false
+    );
+
+    const row = result.rows[0];
+    const totalCustos = Number(row?.total_custos ?? 0) || 0;
+    const totalCreditavel = Number(row?.total_creditavel ?? 0) || 0;
+    const fator = totalCustos > 0 ? Math.max(0, Math.min(1, totalCreditavel / totalCustos)) : 1;
+
+    return {
+      total_custos_operacionais: totalCustos,
+      total_creditavel: totalCreditavel,
+      fator_aproveitamento: fator,
+    };
   }
 }

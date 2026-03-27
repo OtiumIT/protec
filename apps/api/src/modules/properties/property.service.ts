@@ -12,6 +12,7 @@ import {
 } from './calculations';
 import type {
   CreatePropertyInput,
+  CreatePropertiesBatchInput,
   UpdatePropertyInput,
   PropertyTransactionInput,
   SimulatePropertyTaxInput,
@@ -25,6 +26,7 @@ import type {
   BreakEven,
   UpsertMonthlyTotalsInput,
   EmbasamentoLegal,
+  SimulateStandaloneMesInput,
 } from '@shared/core';
 
 /** Embasamentos legais por cenário (fonte oficial para resultado tributário) */
@@ -91,6 +93,95 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
   },
 ];
 
+type CustoCategoriaAnalise = {
+  categoria: string;
+  valor: number;
+  participacao_percentual: number;
+  impacto_lucro_liquido: number;
+  gera_credito_ibs_cbs: boolean;
+  credito_potencial: number;
+};
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function buildAnaliseCustos(params: {
+  meses: SimulateStandaloneMesInput[];
+  receitaTotal: number;
+  impostosPf: number;
+  impostosPj: number;
+  creditosAproveitados: number;
+}) {
+  const categoriasBase: Array<{ categoria: string; valor: number; geraCredito: boolean }> = [
+    { categoria: 'reformas_melhorias', valor: params.meses.reduce((s, m) => s + (m.reformas_melhorias ?? 0), 0), geraCredito: true },
+    { categoria: 'mobilia_equipamentos', valor: params.meses.reduce((s, m) => s + (m.mobilia_equipamentos ?? 0), 0), geraCredito: true },
+    { categoria: 'limpeza_higienizacao', valor: params.meses.reduce((s, m) => s + (m.limpeza_higienizacao ?? 0), 0), geraCredito: true },
+    { categoria: 'comissao_corretagem', valor: params.meses.reduce((s, m) => s + (m.comissao_corretagem ?? 0), 0), geraCredito: true },
+    { categoria: 'taxa_plataforma', valor: params.meses.reduce((s, m) => s + (m.taxa_plataforma ?? 0), 0), geraCredito: true },
+    { categoria: 'custo_camareira', valor: params.meses.reduce((s, m) => s + (m.custo_camareira ?? 0), 0), geraCredito: true },
+    { categoria: 'custo_seguranca', valor: params.meses.reduce((s, m) => s + (m.custo_seguranca ?? 0), 0), geraCredito: true },
+    { categoria: 'custo_material_limpeza', valor: params.meses.reduce((s, m) => s + (m.custo_material_limpeza ?? 0), 0), geraCredito: true },
+    { categoria: 'custo_lavanderia_enxoval', valor: params.meses.reduce((s, m) => s + (m.custo_lavanderia_enxoval ?? 0), 0), geraCredito: true },
+    { categoria: 'custo_checkin_checkout_terceiros', valor: params.meses.reduce((s, m) => s + (m.custo_checkin_checkout_terceiros ?? 0), 0), geraCredito: true },
+    { categoria: 'taxas_meios_pagamento', valor: params.meses.reduce((s, m) => s + (m.taxas_meios_pagamento ?? 0), 0), geraCredito: true },
+    { categoria: 'tarifas_bancarias', valor: params.meses.reduce((s, m) => s + (m.tarifas_bancarias ?? 0), 0), geraCredito: false },
+    { categoria: 'mao_de_obra_operacional', valor: params.meses.reduce((s, m) => s + (m.mao_de_obra_operacional ?? 0), 0), geraCredito: true },
+    { categoria: 'encargos_folha', valor: params.meses.reduce((s, m) => s + (m.encargos_folha ?? 0), 0), geraCredito: false },
+    { categoria: 'vacancia_estimada', valor: params.meses.reduce((s, m) => s + (m.vacancia_estimada ?? 0), 0), geraCredito: false },
+    { categoria: 'inadimplencia_estimada', valor: params.meses.reduce((s, m) => s + (m.inadimplencia_estimada ?? 0), 0), geraCredito: false },
+    { categoria: 'outros_custos', valor: params.meses.reduce((s, m) => s + (m.outros_custos ?? 0), 0), geraCredito: false },
+  ];
+  const custoTotal = categoriasBase.reduce((s, x) => s + x.valor, 0);
+  const categorias: CustoCategoriaAnalise[] = categoriasBase
+    .filter((x) => x.valor > 0)
+    .map((x) => ({
+      categoria: x.categoria,
+      valor: round2(x.valor),
+      participacao_percentual: round2(custoTotal > 0 ? (x.valor / custoTotal) * 100 : 0),
+      impacto_lucro_liquido: round2(x.valor),
+      gera_credito_ibs_cbs: x.geraCredito,
+      credito_potencial: 0,
+    }));
+
+  const totalPotencial = categorias.reduce((s, x) => s + (x.gera_credito_ibs_cbs ? x.valor : 0), 0);
+  const fatorCredito = totalPotencial > 0 ? params.creditosAproveitados / totalPotencial : 0;
+  for (const cat of categorias) {
+    cat.credito_potencial = round2(cat.gera_credito_ibs_cbs ? cat.valor * fatorCredito : 0);
+  }
+
+  const lucroLiquidoPf = params.receitaTotal - custoTotal - params.impostosPf;
+  const lucroLiquidoPj = params.receitaTotal - custoTotal - params.impostosPj;
+  const lucroLiquidoPjMais10 = params.receitaTotal - (custoTotal * 1.1) - params.impostosPj;
+  const custoOutros = categoriasBase.find((x) => x.categoria === 'outros_custos')?.valor ?? 0;
+
+  return {
+    custo_total: round2(custoTotal),
+    custo_outros_percentual: round2(custoTotal > 0 ? (custoOutros / custoTotal) * 100 : 0),
+    categorias,
+    creditos_ibs_cbs: {
+      total_potencial: round2(totalPotencial),
+      total_aproveitado: round2(params.creditosAproveitados),
+      nao_aproveitado: round2(Math.max(0, totalPotencial - params.creditosAproveitados)),
+    },
+    indicadores: {
+      margem_operacional_antes_tributos: round2(params.receitaTotal > 0 ? ((params.receitaTotal - custoTotal) / params.receitaTotal) * 100 : 0),
+      margem_operacional_apos_tributos_pf: round2(params.receitaTotal > 0 ? (lucroLiquidoPf / params.receitaTotal) * 100 : 0),
+      margem_operacional_apos_tributos_pj: round2(params.receitaTotal > 0 ? (lucroLiquidoPj / params.receitaTotal) * 100 : 0),
+      custo_medio_mensal: round2(custoTotal / 12),
+      custo_por_diaria: undefined,
+    },
+    sensibilidade: {
+      cenario_base_lucro_liquido_pj: round2(lucroLiquidoPj),
+      cenario_custos_mais_10_lucro_liquido_pj: round2(lucroLiquidoPjMais10),
+      variacao_lucro_liquido_pj: round2(lucroLiquidoPjMais10 - lucroLiquidoPj),
+    },
+    alertas: [
+      ...(custoTotal > 0 && (custoOutros / custoTotal) > 0.3 ? ['Custos em categoria "outros" acima de 30% do total. Recomenda-se classificar melhor para análise fiscal.'] : []),
+    ],
+  };
+}
+
 export class PropertyService {
   constructor(
     private repo: PropertyRepository,
@@ -119,7 +210,101 @@ export class PropertyService {
       tipo_locacao: data.tipo_locacao,
       identificador: data.identificador,
       modo_entrada: data.modo_entrada ?? 'detalhado',
+      matricula_imovel: data.matricula_imovel,
+      inscricao_iptu: data.inscricao_iptu,
+      cartorio_registro: data.cartorio_registro,
+      cep: data.cep,
+      logradouro: data.logradouro,
+      numero: data.numero,
+      complemento: data.complemento,
+      bairro: data.bairro,
+      cidade: data.cidade,
+      uf: data.uf,
+      iptu_mensal_padrao: data.iptu_mensal_padrao,
+      condominio_mensal_padrao: data.condominio_mensal_padrao,
+      seguro_mensal_padrao: data.seguro_mensal_padrao,
+      camareira_mensal_padrao: data.camareira_mensal_padrao,
+      seguranca_mensal_padrao: data.seguranca_mensal_padrao,
+      material_limpeza_mensal_padrao: data.material_limpeza_mensal_padrao,
+      lavanderia_enxoval_mensal_padrao: data.lavanderia_enxoval_mensal_padrao,
+      checkin_checkout_mensal_padrao: data.checkin_checkout_mensal_padrao,
+      taxas_pagamento_mensal_padrao: data.taxas_pagamento_mensal_padrao,
+      tarifas_bancarias_mensal_padrao: data.tarifas_bancarias_mensal_padrao,
+      vacancia_mensal_padrao: data.vacancia_mensal_padrao,
+      inadimplencia_mensal_padrao: data.inadimplencia_mensal_padrao,
     });
+  }
+
+  async createBatch(input: CreatePropertiesBatchInput) {
+    const client = await this.clientRepo.findById(input.client_id);
+    if (!client) {
+      throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+    }
+
+    const seen = new Set<string>();
+    const normalized = input.properties.map((item) => ({
+      ...item,
+      identificador: item.identificador.trim(),
+    }));
+
+    for (const item of normalized) {
+      const key = item.identificador.toLowerCase();
+      if (seen.has(key)) {
+        throw new AppError(
+          `Identificador duplicado no lote: "${item.identificador}"`,
+          'PROPERTY_BATCH_DUPLICATE_IDENTIFIER',
+          409
+        );
+      }
+      seen.add(key);
+    }
+
+    for (const item of normalized) {
+      const existing = await this.repo.findByClientAndIdentificador(
+        input.client_id,
+        item.identificador
+      );
+      if (existing) {
+        throw new AppError(
+          `Já existe um imóvel com o identificador "${item.identificador}" para este cliente.`,
+          'PROPERTY_DUPLICATE',
+          409
+        );
+      }
+    }
+
+    const created = await this.repo.createBatch(
+      normalized.map((item) => ({
+        client_id: input.client_id,
+        tipo_locacao: item.tipo_locacao,
+        identificador: item.identificador,
+        modo_entrada: item.modo_entrada ?? 'detalhado',
+        matricula_imovel: item.matricula_imovel,
+        inscricao_iptu: item.inscricao_iptu,
+        cartorio_registro: item.cartorio_registro,
+        cep: item.cep,
+        logradouro: item.logradouro,
+        numero: item.numero,
+        complemento: item.complemento,
+        bairro: item.bairro,
+        cidade: item.cidade,
+        uf: item.uf,
+        iptu_mensal_padrao: item.iptu_mensal_padrao,
+        condominio_mensal_padrao: item.condominio_mensal_padrao,
+        seguro_mensal_padrao: item.seguro_mensal_padrao,
+        camareira_mensal_padrao: item.camareira_mensal_padrao,
+        seguranca_mensal_padrao: item.seguranca_mensal_padrao,
+        material_limpeza_mensal_padrao: item.material_limpeza_mensal_padrao,
+        lavanderia_enxoval_mensal_padrao: item.lavanderia_enxoval_mensal_padrao,
+        checkin_checkout_mensal_padrao: item.checkin_checkout_mensal_padrao,
+        taxas_pagamento_mensal_padrao: item.taxas_pagamento_mensal_padrao,
+        tarifas_bancarias_mensal_padrao: item.tarifas_bancarias_mensal_padrao,
+        vacancia_mensal_padrao: item.vacancia_mensal_padrao,
+        inadimplencia_mensal_padrao: item.inadimplencia_mensal_padrao,
+      }))
+    );
+
+    return { properties: created };
   }
 
   async getById(id: string) {
@@ -143,6 +328,28 @@ export class PropertyService {
       tipo_locacao: data.tipo_locacao,
       identificador: data.identificador,
       modo_entrada: data.modo_entrada,
+      matricula_imovel: data.matricula_imovel,
+      inscricao_iptu: data.inscricao_iptu,
+      cartorio_registro: data.cartorio_registro,
+      cep: data.cep,
+      logradouro: data.logradouro,
+      numero: data.numero,
+      complemento: data.complemento,
+      bairro: data.bairro,
+      cidade: data.cidade,
+      uf: data.uf,
+      iptu_mensal_padrao: data.iptu_mensal_padrao,
+      condominio_mensal_padrao: data.condominio_mensal_padrao,
+      seguro_mensal_padrao: data.seguro_mensal_padrao,
+      camareira_mensal_padrao: data.camareira_mensal_padrao,
+      seguranca_mensal_padrao: data.seguranca_mensal_padrao,
+      material_limpeza_mensal_padrao: data.material_limpeza_mensal_padrao,
+      lavanderia_enxoval_mensal_padrao: data.lavanderia_enxoval_mensal_padrao,
+      checkin_checkout_mensal_padrao: data.checkin_checkout_mensal_padrao,
+      taxas_pagamento_mensal_padrao: data.taxas_pagamento_mensal_padrao,
+      tarifas_bancarias_mensal_padrao: data.tarifas_bancarias_mensal_padrao,
+      vacancia_mensal_padrao: data.vacancia_mensal_padrao,
+      inadimplencia_mensal_padrao: data.inadimplencia_mensal_padrao,
     });
   }
 
@@ -165,6 +372,8 @@ export class PropertyService {
       tipo: data.tipo,
       categoria: data.categoria,
       valor: data.valor,
+      gera_credito_ibs_cbs: data.gera_credito_ibs_cbs,
+      tipo_credito: data.tipo_credito,
       observacao: data.observacao,
     });
   }
@@ -248,6 +457,17 @@ export class PropertyService {
         limpeza_higienizacao: 0,
         comissao_corretagem: 0,
         taxa_plataforma: 0,
+        custo_camareira: 0,
+        custo_seguranca: 0,
+        custo_material_limpeza: 0,
+        custo_lavanderia_enxoval: 0,
+        custo_checkin_checkout_terceiros: 0,
+        taxas_meios_pagamento: 0,
+        tarifas_bancarias: 0,
+        mao_de_obra_operacional: 0,
+        encargos_folha: 0,
+        vacancia_estimada: 0,
+        inadimplencia_estimada: 0,
         outros_custos: 0,
       }));
       return {
@@ -255,10 +475,34 @@ export class PropertyService {
         receita_total: 0,
         despesas_dedutiveis_total: 0,
         custos_operacionais_total: 0,
+        metadata: {
+          usou_defaults_cadastro: false,
+          quantidade_imoveis_com_defaults: 0,
+        },
       };
     }
 
     const aggregatedMap = await this.repo.aggregateByPropertiesYear(propertyIds, ano);
+    let usouDefaultsCadastro = false;
+    let quantidadeImoveisComDefaults = 0;
+    for (const [, entry] of aggregatedMap) {
+      const hasDefaults =
+        (entry.defaults.iptu_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.condominio_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.seguro_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.camareira_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.seguranca_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.material_limpeza_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.lavanderia_enxoval_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.checkin_checkout_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.taxas_pagamento_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.tarifas_bancarias_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.vacancia_mensal_padrao ?? 0) > 0 ||
+        (entry.defaults.inadimplencia_mensal_padrao ?? 0) > 0;
+      if (hasDefaults) {
+        quantidadeImoveisComDefaults += 1;
+      }
+    }
 
     let receitaTotal = 0;
     let despesasDedutiveisTotal = 0;
@@ -280,44 +524,129 @@ export class PropertyService {
       limpeza_higienizacao: number;
       comissao_corretagem: number;
       taxa_plataforma: number;
+      custo_camareira: number;
+      custo_seguranca: number;
+      custo_material_limpeza: number;
+      custo_lavanderia_enxoval: number;
+      custo_checkin_checkout_terceiros: number;
+      taxas_meios_pagamento: number;
+      tarifas_bancarias: number;
+      mao_de_obra_operacional: number;
+      encargos_folha: number;
+      vacancia_estimada: number;
+      inadimplencia_estimada: number;
       outros_custos: number;
     }> = [];
 
     for (let m = 1; m <= 12; m++) {
       const mesStr = `${ano}-${String(m).padStart(2, '0')}`;
-      let rec = 0;
+      let recTrad = 0;
+      let recCurto = 0;
       let desp = 0;
       let custo = 0;
+      let defaultIptu = 0;
+      let defaultCondominio = 0;
+      let defaultSeguro = 0;
+      let defaultCamareira = 0;
+      let defaultSeguranca = 0;
+      let defaultMaterialLimpeza = 0;
+      let defaultLavanderia = 0;
+      let defaultCheckinCheckout = 0;
+      let defaultTaxasPagamento = 0;
+      let defaultTarifasBancarias = 0;
+      let defaultVacancia = 0;
+      let defaultInadimplencia = 0;
       for (const [, entry] of aggregatedMap) {
         const mesData = entry.aggregated.meses.find((x) => x.mes === mesStr);
         if (mesData) {
-          rec += mesData.receita;
+          if (entry.tipo_locacao === 'flexivel') {
+            recCurto += mesData.receita;
+          } else {
+            recTrad += mesData.receita;
+          }
           desp += mesData.despesas_dedutiveis;
           custo += mesData.custos_operacionais;
         }
+        defaultIptu += entry.defaults.iptu_mensal_padrao ?? 0;
+        defaultCondominio += entry.defaults.condominio_mensal_padrao ?? 0;
+        defaultSeguro += entry.defaults.seguro_mensal_padrao ?? 0;
+        defaultCamareira += entry.defaults.camareira_mensal_padrao ?? 0;
+        defaultSeguranca += entry.defaults.seguranca_mensal_padrao ?? 0;
+        defaultMaterialLimpeza += entry.defaults.material_limpeza_mensal_padrao ?? 0;
+        defaultLavanderia += entry.defaults.lavanderia_enxoval_mensal_padrao ?? 0;
+        defaultCheckinCheckout += entry.defaults.checkin_checkout_mensal_padrao ?? 0;
+        defaultTaxasPagamento += entry.defaults.taxas_pagamento_mensal_padrao ?? 0;
+        defaultTarifasBancarias += entry.defaults.tarifas_bancarias_mensal_padrao ?? 0;
+        defaultVacancia += entry.defaults.vacancia_mensal_padrao ?? 0;
+        defaultInadimplencia += entry.defaults.inadimplencia_mensal_padrao ?? 0;
       }
+      const rec = recTrad + recCurto;
+      const defaultDesp = defaultIptu + defaultCondominio + defaultSeguro;
+      const defaultCusto =
+        defaultCamareira +
+        defaultSeguranca +
+        defaultMaterialLimpeza +
+        defaultLavanderia +
+        defaultCheckinCheckout +
+        defaultTaxasPagamento +
+        defaultTarifasBancarias +
+        defaultVacancia +
+        defaultInadimplencia;
+      const despFinal = Math.max(desp, defaultDesp);
+      const custoFinal = Math.max(custo, defaultCusto);
+      if (despFinal > desp || custoFinal > custo) {
+        usouDefaultsCadastro = true;
+      }
+      const outrasDedutiveis = Math.max(
+        0,
+        despFinal - (defaultIptu + defaultCondominio + defaultSeguro)
+      );
+      const outrosCustos = Math.max(
+        0,
+        custoFinal -
+          (defaultCamareira +
+            defaultSeguranca +
+            defaultMaterialLimpeza +
+            defaultLavanderia +
+            defaultCheckinCheckout +
+            defaultTaxasPagamento +
+            defaultTarifasBancarias +
+            defaultVacancia +
+            defaultInadimplencia)
+      );
       meses.push({
         mes_referencia: mesStr,
-        receita_aluguel_tradicional: Math.round(rec * 100) / 100,
-        receita_aluguel_curto: 0,
+        receita_aluguel_tradicional: Math.round(recTrad * 100) / 100,
+        receita_aluguel_curto: Math.round(recCurto * 100) / 100,
         receita_garagem: 0,
         receita_outras: 0,
-        iptu: 0,
-        condominio: 0,
-        seguro_imovel: 0,
+        iptu: Math.round(defaultIptu * 100) / 100,
+        condominio: Math.round(defaultCondominio * 100) / 100,
+        seguro_imovel: Math.round(defaultSeguro * 100) / 100,
         juros_financiamento: 0,
         manutencao_conservacao: 0,
-        outras_dedutiveis: Math.round(desp * 100) / 100,
+        outras_dedutiveis: Math.round(outrasDedutiveis * 100) / 100,
         reformas_melhorias: 0,
         mobilia_equipamentos: 0,
         limpeza_higienizacao: 0,
         comissao_corretagem: 0,
         taxa_plataforma: 0,
-        outros_custos: Math.round(custo * 100) / 100,
+        custo_camareira: Math.round(defaultCamareira * 100) / 100,
+        custo_seguranca: Math.round(defaultSeguranca * 100) / 100,
+        custo_material_limpeza: Math.round(defaultMaterialLimpeza * 100) / 100,
+        custo_lavanderia_enxoval: Math.round(defaultLavanderia * 100) / 100,
+        custo_checkin_checkout_terceiros: Math.round(defaultCheckinCheckout * 100) / 100,
+        taxas_meios_pagamento: Math.round(defaultTaxasPagamento * 100) / 100,
+        tarifas_bancarias: Math.round(defaultTarifasBancarias * 100) / 100,
+        mao_de_obra_operacional: 0,
+        encargos_folha: 0,
+        vacancia_estimada: Math.round(defaultVacancia * 100) / 100,
+        inadimplencia_estimada: Math.round(defaultInadimplencia * 100) / 100,
+        outros_custos: Math.round(outrosCustos * 100) / 100,
       });
       receitaTotal += rec;
-      despesasDedutiveisTotal += desp;
-      custosOperacionaisTotal += custo;
+      despesasDedutiveisTotal += despFinal;
+      custosOperacionaisTotal += custoFinal;
     }
 
     return {
@@ -325,6 +654,10 @@ export class PropertyService {
       receita_total: Math.round(receitaTotal * 100) / 100,
       despesas_dedutiveis_total: Math.round(despesasDedutiveisTotal * 100) / 100,
       custos_operacionais_total: Math.round(custosOperacionaisTotal * 100) / 100,
+      metadata: {
+        usou_defaults_cadastro: usouDefaultsCadastro,
+        quantidade_imoveis_com_defaults: quantidadeImoveisComDefaults,
+      },
     };
   }
 
@@ -396,7 +729,13 @@ export class PropertyService {
       aggregatedTotal,
       input.aliquota_efetiva_dirpf
     );
-    const cenarioPJ = calcularPJ(aggregatedTotal);
+    const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
+      aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
+    });
+    const creditoInfo = await this.repo.getCreditoIbsCbsAproveitamento(
+      input.property_ids,
+      input.ano
+    );
 
     const redutorLocacaoSimulate =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
@@ -422,6 +761,7 @@ export class PropertyService {
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualSimulate,
+      fator_credito_custos_operacionais: creditoInfo.fator_aproveitamento,
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
@@ -478,6 +818,43 @@ export class PropertyService {
       csll: cenarioPJ.csll,
     };
 
+    const analiseCustosImoveis = buildAnaliseCustos({
+      meses: mesesSoma.map((m) => ({
+        mes_referencia: m.mes,
+        receita_aluguel_tradicional: 0,
+        receita_aluguel_curto: 0,
+        receita_garagem: 0,
+        receita_outras: 0,
+        iptu: 0,
+        condominio: 0,
+        seguro_imovel: 0,
+        juros_financiamento: 0,
+        manutencao_conservacao: 0,
+        outras_dedutiveis: 0,
+        reformas_melhorias: 0,
+        mobilia_equipamentos: 0,
+        limpeza_higienizacao: 0,
+        comissao_corretagem: 0,
+        taxa_plataforma: 0,
+        custo_camareira: 0,
+        custo_seguranca: 0,
+        custo_material_limpeza: 0,
+        custo_lavanderia_enxoval: 0,
+        custo_checkin_checkout_terceiros: 0,
+        taxas_meios_pagamento: 0,
+        tarifas_bancarias: 0,
+        mao_de_obra_operacional: 0,
+        encargos_folha: 0,
+        vacancia_estimada: 0,
+        inadimplencia_estimada: 0,
+        outros_custos: m.custos_operacionais,
+      })),
+      receitaTotal: receitaTotal,
+      impostosPf: cenarioPF.imposto_total,
+      impostosPj: cenarioPJ.imposto_total,
+      creditosAproveitados: cenarioReforma.creditos_ibs_cbs,
+    });
+
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -493,7 +870,9 @@ export class PropertyService {
     for (const [pid, entry] of aggregatedMap) {
       const agg = entry.aggregated;
       const pfForProp = calcularPF(agg);
-      const pjForProp = calcularPJ(agg);
+      const pjForProp = calcularPJ(agg, undefined, {
+        aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
+      });
       fluxo_caixa.push({
         property_id: pid,
         identificador: entry.identificador,
@@ -525,6 +904,7 @@ export class PropertyService {
       },
       break_even,
       fluxo_caixa,
+      analise_custos: analiseCustosImoveis,
       memoria_calculo: {
         ano: input.ano,
         modo: 'imoveis',
@@ -548,9 +928,7 @@ export class PropertyService {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
           presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
             ? 8
-            : (input.aplicar_presuncao_16_servicos ?? false)
-              ? 16
-              : 32,
+            : (cenarioPJ.aplicou_presuncao_16 ? 16 : 32),
           presuncao_csll_pct: (input.aplicar_equiparacao_hospitalar ?? false) ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
@@ -605,6 +983,17 @@ export class PropertyService {
         (m.limpeza_higienizacao ?? 0) +
         (m.comissao_corretagem ?? 0) +
         (m.taxa_plataforma ?? 0) +
+        (m.custo_camareira ?? 0) +
+        (m.custo_seguranca ?? 0) +
+        (m.custo_material_limpeza ?? 0) +
+        (m.custo_lavanderia_enxoval ?? 0) +
+        (m.custo_checkin_checkout_terceiros ?? 0) +
+        (m.taxas_meios_pagamento ?? 0) +
+        (m.tarifas_bancarias ?? 0) +
+        (m.mao_de_obra_operacional ?? 0) +
+        (m.encargos_folha ?? 0) +
+        (m.vacancia_estimada ?? 0) +
+        (m.inadimplencia_estimada ?? 0) +
         (m.outros_custos ?? 0);
       return {
         mes: m.mes_referencia,
@@ -689,7 +1078,9 @@ export class PropertyService {
         : aggregatedTotal;
 
     const cenarioPF = calcularPF(aggregatedTotal);
-    const cenarioPJ = calcularPJ(aggregatedTotal);
+    const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
+      aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
+    });
     // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
     const redutorLocacao =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
@@ -775,6 +1166,14 @@ export class PropertyService {
       csll: cenarioPJ.csll,
     };
 
+    const analiseCustos = buildAnaliseCustos({
+      meses: input.meses,
+      receitaTotal,
+      impostosPf: cenarioPF.imposto_total,
+      impostosPj: cenarioPJ.imposto_total,
+      creditosAproveitados: cenarioReforma.creditos_ibs_cbs,
+    });
+
     const breakEvenVal = calcularBreakEven(
       cenarioPF.aliquota_efetiva_anual,
       cenarioPJ.aliquota_efetiva
@@ -816,6 +1215,7 @@ export class PropertyService {
             cenarioPJ.imposto_total,
         },
       ],
+      analise_custos: analiseCustos,
       memoria_calculo: {
         ano: input.ano,
         modo: 'standalone',
@@ -835,8 +1235,10 @@ export class PropertyService {
         },
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
-          presuncao_irpj_pct: cenarioPJ.aplicou_presuncao_16 ? 16 : 32,
-          presuncao_csll_pct: 32,
+          presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
+            ? 8
+            : (cenarioPJ.aplicou_presuncao_16 ? 16 : 32),
+          presuncao_csll_pct: (input.aplicar_equiparacao_hospitalar ?? false) ? 12 : 32,
           base_presumida_irpj: cenarioPJ.base_presumida_irpj,
           base_presumida_csll: cenarioPJ.base_presumida_csll,
           irpj: cenarioPJ.irpj,

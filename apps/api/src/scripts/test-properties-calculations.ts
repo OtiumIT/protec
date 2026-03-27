@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import {
+  calcularBreakEven,
+  calcularPJ,
+  calcularReforma2027,
+  verificarContribuinteIbsCbsPF,
+  type AggregatedYear,
+} from '../modules/properties/calculations';
+
+function makeAggregated(receitaMensal: number, custoMensal = 1000, despMensal = 500): AggregatedYear {
+  const meses = Array.from({ length: 12 }, (_, i) => ({
+    mes: `2027-${String(i + 1).padStart(2, '0')}`,
+    receita: receitaMensal,
+    despesas_dedutiveis: despMensal,
+    custos_operacionais: custoMensal,
+  }));
+  return {
+    ano: 2027,
+    receita_total: receitaMensal * 12,
+    despesas_dedutiveis_total: despMensal * 12,
+    custos_operacionais_total: custoMensal * 12,
+    meses,
+  };
+}
+
+function run(): void {
+  const agg = makeAggregated(30_000, 5_000, 2_000);
+  const pjPadrao = calcularPJ(agg);
+  const pjEquip = calcularPJ(agg, undefined, { aplicar_equiparacao_hospitalar: true });
+  assert.ok(pjEquip.imposto_total < pjPadrao.imposto_total, 'Equiparação hospitalar deve reduzir carga PJ.');
+
+  const reformaCreditoTotal = calcularReforma2027(agg, undefined, 70, {
+    ano: 2027,
+    fator_credito_custos_operacionais: 1,
+  });
+  const reformaSemCredito = calcularReforma2027(agg, undefined, 70, {
+    ano: 2027,
+    fator_credito_custos_operacionais: 0,
+  });
+  assert.ok(
+    reformaCreditoTotal.ibs_cbs_liquido <= reformaSemCredito.ibs_cbs_liquido,
+    'Com maior fator de crédito, IBS/CBS líquido não pode aumentar.'
+  );
+
+  const breakEven = calcularBreakEven(22, 15);
+  assert.ok(
+    breakEven != null && breakEven > 0 && breakEven < 100000,
+    'Break-even dinâmico deve retornar valor mensal plausível quando PJ é mais vantajoso.'
+  );
+  assert.equal(calcularBreakEven(12, 18), null, 'Sem vantagem de PJ não há break-even.');
+
+  const pfNaoContribuinte = verificarContribuinteIbsCbsPF(2, 280_000);
+  assert.equal(pfNaoContribuinte.contribuinte, false, 'PF com até 3 imóveis e <= 288k não é contribuinte IBS/CBS.');
+  const pfContribuinte = verificarContribuinteIbsCbsPF(4, 260_000);
+  assert.equal(pfContribuinte.contribuinte, true, 'PF com >3 imóveis e >240k é contribuinte IBS/CBS.');
+
+  console.log('OK: test-properties-calculations');
+}
+
+run();

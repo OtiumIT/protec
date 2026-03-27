@@ -20,6 +20,7 @@ export function Properties() {
   const { error: showError, ToastContainer } = useToast();
   const [properties, setProperties] = useState<PropertyWithClient[]>([]);
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -43,8 +44,45 @@ export function Properties() {
     tipo_locacao: 'fixa' as 'fixa' | 'flexivel',
     identificador: '',
     modo_entrada: 'reduzido' as 'detalhado' | 'reduzido',
+    matricula_imovel: '',
+    inscricao_iptu: '',
+    cartorio_registro: '',
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    uf: '',
+    iptu_mensal_padrao: 0,
+    condominio_mensal_padrao: 0,
+    seguro_mensal_padrao: 0,
+    camareira_mensal_padrao: 0,
+    seguranca_mensal_padrao: 0,
+    material_limpeza_mensal_padrao: 0,
+    lavanderia_enxoval_mensal_padrao: 0,
+    checkin_checkout_mensal_padrao: 0,
+    taxas_pagamento_mensal_padrao: 0,
+    tarifas_bancarias_mensal_padrao: 0,
+    vacancia_mensal_padrao: 0,
+    inadimplencia_mensal_padrao: 0,
   });
   const [showClientModal, setShowClientModal] = useState(false);
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const isFixa = formData.tipo_locacao === 'fixa';
+  const isFlexivel = formData.tipo_locacao === 'flexivel';
+  const recomendadosFixaVazios = [
+    formData.iptu_mensal_padrao,
+    formData.condominio_mensal_padrao,
+    formData.seguro_mensal_padrao,
+  ].filter((x) => !x || x <= 0).length;
+  const recomendadosFlexVazios = [
+    formData.camareira_mensal_padrao,
+    formData.material_limpeza_mensal_padrao,
+    formData.lavanderia_enxoval_mensal_padrao,
+    formData.checkin_checkout_mensal_padrao,
+    formData.taxas_pagamento_mensal_padrao,
+  ].filter((x) => !x || x <= 0).length;
 
   useEffect(() => {
     loadClients();
@@ -55,11 +93,14 @@ export function Properties() {
   }, [clientFilter, page]);
 
   const loadClients = async () => {
+    setIsLoadingClients(true);
     try {
       const data = await clientService.list();
       setClients(data);
     } catch (err) {
       console.error('Error loading clients:', err);
+    } finally {
+      setIsLoadingClients(false);
     }
   };
 
@@ -89,6 +130,28 @@ export function Properties() {
         tipo_locacao: property.tipo_locacao as 'fixa' | 'flexivel',
         identificador: property.identificador,
         modo_entrada: (property as { modo_entrada?: 'detalhado' | 'reduzido' }).modo_entrada ?? 'detalhado',
+        matricula_imovel: (property as { matricula_imovel?: string }).matricula_imovel ?? '',
+        inscricao_iptu: (property as { inscricao_iptu?: string }).inscricao_iptu ?? '',
+        cartorio_registro: (property as { cartorio_registro?: string }).cartorio_registro ?? '',
+        cep: (property as { cep?: string }).cep ?? '',
+        logradouro: (property as { logradouro?: string }).logradouro ?? '',
+        numero: (property as { numero?: string }).numero ?? '',
+        complemento: (property as { complemento?: string }).complemento ?? '',
+        bairro: (property as { bairro?: string }).bairro ?? '',
+        cidade: (property as { cidade?: string }).cidade ?? '',
+        uf: (property as { uf?: string }).uf ?? '',
+        iptu_mensal_padrao: Number((property as { iptu_mensal_padrao?: number }).iptu_mensal_padrao ?? 0),
+        condominio_mensal_padrao: Number((property as { condominio_mensal_padrao?: number }).condominio_mensal_padrao ?? 0),
+        seguro_mensal_padrao: Number((property as { seguro_mensal_padrao?: number }).seguro_mensal_padrao ?? 0),
+        camareira_mensal_padrao: Number((property as { camareira_mensal_padrao?: number }).camareira_mensal_padrao ?? 0),
+        seguranca_mensal_padrao: Number((property as { seguranca_mensal_padrao?: number }).seguranca_mensal_padrao ?? 0),
+        material_limpeza_mensal_padrao: Number((property as { material_limpeza_mensal_padrao?: number }).material_limpeza_mensal_padrao ?? 0),
+        lavanderia_enxoval_mensal_padrao: Number((property as { lavanderia_enxoval_mensal_padrao?: number }).lavanderia_enxoval_mensal_padrao ?? 0),
+        checkin_checkout_mensal_padrao: Number((property as { checkin_checkout_mensal_padrao?: number }).checkin_checkout_mensal_padrao ?? 0),
+        taxas_pagamento_mensal_padrao: Number((property as { taxas_pagamento_mensal_padrao?: number }).taxas_pagamento_mensal_padrao ?? 0),
+        tarifas_bancarias_mensal_padrao: Number((property as { tarifas_bancarias_mensal_padrao?: number }).tarifas_bancarias_mensal_padrao ?? 0),
+        vacancia_mensal_padrao: Number((property as { vacancia_mensal_padrao?: number }).vacancia_mensal_padrao ?? 0),
+        inadimplencia_mensal_padrao: Number((property as { inadimplencia_mensal_padrao?: number }).inadimplencia_mensal_padrao ?? 0),
       });
     } else {
       setEditingProperty(null);
@@ -97,6 +160,28 @@ export function Properties() {
         tipo_locacao: 'fixa',
         identificador: '',
         modo_entrada: 'reduzido',
+        matricula_imovel: '',
+        inscricao_iptu: '',
+        cartorio_registro: '',
+        cep: '',
+        logradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        uf: '',
+        iptu_mensal_padrao: 0,
+        condominio_mensal_padrao: 0,
+        seguro_mensal_padrao: 0,
+        camareira_mensal_padrao: 0,
+        seguranca_mensal_padrao: 0,
+        material_limpeza_mensal_padrao: 0,
+        lavanderia_enxoval_mensal_padrao: 0,
+        checkin_checkout_mensal_padrao: 0,
+        taxas_pagamento_mensal_padrao: 0,
+        tarifas_bancarias_mensal_padrao: 0,
+        vacancia_mensal_padrao: 0,
+        inadimplencia_mensal_padrao: 0,
       });
     }
     setIsModalOpen(true);
@@ -116,14 +201,93 @@ export function Properties() {
           tipo_locacao: formData.tipo_locacao,
           identificador: formData.identificador,
           modo_entrada: formData.modo_entrada,
+          matricula_imovel: formData.matricula_imovel || undefined,
+          inscricao_iptu: formData.inscricao_iptu || undefined,
+          cartorio_registro: formData.cartorio_registro || undefined,
+          cep: formData.cep || undefined,
+          logradouro: formData.logradouro || undefined,
+          numero: formData.numero || undefined,
+          complemento: formData.complemento || undefined,
+          bairro: formData.bairro || undefined,
+          cidade: formData.cidade || undefined,
+          uf: formData.uf || undefined,
+          iptu_mensal_padrao: formData.iptu_mensal_padrao || undefined,
+          condominio_mensal_padrao: formData.condominio_mensal_padrao || undefined,
+          seguro_mensal_padrao: formData.seguro_mensal_padrao || undefined,
+          camareira_mensal_padrao: formData.camareira_mensal_padrao || undefined,
+          seguranca_mensal_padrao: formData.seguranca_mensal_padrao || undefined,
+          material_limpeza_mensal_padrao: formData.material_limpeza_mensal_padrao || undefined,
+          lavanderia_enxoval_mensal_padrao: formData.lavanderia_enxoval_mensal_padrao || undefined,
+          checkin_checkout_mensal_padrao: formData.checkin_checkout_mensal_padrao || undefined,
+          taxas_pagamento_mensal_padrao: formData.taxas_pagamento_mensal_padrao || undefined,
+          tarifas_bancarias_mensal_padrao: formData.tarifas_bancarias_mensal_padrao || undefined,
+          vacancia_mensal_padrao: formData.vacancia_mensal_padrao || undefined,
+          inadimplencia_mensal_padrao: formData.inadimplencia_mensal_padrao || undefined,
         });
       } else {
-        await propertyService.create(formData);
+        await propertyService.create({
+          ...formData,
+          matricula_imovel: formData.matricula_imovel || undefined,
+          inscricao_iptu: formData.inscricao_iptu || undefined,
+          cartorio_registro: formData.cartorio_registro || undefined,
+          cep: formData.cep || undefined,
+          logradouro: formData.logradouro || undefined,
+          numero: formData.numero || undefined,
+          complemento: formData.complemento || undefined,
+          bairro: formData.bairro || undefined,
+          cidade: formData.cidade || undefined,
+          uf: formData.uf || undefined,
+          iptu_mensal_padrao: formData.iptu_mensal_padrao || undefined,
+          condominio_mensal_padrao: formData.condominio_mensal_padrao || undefined,
+          seguro_mensal_padrao: formData.seguro_mensal_padrao || undefined,
+          camareira_mensal_padrao: formData.camareira_mensal_padrao || undefined,
+          seguranca_mensal_padrao: formData.seguranca_mensal_padrao || undefined,
+          material_limpeza_mensal_padrao: formData.material_limpeza_mensal_padrao || undefined,
+          lavanderia_enxoval_mensal_padrao: formData.lavanderia_enxoval_mensal_padrao || undefined,
+          checkin_checkout_mensal_padrao: formData.checkin_checkout_mensal_padrao || undefined,
+          taxas_pagamento_mensal_padrao: formData.taxas_pagamento_mensal_padrao || undefined,
+          tarifas_bancarias_mensal_padrao: formData.tarifas_bancarias_mensal_padrao || undefined,
+          vacancia_mensal_padrao: formData.vacancia_mensal_padrao || undefined,
+          inadimplencia_mensal_padrao: formData.inadimplencia_mensal_padrao || undefined,
+        });
       }
       handleCloseModal();
       loadProperties();
     } catch (err: unknown) {
       showError(err instanceof Error ? err.message : 'Erro ao salvar imóvel');
+    }
+  };
+
+  const handleCepChange = async (rawValue: string) => {
+    const onlyDigits = rawValue.replace(/\D/g, '').slice(0, 8);
+    const formatted = onlyDigits.length > 5
+      ? `${onlyDigits.slice(0, 5)}-${onlyDigits.slice(5)}`
+      : onlyDigits;
+    setFormData((prev) => ({ ...prev, cep: formatted }));
+
+    if (onlyDigits.length !== 8) return;
+    try {
+      setIsLoadingCep(true);
+      const res = await fetch(`https://viacep.com.br/ws/${onlyDigits}/json/`);
+      const data = await res.json() as {
+        erro?: boolean;
+        logradouro?: string;
+        bairro?: string;
+        localidade?: string;
+        uf?: string;
+      };
+      if (data.erro) return;
+      setFormData((prev) => ({
+        ...prev,
+        logradouro: data.logradouro || prev.logradouro,
+        bairro: data.bairro || prev.bairro,
+        cidade: data.localidade || prev.cidade,
+        uf: data.uf || prev.uf,
+      }));
+    } catch {
+      // silencioso: permite preenchimento manual em caso de falha
+    } finally {
+      setIsLoadingCep(false);
     }
   };
 
@@ -169,8 +333,9 @@ export function Properties() {
                   className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand"
                   value={clientFilter}
                   onChange={(e) => setClientFilter(e.target.value)}
+                  disabled={isLoadingClients}
                 >
-                  <option value="">Todos os clientes</option>
+                  <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Todos os clientes'}</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -318,8 +483,9 @@ export function Properties() {
                   setFormData({ ...formData, client_id: e.target.value })
                 }
                 required
+                disabled={isLoadingClients}
               >
-                <option value="">Selecione...</option>
+                <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Selecione...'}</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -371,6 +537,16 @@ export function Properties() {
                 <option value="detalhado">Detalhado (lançamentos por categoria)</option>
               </select>
             </div>
+            {isFixa && recomendadosFixaVazios > 0 && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                Recomendação para locação fixa: preencher IPTU, condomínio e seguro mensal.
+              </div>
+            )}
+            {isFlexivel && recomendadosFlexVazios > 0 && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                Recomendação para Airbnb: preencher camareira, limpeza, lavanderia, check-in/out e taxas de pagamento.
+              </div>
+            )}
             <div className="flex space-x-3 pt-4">
               <Button type="submit" variant="secondary" className="flex-1">
                 {editingProperty ? 'Salvar' : 'Criar'}

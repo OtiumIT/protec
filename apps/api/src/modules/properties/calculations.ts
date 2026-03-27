@@ -33,6 +33,8 @@ const FAIXAS_IRPF_2026 = [
 /** Lucro Presumido - locação de imóveis */
 const PRESUNCAO_IRPJ = 0.32;
 const PRESUNCAO_CSLL = 0.32;
+const PRESUNCAO_IRPJ_EQUIPARACAO_HOSPITALAR = 0.08;
+const PRESUNCAO_CSLL_EQUIPARACAO_HOSPITALAR = 0.12;
 /** Presunção 16% para locação de imóveis com receita até R$ 120k/ano (Lei 9.249/95, Art. 15, § 7º - IN RFB 1700/2017, art. 33, § 7º) */
 const PRESUNCAO_IRPJ_16 = 0.16;
 const LIMITE_PRESUNCAO_16_LOCACAO = 120_000;
@@ -185,7 +187,10 @@ function adicionalIRPJ(baseCalculoTrimestre: number): number {
  */
 export function calcularPJ(
   aggregated: AggregatedYear,
-  _elegivelPresuncao16?: boolean
+  _elegivelPresuncao16?: boolean,
+  opcoes?: {
+    aplicar_equiparacao_hospitalar?: boolean;
+  }
 ): {
   receita_bruta_total: number;
   base_presumida_irpj: number;
@@ -216,6 +221,10 @@ export function calcularPJ(
   }>;
 } {
   const { receita_total, meses } = aggregated;
+  const aplicarEquiparacaoHospitalar = opcoes?.aplicar_equiparacao_hospitalar === true;
+  const presuncaoCsll = aplicarEquiparacaoHospitalar
+    ? PRESUNCAO_CSLL_EQUIPARACAO_HOSPITALAR
+    : PRESUNCAO_CSLL;
 
   let receitaAcumulada = 0;
   let aplicouIN2306 = false;
@@ -243,7 +252,9 @@ export function calcularPJ(
 
     // Presunção: 32% se receita anual > 120k; senão 16% até acumulado ≤ 120k (Lei 9.249/95, Art. 15, § 7º)
     let presIrpj: number;
-    if (usar32PorCentoEmTodos) {
+    if (aplicarEquiparacaoHospitalar) {
+      presIrpj = PRESUNCAO_IRPJ_EQUIPARACAO_HOSPITALAR;
+    } else if (usar32PorCentoEmTodos) {
       presIrpj = PRESUNCAO_IRPJ;
     } else if (receitaAcumulada <= LIMITE_PRESUNCAO_16_LOCACAO) {
       presIrpj = PRESUNCAO_IRPJ_16;
@@ -291,7 +302,7 @@ export function calcularPJ(
     const baseIrpj =
       baseNormal * presuncaoUsada + baseExcedente * presuncaoUsada * fatorAcrescimo;
     const baseCsll =
-      baseNormal * PRESUNCAO_CSLL + baseExcedente * PRESUNCAO_CSLL * fatorAcrescimo;
+      baseNormal * presuncaoCsll + baseExcedente * presuncaoCsll * fatorAcrescimo;
 
     const irpj = round2(baseIrpj * ALIQ_IRPJ);
     const irpjAdic = adicionalIRPJ(baseIrpj);
@@ -358,7 +369,7 @@ export function calcularPJ(
     imposto_total: round2(impostoTotal),
     aliquota_efetiva: round2(aliquotaEfetiva),
     aplicou_in_2306: aplicouIN2306,
-    aplicou_presuncao_16: aplicouPresuncao16,
+    aplicou_presuncao_16: aplicarEquiparacaoHospitalar ? false : aplicouPresuncao16,
     trimestres,
   };
 }
@@ -401,6 +412,8 @@ export interface OpcoesReformaCalculo {
    * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × 12 × quantidade_imoveis_residenciais.
    */
   redutor_social_residencial_anual?: number;
+  /** Fator de aproveitamento de crédito sobre custos operacionais (0 a 1). */
+  fator_credito_custos_operacionais?: number;
 }
 
 /**
@@ -479,6 +492,10 @@ export function calcularReforma2027(
 
   let ibsCbsReceita: number;
   let creditosIbsCbs: number;
+  const fatorCreditoCustos = Math.max(
+    0,
+    Math.min(1, opcoes?.fator_credito_custos_operacionais ?? 1)
+  );
   let redutorExibicao: number;
   let ibsCbsAntesRedutorSocial: number | undefined;
   let redutorSocialAplicado: number | undefined;
@@ -502,8 +519,6 @@ export function calcularReforma2027(
 
     // LC 214/2025 Art. 260: redutor social apenas na longa duração (acima de 90 dias). Curta temporada (até 90 dias) não recebe.
     const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual : 0;
-    const redutorSocialShort = 0;
-
     const baseResidencialLong = Math.max(0, round2(receitaResidencialLong - redutorSocialLong));
     const baseResidencialShort = receitaResidencialShort;
 
@@ -519,7 +534,7 @@ export function calcularReforma2027(
 
     const rateMedio =
       receitaTotalSplit > 0 ? ibsCbsReceita / receitaTotalSplit : 0;
-    creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
+    creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
 
     // Para exibição, manter o redutor de longa duração como referência principal
     redutorExibicao = redutorLong;
@@ -546,10 +561,9 @@ export function calcularReforma2027(
         ? Math.max(0, round2(receitaLonga - redutorSocialAnual))
         : receitaLonga;
       const baseShort = receitaShort;
-      const baseTributavel = baseLonga + baseShort;
       ibsCbsReceita = round2(baseLonga * rateLong + baseShort * rateShort);
       const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
-      creditosIbsCbs = round2(custos_operacionais_total * rateMedio);
+      creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
       redutorExibicao = redutorLong;
       redutorSocialAplicado = aplicaRedutorSocial
         ? round2(Math.min(receitaLonga, redutorSocialAnual) * rateLong)
@@ -565,7 +579,7 @@ export function calcularReforma2027(
         ? Math.max(0, round2(receita_total - redutorSocialAnual))
         : receita_total;
       ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaRate);
-      creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate);
+      creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate * fatorCreditoCustos);
       redutorExibicao = redutor;
       redutorSocialAplicado = aplicaRedutorSocial
         ? round2(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate)
@@ -661,7 +675,10 @@ export function calcularBreakEven(
   if (cargaPJPercentual >= cargaPFPercentual) return null;
   const diferenca = cargaPFPercentual - cargaPJPercentual;
   if (diferenca <= 0) return null;
-  return round2(12000);
+  const custoAnualEstruturaPj = 12_000;
+  const diferencaFracao = diferenca / 100;
+  if (diferencaFracao <= 0) return null;
+  return round2(custoAnualEstruturaPj / diferencaFracao / 12);
 }
 
 export interface TributacaoAnoResult {

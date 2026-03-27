@@ -16,9 +16,20 @@ const CATEGORIAS: Record<string, string> = {
   reforma: 'Reforma',
   mobilia: 'Mobília',
   limpeza: 'Limpeza',
+  camareira: 'Camareira',
+  seguranca: 'Segurança',
+  material_limpeza: 'Material de limpeza',
+  lavanderia_enxoval: 'Lavanderia e enxoval',
+  checkin_checkout: 'Check-in/checkout terceiros',
   energia: 'Energia',
   internet: 'Internet',
   taxa_intermediacao: 'Taxa Intermediação',
+  taxas_meios_pagamento: 'Taxas de meios de pagamento',
+  tarifas_bancarias: 'Tarifas bancárias',
+  mao_de_obra_operacional: 'Mão de obra operacional',
+  encargos_folha: 'Encargos de folha',
+  vacancia: 'Vacância',
+  inadimplencia: 'Inadimplência',
   outros: 'Outros',
 };
 
@@ -58,6 +69,8 @@ export function PropertyTransactionsModal({
     tipo: 'receita' as 'receita' | 'despesa_dedutivel' | 'custo_operacional',
     categoria: 'aluguel',
     valor: '0',
+    gera_credito_ibs_cbs: false,
+    tipo_credito: 'insumo' as 'insumo' | 'uso_consumo' | 'nao_creditavel',
     observacao: '',
   });
   const [modoEntrada, setModoEntrada] = useState<'detalhado' | 'reduzido'>('detalhado');
@@ -94,12 +107,14 @@ export function PropertyTransactionsModal({
         tipo: formTx.tipo,
         categoria: formTx.categoria,
         valor: Math.round(parseFloat(formTx.valor || '0') * 100) / 100,
+        gera_credito_ibs_cbs: formTx.tipo === 'custo_operacional' ? formTx.gera_credito_ibs_cbs : undefined,
+        tipo_credito: formTx.tipo === 'custo_operacional' && formTx.gera_credito_ibs_cbs ? formTx.tipo_credito : undefined,
         observacao: formTx.observacao || undefined,
       });
       const txs = await propertyService.listTransactions(propertyId, { ano });
       setTransactions(txs);
       setIsTxFormOpen(false);
-      setFormTx({ mes_referencia: `${ano}-01`, tipo: 'receita', categoria: 'aluguel', valor: '0', observacao: '' });
+      setFormTx({ mes_referencia: `${ano}-01`, tipo: 'receita', categoria: 'aluguel', valor: '0', gera_credito_ibs_cbs: false, tipo_credito: 'insumo', observacao: '' });
       success('Lançamento adicionado');
       onTransactionsChanged?.();
     } catch (err) {
@@ -246,6 +261,37 @@ export function PropertyTransactionsModal({
                     onChange={(e) => setFormTx({ ...formTx, valor: e.target.value })}
                     required
                   />
+                  {formTx.tipo === 'custo_operacional' && (
+                    <>
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={formTx.gera_credito_ibs_cbs}
+                          onChange={(e) => setFormTx({ ...formTx, gera_credito_ibs_cbs: e.target.checked })}
+                        />
+                        Gera crédito IBS/CBS
+                      </label>
+                      {formTx.gera_credito_ibs_cbs && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de crédito</label>
+                          <select
+                            className="w-full border border-slate-200 rounded-lg px-4 py-2"
+                            value={formTx.tipo_credito}
+                            onChange={(e) =>
+                              setFormTx({
+                                ...formTx,
+                                tipo_credito: e.target.value as typeof formTx.tipo_credito,
+                              })
+                            }
+                          >
+                            <option value="insumo">Insumo</option>
+                            <option value="uso_consumo">Uso e consumo</option>
+                            <option value="nao_creditavel">Não creditável</option>
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div className="flex gap-2">
                     <Button type="submit" variant="secondary" size="sm">
                       Adicionar

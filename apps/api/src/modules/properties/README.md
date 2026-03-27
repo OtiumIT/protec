@@ -23,6 +23,27 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - `detalhado`: Lançamentos individuais por categoria (IPTU, condomínio, etc.)
 - `reduzido`: Totais mensais por tipo (receita longa, receita short, despesas, custos)
 
+### Regra 3.1: Pré-cadastro opcional
+
+- O imóvel pode armazenar campos de documentação e custos padrão mensais.
+- Esses campos são opcionais e servem para acelerar o preenchimento no simulador.
+- Quando houver lacuna nos dados agregados do mês, o sistema pode complementar com os padrões do cadastro.
+- Recomendações por tipo de locação (alerta não bloqueante):
+  - `fixa`: priorizar `iptu_mensal_padrao`, `condominio_mensal_padrao`, `seguro_mensal_padrao`.
+  - `flexivel` (Airbnb): priorizar `camareira_mensal_padrao`, `material_limpeza_mensal_padrao`, `lavanderia_enxoval_mensal_padrao`, `checkin_checkout_mensal_padrao`, `taxas_pagamento_mensal_padrao`.
+
+### Regra 3.2: OCR mínimo para documentos de imóvel
+
+- Endpoint: `POST /properties/extract-property-doc` (multipart com `file` + `document_type`).
+- Tipos de documento suportados (fase 1):
+  - `matricula`
+  - `iptu`
+- Limites rígidos para controle de custo/erro:
+  - máximo 10 MB por arquivo
+  - máximo 10 páginas
+- Documentos fora do limite devem ser recusados com orientação para fracionar ou preencher manualmente.
+- Sempre exigir revisão manual dos campos sugeridos antes de aplicar no cadastro.
+
 ### Regra 4: Tipos de Locação
 
 - `fixa`: Locação mensal tradicional
@@ -32,6 +53,10 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 - **Despesas dedutíveis (PF)**: IPTU, condomínio, taxa imobiliária, taxa plataforma (Lei 7.713/88)
 - **Custos operacionais (créditos Reforma 2027)**: Reforma, mobília, limpeza, energia, internet, taxa intermediação
+- **Airbnb / short stay (novas categorias)**: camareira, segurança, material de limpeza, lavanderia/enxoval, check-in/checkout de terceiros
+- **Custos administrativos/financeiros**: taxas de meios de pagamento, tarifas bancárias, vacância estimada, inadimplência estimada
+- **Custos de pessoal**: mão de obra operacional e encargos de folha
+- **Classificação fiscal opcional por lançamento**: `gera_credito_ibs_cbs` e `tipo_credito` (`insumo`, `uso_consumo`, `nao_creditavel`)
 
 ### Regra 6: Cenário PF (Carnê-Leão)
 
@@ -65,11 +90,42 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - Créditos sobre custos operacionais deduzem do imposto sobre receita
 - Opção `opcoes_reforma.redutor_locacao_pct` (0–100); se omitido, usa 70
 
+### Regra 9: Resultado analítico de custos
+
+- A resposta da simulação inclui bloco `analise_custos` com:
+  - participação por categoria de custo
+  - créditos IBS/CBS (potencial, aproveitado e não aproveitado)
+  - indicadores de margem operacional (antes e após tributos)
+  - sensibilidade de lucro com aumento de +10% nos custos
+  - alertas quando `outros_custos` ultrapassa 30% do total
+
 ## Dependências
 
 - **Módulos**: Feature toggle `GESTAO_IMOVEIS`
 - **Repositories**: `ClientRepository` (validação de cliente)
 - **Tabelas**: `properties`, `property_transactions`, `property_monthly_totals` (tenant), `clients` (tenant)
+- **Migrations relevantes**: `036_properties.sql`, `038_property_monthly_totals.sql`, `046_property_simulations.sql`, `049_property_transactions_fiscal_credit.sql`, `050_properties_defaults.sql`
+
+## Matriz de Uso dos Campos de Cadastro
+
+| Campo de cadastro | Impacto no cálculo | Nível de confiança |
+| --- | --- | --- |
+| `tipo_locacao` | Direciona separação de receita carregada (`tradicional` vs `curto`) no preview agregado. | Médio (depende da qualidade do cadastro) |
+| `iptu_mensal_padrao`, `condominio_mensal_padrao`, `seguro_mensal_padrao` | Complementam despesas dedutíveis por rubrica no carregamento da simulação. | Alto |
+| `camareira_mensal_padrao`, `seguranca_mensal_padrao`, `material_limpeza_mensal_padrao`, `lavanderia_enxoval_mensal_padrao`, `checkin_checkout_mensal_padrao`, `taxas_pagamento_mensal_padrao`, `tarifas_bancarias_mensal_padrao`, `vacancia_mensal_padrao`, `inadimplencia_mensal_padrao` | Complementam custos operacionais por rubrica no carregamento da simulação. | Alto |
+| `gera_credito_ibs_cbs`, `tipo_credito` (transações) | Ajustam fator de aproveitamento de crédito IBS/CBS no cenário de reforma para simulação por imóveis. | Médio/Alto (depende da classificação do usuário) |
+| `matricula_imovel`, `inscricao_iptu`, `cartorio_registro` | Não alteram fórmula tributária; suportam rastreabilidade, compliance e qualidade cadastral. | Médio |
+| Endereço (`cep`, `logradouro`, `numero`, `bairro`, `cidade`, `uf`) | Não altera cálculo tributário atualmente. | Baixo |
+
+## Estado de Implementação (atual)
+
+- `aggregate-preview` agora:
+  - separa receita por `tipo_locacao` quando possível;
+  - usa defaults por rubrica (não apenas em `outros`);
+  - aplica complemento (fallback) com precedência prática: dado lançado/agregado + complemento por cadastro;
+  - retorna metadado (`metadata.usou_defaults_cadastro`) para transparência no frontend.
+- `calcularPJ` suporta `aplicar_equiparacao_hospitalar` na fórmula (8% IRPJ e 12% CSLL).
+- `calcularReforma2027` aceita `fator_credito_custos_operacionais` para modular créditos por elegibilidade de lançamentos.
 
 ## Fluxos e Endpoints
 
@@ -80,16 +136,24 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### GET /properties/:id
 
-- Resposta: `{ data: { property } }`
+- Resposta: `{ data: { property } }` (inclui campos opcionais de pré-cadastro)
 
 ### POST /properties
 
-- Body: `CreatePropertySchema` (client_id, tipo_locacao, identificador)
+- Body: `CreatePropertySchema` (campos base + defaults opcionais)
 - Resposta: `{ data: { property } }`
 
 ### PATCH /properties/:id
 
-- Body: `UpdatePropertySchema`
+- Body: `UpdatePropertySchema` (inclui defaults opcionais)
+
+### POST /properties/extract-property-doc
+
+- Upload OCR mínimo para pré-cadastro de imóvel.
+- Body `multipart/form-data`:
+  - `file` (PDF)
+  - `document_type` (`matricula` | `iptu`)
+- Resposta: `{ data: { document_type, pages_estimated, suggested_fields, warnings } }`
 - Resposta: `{ data: { property } }`
 
 ### DELETE /properties/:id

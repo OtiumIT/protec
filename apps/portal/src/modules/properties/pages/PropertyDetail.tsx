@@ -91,6 +91,7 @@ export function PropertyDetail() {
     observacao: '',
   });
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
   /** Último input enviado na simulação (para Salvar no histórico após resultado). */
@@ -109,11 +110,14 @@ export function PropertyDetail() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!cancelled) setIsLoadingClients(true);
       try {
         const list = await clientService.list();
         if (!cancelled && Array.isArray(list)) setClients(list);
       } catch {
         if (!cancelled) setClients([]);
+      } finally {
+        if (!cancelled) setIsLoadingClients(false);
       }
     })();
     return () => { cancelled = true; };
@@ -386,6 +390,18 @@ export function PropertyDetail() {
                 </p>
               </div>
             </div>
+
+            <Card className="mb-6">
+              <h2 className="text-lg font-semibold text-slate-900 mb-3">Pré-cadastro do imóvel</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <p><span className="text-slate-500">Matrícula:</span> <strong>{(property as any).matricula_imovel || '-'}</strong></p>
+                <p><span className="text-slate-500">Inscrição IPTU:</span> <strong>{(property as any).inscricao_iptu || '-'}</strong></p>
+                <p><span className="text-slate-500">Cartório:</span> <strong>{(property as any).cartorio_registro || '-'}</strong></p>
+                <p><span className="text-slate-500">IPTU padrão:</span> <strong>{formatCurrency(Number((property as any).iptu_mensal_padrao || 0))}</strong></p>
+                <p><span className="text-slate-500">Condomínio padrão:</span> <strong>{formatCurrency(Number((property as any).condominio_mensal_padrao || 0))}</strong></p>
+                <p><span className="text-slate-500">Seguro padrão:</span> <strong>{formatCurrency(Number((property as any).seguro_mensal_padrao || 0))}</strong></p>
+              </div>
+            </Card>
 
             {/* Modo Reduzido: Totais mensais */}
             {property.modo_entrada === 'reduzido' ? (
@@ -848,8 +864,9 @@ export function PropertyDetail() {
                       className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
                       value={saveClientId}
                       onChange={(e) => setSaveClientId(e.target.value)}
+                      disabled={isLoadingClients}
                     >
-                      <option value="">Selecione um cliente</option>
+                      <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Selecione um cliente'}</option>
                       {clients.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}

@@ -25,9 +25,22 @@ export const TransactionCategoriaSchema = z.enum([
   'energia',
   'internet',
   'taxa_intermediacao',
+  'camareira',
+  'seguranca',
+  'material_limpeza',
+  'lavanderia_enxoval',
+  'checkin_checkout',
+  'taxas_meios_pagamento',
+  'tarifas_bancarias',
+  'mao_de_obra_operacional',
+  'encargos_folha',
+  'vacancia',
+  'inadimplencia',
   'outros',
 ]);
 export type TransactionCategoria = z.infer<typeof TransactionCategoriaSchema>;
+export const TipoCreditoFiscalSchema = z.enum(['insumo', 'uso_consumo', 'nao_creditavel']);
+export type TipoCreditoFiscal = z.infer<typeof TipoCreditoFiscalSchema>;
 
 export const ModoEntradaSchema = z.enum(['detalhado', 'reduzido']);
 export type ModoEntrada = z.infer<typeof ModoEntradaSchema>;
@@ -37,6 +50,37 @@ export const CreatePropertySchema = z.object({
   tipo_locacao: TipoLocacaoSchema,
   identificador: z.string().min(1).max(255),
   modo_entrada: ModoEntradaSchema.optional().default('detalhado'),
+  matricula_imovel: z.string().max(100).optional(),
+  inscricao_iptu: z.string().max(100).optional(),
+  cartorio_registro: z.string().max(255).optional(),
+  cep: z.string().max(10).optional(),
+  logradouro: z.string().max(255).optional(),
+  numero: z.string().max(30).optional(),
+  complemento: z.string().max(120).optional(),
+  bairro: z.string().max(120).optional(),
+  cidade: z.string().max(120).optional(),
+  uf: z.string().max(2).optional(),
+  iptu_mensal_padrao: monetaryValue.optional(),
+  condominio_mensal_padrao: monetaryValue.optional(),
+  seguro_mensal_padrao: monetaryValue.optional(),
+  camareira_mensal_padrao: monetaryValue.optional(),
+  seguranca_mensal_padrao: monetaryValue.optional(),
+  material_limpeza_mensal_padrao: monetaryValue.optional(),
+  lavanderia_enxoval_mensal_padrao: monetaryValue.optional(),
+  checkin_checkout_mensal_padrao: monetaryValue.optional(),
+  taxas_pagamento_mensal_padrao: monetaryValue.optional(),
+  tarifas_bancarias_mensal_padrao: monetaryValue.optional(),
+  vacancia_mensal_padrao: monetaryValue.optional(),
+  inadimplencia_mensal_padrao: monetaryValue.optional(),
+});
+
+export const CreatePropertyBatchItemSchema = CreatePropertySchema.omit({
+  client_id: true,
+});
+
+export const CreatePropertiesBatchSchema = z.object({
+  client_id: z.string().uuid(),
+  properties: z.array(CreatePropertyBatchItemSchema).min(1).max(200),
 });
 
 export const UpdatePropertySchema = z.object({
@@ -44,6 +88,28 @@ export const UpdatePropertySchema = z.object({
   tipo_locacao: TipoLocacaoSchema.optional(),
   identificador: z.string().min(1).max(255).optional(),
   modo_entrada: ModoEntradaSchema.optional(),
+  matricula_imovel: z.string().max(100).optional(),
+  inscricao_iptu: z.string().max(100).optional(),
+  cartorio_registro: z.string().max(255).optional(),
+  cep: z.string().max(10).optional(),
+  logradouro: z.string().max(255).optional(),
+  numero: z.string().max(30).optional(),
+  complemento: z.string().max(120).optional(),
+  bairro: z.string().max(120).optional(),
+  cidade: z.string().max(120).optional(),
+  uf: z.string().max(2).optional(),
+  iptu_mensal_padrao: monetaryValue.optional(),
+  condominio_mensal_padrao: monetaryValue.optional(),
+  seguro_mensal_padrao: monetaryValue.optional(),
+  camareira_mensal_padrao: monetaryValue.optional(),
+  seguranca_mensal_padrao: monetaryValue.optional(),
+  material_limpeza_mensal_padrao: monetaryValue.optional(),
+  lavanderia_enxoval_mensal_padrao: monetaryValue.optional(),
+  checkin_checkout_mensal_padrao: monetaryValue.optional(),
+  taxas_pagamento_mensal_padrao: monetaryValue.optional(),
+  tarifas_bancarias_mensal_padrao: monetaryValue.optional(),
+  vacancia_mensal_padrao: monetaryValue.optional(),
+  inadimplencia_mensal_padrao: monetaryValue.optional(),
 });
 
 /** Modo reduzido: totais mensais (locação longa + short) */
@@ -66,6 +132,8 @@ export const PropertyTransactionSchema = z.object({
   tipo: TransactionTipoSchema,
   categoria: TransactionCategoriaSchema,
   valor: monetaryValue,
+  gera_credito_ibs_cbs: z.boolean().optional(),
+  tipo_credito: TipoCreditoFiscalSchema.optional(),
   observacao: z.string().max(500).optional(),
 });
 
@@ -124,6 +192,17 @@ export const SimulateStandaloneMesSchema = z.object({
   limpeza_higienizacao: monetaryValue.optional().default(0),
   comissao_corretagem: monetaryValue.optional().default(0),
   taxa_plataforma: monetaryValue.optional().default(0),
+  custo_camareira: monetaryValue.optional().default(0),
+  custo_seguranca: monetaryValue.optional().default(0),
+  custo_material_limpeza: monetaryValue.optional().default(0),
+  custo_lavanderia_enxoval: monetaryValue.optional().default(0),
+  custo_checkin_checkout_terceiros: monetaryValue.optional().default(0),
+  taxas_meios_pagamento: monetaryValue.optional().default(0),
+  tarifas_bancarias: monetaryValue.optional().default(0),
+  mao_de_obra_operacional: monetaryValue.optional().default(0),
+  encargos_folha: monetaryValue.optional().default(0),
+  vacancia_estimada: monetaryValue.optional().default(0),
+  inadimplencia_estimada: monetaryValue.optional().default(0),
   outros_custos: monetaryValue.optional().default(0),
 });
 
@@ -273,6 +352,39 @@ export const FluxoCaixaSchema = z.object({
   lucro_liquido_pj: z.number(),
 });
 
+export const AnaliseCategoriaCustoSchema = z.object({
+  categoria: z.string(),
+  valor: z.number(),
+  participacao_percentual: z.number(),
+  impacto_lucro_liquido: z.number(),
+  gera_credito_ibs_cbs: z.boolean(),
+  credito_potencial: z.number(),
+});
+
+export const AnaliseCustosSchema = z.object({
+  custo_total: z.number(),
+  custo_outros_percentual: z.number(),
+  categorias: z.array(AnaliseCategoriaCustoSchema),
+  creditos_ibs_cbs: z.object({
+    total_potencial: z.number(),
+    total_aproveitado: z.number(),
+    nao_aproveitado: z.number(),
+  }),
+  indicadores: z.object({
+    margem_operacional_antes_tributos: z.number(),
+    margem_operacional_apos_tributos_pf: z.number(),
+    margem_operacional_apos_tributos_pj: z.number(),
+    custo_medio_mensal: z.number(),
+    custo_por_diaria: z.number().optional(),
+  }),
+  sensibilidade: z.object({
+    cenario_base_lucro_liquido_pj: z.number(),
+    cenario_custos_mais_10_lucro_liquido_pj: z.number(),
+    variacao_lucro_liquido_pj: z.number(),
+  }),
+  alertas: z.array(z.string()),
+});
+
 export const PropertyTaxSimulationResponseSchema = z.object({
   ano: z.number(),
   cenarios: z.object({
@@ -287,6 +399,7 @@ export const PropertyTaxSimulationResponseSchema = z.object({
   }),
   break_even: BreakEvenSchema.optional(),
   fluxo_caixa: z.array(FluxoCaixaSchema),
+  analise_custos: AnaliseCustosSchema.optional(),
   memoria_calculo: z.record(z.unknown()).optional(),
   /** Embasamentos legais por cenário (PF, PJ, Reforma 2027) */
   embasamentos_legais: z.array(EmbasamentoLegalSchema).optional(),
@@ -326,6 +439,8 @@ export const ListPropertySimulationsQuerySchema = z.object({
 export const UpdatePropertySimulationInputSchema = SimulateStandaloneInputSchema;
 
 export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
+export type CreatePropertyBatchItemInput = z.infer<typeof CreatePropertyBatchItemSchema>;
+export type CreatePropertiesBatchInput = z.infer<typeof CreatePropertiesBatchSchema>;
 export type PropertyMonthlyTotalInput = z.infer<typeof PropertyMonthlyTotalSchema>;
 export type UpsertMonthlyTotalsInput = z.infer<typeof UpsertMonthlyTotalsSchema>;
 export type UpdatePropertyInput = z.infer<typeof UpdatePropertySchema>;

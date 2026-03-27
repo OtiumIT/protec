@@ -12,22 +12,21 @@ import { verifyAccessToken } from '../shared/utils/jwt';
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
   const isCalibratorRoute = c.req.path.includes('/api/v1/fiscal-files/calibrator');
   let companyId: string | undefined;
+  let companyIdFromJwt: string | undefined;
+  let roleFromJwt: string | undefined;
 
   // 1. Tentar extrair do header X-Tenant-ID
   companyId = c.req.header('X-Tenant-ID');
-  console.log('[tenantMiddleware] 1. Header X-Tenant-ID:', companyId);
 
   // 2. Tentar extrair do query parameter companyId (para rotas admin)
   if (!companyId) {
     companyId = c.req.query('companyId');
-    console.log('[tenantMiddleware] 2. Query param companyId:', companyId);
   }
 
   // 3. Tentar extrair do subdomínio
   if (!companyId) {
     const host = c.req.header('host') || '';
     const subdomain = extractSubdomain(host);
-    console.log('[tenantMiddleware] 3. Subdomain:', subdomain);
     if (subdomain) {
       // Buscar company por domain
       const result = await query<{ id: string }>(
@@ -36,42 +35,43 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
       );
       if (result.rows.length > 0) {
         companyId = result.rows[0].id;
-        console.log('[tenantMiddleware] 3. CompanyId from subdomain:', companyId);
       }
     }
   }
 
   // 4. Tentar extrair do JWT (decodifica diretamente — tenantMiddleware roda antes do authMiddleware)
-  if (!companyId) {
-    const authHeader = c.req.header('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        const payload = verifyAccessToken(authHeader.substring(7));
-        if (payload?.companyId) {
-          companyId = payload.companyId;
-          console.log('[tenantMiddleware] 4. CompanyId from JWT decode:', companyId);
-        }
-      } catch {
-        // Token inválido ou expirado — authMiddleware tratará depois
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const payload = verifyAccessToken(authHeader.substring(7));
+      roleFromJwt = payload?.role;
+      if (payload?.companyId) {
+        companyIdFromJwt = payload.companyId;
       }
+    } catch {
+      // Token inválido ou expirado — authMiddleware tratará depois
     }
   }
 
-  // 5. Verificar se é super_admin (não precisa de tenant obrigatório)
-  const user = c.get('user');
-  const path = c.req.path;
-  const url = c.req.url;
-  const rawPath = (c.req.raw as any)?.path || '';
-  const isAdminRoute = path.includes('/admin') || url.includes('/admin') || rawPath.includes('/admin');
-  
-  console.log('[tenantMiddleware] Verificando:', { path, url, rawPath, isAdminRoute, userRole: user?.role, hasCompanyId: !!companyId });
-  
-  // Se for super_admin, sempre permitir (mas tentar usar companyId se disponível)
-  if (user?.role === 'super_admin') {
-    // Super admin não precisa de tenant obrigatório
-    // Mas se houver companyId (do query param ou header), usar ele
-    // Isso permite que super_admin trabalhe com tenants específicos
-    console.log('[tenantMiddleware] Super admin detectado, permitindo:', { path, url, isAdminRoute, companyId });
+  // 5. Segurança anti-tenant-spoofing: em rotas autenticadas, JWT é a fonte de verdade
+  if (companyIdFromJwt && companyId && companyId !== companyIdFromJwt) {
+    return c.json(
+      {
+        error: {
+          message: 'Tenant inválido para o usuário autenticado.',
+          code: 'TENANT_FORBIDDEN',
+        },
+      },
+      403
+    );
+  }
+
+  if (!companyId && companyIdFromJwt) {
+    companyId = companyIdFromJwt;
+  }
+
+  // 6. Verificar se é super_admin (não precisa de tenant obrigatório)
+  if (roleFromJwt === 'super_admin') {
     c.set('companyId', companyId || null);
     await next();
     return;
@@ -79,7 +79,6 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
 
   // Validar que companyId foi encontrado
   if (!companyId) {
-    console.log('[tenantMiddleware] Tenant não identificado:', { path, url, rawPath, userRole: user?.role, isAdminRoute });
     return c.json(
       {
         error: {
@@ -91,31 +90,26 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     );
   }
 
+  // Usuário autenticado não-admin sempre deve operar no próprio tenant do token
+  if (companyIdFromJwt && companyId !== companyIdFromJwt) {
+    return c.json(
+      {
+        error: {
+          message: 'Acesso negado ao tenant informado.',
+          code: 'TENANT_FORBIDDEN',
+        },
+      },
+      403
+    );
+  }
+
   // Validar que tenant existe no banco
   const company = await query<{ id: string }>(
     'SELECT id FROM public.companies WHERE id = $1',
     [companyId]
   );
 
-  if (isCalibratorRoute) {
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H5',location:'apps/api/src/middleware/tenant.middleware.ts:company-check',message:'Tenant middleware evaluated calibrator request',data:{path:c.req.path,companyId,companyFound:company.rows.length>0},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:company-check',message:'Company lookup result',data:{companyId,found:company.rows.length>0,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (company.rows.length === 0) {
-    if (isCalibratorRoute) {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H5',location:'apps/api/src/middleware/tenant.middleware.ts:return-404',message:'Returning TENANT_NOT_FOUND on calibrator request',data:{path:c.req.path,companyId},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/3f8a018c-ca22-4e05-9180-9b386bc4c44a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'H1',location:'tenant.middleware.ts:return-404',message:'Returning 404 TENANT_NOT_FOUND',data:{companyId,path:c.req.path},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return c.json(
       {
         error: {
@@ -132,11 +126,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
   c.set('companyId', companyId);
 
   // Usar uma conexão por requisição com search_path do tenant (evita "tabela não encontrada")
-  if (user?.role !== 'super_admin') {
-    return runWithTenantClient(companyId, () => next());
-  }
-
-  await next();
+  return runWithTenantClient(companyId, () => next());
 }
 
 /**
