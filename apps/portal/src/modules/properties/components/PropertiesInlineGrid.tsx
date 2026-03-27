@@ -175,6 +175,12 @@ function formatMoneyTooltip(value: number): string {
   }).format(value || 0);
 }
 
+function formatTipoLocacaoLabel(tipo: GridRow['tipo_locacao']): string {
+  if (tipo === 'fixa') return 'Fixa - locação contínua';
+  if (tipo === 'flexivel') return 'Flexível - curta temporada';
+  return '-';
+}
+
 function isGridRowEmpty(row: GridRow): boolean {
   return (
     row.identificador.trim() === '' &&
@@ -565,14 +571,17 @@ export function PropertiesInlineGrid({
 
                   {visibleColumns.includes('identificador') && (
                     <td className="py-2 px-2 min-w-[240px]" title={row.identificador || ''}>
-                      <input
-                        className="w-full border border-slate-200 rounded px-2 py-1"
-                        value={row.identificador}
-                        onChange={(e) => updateRow(row.rowId, { identificador: e.target.value })}
-                        disabled={!canEditCell(row)}
-                        placeholder="Nome"
-                        title={row.identificador || ''}
-                      />
+                      {canEditCell(row) ? (
+                        <input
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.identificador}
+                          onChange={(e) => updateRow(row.rowId, { identificador: e.target.value })}
+                          placeholder="Nome"
+                          title={row.identificador || ''}
+                        />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{row.identificador || '-'}</span>
+                      )}
                     </td>
                   )}
 
@@ -587,123 +596,183 @@ export function PropertiesInlineGrid({
                             : 'Selecione o tipo da locação'
                       }
                     >
-                      <select
-                        className="w-full border border-slate-200 rounded px-2 py-1"
-                        value={row.tipo_locacao}
-                        onChange={(e) => updateRow(row.rowId, { tipo_locacao: e.target.value as 'fixa' | 'flexivel' | '' })}
-                        disabled={!canEditCell(row)}
-                        title={
-                          row.tipo_locacao === 'fixa'
-                            ? 'Fixa (locação contínua: mensal/tradicional)'
-                            : row.tipo_locacao === 'flexivel'
-                              ? 'Flexível (curta temporada/Airbnb)'
-                              : 'Selecione o tipo da locação'
-                        }
-                      >
-                        <option value="">Selecione o tipo</option>
-                        <option value="fixa">Fixa - locação contínua</option>
-                        <option value="flexivel">Flexível - curta temporada</option>
-                      </select>
+                      {canEditCell(row) ? (
+                        <select
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.tipo_locacao}
+                          onChange={(e) => updateRow(row.rowId, { tipo_locacao: e.target.value as 'fixa' | 'flexivel' | '' })}
+                          title={
+                            row.tipo_locacao === 'fixa'
+                              ? 'Fixa (locação contínua: mensal/tradicional)'
+                              : row.tipo_locacao === 'flexivel'
+                                ? 'Flexível (curta temporada/Airbnb)'
+                                : 'Selecione o tipo da locação'
+                          }
+                        >
+                          <option value="">Selecione o tipo</option>
+                          <option value="fixa">Fixa - locação contínua</option>
+                          <option value="flexivel">Flexível - curta temporada</option>
+                        </select>
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{formatTipoLocacaoLabel(row.tipo_locacao)}</span>
+                      )}
                     </td>
                   )}
 
                   {visibleColumns.includes('matricula_imovel') && (
                     <td className="py-2 px-2 min-w-[180px]" title={row.matricula_imovel || ''}>
-                      <input
-                        className="w-full border border-slate-200 rounded px-2 py-1"
-                        value={row.matricula_imovel}
-                        onChange={(e) => updateRow(row.rowId, { matricula_imovel: e.target.value })}
-                        disabled={!canEditCell(row)}
-                        placeholder="Matrícula"
-                        title={row.matricula_imovel || ''}
-                      />
+                      {canEditCell(row) ? (
+                        <input
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.matricula_imovel}
+                          onChange={(e) => updateRow(row.rowId, { matricula_imovel: e.target.value })}
+                          placeholder="Matrícula"
+                          title={row.matricula_imovel || ''}
+                        />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{row.matricula_imovel || '-'}</span>
+                      )}
                     </td>
                   )}
 
                   {visibleColumns.includes('inscricao_iptu') && (
                     <td className="py-2 px-2 min-w-[180px]" title={row.inscricao_iptu || ''}>
-                      <input
-                        className="w-full border border-slate-200 rounded px-2 py-1"
-                        value={row.inscricao_iptu}
-                        onChange={(e) => updateRow(row.rowId, { inscricao_iptu: e.target.value })}
-                        disabled={!canEditCell(row)}
-                        placeholder="Inscrição IPTU"
-                        title={row.inscricao_iptu || ''}
-                      />
+                      {canEditCell(row) ? (
+                        <input
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.inscricao_iptu}
+                          onChange={(e) => updateRow(row.rowId, { inscricao_iptu: e.target.value })}
+                          placeholder="Inscrição IPTU"
+                          title={row.inscricao_iptu || ''}
+                        />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{row.inscricao_iptu || '-'}</span>
+                      )}
                     </td>
                   )}
 
                   {visibleColumns.includes('cartorio_registro') && (
                     <td className="py-2 px-2 min-w-[200px]" title={row.cartorio_registro || ''}>
-                      <input
-                        className="w-full border border-slate-200 rounded px-2 py-1"
-                        value={row.cartorio_registro}
-                        onChange={(e) => updateRow(row.rowId, { cartorio_registro: e.target.value })}
-                        disabled={!canEditCell(row)}
-                        placeholder="Cartório"
-                        title={row.cartorio_registro || ''}
-                      />
+                      {canEditCell(row) ? (
+                        <input
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.cartorio_registro}
+                          onChange={(e) => updateRow(row.rowId, { cartorio_registro: e.target.value })}
+                          placeholder="Cartório"
+                          title={row.cartorio_registro || ''}
+                        />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{row.cartorio_registro || '-'}</span>
+                      )}
                     </td>
                   )}
 
                   {visibleColumns.includes('iptu_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.iptu_mensal_padrao)}>
-                      <MoneyInput value={row.iptu_mensal_padrao} onChange={(v) => updateRow(row.rowId, { iptu_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.iptu_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.iptu_mensal_padrao} onChange={(v) => updateRow(row.rowId, { iptu_mensal_padrao: v })} title={formatMoneyTooltip(row.iptu_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.iptu_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('condominio_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.condominio_mensal_padrao)}>
-                      <MoneyInput value={row.condominio_mensal_padrao} onChange={(v) => updateRow(row.rowId, { condominio_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.condominio_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.condominio_mensal_padrao} onChange={(v) => updateRow(row.rowId, { condominio_mensal_padrao: v })} title={formatMoneyTooltip(row.condominio_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.condominio_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('seguro_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.seguro_mensal_padrao)}>
-                      <MoneyInput value={row.seguro_mensal_padrao} onChange={(v) => updateRow(row.rowId, { seguro_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.seguro_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.seguro_mensal_padrao} onChange={(v) => updateRow(row.rowId, { seguro_mensal_padrao: v })} title={formatMoneyTooltip(row.seguro_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.seguro_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('camareira_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.camareira_mensal_padrao)}>
-                      <MoneyInput value={row.camareira_mensal_padrao} onChange={(v) => updateRow(row.rowId, { camareira_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.camareira_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.camareira_mensal_padrao} onChange={(v) => updateRow(row.rowId, { camareira_mensal_padrao: v })} title={formatMoneyTooltip(row.camareira_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.camareira_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('seguranca_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.seguranca_mensal_padrao)}>
-                      <MoneyInput value={row.seguranca_mensal_padrao} onChange={(v) => updateRow(row.rowId, { seguranca_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.seguranca_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.seguranca_mensal_padrao} onChange={(v) => updateRow(row.rowId, { seguranca_mensal_padrao: v })} title={formatMoneyTooltip(row.seguranca_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.seguranca_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('material_limpeza_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.material_limpeza_mensal_padrao)}>
-                      <MoneyInput value={row.material_limpeza_mensal_padrao} onChange={(v) => updateRow(row.rowId, { material_limpeza_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.material_limpeza_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.material_limpeza_mensal_padrao} onChange={(v) => updateRow(row.rowId, { material_limpeza_mensal_padrao: v })} title={formatMoneyTooltip(row.material_limpeza_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.material_limpeza_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('lavanderia_enxoval_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[170px]" title={formatMoneyTooltip(row.lavanderia_enxoval_mensal_padrao)}>
-                      <MoneyInput value={row.lavanderia_enxoval_mensal_padrao} onChange={(v) => updateRow(row.rowId, { lavanderia_enxoval_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.lavanderia_enxoval_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.lavanderia_enxoval_mensal_padrao} onChange={(v) => updateRow(row.rowId, { lavanderia_enxoval_mensal_padrao: v })} title={formatMoneyTooltip(row.lavanderia_enxoval_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.lavanderia_enxoval_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('checkin_checkout_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.checkin_checkout_mensal_padrao)}>
-                      <MoneyInput value={row.checkin_checkout_mensal_padrao} onChange={(v) => updateRow(row.rowId, { checkin_checkout_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.checkin_checkout_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.checkin_checkout_mensal_padrao} onChange={(v) => updateRow(row.rowId, { checkin_checkout_mensal_padrao: v })} title={formatMoneyTooltip(row.checkin_checkout_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.checkin_checkout_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('taxas_pagamento_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.taxas_pagamento_mensal_padrao)}>
-                      <MoneyInput value={row.taxas_pagamento_mensal_padrao} onChange={(v) => updateRow(row.rowId, { taxas_pagamento_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.taxas_pagamento_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.taxas_pagamento_mensal_padrao} onChange={(v) => updateRow(row.rowId, { taxas_pagamento_mensal_padrao: v })} title={formatMoneyTooltip(row.taxas_pagamento_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.taxas_pagamento_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('tarifas_bancarias_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[160px]" title={formatMoneyTooltip(row.tarifas_bancarias_mensal_padrao)}>
-                      <MoneyInput value={row.tarifas_bancarias_mensal_padrao} onChange={(v) => updateRow(row.rowId, { tarifas_bancarias_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.tarifas_bancarias_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.tarifas_bancarias_mensal_padrao} onChange={(v) => updateRow(row.rowId, { tarifas_bancarias_mensal_padrao: v })} title={formatMoneyTooltip(row.tarifas_bancarias_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.tarifas_bancarias_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('vacancia_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.vacancia_mensal_padrao)}>
-                      <MoneyInput value={row.vacancia_mensal_padrao} onChange={(v) => updateRow(row.rowId, { vacancia_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.vacancia_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.vacancia_mensal_padrao} onChange={(v) => updateRow(row.rowId, { vacancia_mensal_padrao: v })} title={formatMoneyTooltip(row.vacancia_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.vacancia_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                   {visibleColumns.includes('inadimplencia_mensal_padrao') && (
                     <td className="py-2 px-2 min-w-[160px]" title={formatMoneyTooltip(row.inadimplencia_mensal_padrao)}>
-                      <MoneyInput value={row.inadimplencia_mensal_padrao} onChange={(v) => updateRow(row.rowId, { inadimplencia_mensal_padrao: v })} disabled={!canEditCell(row)} title={formatMoneyTooltip(row.inadimplencia_mensal_padrao)} />
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.inadimplencia_mensal_padrao} onChange={(v) => updateRow(row.rowId, { inadimplencia_mensal_padrao: v })} title={formatMoneyTooltip(row.inadimplencia_mensal_padrao)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.inadimplencia_mensal_padrao)}</span>
+                      )}
                     </td>
                   )}
                 </tr>
