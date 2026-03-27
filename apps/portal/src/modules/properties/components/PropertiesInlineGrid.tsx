@@ -75,6 +75,14 @@ type SaveRowInput = {
   inadimplencia_mensal_padrao: number;
 };
 
+export type SimulationDraftRowInput = {
+  rowId: string;
+  identificador: string;
+  valor_aluguel_mensal: number;
+  tipo_locacao: 'fixa' | 'flexivel';
+  natureza_locacao: 'residencial' | 'nao_residencial';
+};
+
 const INITIAL_EMPTY_ROWS = 5;
 const TRAILING_EMPTY_ROWS = 3;
 
@@ -86,7 +94,10 @@ type Props = {
   onRefreshClientProperties: () => Promise<void>;
   onRequireClientToSave: () => void;
   onSaveRows: (rows: SaveRowInput[]) => Promise<void>;
-  onApplyToSimulation: (propertyIds: string[]) => Promise<void>;
+  onApplyToSimulation: (payload: {
+    propertyIds: string[];
+    draftRows: SimulationDraftRowInput[];
+  }) => Promise<void>;
   onDeletePersistedRows: (propertyIds: string[]) => Promise<void>;
 };
 
@@ -224,11 +235,15 @@ function isGridRowEmpty(row: GridRow): boolean {
   );
 }
 
+function isRowEligibleForSimulation(row: GridRow): boolean {
+  return row.valor_aluguel_mensal > 0;
+}
+
 function ensureDraftCapacity(inputRows: GridRow[]): GridRow[] {
   const rows = [...inputRows];
-  const filledRows = rows.filter((r) => r.identificador.trim() !== '').length;
+  const filledRows = rows.filter((r) => !isGridRowEmpty(r)).length;
   const desiredEmptyBuffer = filledRows === 0 ? INITIAL_EMPTY_ROWS : TRAILING_EMPTY_ROWS;
-  const currentEmpty = rows.filter((r) => r.identificador.trim() === '').length;
+  const currentEmpty = rows.filter((r) => isGridRowEmpty(r)).length;
 
   if (currentEmpty >= desiredEmptyBuffer) return rows;
 
@@ -288,15 +303,41 @@ export function PropertiesInlineGrid({
   const selectedPersistedIds = useMemo(
     () =>
       rows
-        .filter((r) => r.isSelected && r.isPersisted && r.propertyId && r.identificador.trim() !== '')
+        .filter((r) => r.isSelected && r.isPersisted && r.propertyId && isRowEligibleForSimulation(r))
         .map((r) => r.propertyId as string),
     [rows]
   );
   const allPersistedIds = useMemo(
     () =>
       rows
-        .filter((r) => r.isPersisted && r.propertyId && r.identificador.trim() !== '')
+        .filter((r) => r.isPersisted && r.propertyId && isRowEligibleForSimulation(r))
         .map((r) => r.propertyId as string),
+    [rows]
+  );
+  const selectedDraftRows = useMemo(
+    () =>
+      rows
+        .filter((r) => r.isSelected && !r.isPersisted && isRowEligibleForSimulation(r))
+        .map((r) => ({
+          rowId: r.rowId,
+          identificador: r.identificador.trim(),
+          valor_aluguel_mensal: r.valor_aluguel_mensal,
+          tipo_locacao: (r.tipo_locacao || 'fixa') as 'fixa' | 'flexivel',
+          natureza_locacao: (r.natureza_locacao || 'residencial') as 'residencial' | 'nao_residencial',
+        })),
+    [rows]
+  );
+  const allDraftRows = useMemo(
+    () =>
+      rows
+        .filter((r) => !r.isPersisted && isRowEligibleForSimulation(r))
+        .map((r) => ({
+          rowId: r.rowId,
+          identificador: r.identificador.trim(),
+          valor_aluguel_mensal: r.valor_aluguel_mensal,
+          tipo_locacao: (r.tipo_locacao || 'fixa') as 'fixa' | 'flexivel',
+          natureza_locacao: (r.natureza_locacao || 'residencial') as 'residencial' | 'nao_residencial',
+        })),
     [rows]
   );
 
@@ -321,7 +362,7 @@ export function PropertiesInlineGrid({
   };
 
   const hasRowsToSave = rows.some((r) => getRowStatus(r) === 'clock');
-  const filledRowsCount = rows.filter((r) => !isRowEmpty(r)).length;
+  const eligibleRowsCount = rows.filter((r) => isRowEligibleForSimulation(r)).length;
   const selectedSavedRowsCount = rows.filter(
     (r) => r.isSelected && getRowStatus(r) === 'saved'
   ).length;
@@ -510,7 +551,7 @@ export function PropertiesInlineGrid({
             variant="secondary"
             size="sm"
             onClick={() => setShowLoadSimulationModal(true)}
-            disabled={filledRowsCount === 0}
+            disabled={eligibleRowsCount === 0}
           >
             Carregar simulação
           </Button>
@@ -902,9 +943,9 @@ export function PropertiesInlineGrid({
           <p className="text-sm text-slate-600">
             Deseja carregar a simulação com quais imóveis?
           </p>
-          {allPersistedIds.length === 0 && filledRowsCount > 0 && (
+          {allPersistedIds.length === 0 && allDraftRows.length > 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              Existem imóveis preenchidos, mas ainda não salvos. Salve os imóveis para habilitar o carregamento na simulação.
+              Existem imóveis não salvos com aluguel preenchido. Eles serão incluídos automaticamente no carregamento.
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-2">
@@ -918,24 +959,24 @@ export function PropertiesInlineGrid({
             <Button
               type="button"
               variant="secondary"
-              disabled={selectedPersistedIds.length === 0}
+              disabled={selectedPersistedIds.length + selectedDraftRows.length === 0}
               onClick={() => {
-                void onApplyToSimulation(selectedPersistedIds);
+                void onApplyToSimulation({ propertyIds: selectedPersistedIds, draftRows: selectedDraftRows });
                 setShowLoadSimulationModal(false);
               }}
             >
-              Apenas selecionados ({selectedPersistedIds.length})
+              Apenas selecionados ({selectedPersistedIds.length + selectedDraftRows.length})
             </Button>
             <Button
               type="button"
               variant="primary"
-              disabled={allPersistedIds.length === 0}
+              disabled={allPersistedIds.length + allDraftRows.length === 0}
               onClick={() => {
-                void onApplyToSimulation(allPersistedIds);
+                void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
                 setShowLoadSimulationModal(false);
               }}
             >
-              Todos salvos ({allPersistedIds.length})
+              Todos elegíveis ({allPersistedIds.length + allDraftRows.length})
             </Button>
           </div>
         </div>
