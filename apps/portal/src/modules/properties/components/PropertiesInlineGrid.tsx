@@ -387,6 +387,7 @@ export function PropertiesInlineGrid({
     }
     const changed = rows.filter((r) => getRowStatus(r) === 'clock');
     if (!changed.length) return;
+    const savedDraftRowIds = new Set(changed.filter((r) => !r.isPersisted).map((r) => r.rowId));
     setIsSaving(true);
     try {
       await onSaveRows(
@@ -410,6 +411,11 @@ export function PropertiesInlineGrid({
           inadimplencia_mensal_padrao: r.inadimplencia_mensal_padrao,
         }))
       );
+      // Remove apenas os rascunhos que foram persistidos para evitar
+      // duplicidade quando a listagem recarregar os mesmos imóveis salvos.
+      if (savedDraftRowIds.size > 0) {
+        setRows((prev) => ensureDraftCapacity(prev.filter((r) => !savedDraftRowIds.has(r.rowId))));
+      }
       await onRefreshClientProperties();
     } finally {
       setIsSaving(false);
