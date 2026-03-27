@@ -700,6 +700,40 @@ export function SimuladorImoveis() {
       setResult(null);
       try {
         const mesesParaEnvio = buildMesesParaEnvio();
+        const selectedProperties = imoveisList.filter((p) => imoveisSelectedIds.has(p.id));
+        const usarSelecaoImoveis = selectedProperties.length > 0;
+        const quantidadeImoveisResidenciaisSelecionados = selectedProperties.filter(
+          (p) => p.natureza_locacao !== 'nao_residencial'
+        ).length;
+        const quantidadeImoveisComerciaisSelecionados = selectedProperties.filter(
+          (p) => p.natureza_locacao === 'nao_residencial'
+        ).length;
+        const receitaLocacaoResidencialSelecionadaAnual = round2(
+          selectedProperties
+            .filter((p) => p.natureza_locacao !== 'nao_residencial')
+            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+        );
+        const receitaLocacaoNaoResidencialSelecionadaAnual = round2(
+          selectedProperties
+            .filter((p) => p.natureza_locacao === 'nao_residencial')
+            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+        );
+        const quantidadeImoveisResidenciaisInput = usarSelecaoImoveis
+          ? quantidadeImoveisResidenciaisSelecionados
+          : quantidadeImoveisResidenciais;
+        const quantidadeImoveisComerciaisInput = usarSelecaoImoveis
+          ? quantidadeImoveisComerciaisSelecionados
+          : quantidadeImoveisComerciais;
+        const receitaLocacaoResidencialAnualInput = usarSelecaoImoveis
+          ? receitaLocacaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoResidencialAnual
+            : undefined;
+        const receitaLocacaoNaoResidencialAnualInput = usarSelecaoImoveis
+          ? receitaLocacaoNaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoNaoResidencialAnual
+            : undefined;
         const opcoes = {
           ano_referencia_reforma: anoReferenciaReforma,
           aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
@@ -714,11 +748,11 @@ export function SimuladorImoveis() {
           meses: mesesParaEnvio,
           aplicar_equiparacao_hospitalar: false,
           quantidade_imoveis: quantidadeImoveisTotal,
-          quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-          quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+          quantidade_imoveis_residenciais: quantidadeImoveisResidenciaisInput,
+          quantidade_imoveis_comerciais: quantidadeImoveisComerciaisInput,
           opcoes_reforma: opcoes,
-          receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
-          receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+          receita_locacao_residencial_anual: receitaLocacaoResidencialAnualInput,
+          receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualInput,
         });
         setResult(res);
       lastSimulationPayloadRef.current = {
@@ -726,11 +760,11 @@ export function SimuladorImoveis() {
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: quantidadeImoveisTotal,
-        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        quantidade_imoveis_residenciais: quantidadeImoveisResidenciaisInput,
+        quantidade_imoveis_comerciais: quantidadeImoveisComerciaisInput,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
-        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+        receita_locacao_residencial_anual: receitaLocacaoResidencialAnualInput,
+        receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualInput,
       };
       setEditingSimulationId(null);
         success('Simulação atualizada.');
@@ -747,6 +781,24 @@ export function SimuladorImoveis() {
     setResult(null);
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
+      const selectedProperties = imoveisList.filter((p) => imoveisSelectedIds.has(p.id));
+      const usarSelecaoImoveis = selectedProperties.length > 0;
+      const quantidadeImoveisResidenciaisSelecionados = selectedProperties.filter(
+        (p) => p.natureza_locacao !== 'nao_residencial'
+      ).length;
+      const quantidadeImoveisComerciaisSelecionados = selectedProperties.filter(
+        (p) => p.natureza_locacao === 'nao_residencial'
+      ).length;
+      const receitaLocacaoResidencialSelecionadaAnual = round2(
+        selectedProperties
+          .filter((p) => p.natureza_locacao !== 'nao_residencial')
+          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+      );
+      const receitaLocacaoNaoResidencialSelecionadaAnual = round2(
+        selectedProperties
+          .filter((p) => p.natureza_locacao === 'nao_residencial')
+          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+      );
       const opcoes = {
         ano_referencia_reforma: anoReferenciaReforma,
         aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
@@ -756,19 +808,27 @@ export function SimuladorImoveis() {
         contrato_antes_16012025: contratoAntes16012025,
         perfil_locacao: perfilLocacao,
       };
-      const qtdTotal = imoveisSelectedIds.size > 0
-        ? imoveisSelectedIds.size
+      const qtdTotal = usarSelecaoImoveis
+        ? selectedProperties.length
         : quantidadeImoveisTotal;
       const res = await propertyService.simulateStandalone({
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: qtdTotal || 1,
-        quantidade_imoveis_residenciais: imoveisSelectedIds.size > 0 ? qtdTotal : quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: imoveisSelectedIds.size > 0 ? 0 : quantidadeImoveisComerciais,
+        quantidade_imoveis_residenciais: usarSelecaoImoveis ? quantidadeImoveisResidenciaisSelecionados : quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: usarSelecaoImoveis ? quantidadeImoveisComerciaisSelecionados : quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
-        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+        receita_locacao_residencial_anual: usarSelecaoImoveis
+          ? receitaLocacaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoResidencialAnual
+            : undefined,
+        receita_locacao_nao_residencial_anual: usarSelecaoImoveis
+          ? receitaLocacaoNaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoNaoResidencialAnual
+            : undefined,
       });
       setResult(res);
       if (clientId) {
@@ -779,11 +839,19 @@ export function SimuladorImoveis() {
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: qtdTotal || 1,
-        quantidade_imoveis_residenciais: imoveisSelectedIds.size > 0 ? qtdTotal : quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: imoveisSelectedIds.size > 0 ? 0 : quantidadeImoveisComerciais,
+        quantidade_imoveis_residenciais: usarSelecaoImoveis ? quantidadeImoveisResidenciaisSelecionados : quantidadeImoveisResidenciais,
+        quantidade_imoveis_comerciais: usarSelecaoImoveis ? quantidadeImoveisComerciaisSelecionados : quantidadeImoveisComerciais,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
-        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+        receita_locacao_residencial_anual: usarSelecaoImoveis
+          ? receitaLocacaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoResidencialAnual
+            : undefined,
+        receita_locacao_nao_residencial_anual: usarSelecaoImoveis
+          ? receitaLocacaoNaoResidencialSelecionadaAnual
+          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+            ? receitaLocacaoNaoResidencialAnual
+            : undefined,
       };
       success('Simulação concluída.');
     } catch (err) {
@@ -1018,7 +1086,9 @@ export function SimuladorImoveis() {
               client_id: clientId,
               properties: validRows.map((r) => ({
                 identificador: r.identificador.trim(),
+                valor_aluguel_mensal: r.valor_aluguel_mensal,
                 tipo_locacao: r.tipo_locacao,
+                natureza_locacao: r.natureza_locacao,
                 modo_entrada: 'detalhado',
                 iptu_mensal_padrao: r.iptu_mensal_padrao,
                 condominio_mensal_padrao: r.condominio_mensal_padrao,

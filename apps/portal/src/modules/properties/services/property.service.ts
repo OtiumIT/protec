@@ -79,7 +79,9 @@ export const propertyService = {
   async create(data: {
     client_id: string;
     tipo_locacao: 'fixa' | 'flexivel';
+    natureza_locacao?: 'residencial' | 'nao_residencial';
     identificador: string;
+    valor_aluguel_mensal?: number;
     modo_entrada?: 'detalhado' | 'reduzido';
     matricula_imovel?: string;
     inscricao_iptu?: string;
@@ -121,7 +123,9 @@ export const propertyService = {
     client_id: string;
     properties: Array<{
       tipo_locacao: 'fixa' | 'flexivel';
+      natureza_locacao?: 'residencial' | 'nao_residencial';
       identificador: string;
+      valor_aluguel_mensal?: number;
       modo_entrada?: 'detalhado' | 'reduzido';
       matricula_imovel?: string;
       inscricao_iptu?: string;
@@ -162,7 +166,7 @@ export const propertyService = {
 
   async update(
     id: string,
-    data: Partial<{ client_id: string; tipo_locacao: 'fixa' | 'flexivel'; identificador: string; modo_entrada: 'detalhado' | 'reduzido'; matricula_imovel: string; inscricao_iptu: string; cartorio_registro: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; iptu_mensal_padrao: number; condominio_mensal_padrao: number; seguro_mensal_padrao: number; camareira_mensal_padrao: number; seguranca_mensal_padrao: number; material_limpeza_mensal_padrao: number; lavanderia_enxoval_mensal_padrao: number; checkin_checkout_mensal_padrao: number; taxas_pagamento_mensal_padrao: number; tarifas_bancarias_mensal_padrao: number; vacancia_mensal_padrao: number; inadimplencia_mensal_padrao: number; }>
+    data: Partial<{ client_id: string; tipo_locacao: 'fixa' | 'flexivel'; natureza_locacao: 'residencial' | 'nao_residencial'; identificador: string; valor_aluguel_mensal: number; modo_entrada: 'detalhado' | 'reduzido'; matricula_imovel: string; inscricao_iptu: string; cartorio_registro: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string; cidade: string; uf: string; iptu_mensal_padrao: number; condominio_mensal_padrao: number; seguro_mensal_padrao: number; camareira_mensal_padrao: number; seguranca_mensal_padrao: number; material_limpeza_mensal_padrao: number; lavanderia_enxoval_mensal_padrao: number; checkin_checkout_mensal_padrao: number; taxas_pagamento_mensal_padrao: number; tarifas_bancarias_mensal_padrao: number; vacancia_mensal_padrao: number; inadimplencia_mensal_padrao: number; }>
   ): Promise<Property> {
     const { token, tenantId } = getAuthHeaders();
     const response = await apiRequest<{ data: { property: Property } }>(

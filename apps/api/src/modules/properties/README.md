@@ -46,8 +46,14 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### Regra 4: Tipos de Locação
 
-- `fixa`: Locação mensal tradicional
+- `fixa`: Locação de longa duração (mensal tradicional)
 - `flexivel`: Airbnb/short-term
+
+### Regra 4.1: Natureza da locação e aluguel mensal por imóvel
+
+- `natureza_locacao` define a classificação tributária do imóvel (`residencial` ou `nao_residencial`).
+- `valor_aluguel_mensal` é a receita base prioritária do imóvel.
+- Na simulação por `property_ids`, quando não houver receita lançada no mês para um imóvel, o sistema usa `valor_aluguel_mensal` como fallback para compor o ano (12 meses).
 
 ### Regra 5: Categorias de Transações
 
@@ -110,6 +116,8 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 | Campo de cadastro | Impacto no cálculo | Nível de confiança |
 | --- | --- | --- |
+| `valor_aluguel_mensal` | Receita base mensal por imóvel; quando não há lançamento no mês, compõe a receita anual para PF/PJ/Reforma. | Alto |
+| `natureza_locacao` | Segmenta receita residencial vs não residencial para Reforma (redutor social só residencial). | Alto |
 | `tipo_locacao` | Direciona separação de receita carregada (`tradicional` vs `curto`) no preview agregado. | Médio (depende da qualidade do cadastro) |
 | `iptu_mensal_padrao`, `condominio_mensal_padrao`, `seguro_mensal_padrao` | Complementam despesas dedutíveis por rubrica no carregamento da simulação. | Alto |
 | `camareira_mensal_padrao`, `seguranca_mensal_padrao`, `material_limpeza_mensal_padrao`, `lavanderia_enxoval_mensal_padrao`, `checkin_checkout_mensal_padrao`, `taxas_pagamento_mensal_padrao`, `tarifas_bancarias_mensal_padrao`, `vacancia_mensal_padrao`, `inadimplencia_mensal_padrao` | Complementam custos operacionais por rubrica no carregamento da simulação. | Alto |

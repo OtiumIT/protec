@@ -4,6 +4,8 @@ const monetaryValue = z.number().nonnegative().multipleOf(0.01).or(z.literal(0))
 
 export const TipoLocacaoSchema = z.enum(['fixa', 'flexivel']);
 export type TipoLocacao = z.infer<typeof TipoLocacaoSchema>;
+export const NaturezaLocacaoSchema = z.enum(['residencial', 'nao_residencial']);
+export type NaturezaLocacao = z.infer<typeof NaturezaLocacaoSchema>;
 
 export const TransactionTipoSchema = z.enum([
   'receita',
@@ -48,7 +50,9 @@ export type ModoEntrada = z.infer<typeof ModoEntradaSchema>;
 export const CreatePropertySchema = z.object({
   client_id: z.string().uuid(),
   tipo_locacao: TipoLocacaoSchema,
+  natureza_locacao: NaturezaLocacaoSchema.optional().default('residencial'),
   identificador: z.string().min(1).max(255),
+  valor_aluguel_mensal: monetaryValue.optional().default(0),
   modo_entrada: ModoEntradaSchema.optional().default('detalhado'),
   matricula_imovel: z.string().max(100).optional(),
   inscricao_iptu: z.string().max(100).optional(),
@@ -86,7 +90,9 @@ export const CreatePropertiesBatchSchema = z.object({
 export const UpdatePropertySchema = z.object({
   client_id: z.string().uuid().optional(),
   tipo_locacao: TipoLocacaoSchema.optional(),
+  natureza_locacao: NaturezaLocacaoSchema.optional(),
   identificador: z.string().min(1).max(255).optional(),
+  valor_aluguel_mensal: monetaryValue.optional(),
   modo_entrada: ModoEntradaSchema.optional(),
   matricula_imovel: z.string().max(100).optional(),
   inscricao_iptu: z.string().max(100).optional(),

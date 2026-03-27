@@ -5,7 +5,9 @@ import type { AggregatedYear } from './calculations';
 export interface CreatePropertyData {
   client_id: string;
   tipo_locacao: string;
+  natureza_locacao?: 'residencial' | 'nao_residencial';
   identificador: string;
+  valor_aluguel_mensal?: number;
   modo_entrada?: 'detalhado' | 'reduzido';
   matricula_imovel?: string;
   inscricao_iptu?: string;
@@ -34,7 +36,9 @@ export interface CreatePropertyData {
 export interface UpdatePropertyData {
   client_id?: string;
   tipo_locacao?: string;
+  natureza_locacao?: 'residencial' | 'nao_residencial';
   identificador?: string;
+  valor_aluguel_mensal?: number;
   modo_entrada?: 'detalhado' | 'reduzido';
   matricula_imovel?: string;
   inscricao_iptu?: string;
@@ -103,7 +107,7 @@ export class PropertyRepository extends BaseRepository {
     const modo = data.modo_entrada ?? 'detalhado';
     const result = await this.query<Property>(
       `INSERT INTO properties (
-        client_id, tipo_locacao, identificador, modo_entrada,
+        client_id, tipo_locacao, natureza_locacao, identificador, valor_aluguel_mensal, modo_entrada,
         matricula_imovel, inscricao_iptu, cartorio_registro,
         cep, logradouro, numero, complemento, bairro, cidade, uf,
         iptu_mensal_padrao, condominio_mensal_padrao, seguro_mensal_padrao,
@@ -113,18 +117,18 @@ export class PropertyRepository extends BaseRepository {
         vacancia_mensal_padrao, inadimplencia_mensal_padrao
       )
       VALUES (
-        $1, $2, $3, $4,
-        $5, $6, $7,
-        $8, $9, $10, $11, $12, $13, $14,
-        $15, $16, $17,
-        $18, $19, $20,
-        $21, $22,
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9,
+        $10, $11, $12, $13, $14, $15, $16,
+        $17, $18, $19,
+        $20, $21, $22,
         $23, $24,
-        $25, $26
+        $25, $26,
+        $27, $28
       )
       RETURNING *`,
       [
-        data.client_id, data.tipo_locacao, data.identificador, modo,
+        data.client_id, data.tipo_locacao, data.natureza_locacao ?? 'residencial', data.identificador, data.valor_aluguel_mensal ?? 0, modo,
         data.matricula_imovel ?? null, data.inscricao_iptu ?? null, data.cartorio_registro ?? null,
         data.cep ?? null, data.logradouro ?? null, data.numero ?? null, data.complemento ?? null, data.bairro ?? null, data.cidade ?? null, data.uf ?? null,
         data.iptu_mensal_padrao ?? null, data.condominio_mensal_padrao ?? null, data.seguro_mensal_padrao ?? null,
@@ -160,9 +164,17 @@ export class PropertyRepository extends BaseRepository {
       updates.push(`tipo_locacao = $${idx++}`);
       params.push(data.tipo_locacao);
     }
+    if (data.natureza_locacao !== undefined) {
+      updates.push(`natureza_locacao = $${idx++}`);
+      params.push(data.natureza_locacao);
+    }
     if (data.identificador !== undefined) {
       updates.push(`identificador = $${idx++}`);
       params.push(data.identificador);
+    }
+    if (data.valor_aluguel_mensal !== undefined) {
+      updates.push(`valor_aluguel_mensal = $${idx++}`);
+      params.push(data.valor_aluguel_mensal);
     }
     if (data.modo_entrada !== undefined) {
       updates.push(`modo_entrada = $${idx++}`);
@@ -432,7 +444,9 @@ export class PropertyRepository extends BaseRepository {
         property_id: string;
         identificador: string;
         tipo_locacao: string;
+        natureza_locacao: 'residencial' | 'nao_residencial';
         defaults: {
+          valor_aluguel_mensal?: number;
           iptu_mensal_padrao?: number;
           condominio_mensal_padrao?: number;
           seguro_mensal_padrao?: number;
@@ -456,7 +470,9 @@ export class PropertyRepository extends BaseRepository {
         property_id: string;
         identificador: string;
         tipo_locacao: string;
+        natureza_locacao: 'residencial' | 'nao_residencial';
         defaults: {
+          valor_aluguel_mensal?: number;
           iptu_mensal_padrao?: number;
           condominio_mensal_padrao?: number;
           seguro_mensal_padrao?: number;
@@ -524,7 +540,9 @@ export class PropertyRepository extends BaseRepository {
           property_id: pid,
           identificador: prop.identificador,
           tipo_locacao: prop.tipo_locacao,
+          natureza_locacao: (prop as any).natureza_locacao === 'nao_residencial' ? 'nao_residencial' : 'residencial',
           defaults: {
+            valor_aluguel_mensal: Number((prop as any).valor_aluguel_mensal ?? 0),
             iptu_mensal_padrao: Number((prop as any).iptu_mensal_padrao ?? 0),
             condominio_mensal_padrao: Number((prop as any).condominio_mensal_padrao ?? 0),
             seguro_mensal_padrao: Number((prop as any).seguro_mensal_padrao ?? 0),
@@ -627,7 +645,9 @@ export class PropertyRepository extends BaseRepository {
         property_id: pid,
         identificador,
         tipo_locacao: prop.tipo_locacao,
+        natureza_locacao: (prop as any).natureza_locacao === 'nao_residencial' ? 'nao_residencial' : 'residencial',
         defaults: {
+          valor_aluguel_mensal: Number((prop as any).valor_aluguel_mensal ?? 0),
           iptu_mensal_padrao: Number((prop as any).iptu_mensal_padrao ?? 0),
           condominio_mensal_padrao: Number((prop as any).condominio_mensal_padrao ?? 0),
           seguro_mensal_padrao: Number((prop as any).seguro_mensal_padrao ?? 0),

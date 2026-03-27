@@ -7,7 +7,9 @@ import { Input } from '../../../shared/components/ui/Input';
 
 type ColumnId =
   | 'identificador'
+  | 'valor_aluguel_mensal'
   | 'tipo_locacao'
+  | 'natureza_locacao'
   | 'matricula_imovel'
   | 'inscricao_iptu'
   | 'cartorio_registro'
@@ -31,7 +33,9 @@ type GridRow = {
   isSelected: boolean;
   isEditing: boolean;
   identificador: string;
+  valor_aluguel_mensal: number;
   tipo_locacao: 'fixa' | 'flexivel' | '';
+  natureza_locacao: 'residencial' | 'nao_residencial' | '';
   matricula_imovel: string;
   inscricao_iptu: string;
   cartorio_registro: string;
@@ -51,7 +55,9 @@ type GridRow = {
 
 type SaveRowInput = {
   identificador: string;
+  valor_aluguel_mensal: number;
   tipo_locacao: 'fixa' | 'flexivel';
+  natureza_locacao: 'residencial' | 'nao_residencial';
   matricula_imovel?: string;
   inscricao_iptu?: string;
   cartorio_registro?: string;
@@ -85,8 +91,10 @@ type Props = {
 };
 
 const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
-  { id: 'identificador', label: 'Nome' },
-  { id: 'tipo_locacao', label: 'Tipo' },
+  { id: 'identificador', label: 'Imovel' },
+  { id: 'valor_aluguel_mensal', label: 'Valor do aluguel mensal', isMoney: true },
+  { id: 'tipo_locacao', label: 'Tipo da locacao' },
+  { id: 'natureza_locacao', label: 'Natureza da locacao' },
   { id: 'matricula_imovel', label: 'Matrícula' },
   { id: 'inscricao_iptu', label: 'Inscrição IPTU' },
   { id: 'cartorio_registro', label: 'Cartório' },
@@ -106,11 +114,12 @@ const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
 
 const DEFAULT_VISIBLE_COLUMNS: ColumnId[] = [
   'identificador',
+  'valor_aluguel_mensal',
   'tipo_locacao',
+  'natureza_locacao',
   'iptu_mensal_padrao',
   'condominio_mensal_padrao',
-  'seguro_mensal_padrao',
-  'taxas_pagamento_mensal_padrao',
+  'seguro_mensal_padrao'
 ];
 
 function toGridRow(property: PropertyWithClient): GridRow {
@@ -121,7 +130,9 @@ function toGridRow(property: PropertyWithClient): GridRow {
     isSelected: false,
     isEditing: false,
     identificador: property.identificador ?? '',
+    valor_aluguel_mensal: Number(property.valor_aluguel_mensal ?? 0),
     tipo_locacao: property.tipo_locacao === 'flexivel' ? 'flexivel' : 'fixa',
+    natureza_locacao: property.natureza_locacao === 'nao_residencial' ? 'nao_residencial' : 'residencial',
     matricula_imovel: property.matricula_imovel ?? '',
     inscricao_iptu: property.inscricao_iptu ?? '',
     cartorio_registro: property.cartorio_registro ?? '',
@@ -147,7 +158,9 @@ function createDraftRow(): GridRow {
     isSelected: false,
     isEditing: true,
     identificador: '',
+    valor_aluguel_mensal: 0,
     tipo_locacao: '',
+    natureza_locacao: '',
     matricula_imovel: '',
     inscricao_iptu: '',
     cartorio_registro: '',
@@ -176,15 +189,23 @@ function formatMoneyTooltip(value: number): string {
 }
 
 function formatTipoLocacaoLabel(tipo: GridRow['tipo_locacao']): string {
-  if (tipo === 'fixa') return 'Fixa - locação contínua';
-  if (tipo === 'flexivel') return 'Flexível - curta temporada';
+  if (tipo === 'fixa') return 'Locação de longa duração';
+  if (tipo === 'flexivel') return 'Locação curta duração/temporada';
+  return '-';
+}
+
+function formatNaturezaLocacaoLabel(natureza: GridRow['natureza_locacao']): string {
+  if (natureza === 'residencial') return 'Residencial';
+  if (natureza === 'nao_residencial') return 'Nao residencial';
   return '-';
 }
 
 function isGridRowEmpty(row: GridRow): boolean {
   return (
     row.identificador.trim() === '' &&
+    row.valor_aluguel_mensal === 0 &&
     row.tipo_locacao === '' &&
+    row.natureza_locacao === '' &&
     row.matricula_imovel.trim() === '' &&
     row.inscricao_iptu.trim() === '' &&
     row.cartorio_registro.trim() === '' &&
@@ -319,7 +340,9 @@ export function PropertiesInlineGrid({
           isPersisted: false,
           isEditing: true,
           identificador: `Teste Imovel ${seed}`,
+          valor_aluguel_mensal: 1500 * seed,
           tipo_locacao: seed % 2 === 0 ? 'flexivel' : 'fixa',
+          natureza_locacao: seed % 3 === 0 ? 'nao_residencial' : 'residencial',
           iptu_mensal_padrao: 120 * seed,
           condominio_mensal_padrao: 180 * seed,
           seguro_mensal_padrao: 60 * seed,
@@ -399,7 +422,9 @@ export function PropertiesInlineGrid({
       await onSaveRows(
         changed.map((r) => ({
           identificador: r.identificador,
+          valor_aluguel_mensal: r.valor_aluguel_mensal,
           tipo_locacao: (r.tipo_locacao || 'fixa') as 'fixa' | 'flexivel',
+          natureza_locacao: (r.natureza_locacao || 'residencial') as 'residencial' | 'nao_residencial',
           matricula_imovel: r.matricula_imovel || undefined,
           inscricao_iptu: r.inscricao_iptu || undefined,
           cartorio_registro: r.cartorio_registro || undefined,
@@ -503,7 +528,7 @@ export function PropertiesInlineGrid({
           <span className="inline-flex items-center gap-1">✅ salva</span>
           <span className="inline-flex items-center gap-1">🕒 não salva</span>
           <span className="text-slate-500">
-            Tipo: <strong>Fixa</strong> (locação contínua) | <strong>Flexível</strong> (curta temporada/Airbnb)
+            Tipo: <strong>Locação de longa duração</strong> | <strong>Locação curta duração/temporada</strong>
           </span>
         </div>
         <div className="relative">
@@ -576,11 +601,21 @@ export function PropertiesInlineGrid({
                           className="w-full border border-slate-200 rounded px-2 py-1"
                           value={row.identificador}
                           onChange={(e) => updateRow(row.rowId, { identificador: e.target.value })}
-                          placeholder="Nome"
+                          placeholder="Imovel"
                           title={row.identificador || ''}
                         />
                       ) : (
                         <span className="block px-2 py-1 text-slate-800">{row.identificador || '-'}</span>
+                      )}
+                    </td>
+                  )}
+
+                  {visibleColumns.includes('valor_aluguel_mensal') && (
+                    <td className="py-2 px-2 min-w-[180px]" title={formatMoneyTooltip(row.valor_aluguel_mensal)}>
+                      {canEditCell(row) ? (
+                        <MoneyInput value={row.valor_aluguel_mensal} onChange={(v) => updateRow(row.rowId, { valor_aluguel_mensal: v })} title={formatMoneyTooltip(row.valor_aluguel_mensal)} />
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.valor_aluguel_mensal)}</span>
                       )}
                     </td>
                   )}
@@ -590,9 +625,9 @@ export function PropertiesInlineGrid({
                       className="py-2 px-2 min-w-[170px]"
                       title={
                         row.tipo_locacao === 'fixa'
-                          ? 'Fixa (locação contínua: mensal/tradicional)'
+                          ? 'Locação de longa duração'
                           : row.tipo_locacao === 'flexivel'
-                            ? 'Flexível (curta temporada/Airbnb)'
+                            ? 'Locação curta duração/temporada'
                             : 'Selecione o tipo da locação'
                       }
                     >
@@ -603,18 +638,52 @@ export function PropertiesInlineGrid({
                           onChange={(e) => updateRow(row.rowId, { tipo_locacao: e.target.value as 'fixa' | 'flexivel' | '' })}
                           title={
                             row.tipo_locacao === 'fixa'
-                              ? 'Fixa (locação contínua: mensal/tradicional)'
+                              ? 'Locação de longa duração'
                               : row.tipo_locacao === 'flexivel'
-                                ? 'Flexível (curta temporada/Airbnb)'
+                                ? 'Locação curta duração/temporada'
                                 : 'Selecione o tipo da locação'
                           }
                         >
-                          <option value="">Selecione o tipo</option>
-                          <option value="fixa">Fixa - locação contínua</option>
-                          <option value="flexivel">Flexível - curta temporada</option>
+                          <option value="">Selecione o tipo da locação</option>
+                          <option value="fixa">Locação de longa duração</option>
+                          <option value="flexivel">Locação curta duração/temporada</option>
                         </select>
                       ) : (
                         <span className="block px-2 py-1 text-slate-800">{formatTipoLocacaoLabel(row.tipo_locacao)}</span>
+                      )}
+                    </td>
+                  )}
+
+                  {visibleColumns.includes('natureza_locacao') && (
+                    <td
+                      className="py-2 px-2 min-w-[190px]"
+                      title={
+                        row.natureza_locacao === 'residencial'
+                          ? 'Residencial'
+                          : row.natureza_locacao === 'nao_residencial'
+                            ? 'Nao residencial'
+                            : 'Selecione a natureza da locação'
+                      }
+                    >
+                      {canEditCell(row) ? (
+                        <select
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          value={row.natureza_locacao}
+                          onChange={(e) => updateRow(row.rowId, { natureza_locacao: e.target.value as 'residencial' | 'nao_residencial' | '' })}
+                          title={
+                            row.natureza_locacao === 'residencial'
+                              ? 'Residencial'
+                              : row.natureza_locacao === 'nao_residencial'
+                                ? 'Nao residencial'
+                                : 'Selecione a natureza da locação'
+                          }
+                        >
+                          <option value="">Selecione a natureza da locação</option>
+                          <option value="residencial">Residencial</option>
+                          <option value="nao_residencial">Nao residencial</option>
+                        </select>
+                      ) : (
+                        <span className="block px-2 py-1 text-slate-800">{formatNaturezaLocacaoLabel(row.natureza_locacao)}</span>
                       )}
                     </td>
                   )}

@@ -208,7 +208,9 @@ export class PropertyService {
     return this.repo.create({
       client_id: data.client_id,
       tipo_locacao: data.tipo_locacao,
+      natureza_locacao: data.natureza_locacao ?? 'residencial',
       identificador: data.identificador,
+      valor_aluguel_mensal: data.valor_aluguel_mensal ?? 0,
       modo_entrada: data.modo_entrada ?? 'detalhado',
       matricula_imovel: data.matricula_imovel,
       inscricao_iptu: data.inscricao_iptu,
@@ -277,7 +279,9 @@ export class PropertyService {
       normalized.map((item) => ({
         client_id: input.client_id,
         tipo_locacao: item.tipo_locacao,
+        natureza_locacao: item.natureza_locacao ?? 'residencial',
         identificador: item.identificador,
+        valor_aluguel_mensal: item.valor_aluguel_mensal ?? 0,
         modo_entrada: item.modo_entrada ?? 'detalhado',
         matricula_imovel: item.matricula_imovel,
         inscricao_iptu: item.inscricao_iptu,
@@ -326,7 +330,9 @@ export class PropertyService {
     return this.repo.update(id, {
       client_id: data.client_id,
       tipo_locacao: data.tipo_locacao,
+      natureza_locacao: data.natureza_locacao,
       identificador: data.identificador,
+      valor_aluguel_mensal: data.valor_aluguel_mensal,
       modo_entrada: data.modo_entrada,
       matricula_imovel: data.matricula_imovel,
       inscricao_iptu: data.inscricao_iptu,
@@ -558,12 +564,15 @@ export class PropertyService {
       let defaultInadimplencia = 0;
       for (const [, entry] of aggregatedMap) {
         const mesData = entry.aggregated.meses.find((x) => x.mes === mesStr);
+        const receitaMesLançada = mesData?.receita ?? 0;
+        const receitaMensalCadastro = entry.defaults.valor_aluguel_mensal ?? 0;
+        const receitaBaseMes = receitaMesLançada > 0 ? receitaMesLançada : receitaMensalCadastro;
+        if (entry.tipo_locacao === 'flexivel') {
+          recCurto += receitaBaseMes;
+        } else {
+          recTrad += receitaBaseMes;
+        }
         if (mesData) {
-          if (entry.tipo_locacao === 'flexivel') {
-            recCurto += mesData.receita;
-          } else {
-            recTrad += mesData.receita;
-          }
           desp += mesData.despesas_dedutiveis;
           custo += mesData.custos_operacionais;
         }
@@ -686,6 +695,10 @@ export class PropertyService {
     let receitaTotal = 0;
     let despesasDedutiveisTotal = 0;
     let custosOperacionaisTotal = 0;
+    let receitaLocacaoResidencialAnualAuto = 0;
+    let receitaLocacaoNaoResidencialAnualAuto = 0;
+    let quantidadeImoveisResidenciaisAuto = 0;
+    let quantidadeImoveisComerciaisAuto = 0;
     const mesesSoma: Array<{
       mes: string;
       receita: number;
@@ -700,8 +713,16 @@ export class PropertyService {
       let custo = 0;
       for (const [, entry] of aggregatedMap) {
         const mesData = entry.aggregated.meses.find((x) => x.mes === mesStr);
+        const receitaMesLançada = mesData?.receita ?? 0;
+        const receitaMensalCadastro = entry.defaults.valor_aluguel_mensal ?? 0;
+        const receitaBaseMes = receitaMesLançada > 0 ? receitaMesLançada : receitaMensalCadastro;
+        rec += receitaBaseMes;
+        if (entry.natureza_locacao === 'nao_residencial') {
+          receitaLocacaoNaoResidencialAnualAuto += receitaBaseMes;
+        } else {
+          receitaLocacaoResidencialAnualAuto += receitaBaseMes;
+        }
         if (mesData) {
-          rec += mesData.receita;
           desp += mesData.despesas_dedutiveis;
           custo += mesData.custos_operacionais;
         }
@@ -715,6 +736,14 @@ export class PropertyService {
       receitaTotal += rec;
       despesasDedutiveisTotal += desp;
       custosOperacionaisTotal += custo;
+    }
+
+    for (const [, entry] of aggregatedMap) {
+      if (entry.natureza_locacao === 'nao_residencial') {
+        quantidadeImoveisComerciaisAuto += 1;
+      } else {
+        quantidadeImoveisResidenciaisAuto += 1;
+      }
     }
 
     const aggregatedTotal = {
@@ -743,7 +772,13 @@ export class PropertyService {
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
 
     const quantidadeImoveisResidenciaisSimulate =
-      input.quantidade_imoveis_residenciais ?? 0;
+      input.quantidade_imoveis_residenciais ?? quantidadeImoveisResidenciaisAuto;
+    const quantidadeImoveisComerciaisSimulate =
+      input.quantidade_imoveis_comerciais ?? quantidadeImoveisComerciaisAuto;
+    const receitaLocacaoResidencialAnualSimulate =
+      input.receita_locacao_residencial_anual ?? receitaLocacaoResidencialAnualAuto;
+    const receitaLocacaoNaoResidencialAnualSimulate =
+      input.receita_locacao_nao_residencial_anual ?? receitaLocacaoNaoResidencialAnualAuto;
 
     const redutorSocialResidencialAnualSimulate =
       quantidadeImoveisResidenciaisSimulate > 0
@@ -761,6 +796,8 @@ export class PropertyService {
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualSimulate,
+      receita_locacao_residencial_anual: receitaLocacaoResidencialAnualSimulate,
+      receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualSimulate,
       fator_credito_custos_operacionais: creditoInfo.fator_aproveitamento,
     };
     const cenarioReforma = calcularReforma2027(
@@ -769,8 +806,6 @@ export class PropertyService {
       redutorLocacaoSimulate,
       opcoesReformaSimulate
     );
-    const quantidadeImoveisComerciaisSimulate =
-      input.quantidade_imoveis_comerciais ?? 0;
     const quantidadeImoveisResidenciaisParaContribuinte =
       quantidadeImoveisResidenciaisSimulate || 0;
     const quantidadeImoveisTotalSimulate =
@@ -778,7 +813,7 @@ export class PropertyService {
       input.quantidade_imoveis_comerciais != null
         ? quantidadeImoveisResidenciaisParaContribuinte +
           quantidadeImoveisComerciaisSimulate
-        : input.property_ids.length) || 0;
+        : quantidadeImoveisResidenciaisAuto + quantidadeImoveisComerciaisAuto) || 0;
     const { contribuinte: contribuinteIbsCbsPF } =
       verificarContribuinteIbsCbsPF(
         quantidadeImoveisTotalSimulate,

@@ -239,7 +239,9 @@ export type Property = {
   id: string;
   client_id: string;
   tipo_locacao: 'fixa' | 'flexivel';
+  natureza_locacao?: 'residencial' | 'nao_residencial';
   identificador: string;
+  valor_aluguel_mensal?: number;
   modo_entrada: 'detalhado' | 'reduzido';
   matricula_imovel?: string;
   inscricao_iptu?: string;
