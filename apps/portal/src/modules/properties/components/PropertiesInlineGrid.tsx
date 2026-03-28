@@ -384,6 +384,10 @@ export function PropertiesInlineGrid({
       void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
       return;
     }
+    if (selectedForSimulationCount === totalEligibleForLoad) {
+      void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
+      return;
+    }
     setShowLoadSimulationModal(true);
   }, [
     eligibleRowsCount,
@@ -586,7 +590,9 @@ export function PropertiesInlineGrid({
             title={
               selectedForSimulationCount === 0
                 ? 'Carrega todos os imóveis elegíveis na simulação'
-                : 'Escolher entre imóveis selecionados ou todos os elegíveis'
+                : selectedForSimulationCount === totalEligibleForLoad
+                  ? 'Todos os elegíveis estão marcados — carrega direto'
+                  : 'Escolher entre imóveis selecionados ou todos os elegíveis'
             }
           >
             Carregar simulação
