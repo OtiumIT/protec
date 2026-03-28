@@ -375,6 +375,25 @@ export function PropertiesInlineGrid({
     (r) => r.isSelected && getRowStatus(r) === 'saved'
   ).length;
 
+  const selectedForSimulationCount = selectedPersistedIds.length + selectedDraftRows.length;
+  const totalEligibleForLoad = allPersistedIds.length + allDraftRows.length;
+
+  const handleClickCarregarSimulacao = useCallback(() => {
+    if (eligibleRowsCount === 0 || totalEligibleForLoad === 0) return;
+    if (selectedForSimulationCount === 0) {
+      void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
+      return;
+    }
+    setShowLoadSimulationModal(true);
+  }, [
+    eligibleRowsCount,
+    totalEligibleForLoad,
+    selectedForSimulationCount,
+    allPersistedIds,
+    allDraftRows,
+    onApplyToSimulation,
+  ]);
+
   const fillDebugRows = useCallback((count: number) => {
     setRows((prev) => {
       const next = [...prev];
@@ -562,8 +581,13 @@ export function PropertiesInlineGrid({
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => setShowLoadSimulationModal(true)}
+            onClick={handleClickCarregarSimulacao}
             disabled={eligibleRowsCount === 0}
+            title={
+              selectedForSimulationCount === 0
+                ? 'Carrega todos os imóveis elegíveis na simulação'
+                : 'Escolher entre imóveis selecionados ou todos os elegíveis'
+            }
           >
             Carregar simulação
           </Button>
@@ -990,21 +1014,34 @@ export function PropertiesInlineGrid({
       <Modal
         isOpen={showLoadSimulationModal}
         onClose={() => setShowLoadSimulationModal(false)}
-        title="Carregar simulação"
+        title="Imóveis na simulação"
+        size="sm"
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            Deseja carregar a simulação com quais imóveis?
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Você tem <strong className="text-slate-900">{selectedForSimulationCount}</strong>{' '}
+            {selectedForSimulationCount === 1 ? 'linha marcada' : 'linhas marcadas'} na grade. Envie só essas ou todos os
+            imóveis elegíveis ({totalEligibleForLoad}).
           </p>
           {allPersistedIds.length === 0 && allDraftRows.length > 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              Existem imóveis não salvos com aluguel preenchido. Eles serão incluídos automaticamente no carregamento.
-            </p>
+            <div
+              className="flex gap-2 rounded-lg border border-amber-200/90 bg-amber-50/90 px-3 py-2 text-xs text-amber-950"
+              role="status"
+            >
+              <span className="shrink-0 font-medium" aria-hidden>
+                ℹ
+              </span>
+              <span>
+                Há rascunhos (não salvos) com dados válidos: eles entram no carregamento junto com a opção que você
+                escolher abaixo.
+              </span>
+            </div>
           )}
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:flex-nowrap sm:justify-end sm:gap-3">
             <Button
               type="button"
               variant="tertiary"
+              className="w-full shrink-0 sm:w-auto sm:min-w-[7rem]"
               onClick={() => setShowLoadSimulationModal(false)}
             >
               Cancelar
@@ -1012,24 +1049,26 @@ export function PropertiesInlineGrid({
             <Button
               type="button"
               variant="secondary"
-              disabled={selectedPersistedIds.length + selectedDraftRows.length === 0}
-              onClick={() => {
-                void onApplyToSimulation({ propertyIds: selectedPersistedIds, draftRows: selectedDraftRows });
-                setShowLoadSimulationModal(false);
-              }}
-            >
-              Apenas selecionados ({selectedPersistedIds.length + selectedDraftRows.length})
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={allPersistedIds.length + allDraftRows.length === 0}
+              className="w-full shrink-0 sm:w-auto sm:min-w-[11rem]"
+              disabled={totalEligibleForLoad === 0}
               onClick={() => {
                 void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
                 setShowLoadSimulationModal(false);
               }}
             >
-              Todos elegíveis ({allPersistedIds.length + allDraftRows.length})
+              Todos elegíveis ({totalEligibleForLoad})
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full shrink-0 sm:w-auto sm:min-w-[11rem]"
+              disabled={selectedForSimulationCount === 0}
+              onClick={() => {
+                void onApplyToSimulation({ propertyIds: selectedPersistedIds, draftRows: selectedDraftRows });
+                setShowLoadSimulationModal(false);
+              }}
+            >
+              Só os selecionados ({selectedForSimulationCount})
             </Button>
           </div>
         </div>

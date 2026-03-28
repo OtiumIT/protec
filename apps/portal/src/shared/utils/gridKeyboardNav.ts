@@ -26,6 +26,13 @@ function collectRowFocusables(tr: HTMLTableRowElement): (HTMLInputElement | HTML
   ).filter((el) => !el.disabled && el.offsetParent !== null);
 }
 
+/** Enter comporta-se como seta para a direita (próxima célula). */
+export function normalizeSpreadsheetNavKey(key: string): string | null {
+  if (key === 'Enter') return 'ArrowRight';
+  if (ARROW_KEYS.has(key)) return key;
+  return null;
+}
+
 export function focusNeighborInTableGrid(table: HTMLTableElement, active: HTMLElement, key: string): boolean {
   if (!ARROW_KEYS.has(key)) return false;
   const tbody = table.tBodies[0];
@@ -95,13 +102,14 @@ export function focusNeighborInTableGrid(table: HTMLTableElement, active: HTMLEl
 
 /** use em `onKeyDownCapture` no wrapper da tabela (planilha). */
 export function spreadsheetTableNavCapture(e: ReactKeyboardEvent): void {
-  if (!ARROW_KEYS.has(e.key)) return;
+  const navKey = normalizeSpreadsheetNavKey(e.key);
+  if (!navKey) return;
   const t = e.target as HTMLElement;
   if (t.tagName !== 'INPUT' && t.tagName !== 'SELECT') return;
-  if (shouldLetCaretMoveInInput(t, e.key)) return;
+  if (e.key !== 'Enter' && shouldLetCaretMoveInInput(t, e.key)) return;
   const table = t.closest('table');
   if (!table) return;
-  if (focusNeighborInTableGrid(table as HTMLTableElement, t, e.key)) {
+  if (focusNeighborInTableGrid(table as HTMLTableElement, t, navKey)) {
     e.preventDefault();
     e.stopPropagation();
   }
