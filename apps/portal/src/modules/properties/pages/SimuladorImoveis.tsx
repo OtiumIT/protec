@@ -397,7 +397,7 @@ export function SimuladorImoveis() {
         ...m,
         mes_referencia: `${anoDemo}-${String(i + 1).padStart(2, '0')}`,
         receita_aluguel_tradicional: mensalLonga,
-        receita_aluguel_curto: mensalCurto,
+        receita_aluguel_curto: mensalCurta,
       }));
       queueMicrotask(() => setCustosOperacionaisAberto(hasCustoOperacionalData(next)));
       return next;
@@ -420,10 +420,12 @@ export function SimuladorImoveis() {
     'Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025';
 
   /** Cliente cadastrado para documento na capa do PDF (visualização > salvar > cliente da simulação) */
-  const effectiveClientRecord =
-    (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)) ??
-    (saveClientId && clients.find((c) => c.id === saveClientId)) ??
-    (clientId && clients.find((c) => c.id === clientId)) ??
+  const effectiveClientRecord: ClientWithCreatedAt | null =
+    (viewingSimulation?.client_id
+      ? clients.find((c) => c.id === viewingSimulation.client_id)
+      : undefined) ??
+    (saveClientId ? clients.find((c) => c.id === saveClientId) : undefined) ??
+    (clientId ? clients.find((c) => c.id === clientId) : undefined) ??
     null;
   const coverDocumentLabel =
     effectiveClientRecord?.person_type === 'pj' && effectiveClientRecord.cnpj
