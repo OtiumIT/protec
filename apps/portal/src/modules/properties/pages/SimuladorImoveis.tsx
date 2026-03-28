@@ -14,6 +14,8 @@ import { PropertiesInlineGrid, type SimulationDraftRowInput } from '../component
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
+import { formatCnpj, formatCpf } from '../../../shared/utils/masks';
+import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
 import {
   BarChart,
   Bar,
@@ -65,6 +67,21 @@ const ROWS: Array<{ label: string; field: keyof MesFields; section: SectionKey }
   { label: 'Inadimplência estimada', field: 'inadimplencia_estimada', section: 'custo' },
   { label: 'Outros custos operacionais', field: 'outros_custos', section: 'custo' },
 ];
+
+const CUSTO_ROW_FIELDS = ROWS.filter((r) => r.section === 'custo').map((r) => r.field);
+
+function hasCustoOperacionalData(mesesArr: SimulateStandaloneMesInput[]): boolean {
+  for (const m of mesesArr) {
+    for (const f of CUSTO_ROW_FIELDS) {
+      if (round2(Number(m[f] ?? 0)) > 0) return true;
+    }
+  }
+  return false;
+}
+
+/** Texto explicativo: por que preencher custos operacionais (tooltip / acessível) */
+const CUSTOS_OPERACIONAIS_INFO =
+  'Custos operacionais alimentam créditos de IBS/CBS no cenário Reforma (LC 214/2025), reduzindo a carga tributária líquida desse bloco. Não alteram o IRPF (Carnê-Leão) nem o Lucro Presumido neste simulador — use Despesas dedutíveis para reduzir a base do IR na pessoa física. Evite duplicar a mesma despesa nas duas rubricas sem critério.';
 
 const SECTION_CONFIG: Record<SectionKey, { title: string; subtitle: string; icon: React.ReactNode; bg: string; border: string; headerBg: string }> = {
   receita: {
@@ -257,6 +274,8 @@ export function SimuladorImoveis() {
   const monthlyGridRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showLoadedHighlight, setShowLoadedHighlight] = useState(false);
+  /** Secção «Custos operacionais»: recolhível; abre ao carregar imóvel/simulação se já houver valores */
+  const [custosOperacionaisAberto, setCustosOperacionaisAberto] = useState(false);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -322,6 +341,7 @@ export function SimuladorImoveis() {
       }))
     );
     if (total > 0) {
+      setCustosOperacionaisAberto(true);
       success('Custos operacionais anuais rateados nos 12 meses. Ajuste manualmente se necessário.');
     }
   }, [custoAnualTotal, success]);
@@ -352,6 +372,7 @@ export function SimuladorImoveis() {
     const anoDemo = anoAtual;
     setAno(anoDemo);
     setMeses(buildDemoMeses(anoDemo));
+    setCustosOperacionaisAberto(true);
     setResult(null);
     success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
   }, [success, anoAtual]);
@@ -371,28 +392,51 @@ export function SimuladorImoveis() {
     // Distribui receita anual de forma uniforme apenas para referência nos meses
     const mensalLonga = round2(60_000 / 12);
     const mensalCurta = round2(120_000 / 12);
-    setMeses((prev) =>
-      prev.map((m, i) => ({
+    setMeses((prev) => {
+      const next = prev.map((m, i) => ({
         ...m,
         mes_referencia: `${anoDemo}-${String(i + 1).padStart(2, '0')}`,
         receita_aluguel_tradicional: mensalLonga,
-        receita_aluguel_curto: mensalCurta,
-      }))
-    );
+        receita_aluguel_curto: mensalCurto,
+      }));
+      queueMicrotask(() => setCustosOperacionaisAberto(hasCustoOperacionalData(next)));
+      return next;
+    });
     setResult(null);
     success('Demo carregada: cenário de referência IBS/CBS (2 res. curta, 1 res. longa, 2 não res.), pronto para comparar com a planilha.');
   }, [anoAtual, success]);
 
-  /** Nome do cliente para o relatório: viewingSimulation > saveClientId > reportClientName (manual) */
+  /** Nome do cliente para o relatório: cadastro vinculado (visualização / salvar / simulação) ou texto manual */
   const effectiveClientName =
-    (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)?.name) ??
-    (saveClientId && clients.find((c) => c.id === saveClientId)?.name) ??
-    reportClientName;
+    (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)?.name?.trim()) ||
+    (saveClientId && clients.find((c) => c.id === saveClientId)?.name?.trim()) ||
+    (clientId && clients.find((c) => c.id === clientId)?.name?.trim()) ||
+    reportClientName.trim() ||
+    '';
   const effectiveReportTitle =
     viewingSimulation?.title?.trim() ||
     saveTitle.trim() ||
     reportTitleName.trim() ||
     'Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025';
+
+  /** Cliente cadastrado para documento na capa do PDF (visualização > salvar > cliente da simulação) */
+  const effectiveClientRecord =
+    (viewingSimulation?.client_id && clients.find((c) => c.id === viewingSimulation!.client_id)) ??
+    (saveClientId && clients.find((c) => c.id === saveClientId)) ??
+    (clientId && clients.find((c) => c.id === clientId)) ??
+    null;
+  const coverDocumentLabel =
+    effectiveClientRecord?.person_type === 'pj' && effectiveClientRecord.cnpj
+      ? `CNPJ: ${formatCnpj(effectiveClientRecord.cnpj)}`
+      : effectiveClientRecord?.cpf
+        ? `CPF: ${formatCpf(effectiveClientRecord.cpf)}`
+        : null;
+
+  const reportEmissionDateStr = new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 
   const handleOpenPrintPreview = useCallback(() => {
     setShowPrintPreview(true);
@@ -407,7 +451,15 @@ export function SimuladorImoveis() {
     stripReportExcludedFromClone(clone, 'preview');
     printPreviewContentRef.current.innerHTML = '';
     printPreviewContentRef.current.appendChild(clone);
-  }, [showPrintPreview, result]);
+  }, [
+    showPrintPreview,
+    result,
+    effectiveClientName,
+    reportClientName,
+    clientId,
+    coverDocumentLabel,
+    reportEmissionDateStr,
+  ]);
 
   const handleDoPrint = useCallback(() => {
     const wrapper = document.getElementById('simulador-imoveis-print-wrapper');
@@ -528,6 +580,7 @@ export function SimuladorImoveis() {
       return;
     }
     setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(ano, i)));
+    setCustosOperacionaisAberto(false);
     let cancelled = false;
     setImoveisLoading(true);
     propertyService.list({ client_id: clientId, limit: 100 }).then(
@@ -583,6 +636,7 @@ export function SimuladorImoveis() {
     const hasAnySource = ids.length > 0 || draftRows.length > 0;
     if (!hasAnySource) {
       setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(ano, i)));
+      setCustosOperacionaisAberto(false);
       setCoverageWarning(null);
       return;
     }
@@ -620,6 +674,7 @@ export function SimuladorImoveis() {
     }
 
     setMeses(baseMeses);
+    setCustosOperacionaisAberto(hasCustoOperacionalData(baseMeses));
     const selected = imoveisList.filter((p) => ids.includes(p.id));
     const fixas = selected.filter((p) => p.tipo_locacao === 'fixa');
     const flexiveis = selected.filter((p) => p.tipo_locacao === 'flexivel');
@@ -933,7 +988,9 @@ export function SimuladorImoveis() {
       };
       if (input?.ano) setAno(input.ano);
       if (Array.isArray(input?.meses) && input.meses.length === 12) {
-        setMeses(input.meses.map((m) => ({ ...m })));
+        const loaded = input.meses.map((m) => ({ ...m }));
+        setMeses(loaded);
+        setCustosOperacionaisAberto(hasCustoOperacionalData(loaded));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
       setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
@@ -1449,39 +1506,11 @@ export function SimuladorImoveis() {
               </div>
             )}
           </div>
-
-          {/* Bloco Custos operacionais / Créditos IBS/CBS */}
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input
-                type="checkbox"
-                checked={modoCustoAnual}
-                onChange={(e) => setModoCustoAnual(e.target.checked)}
-                className="rounded border-slate-300 text-brand focus:ring-brand"
-              />
-              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Créditos IBS/CBS</span>
-            </label>
-            {modoCustoAnual && (
-              <div className="flex flex-wrap items-end gap-4 mt-2">
-                <div className="flex flex-col gap-1 min-w-[180px]">
-                  <label className="text-xs font-medium text-slate-600">Valor total anual</label>
-                  <MoneyInput
-                    value={custoAnualTotal}
-                    onChange={setCustoAnualTotal}
-                    className="!py-1.5 text-sm"
-                  />
-                </div>
-                <Button type="button" variant="secondary" size="sm" onClick={aplicarCustoAnual}>
-                  Aplicar rateio
-                </Button>
-              </div>
-            )}
-          </div>
         </Card>
 
-        {/* Seções por categoria */}
+        {/* Seções por categoria: receitas e despesas dedutíveis */}
         <div ref={monthlyGridRef} />
-        {(['receita', 'despesa', 'custo'] as SectionKey[]).map((sectionKey) => {
+        {(['receita', 'despesa'] as SectionKey[]).map((sectionKey) => {
           const config = SECTION_CONFIG[sectionKey];
           const sectionRows = ROWS.filter((r) => r.section === sectionKey);
           if (sectionRows.length === 0) return null;
@@ -1501,7 +1530,10 @@ export function SimuladorImoveis() {
                   <p className="text-xs text-slate-600 mt-0.5">{config.subtitle}</p>
                 </div>
               </div>
-              <div className="-mx-2 overflow-x-auto px-2 py-3">
+              <div
+                className="-mx-2 overflow-x-auto px-2 py-3"
+                onKeyDownCapture={spreadsheetTableNavCapture}
+              >
                 <table className="w-full text-sm min-w-[2600px]">
                   <thead>
                     <tr className="border-b border-slate-200/80">
@@ -1563,6 +1595,152 @@ export function SimuladorImoveis() {
           );
         })}
 
+        {/* Custos operacionais: opcional, recolhível; créditos IBS/CBS na Reforma */}
+        <details
+          open={custosOperacionaisAberto}
+          onToggle={(e) => setCustosOperacionaisAberto(e.currentTarget.open)}
+          className="rounded-xl border-2 border-amber-200 bg-amber-50/60 overflow-hidden transition-all duration-300"
+        >
+          <summary className="cursor-pointer list-none px-4 py-3 bg-amber-100/80 border-b border-amber-200 flex flex-wrap items-start gap-2 [&::-webkit-details-marker]:hidden">
+            <span className="text-slate-500 select-none mt-0.5" aria-hidden>
+              {custosOperacionaisAberto ? '▼' : '▶'}
+            </span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-sm">
+              {SECTION_CONFIG.custo.icon}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-slate-800">{SECTION_CONFIG.custo.title}</h3>
+                <span className="text-xs font-normal text-slate-500">(opcional)</span>
+                <button
+                  type="button"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-300/80 bg-white text-slate-600 hover:bg-amber-50 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
+                  aria-label="Por que preencher custos operacionais"
+                  title={CUSTOS_OPERACIONAIS_INFO}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5 pr-2">{SECTION_CONFIG.custo.subtitle}</p>
+            </div>
+          </summary>
+          <div className="space-y-4 p-4 bg-amber-50/40">
+            <Card className="p-4 border-amber-200/80 bg-white/90">
+              <p className="text-xs text-slate-600 mb-3">{CUSTOS_OPERACIONAIS_INFO}</p>
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={modoCustoAnual}
+                  onChange={(e) => setModoCustoAnual(e.target.checked)}
+                  className="rounded border-slate-300 text-brand focus:ring-brand"
+                />
+                <span className="text-sm font-medium text-slate-700">Valor anual / distribuição igualitária — Créditos IBS/CBS</span>
+              </label>
+              {modoCustoAnual && (
+                <div className="flex flex-wrap items-end gap-4 mt-2">
+                  <div className="flex flex-col gap-1 min-w-[180px]">
+                    <label className="text-xs font-medium text-slate-600">Valor total anual</label>
+                    <MoneyInput
+                      value={custoAnualTotal}
+                      onChange={setCustoAnualTotal}
+                      className="!py-1.5 text-sm"
+                    />
+                  </div>
+                  <Button type="button" variant="secondary" size="sm" onClick={aplicarCustoAnual}>
+                    Aplicar rateio
+                  </Button>
+                </div>
+              )}
+            </Card>
+            {(() => {
+              const sectionKey: SectionKey = 'custo';
+              const config = SECTION_CONFIG[sectionKey];
+              const sectionRows = ROWS.filter((r) => r.section === sectionKey);
+              return (
+                <Card
+                  className={`overflow-hidden border-2 transition-all duration-300 ${
+                    showLoadedHighlight ? 'ring-2 ring-brand/40 shadow-lg' : ''
+                  } ${config.border} ${config.bg}`}
+                >
+                  <div
+                    className="-mx-2 overflow-x-auto px-2 py-3"
+                    onKeyDownCapture={spreadsheetTableNavCapture}
+                  >
+                    <table className="w-full text-sm min-w-[2600px]">
+                      <thead>
+                        <tr className="border-b border-slate-200/80">
+                          <th className="sticky left-0 z-10 min-w-[260px] py-2.5 px-3 text-left font-medium text-slate-600 bg-slate-50/80">
+                            Item
+                          </th>
+                          <th className="min-w-[220px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                            Anual
+                          </th>
+                          {MESES.map((nome, i) => (
+                            <th key={i} className="min-w-[180px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                              {nome}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sectionRows.map((row) => (
+                          <tr key={row.field} className="border-b border-slate-100 hover:bg-white/50 transition-colors">
+                            <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
+                              {row.label}
+                            </td>
+                            <td className="py-1.5 px-2 min-w-[220px]">
+                              <div className="flex items-center gap-1.5">
+                                <MoneyInput
+                                  value={valoresAnuais[row.field] ?? 0}
+                                  onChange={(v) => setValoresAnuais((prev) => ({ ...prev, [row.field]: v }))}
+                                  className="!py-1.5 text-sm min-w-[11rem] flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => aplicarRateioAnual(row.field)}
+                                  title="Dividir valor anual por 12 e preencher todos os meses desta linha"
+                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                >
+                                  Distribuir
+                                </Button>
+                              </div>
+                            </td>
+                            {meses.map((m, i) => (
+                              <td key={i} className="py-1.5 px-2 min-w-[180px]">
+                                <MoneyInput
+                                  value={(m[row.field] as number) ?? 0}
+                                  onChange={(v) => updateMes(i, row.field, v)}
+                                  className={`!py-1.5 text-sm min-w-[11rem] transition-colors duration-300 ${
+                                    showLoadedHighlight ? 'bg-amber-50/60 border-amber-300' : ''
+                                  }`}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              );
+            })()}
+          </div>
+        </details>
+
         <div className="flex justify-end">
           <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px]">
             {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
@@ -1575,14 +1753,40 @@ export function SimuladorImoveis() {
           <ReportPrintHeader
             variant="printSheet"
             reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
-            metaLine={[
-              effectiveClientName ? `Cliente: ${effectiveClientName}` : null,
-              new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+            metaLine={`Emissão ${reportEmissionDateStr}`}
           />
           <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 print:pt-2">
+          <section className="print-imoveis-cover hidden print:block break-inside-avoid mb-1" aria-hidden="true">
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-white to-white pl-5 pr-4 py-5 sm:pl-6 sm:pr-5 border-l-[3px] border-l-brand shadow-sm print:shadow-none print:border-slate-300 print:from-slate-50 print:to-white">
+              {effectiveClientName ? (
+                <h2 className="print-imoveis-cover__title text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-[1.15]">
+                  {effectiveClientName}
+                </h2>
+              ) : (
+                <p className="text-base text-slate-500 leading-snug">
+                  Nome do cliente não informado — preencha no passo de exportação ou vincule um cliente cadastrado.
+                </p>
+              )}
+              {coverDocumentLabel ? (
+                <p className="text-sm text-slate-600 mt-3 font-medium tabular-nums">{coverDocumentLabel}</p>
+              ) : null}
+              <div className="mt-4 pt-4 border-t border-slate-200/90 flex flex-col gap-1.5 text-xs text-slate-600 print:text-[10px]">
+                <p>
+                  <span className="font-semibold text-slate-700">Ano-base</span>{' '}
+                  <span className="text-slate-800">{result.ano}</span>
+                  {result.fluxo_caixa?.[0] ? (
+                    <>
+                      <span className="text-slate-400 mx-1.5">·</span>
+                      <span className="font-semibold text-slate-700">Receita (Carnê-Leão / LP)</span>{' '}
+                      <span className="font-semibold text-slate-900 tabular-nums">
+                        {formatMoney(result.fluxo_caixa[0].receita_total)}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+            </div>
+          </section>
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>
@@ -2268,7 +2472,7 @@ export function SimuladorImoveis() {
       {result?.cenarios?.pf?.trimestres && result?.cenarios?.pj?.trimestres && (
         <Card className="mt-6 p-4">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">Comparativo trimestral – Imposto por regime</h3>
-          <div className="h-72 w-full">
+          <div className="h-72 w-full min-w-0 print-imoveis-chart-trimestral">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={result.cenarios.pf.trimestres.map((t, i) => {
@@ -2291,7 +2495,7 @@ export function SimuladorImoveis() {
                     pjPresuncao: pjTri?.presuncao_irpj_pct ?? 32,
                   };
                 })}
-                margin={{ top: 12, right: 24, left: 24, bottom: 12 }}
+                margin={{ top: 8, right: 12, left: 8, bottom: 52 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="trimestre" tick={{ fontSize: 12 }} />
@@ -2351,9 +2555,21 @@ export function SimuladorImoveis() {
                     );
                   }}
                 />
-                <Legend />
-                <Bar dataKey="PF" name="Pessoa Física (IR)" fill="var(--color-brand, #0ea5e9)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="PJ" name="Pessoa Jurídica (IRPJ+CSLL+PIS+COFINS)" fill="#475569" radius={[4, 4, 0, 0]} />
+                <Legend
+                  align="left"
+                  verticalAlign="bottom"
+                  layout="horizontal"
+                  wrapperStyle={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    paddingLeft: 0,
+                    left: 0,
+                    fontSize: 11,
+                    lineHeight: 1.35,
+                  }}
+                />
+                <Bar dataKey="PF" name="PF — Carnê-Leão (IR)" fill="var(--color-brand, #0ea5e9)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="PJ" name="PJ (IRPJ+CSLL+PIS+COFINS)" fill="#475569" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -2739,7 +2955,7 @@ export function SimuladorImoveis() {
               />
             </div>
           )}
-          {!effectiveClientName && (
+          {!viewingSimulation?.client_id && !saveClientId && !clientId && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cliente (opcional)</label>
               <Input
@@ -2748,6 +2964,9 @@ export function SimuladorImoveis() {
                 onChange={(e) => setReportClientName(e.target.value)}
                 className="w-full"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                O nome digitado aparece na capa do PDF e na pré-visualização abaixo.
+              </p>
             </div>
           )}
           <div
@@ -2758,12 +2977,7 @@ export function SimuladorImoveis() {
               <ReportPrintHeader
                 variant="previewModal"
                 reportTitle={effectiveReportTitle}
-                metaLine={[
-                  (effectiveClientName || reportClientName) && `Cliente: ${effectiveClientName || reportClientName}`,
-                  new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                metaLine={`Emissão ${reportEmissionDateStr}`}
               />
               <div ref={printPreviewContentRef} className="report-preview-content" />
               <ReportPrintFooter variant="previewModal" />

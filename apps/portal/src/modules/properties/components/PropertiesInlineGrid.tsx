@@ -4,6 +4,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
+import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
 
 type ColumnId =
   | 'identificador'
@@ -641,7 +642,7 @@ export function PropertiesInlineGrid({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" onKeyDownCapture={spreadsheetTableNavCapture}>
         <table className="min-w-[1100px] w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-200">

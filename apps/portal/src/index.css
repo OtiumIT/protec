@@ -36,7 +36,19 @@
     size: A4;
     /* Margens um pouco menores para aproveitar mais a largura,
        mas ainda com respiro profissional nas bordas */
-    margin: 1.6cm 0.7cm 1.4cm 0.7cm;
+    /* Lateral um pouco menor para o conteúdo ocupar mais a largura da folha */
+    margin: 1.6cm 0.5cm 1.4cm 0.5cm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /*
+   * Simulador Imobiliário (PDF): margem superior em TODAS as folhas.
+   * Padding no #simulador-imoveis-print-wrapper não se repete nas páginas após a 1ª,
+   * o que fazia o cabeçalho fixo (2cm) sobrepor o conteúdo.
+   */
+  @page imoveis-report {
+    size: A4;
+    margin: 2.75cm 0.5cm 1.45cm 0.5cm;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -263,6 +275,29 @@
     padding: 0.3rem 0.4rem !important;
   }
 
+  /* Simulador Imobiliário: área segura via @page imoveis-report (todas as folhas); wrapper só folga lateral/rodapé */
+  #simulador-imoveis-print-wrapper {
+    page: imoveis-report;
+    padding-top: 0 !important;
+    padding-bottom: 1.45cm !important;
+  }
+  #simulador-imoveis-print-wrapper #simulador-imoveis-resultado-print {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100%;
+    padding: 0.35cm 0.1cm 0.35cm !important;
+    background: white;
+    overflow: visible !important;
+  }
+  .print-imoveis-cover {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-imoveis-cover__title {
+    font-size: 20pt;
+    line-height: 1.15;
+  }
+
   /* Impressão: IRPF Alta Renda no mesmo padrão do Simulador Imobiliário */
   #irpf-alta-renda-print-wrapper,
   #irpf-alta-renda-print-wrapper * {
@@ -304,6 +339,39 @@
     page-break-inside: avoid;
     break-inside: avoid;
   }
+}
+
+/* Modal pré-visualização (tela): bloco de capa só usado no PDF deve aparecer no preview */
+.report-preview-inner .print-imoveis-cover,
+.report-preview-content .print-imoveis-cover {
+  display: block !important;
+}
+
+/* Simulador imóveis — Comparativo trimestral (Recharts): legenda à esquerda, dentro do quadro */
+.print-imoveis-chart-trimestral .recharts-legend-wrapper {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  transform: none !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+.print-imoveis-chart-trimestral .recharts-legend-item {
+  display: inline-block !important;
+  margin-right: 0.75rem !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+  max-width: 100%;
+}
+.print-imoveis-chart-trimestral .recharts-default-legend {
+  text-align: left !important;
+  width: 100% !important;
+  justify-content: flex-start !important;
 }
 
 /* Estilos para exportação PDF (html2pdf) - IRPF Alta Renda - evitar corte */
