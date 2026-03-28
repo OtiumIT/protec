@@ -1014,61 +1014,69 @@ export function PropertiesInlineGrid({
       <Modal
         isOpen={showLoadSimulationModal}
         onClose={() => setShowLoadSimulationModal(false)}
-        title="Imóveis na simulação"
+        title="Enviar para o simulador"
         size="sm"
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-700 leading-relaxed">
-            Você tem <strong className="text-slate-900">{selectedForSimulationCount}</strong>{' '}
-            {selectedForSimulationCount === 1 ? 'linha marcada' : 'linhas marcadas'} na grade. Envie só essas ou todos os
-            imóveis elegíveis ({totalEligibleForLoad}).
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm leading-relaxed text-slate-700">
+              {selectedForSimulationCount === totalEligibleForLoad ? (
+                <>
+                  Todas as linhas elegíveis estão marcadas (
+                  <strong className="text-slate-900">{totalEligibleForLoad}</strong>). Confirme como deseja carregar.
+                </>
+              ) : (
+                <>
+                  <strong className="text-slate-900">{selectedForSimulationCount}</strong>{' '}
+                  {selectedForSimulationCount === 1 ? 'linha marcada' : 'linhas marcadas'} ·{' '}
+                  <strong className="text-slate-900">{totalEligibleForLoad}</strong> elegíveis no total. Escolha o
+                  escopo.
+                </>
+              )}
+            </p>
+            <p className="text-xs text-slate-500">
+              Fechar: clique fora, no × ou pressione <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">Esc</kbd>.
+            </p>
+          </div>
           {allPersistedIds.length === 0 && allDraftRows.length > 0 && (
             <div
-              className="flex gap-2 rounded-lg border border-amber-200/90 bg-amber-50/90 px-3 py-2 text-xs text-amber-950"
+              className="flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3.5 py-3 text-xs leading-snug text-amber-950"
               role="status"
             >
-              <span className="shrink-0 font-medium" aria-hidden>
-                ℹ
-              </span>
+              <svg className="h-5 w-5 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+              </svg>
               <span>
-                Há rascunhos (não salvos) com dados válidos: eles entram no carregamento junto com a opção que você
-                escolher abaixo.
+                Rascunhos não salvos com dados válidos serão incluídos na opção que você escolher.
               </span>
             </div>
           )}
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:flex-nowrap sm:justify-end sm:gap-3">
-            <Button
-              type="button"
-              variant="tertiary"
-              className="w-full shrink-0 sm:w-auto sm:min-w-[7rem]"
-              onClick={() => setShowLoadSimulationModal(false)}
-            >
-              Cancelar
-            </Button>
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:flex-nowrap sm:justify-end">
             <Button
               type="button"
               variant="secondary"
-              className="w-full shrink-0 sm:w-auto sm:min-w-[11rem]"
+              size="sm"
+              className="w-full sm:order-1 sm:w-auto sm:min-w-[12rem]"
               disabled={totalEligibleForLoad === 0}
               onClick={() => {
                 void onApplyToSimulation({ propertyIds: allPersistedIds, draftRows: allDraftRows });
                 setShowLoadSimulationModal(false);
               }}
             >
-              Todos elegíveis ({totalEligibleForLoad})
+              Todos os elegíveis ({totalEligibleForLoad})
             </Button>
             <Button
               type="button"
               variant="primary"
-              className="w-full shrink-0 sm:w-auto sm:min-w-[11rem]"
+              size="sm"
+              className="w-full sm:order-2 sm:w-auto sm:min-w-[12rem]"
               disabled={selectedForSimulationCount === 0}
               onClick={() => {
                 void onApplyToSimulation({ propertyIds: selectedPersistedIds, draftRows: selectedDraftRows });
                 setShowLoadSimulationModal(false);
               }}
             >
-              Só os selecionados ({selectedForSimulationCount})
+              Só a seleção ({selectedForSimulationCount})
             </Button>
           </div>
         </div>
