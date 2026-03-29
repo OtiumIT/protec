@@ -148,13 +148,18 @@ async function buildIpcaSeriesFromBcb(
     });
 
     const mesesRecortados = meses.slice(-n);
+    const mesesFinal = mesesRecortados.length > 0 ? mesesRecortados : meses;
+    const mesMaisRecenteSerie = mesesFinal.length > 0
+      ? mesesFinal[mesesFinal.length - 1]!.mes_referencia
+      : `${ref.year}-${String(ref.month).padStart(2, '0')}`;
     return {
       fonte: 'bcb_online',
       serie_sgs_codigo: 433,
       data_consulta_bcb: new Date().toISOString(),
       ano_calendario: ano,
       mes_referencia_fim: `${ref.year}-${String(ref.month).padStart(2, '0')}`,
-      meses: mesesRecortados.length > 0 ? mesesRecortados : meses,
+      mes_mais_recente_serie: mesMaisRecenteSerie,
+      meses: mesesFinal,
     };
   } catch {
     return null;
