@@ -175,7 +175,15 @@ export const OpcoesReformaSchema = z.object({
    * Opcional para manter compatibilidade; calculado no backend quando não enviado.
    */
   redutor_social_residencial_anual: monetaryValue.optional(),
+  /** Override: teto com mais de 3 imóveis (R$). Se só este campo for enviado, o absoluto usa 120% deste valor. */
+  limite_receita_contribuinte_pf_manual: monetaryValue.optional(),
+  /** Override: teto absoluto PF contribuinte IBS/CBS (R$). */
+  limite_receita_absoluto_contribuinte_pf_manual: monetaryValue.optional(),
+  /** Override: redutor social mensal por imóvel residencial (R$), antes de multiplicar por 12 × quantidade. */
+  redutor_social_mensal_manual: monetaryValue.optional(),
 });
+
+export type OpcoesReforma = z.infer<typeof OpcoesReformaSchema>;
 
 /** Simulador standalone: campos granulares por mês */
 export const SimulateStandaloneMesSchema = z.object({
@@ -391,6 +399,21 @@ export const AnaliseCustosSchema = z.object({
   alertas: z.array(z.string()),
 });
 
+export const IndicesLc214Schema = z.object({
+  ipca_fonte: z.enum(['bcb_online', 'cache', 'embutido']),
+  serie_sgs_codigo: z.number(),
+  mes_referencia_fim: z.string(),
+  fator_acumulado_desde_publicacao: z.number(),
+  redutor_social_mensal_nominal: z.number(),
+  redutor_social_mensal_efetivo: z.number(),
+  limite_receita_pf_contribuinte: z.number(),
+  limite_receita_pf_absoluto: z.number(),
+  data_consulta_bcb: z.string().optional(),
+  parametros_origem: z.enum(['calculado', 'manual_parcial', 'manual_completo']),
+});
+
+export type IndicesLc214 = z.infer<typeof IndicesLc214Schema>;
+
 export const PropertyTaxSimulationResponseSchema = z.object({
   ano: z.number(),
   cenarios: z.object({
@@ -407,8 +430,14 @@ export const PropertyTaxSimulationResponseSchema = z.object({
   fluxo_caixa: z.array(FluxoCaixaSchema),
   analise_custos: AnaliseCustosSchema.optional(),
   memoria_calculo: z.record(z.unknown()).optional(),
+  /** IPCA/LC 214: índices e parâmetros efetivos (transparência). */
+  indices_lc214: IndicesLc214Schema.optional(),
   /** Embasamentos legais por cenário (PF, PJ, Reforma 2027) */
   embasamentos_legais: z.array(EmbasamentoLegalSchema).optional(),
+});
+
+export const FiscalIndicesIpcaQuerySchema = z.object({
+  ano: z.coerce.number().int().min(2020).max(2035),
 });
 
 export const ListPropertiesQuerySchema = z.object({

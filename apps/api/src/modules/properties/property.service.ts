@@ -10,6 +10,7 @@ import {
   verificarContribuinteIbsCbsPF,
   type OpcoesReformaCalculo,
 } from './calculations';
+import { resolveLc214IndicesParaSimulacao } from './property-lc214-resolve';
 import type {
   CreatePropertyInput,
   CreatePropertiesBatchInput,
@@ -697,6 +698,9 @@ export class PropertyService {
     let custosOperacionaisTotal = 0;
     let receitaLocacaoResidencialAnualAuto = 0;
     let receitaLocacaoNaoResidencialAnualAuto = 0;
+    /** Soma anual alinhada ao aggregatePreview: fixa → tradicional, flexível → curto */
+    let receitaLongaTotalAuto = 0;
+    let receitaShortTotalAuto = 0;
     let quantidadeImoveisResidenciaisAuto = 0;
     let quantidadeImoveisComerciaisAuto = 0;
     const mesesSoma: Array<{
@@ -717,6 +721,11 @@ export class PropertyService {
         const receitaMensalCadastro = entry.defaults.valor_aluguel_mensal ?? 0;
         const receitaBaseMes = receitaMesLançada > 0 ? receitaMesLançada : receitaMensalCadastro;
         rec += receitaBaseMes;
+        if (entry.tipo_locacao === 'flexivel') {
+          receitaShortTotalAuto += receitaBaseMes;
+        } else {
+          receitaLongaTotalAuto += receitaBaseMes;
+        }
         if (entry.natureza_locacao === 'nao_residencial') {
           receitaLocacaoNaoResidencialAnualAuto += receitaBaseMes;
         } else {
@@ -771,6 +780,18 @@ export class PropertyService {
         ? 50
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
 
+    const perfilLocacaoReforma = input.opcoes_reforma?.perfil_locacao;
+    let usarAmbosRedutoresSimulate = perfilLocacaoReforma === 'ambos';
+    let usarRedutorDiferenciadoSimulate = perfilLocacaoReforma === 'hospedagem_temporada';
+    if (
+      perfilLocacaoReforma === undefined &&
+      receitaLongaTotalAuto > 0 &&
+      receitaShortTotalAuto > 0
+    ) {
+      usarAmbosRedutoresSimulate = true;
+      usarRedutorDiferenciadoSimulate = false;
+    }
+
     const quantidadeImoveisResidenciaisSimulate =
       input.quantidade_imoveis_residenciais ?? quantidadeImoveisResidenciaisAuto;
     const quantidadeImoveisComerciaisSimulate =
@@ -780,10 +801,12 @@ export class PropertyService {
     const receitaLocacaoNaoResidencialAnualSimulate =
       input.receita_locacao_nao_residencial_anual ?? receitaLocacaoNaoResidencialAnualAuto;
 
-    const redutorSocialResidencialAnualSimulate =
-      quantidadeImoveisResidenciaisSimulate > 0
-        ? 600 * 12 * quantidadeImoveisResidenciaisSimulate
-        : undefined;
+    const lc214Simulate = await resolveLc214IndicesParaSimulacao({
+      anoCalendario: input.ano,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisSimulate,
+      opcoesReforma: input.opcoes_reforma ?? undefined,
+    });
+    const redutorSocialResidencialAnualSimulate = lc214Simulate.redutorSocialResidencialAnual;
 
     const anoRefReformaSimulate = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaSimulate: OpcoesReformaCalculo = {
@@ -792,7 +815,14 @@ export class PropertyService {
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacaoSimulate,
+      redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
+      usar_redutor_diferenciado_short: usarAmbosRedutoresSimulate
+        ? false
+        : usarRedutorDiferenciadoSimulate,
+      usar_ambos_redutores: usarAmbosRedutoresSimulate,
+      receita_longa_total: receitaLongaTotalAuto,
+      receita_short_total: receitaShortTotalAuto,
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualSimulate,
@@ -814,11 +844,11 @@ export class PropertyService {
         ? quantidadeImoveisResidenciaisParaContribuinte +
           quantidadeImoveisComerciaisSimulate
         : quantidadeImoveisResidenciaisAuto + quantidadeImoveisComerciaisAuto) || 0;
-    const { contribuinte: contribuinteIbsCbsPF } =
-      verificarContribuinteIbsCbsPF(
-        quantidadeImoveisTotalSimulate,
-        aggregatedTotal.receita_total
-      );
+    const { contribuinte: contribuinteIbsCbsPF } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisTotalSimulate,
+      aggregatedTotal.receita_total,
+      lc214Simulate.limitesContribuinte
+    );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
     const impostoTotalPFReforma = contribuinteIbsCbsPF
       ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
@@ -992,6 +1022,7 @@ export class PropertyService {
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
+      indices_lc214: lc214Simulate.indices_lc214,
     };
   }
 
@@ -1090,10 +1121,13 @@ export class PropertyService {
       input.quantidade_imoveis ??
       0;
 
+    const lc214Standalone = await resolveLc214IndicesParaSimulacao({
+      anoCalendario: input.ano,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisStandalone,
+      opcoesReforma: input.opcoes_reforma ?? undefined,
+    });
     const redutorSocialResidencialAnualStandalone =
-      quantidadeImoveisResidenciaisStandalone > 0
-        ? 600 * 12 * quantidadeImoveisResidenciaisStandalone
-        : undefined;
+      lc214Standalone.redutorSocialResidencialAnual;
 
     const aggregatedTotal = {
       ano: input.ano,
@@ -1158,11 +1192,11 @@ export class PropertyService {
           quantidadeImoveisComerciaisStandalone
         : input.quantidade_imoveis ?? 1) || 1;
 
-    const { contribuinte: contribuinteIbsCbsPFStandalone } =
-      verificarContribuinteIbsCbsPF(
-        quantidadeImoveisTotalStandalone,
-        receitaTotal
-      );
+    const { contribuinte: contribuinteIbsCbsPFStandalone } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisTotalStandalone,
+      receitaTotal,
+      lc214Standalone.limitesContribuinte
+    );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
     const impostoTotalPFReformaStandalone = contribuinteIbsCbsPFStandalone
       ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
@@ -1301,6 +1335,7 @@ export class PropertyService {
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
+      indices_lc214: lc214Standalone.indices_lc214,
     };
   }
 

@@ -1,5 +1,11 @@
 import apiRequest from '../../../shared/services/api';
-import type { Property, PropertyTransaction, PropertySimulation, SimulateStandaloneInput } from '@shared/core';
+import type {
+  Property,
+  PropertyTransaction,
+  PropertySimulation,
+  SimulateStandaloneInput,
+  IndicesLc214,
+} from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
 export interface PropertyWithClient extends Property {
@@ -390,6 +396,15 @@ export const propertyService = {
         token,
         tenantId,
       }
+    );
+    return response.data;
+  },
+
+  async getFiscalIndicesIpca(ano: number): Promise<IndicesLc214> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: IndicesLc214 }>(
+      `/api/v1/properties/fiscal-indices/ipca?ano=${encodeURIComponent(String(ano))}`,
+      { token, tenantId }
     );
     return response.data;
   },

@@ -26,7 +26,14 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { PropertyTaxSimulationResponse, SimulateStandaloneMesInput, PerfilLocacaoReforma, PropertySimulation } from '@shared/core';
+import type {
+  PropertyTaxSimulationResponse,
+  SimulateStandaloneMesInput,
+  SimulateStandaloneInput,
+  PerfilLocacaoReforma,
+  PropertySimulation,
+  IndicesLc214,
+} from '@shared/core';
 import { calcularTransicaoIBS, type TransicaoIBSResult } from '@shared/core';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -276,8 +283,28 @@ export function SimuladorImoveis() {
   const [showLoadedHighlight, setShowLoadedHighlight] = useState(false);
   /** Secção «Custos operacionais»: recolhível; abre ao carregar imóvel/simulação se já houver valores */
   const [custosOperacionaisAberto, setCustosOperacionaisAberto] = useState(false);
+  const [ipcaPreview, setIpcaPreview] = useState<IndicesLc214 | null>(null);
+  const [lc214AvancadoAberto, setLc214AvancadoAberto] = useState(false);
+  const [lc214ManualLim240, setLc214ManualLim240] = useState('');
+  const [lc214ManualLim288, setLc214ManualLim288] = useState('');
+  const [lc214ManualRedutorMensal, setLc214ManualRedutorMensal] = useState('');
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
+
+  useEffect(() => {
+    let cancelled = false;
+    propertyService
+      .getFiscalIndicesIpca(ano)
+      .then((d) => {
+        if (!cancelled) setIpcaPreview(d);
+      })
+      .catch(() => {
+        if (!cancelled) setIpcaPreview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ano]);
 
   const aplicarRateioAnual = useCallback(
     (field: keyof MesFields) => {
@@ -680,6 +707,14 @@ export function SimuladorImoveis() {
     const selected = imoveisList.filter((p) => ids.includes(p.id));
     const fixas = selected.filter((p) => p.tipo_locacao === 'fixa');
     const flexiveis = selected.filter((p) => p.tipo_locacao === 'flexivel');
+    const draftFixas = draftRows.filter((r) => r.tipo_locacao !== 'flexivel');
+    const draftFlexiveis = draftRows.filter((r) => r.tipo_locacao === 'flexivel');
+    const carteiraMistaLongShort =
+      (fixas.length > 0 || draftFixas.length > 0) &&
+      (flexiveis.length > 0 || draftFlexiveis.length > 0);
+    if (carteiraMistaLongShort) {
+      setPerfilLocacao('ambos');
+    }
     const fixasSemBase = fixas.filter((p) =>
       !(Number((p as any).iptu_mensal_padrao || 0) > 0) ||
       !(Number((p as any).condominio_mensal_padrao || 0) > 0) ||
@@ -758,6 +793,30 @@ export function SimuladorImoveis() {
       };
     });
 
+  const montarOpcoesReforma = (): NonNullable<SimulateStandaloneInput['opcoes_reforma']> => {
+    const o: NonNullable<SimulateStandaloneInput['opcoes_reforma']> = {
+      ano_referencia_reforma: anoReferenciaReforma,
+      aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
+      aliquota_ibs_plena: aliquotaPlenaIBS,
+      aliquota_cbs_estimada: aliquotaCBS,
+      redutor_short_stay_pct: 50,
+      contrato_antes_16012025: contratoAntes16012025,
+      perfil_locacao: perfilLocacao,
+    };
+    const p240 =
+      lc214ManualLim240.trim() !== '' ? Number(String(lc214ManualLim240).replace(',', '.')) : NaN;
+    const p288 =
+      lc214ManualLim288.trim() !== '' ? Number(String(lc214ManualLim288).replace(',', '.')) : NaN;
+    const pr =
+      lc214ManualRedutorMensal.trim() !== ''
+        ? Number(String(lc214ManualRedutorMensal).replace(',', '.'))
+        : NaN;
+    if (Number.isFinite(p240) && p240 > 0) o.limite_receita_contribuinte_pf_manual = p240;
+    if (Number.isFinite(p288) && p288 > 0) o.limite_receita_absoluto_contribuinte_pf_manual = p288;
+    if (Number.isFinite(pr) && pr > 0) o.redutor_social_mensal_manual = pr;
+    return o;
+  };
+
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
     const receitaMensalSomada = meses.reduce(
@@ -826,15 +885,7 @@ export function SimuladorImoveis() {
           : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
             ? receitaLocacaoNaoResidencialAnual
             : undefined;
-        const opcoes = {
-          ano_referencia_reforma: anoReferenciaReforma,
-          aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
-          aliquota_ibs_plena: aliquotaPlenaIBS,
-          aliquota_cbs_estimada: aliquotaCBS,
-          redutor_short_stay_pct: 50,
-          contrato_antes_16012025: contratoAntes16012025,
-          perfil_locacao: perfilLocacao,
-        };
+        const opcoes = montarOpcoesReforma();
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
@@ -898,15 +949,7 @@ export function SimuladorImoveis() {
           .filter((p) => p.natureza_locacao === 'nao_residencial')
           .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
       );
-      const opcoes = {
-        ano_referencia_reforma: anoReferenciaReforma,
-        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
-        aliquota_ibs_plena: aliquotaPlenaIBS,
-        aliquota_cbs_estimada: aliquotaCBS,
-        redutor_short_stay_pct: 50,
-        contrato_antes_16012025: contratoAntes16012025,
-        perfil_locacao: perfilLocacao,
-      };
+      const opcoes = montarOpcoesReforma();
       const qtdTotal = usarSelecaoImoveis
         ? selectedPersistedProperties.length + selectedDraftProperties.length
         : quantidadeImoveisTotal;
@@ -986,6 +1029,9 @@ export function SimuladorImoveis() {
           perfil_locacao?: PerfilLocacaoReforma;
           aliquota_ibs_plena?: number;
           aliquota_cbs_estimada?: number;
+          limite_receita_contribuinte_pf_manual?: number;
+          limite_receita_absoluto_contribuinte_pf_manual?: number;
+          redutor_social_mensal_manual?: number;
         };
       };
       if (input?.ano) setAno(input.ano);
@@ -999,6 +1045,20 @@ export function SimuladorImoveis() {
       if (input?.opcoes_reforma?.ano_referencia_reforma != null) setAnoReferenciaReforma(input.opcoes_reforma.ano_referencia_reforma);
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
+      const or = input?.opcoes_reforma;
+      setLc214ManualLim240(
+        or?.limite_receita_contribuinte_pf_manual != null
+          ? String(or.limite_receita_contribuinte_pf_manual)
+          : ''
+      );
+      setLc214ManualLim288(
+        or?.limite_receita_absoluto_contribuinte_pf_manual != null
+          ? String(or.limite_receita_absoluto_contribuinte_pf_manual)
+          : ''
+      );
+      setLc214ManualRedutorMensal(
+        or?.redutor_social_mensal_manual != null ? String(or.redutor_social_mensal_manual) : ''
+      );
       if ((input as { receita_locacao_residencial_anual?: number })?.receita_locacao_residencial_anual != null) setReceitaLocacaoResidencialAnual((input as { receita_locacao_residencial_anual: number }).receita_locacao_residencial_anual);
       if ((input as { receita_locacao_nao_residencial_anual?: number })?.receita_locacao_nao_residencial_anual != null) setReceitaLocacaoNaoResidencialAnual((input as { receita_locacao_nao_residencial_anual: number }).receita_locacao_nao_residencial_anual);
       if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
@@ -1041,15 +1101,7 @@ export function SimuladorImoveis() {
     setResult(null);
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
-      const opcoes = {
-        ano_referencia_reforma: anoReferenciaReforma,
-        aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
-        aliquota_ibs_plena: aliquotaPlenaIBS,
-        aliquota_cbs_estimada: aliquotaCBS,
-        redutor_short_stay_pct: 50,
-        contrato_antes_16012025: contratoAntes16012025,
-        perfil_locacao: perfilLocacao,
-      };
+      const opcoes = montarOpcoesReforma();
       const { result: res } = await propertyService.simulateStandaloneAndSave({
         ano,
         meses: mesesParaEnvio,
@@ -1272,6 +1324,42 @@ export function SimuladorImoveis() {
         {/* Opções da Reforma LC 214/2025 */}
         <Card className="p-5 border-amber-200/80 bg-amber-50/30">
           <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma LC 214/2025 (IBS/CBS)</h3>
+          {ipcaPreview && (
+            <div
+              className="mb-4 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-700"
+              role="region"
+              aria-label="Parâmetros LC 214 indexados pelo IPCA"
+            >
+              <p className="font-medium text-slate-800 mb-1">
+                IPCA / LC 214 — ano-calendário {ano} (referência {ipcaPreview.mes_referencia_fim})
+              </p>
+              <ul className="text-xs space-y-0.5 list-disc list-inside text-slate-600">
+                <li>Fator acumulado (desde publicação jul/2025): {ipcaPreview.fator_acumulado_desde_publicacao}</li>
+                <li>Redutor social mensal (nominal R$ 600): {formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel residencial</li>
+                <li>Tetos PF contribuinte IBS/CBS: {formatMoney(ipcaPreview.limite_receita_pf_contribuinte)} / {formatMoney(ipcaPreview.limite_receita_pf_absoluto)}</li>
+                <li>
+                  Fonte:{' '}
+                  {ipcaPreview.ipca_fonte === 'bcb_online'
+                    ? 'BCB SGS (consulta online)'
+                    : ipcaPreview.ipca_fonte === 'cache'
+                      ? 'Cache da API (última consulta BCB)'
+                      : 'Dados de contingência (BCB indisponível)'}
+                  {' · '}
+                  <a
+                    href="https://www.bcb.gov.br/estabilidadefinanceira/historicoindicadores"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand underline"
+                  >
+                    Banco Central — séries
+                  </a>
+                </li>
+              </ul>
+              {ipcaPreview.ipca_fonte !== 'bcb_online' ? (
+                <p className="text-amber-800 text-xs mt-2">Atenção: não foi possível confirmar o índice em tempo real; valores podem ser aproximados.</p>
+              ) : null}
+            </div>
+          )}
           <div className="flex flex-col gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -1298,7 +1386,7 @@ export function SimuladorImoveis() {
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
                 />
                 <span className="text-xs text-slate-500">
-                  Cada imóvel residencial gera redutor social de R$ 600/mês na base de cálculo do IBS/CBS (LC 214/2025, arts. 259–260).
+                  Redutor social na base do IBS/CBS (LC 214/2025, arts. 259–260), corrigido pelo IPCA a partir de jul/2025 — veja o quadro acima ou o resultado após simular.
                 </span>
               </div>
               <div className="flex flex-col gap-1">
@@ -1350,6 +1438,56 @@ export function SimuladorImoveis() {
               </select>
               <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
             </div>
+            <div className="border-t border-amber-200 pt-3">
+              <button
+                type="button"
+                className="text-sm font-medium text-brand hover:underline"
+                onClick={() => setLc214AvancadoAberto((v) => !v)}
+                aria-expanded={lc214AvancadoAberto}
+              >
+                {lc214AvancadoAberto ? '▼' : '▶'} Parâmetros LC 214 manuais (avançado)
+              </button>
+              {lc214AvancadoAberto && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-700">Teto PF &gt;3 imóveis (R$)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Automático (IPCA)"
+                      value={lc214ManualLim240}
+                      onChange={(e) => setLc214ManualLim240(e.target.value)}
+                      className="rounded-md border border-slate-300 px-2 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-700">Teto absoluto PF (R$)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Automático (IPCA)"
+                      value={lc214ManualLim288}
+                      onChange={(e) => setLc214ManualLim288(e.target.value)}
+                      className="rounded-md border border-slate-300 px-2 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-700">Redutor social mensal / imóvel (R$)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Automático (IPCA)"
+                      value={lc214ManualRedutorMensal}
+                      onChange={(e) => setLc214ManualRedutorMensal(e.target.value)}
+                      className="rounded-md border border-slate-300 px-2 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                  <p className="sm:col-span-3 text-xs text-slate-500">
+                    Deixe em branco para usar IPCA (BCB SGS) e os valores legais nominais corrigidos. Preencha apenas para conferir com tabela oficial ou cenário alternativo.
+                  </p>
+                </div>
+              )}
+            </div>
             {quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-amber-200">
                 <div className="flex flex-col gap-1">
@@ -1360,7 +1498,7 @@ export function SimuladorImoveis() {
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
                   <span className="text-xs text-slate-500">
-                    Com redutor social R$ 600/imóvel/mês e redutor setorial da alíquota (70% longa duração ou 50% curta, conforme perfil escolhido).
+                    Com redutor social por imóvel/mês (IPCA desde jul/2025) e redutor setorial da alíquota (70% longa duração ou 50% curta, conforme perfil escolhido).
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -2582,6 +2720,35 @@ export function SimuladorImoveis() {
         <Card className="mt-6 p-4">
           <h3 className="text-lg font-semibold text-slate-800 mb-3">Memória de cálculo</h3>
           <div className="space-y-4 text-sm">
+            {result.indices_lc214 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 text-xs text-slate-700">
+                <p className="font-semibold text-slate-800 mb-1">LC 214 / IPCA (valores usados nesta simulação)</p>
+                <p>
+                  Origem dos parâmetros:{' '}
+                  <strong>
+                    {result.indices_lc214.parametros_origem === 'calculado'
+                      ? 'automático (IPCA)'
+                      : result.indices_lc214.parametros_origem === 'manual_completo'
+                        ? 'entrada manual (completa)'
+                        : 'misto (manual + automático)'}
+                  </strong>
+                </p>
+                <p>
+                  Referência IPCA: {result.indices_lc214.mes_referencia_fim} · Fator acumulado:{' '}
+                  {result.indices_lc214.fator_acumulado_desde_publicacao} · Fonte:{' '}
+                  {result.indices_lc214.ipca_fonte === 'bcb_online'
+                    ? 'BCB online'
+                    : result.indices_lc214.ipca_fonte === 'cache'
+                      ? 'cache API'
+                      : 'contingência'}
+                </p>
+                <p>
+                  Redutor social mensal efetivo: {formatMoney(result.indices_lc214.redutor_social_mensal_efetivo)} · Tetos PF:{' '}
+                  {formatMoney(result.indices_lc214.limite_receita_pf_contribuinte)} /{' '}
+                  {formatMoney(result.indices_lc214.limite_receita_pf_absoluto)}
+                </p>
+              </div>
+            )}
             <details className="border border-slate-200 rounded-lg overflow-hidden" open>
               <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Pessoa Física (Carnê-Leão)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">

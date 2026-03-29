@@ -56,34 +56,45 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export type LimitesContribuinteIbsCbsPF = {
+  limite_receita_com_mais_de_tres_imoveis: number;
+  limite_receita_absoluto: number;
+};
+
 /**
  * Verifica se a Pessoa Física é contribuinte de IBS/CBS na locação de imóveis (LC 214/2025).
  * Critérios:
- * - Mais de 3 imóveis E receita > R$ 240.000/ano = contribuinte
- * - OU receita > R$ 288.000/ano (20% acima de 240k) = contribuinte independente do número de imóveis
+ * - Mais de 3 imóveis E receita acima do limite indexado (nominal R$ 240k) = contribuinte
+ * - OU receita acima do limite absoluto indexado (nominal R$ 288k) = contribuinte independente do número de imóveis
  * - Caso contrário = não contribuinte (apenas IR Carnê-Leão)
  */
 export function verificarContribuinteIbsCbsPF(
   quantidadeImoveis: number,
-  receitaAnual: number
+  receitaAnual: number,
+  limites?: LimitesContribuinteIbsCbsPF
 ): { contribuinte: boolean; motivo: string } {
-  if (receitaAnual > LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF) {
+  const lim240 = limites?.limite_receita_com_mais_de_tres_imoveis ?? LIMITE_RECEITA_IBS_CBS_PF;
+  const lim288 = limites?.limite_receita_absoluto ?? LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF;
+  const lim240Fmt = lim240.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  const lim288Fmt = lim288.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+  if (receitaAnual > lim288) {
     return {
       contribuinte: true,
-      motivo: `Receita anual > R$ 288.000 (${((receitaAnual / LIMITE_RECEITA_IBS_CBS_PF - 1) * 100).toFixed(0)}% acima de R$ 240k)`,
+      motivo: `Receita anual > R$ ${lim288Fmt} (limite absoluto para contribuinte IBS/CBS PF)`,
     };
   }
-  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > LIMITE_RECEITA_IBS_CBS_PF) {
+  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > lim240) {
     return {
       contribuinte: true,
-      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (${quantidadeImoveis}) e receita > R$ 240.000`,
+      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (${quantidadeImoveis}) e receita > R$ ${lim240Fmt}`,
     };
   }
   return {
     contribuinte: false,
     motivo: quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF
-      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ 288.000`
-      : `Receita ≤ R$ 240.000`,
+      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ ${lim288Fmt}`
+      : `Receita ≤ R$ ${lim240Fmt}`,
   };
 }
 

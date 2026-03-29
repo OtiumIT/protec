@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PropertyWithClient } from '../services/property.service';
 import { Button } from '../../../shared/components/ui/Button';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
@@ -300,6 +300,8 @@ export function PropertiesInlineGrid({
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showLoadSimulationModal, setShowLoadSimulationModal] = useState(false);
   const debugShortcutArmedUntilRef = useRef<number>(0);
+  const pendingDuplicateFocusRowIdRef = useRef<string | null>(null);
+  const selectAllEligibleRef = useRef<HTMLInputElement>(null);
 
   const selectedPersistedIds = useMemo(
     () =>
@@ -371,6 +373,11 @@ export function PropertiesInlineGrid({
   const hasRowsToSave = rows.some((r) => rowNeedsSave(r));
   const hasPersistedRowsEditing = rows.some((r) => r.isPersisted && r.isEditing);
   const eligibleRowsCount = rows.filter((r) => isRowEligibleForSimulation(r)).length;
+  const eligibleRowsForBulk = useMemo(() => rows.filter((r) => isRowEligibleForSimulation(r)), [rows]);
+  const allEligibleSelected = useMemo(
+    () => eligibleRowsForBulk.length > 0 && eligibleRowsForBulk.every((r) => r.isSelected),
+    [eligibleRowsForBulk]
+  );
   const selectedSavedRowsCount = rows.filter(
     (r) => r.isSelected && getRowStatus(r) === 'saved'
   ).length;
@@ -468,6 +475,78 @@ export function PropertiesInlineGrid({
       prev.map((r) => (r.rowId === rowId ? { ...r, isSelected: !r.isSelected } : r))
     );
   };
+
+  const toggleSelectAllEligible = useCallback(() => {
+    setRows((prev) => {
+      const eligible = prev.filter((r) => isRowEligibleForSimulation(r));
+      if (eligible.length === 0) return prev;
+      const allOn = eligible.every((r) => r.isSelected);
+      const eligibleIds = new Set(eligible.map((r) => r.rowId));
+      return prev.map((r) => (eligibleIds.has(r.rowId) ? { ...r, isSelected: !allOn } : r));
+    });
+  }, []);
+
+  const duplicateRowBelow = useCallback((sourceRowId: string) => {
+    setRows((prev) => {
+      const idx = prev.findIndex((r) => r.rowId === sourceRowId);
+      if (idx < 0) return prev;
+      const source = prev[idx];
+      if (isGridRowEmpty(source)) return prev;
+
+      const newRowId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const newRow: GridRow = {
+        rowId: newRowId,
+        isPersisted: false,
+        isSelected: false,
+        isEditing: true,
+        identificador: source.identificador.trim() ? `${source.identificador.trim()} (cópia)` : '',
+        valor_aluguel_mensal: source.valor_aluguel_mensal,
+        tipo_locacao: source.tipo_locacao,
+        natureza_locacao: source.natureza_locacao,
+        matricula_imovel: '',
+        inscricao_iptu: '',
+        cartorio_registro: '',
+        iptu_mensal_padrao: source.iptu_mensal_padrao,
+        condominio_mensal_padrao: source.condominio_mensal_padrao,
+        seguro_mensal_padrao: source.seguro_mensal_padrao,
+        camareira_mensal_padrao: source.camareira_mensal_padrao,
+        seguranca_mensal_padrao: source.seguranca_mensal_padrao,
+        material_limpeza_mensal_padrao: source.material_limpeza_mensal_padrao,
+        lavanderia_enxoval_mensal_padrao: source.lavanderia_enxoval_mensal_padrao,
+        checkin_checkout_mensal_padrao: source.checkin_checkout_mensal_padrao,
+        taxas_pagamento_mensal_padrao: source.taxas_pagamento_mensal_padrao,
+        tarifas_bancarias_mensal_padrao: source.tarifas_bancarias_mensal_padrao,
+        vacancia_mensal_padrao: source.vacancia_mensal_padrao,
+        inadimplencia_mensal_padrao: source.inadimplencia_mensal_padrao,
+      };
+
+      pendingDuplicateFocusRowIdRef.current = newRowId;
+      const next = [...prev.slice(0, idx + 1), newRow, ...prev.slice(idx + 1)];
+      return ensureDraftCapacity(next);
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    const selEl = selectAllEligibleRef.current;
+    if (selEl) {
+      const eligible = rows.filter((r) => isRowEligibleForSimulation(r));
+      const n = eligible.length;
+      const selected = eligible.filter((r) => r.isSelected).length;
+      selEl.indeterminate = n > 0 && selected > 0 && selected < n;
+    }
+
+    const focusId = pendingDuplicateFocusRowIdRef.current;
+    if (focusId) {
+      pendingDuplicateFocusRowIdRef.current = null;
+      const tr = document.querySelector(`tr[data-grid-row-id="${CSS.escape(focusId)}"]`);
+      const byPlaceholder = tr?.querySelector('input[placeholder="Imovel"]') as HTMLInputElement | null;
+      const firstEditable =
+        byPlaceholder ??
+        (tr?.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null);
+      firstEditable?.focus();
+      firstEditable?.select?.();
+    }
+  }, [rows]);
 
   const enableEditSelected = () => {
     setRows((prev) =>
@@ -623,6 +702,9 @@ export function PropertiesInlineGrid({
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs text-slate-600 flex items-center gap-4 flex-wrap">
           <span>Legenda:</span>
+          <span className="text-slate-500 max-w-[22rem] leading-snug">
+            Coluna <strong className="text-slate-600">Dup.</strong>: duplicar linha (rascunho). Checkbox do cabeçalho: marcar todas elegíveis (com aluguel).
+          </span>
           <span className="inline-flex items-center gap-1">✅ salva</span>
           <span className="inline-flex items-center gap-1">🕒 rascunho (não salva)</span>
           <span className="inline-flex items-center gap-1 text-amber-800">
@@ -676,7 +758,23 @@ export function PropertiesInlineGrid({
         <table className="min-w-[1100px] w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-200">
-              <th className="text-left py-2 px-2 w-8"></th>
+              <th className="w-9 py-2 px-1 text-left align-middle">
+                <input
+                  ref={selectAllEligibleRef}
+                  type="checkbox"
+                  checked={allEligibleSelected}
+                  disabled={eligibleRowsForBulk.length === 0}
+                  onChange={toggleSelectAllEligible}
+                  title="Marcar ou desmarcar todas as linhas com aluguel preenchido (elegíveis para simulação)"
+                  aria-label="Marcar todas as linhas elegíveis para simulação"
+                />
+              </th>
+              <th
+                className="w-10 py-2 px-1 text-center text-xs font-normal text-slate-500"
+                title="Duplicar linha como novo rascunho"
+              >
+                Dup.
+              </th>
               <th className="text-left py-2 px-2 w-12">Status</th>
               {COLUMN_DEFS.filter((c) => visibleColumns.includes(c.id)).map((col) => (
                 <th key={col.id} className="text-left py-2 px-2 text-slate-700">{col.label}</th>
@@ -686,17 +784,31 @@ export function PropertiesInlineGrid({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={visibleColumns.length + 2} className="py-3 px-2 text-slate-500">Carregando imóveis...</td>
+                <td colSpan={visibleColumns.length + 3} className="py-3 px-2 text-slate-500">Carregando imóveis...</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={visibleColumns.length + 2} className="py-3 px-2 text-slate-500">Sem linhas.</td>
+                <td colSpan={visibleColumns.length + 3} className="py-3 px-2 text-slate-500">Sem linhas.</td>
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.rowId} className="border-b border-slate-100">
+                <tr key={row.rowId} data-grid-row-id={row.rowId} className="border-b border-slate-100">
                   <td className="py-2 px-2">
                     <input type="checkbox" checked={row.isSelected} onChange={() => toggleSelect(row.rowId)} />
+                  </td>
+                  <td className="py-2 px-1 align-middle">
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:border-brand/35 hover:bg-brand/5 hover:text-brand disabled:pointer-events-none disabled:opacity-35"
+                      disabled={isGridRowEmpty(row)}
+                      aria-label="Duplicar linha como rascunho"
+                      title="Duplica aluguel, tipo, natureza e custos padrão. Matrícula, IPTU e cartório ficam em branco — cada imóvel é único."
+                      onClick={() => duplicateRowBelow(row.rowId)}
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
                   </td>
                   <td className="py-2 px-2 align-middle">
                     {getRowStatus(row) === 'saved' && '✅'}
