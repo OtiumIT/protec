@@ -1041,7 +1041,6 @@ export function SimuladorImoveis() {
         setCustosOperacionaisAberto(hasCustoOperacionalData(loaded));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
-      setPerfilLocacao(input?.opcoes_reforma?.perfil_locacao ?? 'residencial_comum');
       if (input?.opcoes_reforma?.ano_referencia_reforma != null) setAnoReferenciaReforma(input.opcoes_reforma.ano_referencia_reforma);
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
@@ -1061,12 +1060,40 @@ export function SimuladorImoveis() {
       );
       if ((input as { receita_locacao_residencial_anual?: number })?.receita_locacao_residencial_anual != null) setReceitaLocacaoResidencialAnual((input as { receita_locacao_residencial_anual: number }).receita_locacao_residencial_anual);
       if ((input as { receita_locacao_nao_residencial_anual?: number })?.receita_locacao_nao_residencial_anual != null) setReceitaLocacaoNaoResidencialAnual((input as { receita_locacao_nao_residencial_anual: number }).receita_locacao_nao_residencial_anual);
-      if (input?.quantidade_imoveis_residenciais != null || input?.quantidade_imoveis_comerciais != null) {
-        setQuantidadeImoveisResidenciais(input.quantidade_imoveis_residenciais ?? 0);
-        setQuantidadeImoveisComerciais(input.quantidade_imoveis_comerciais ?? 0);
-      } else if (input?.quantidade_imoveis != null) {
-        setQuantidadeImoveisResidenciais(input.quantidade_imoveis);
-        setQuantidadeImoveisComerciais(0);
+
+      const qr = input?.quantidade_imoveis_residenciais;
+      const qc = input?.quantidade_imoveis_comerciais;
+      const qt = input?.quantidade_imoveis;
+      let resolvedRes: number | undefined;
+      let resolvedCom: number | undefined;
+      if (qr != null || qc != null) {
+        const r = qr ?? 0;
+        const c = qc ?? 0;
+        if (r === 0 && c === 0 && qt != null && qt > 0) {
+          resolvedRes = qt;
+          resolvedCom = 0;
+        } else {
+          resolvedRes = r;
+          resolvedCom = c;
+        }
+      } else if (qt != null) {
+        resolvedRes = qt;
+        resolvedCom = 0;
+      }
+      if (resolvedRes !== undefined && resolvedCom !== undefined) {
+        setQuantidadeImoveisResidenciais(resolvedRes);
+        setQuantidadeImoveisComerciais(resolvedCom);
+      }
+
+      const savedPerfil = input?.opcoes_reforma?.perfil_locacao;
+      const perfisValidos: PerfilLocacaoReforma[] = ['residencial_comum', 'hospedagem_temporada', 'ambos'];
+      const hasExplicitPerfil = savedPerfil != null && perfisValidos.includes(savedPerfil);
+      if (hasExplicitPerfil) {
+        setPerfilLocacao(savedPerfil);
+      } else if (resolvedRes !== undefined && resolvedCom !== undefined && resolvedRes > 0 && resolvedCom > 0) {
+        setPerfilLocacao('ambos');
+      } else {
+        setPerfilLocacao('residencial_comum');
       }
       // Carregar client_id e title para "Salvar como novo"
       setSaveClientId(sim.client_id ?? '');
