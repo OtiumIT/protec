@@ -1,6 +1,14 @@
 import {
   BCB_SGS_IPCA_MENSAL_CODIGO,
+  LIMITE_RECEITA_ABSOLUTO_PF_NOMINAL,
+  LIMITE_RECEITA_CONTRIBUINTE_PF_NOMINAL,
+  LC214_IPCA_FIRST_CORRECTION_MONTH,
+  LC214_IPCA_FIRST_CORRECTION_YEAR,
+  REDUTOR_SOCIAL_MENSAL_NOMINAL_LC214,
+  calcularFatorIpcaAcumuladoLc214,
   calcularIndicesLc214,
+  mesReferenciaFimIpcaParaAnoCalendario,
+  monthKey,
   type IndicesLc214Calculados,
   type IpcaMonthlyMap,
 } from '@shared/core';
@@ -12,6 +20,24 @@ export type IpcaContextoLc214 = IndicesLc214Calculados & {
   ipca_fonte: IpcaFonte;
   serie_sgs_codigo: number;
   data_consulta_bcb?: string;
+};
+
+export type IpcaSerieDetalhadaMes = {
+  mes_referencia: string;
+  variacao_mensal_pct: number;
+  acumulado_ano_pct: number;
+  acumulado_12m_pct: number;
+  fator_lc214_no_mes: number;
+};
+
+export type IpcaSerieDetalhada = {
+  fonte: IpcaFonte;
+  serie_sgs_codigo: number;
+  data_consulta_bcb?: string;
+  ano_calendario: number;
+  mes_referencia_fim: string;
+  mes_mais_recente_serie: string;
+  meses: IpcaSerieDetalhadaMes[];
 };
 
 type CacheEntry = { map: Map<string, number>; fetchedAt: number; fonte: IpcaFonte };
@@ -115,11 +141,136 @@ export async function getIpcaContextoLc214ParaAno(
   anoCalendario: number
 ): Promise<IpcaContextoLc214> {
   const { map, fonte, data_consulta_bcb } = await getIpcaMonthlyMapMerged();
-  const base = calcularIndicesLc214(map, anoCalendario);
+  const legacyBase = calcularIndicesLc214(map, anoCalendario);
+  const latestKey = Array.from(map.keys()).sort().at(-1);
+  const latest = latestKey ? parseMonthKey(latestKey) : null;
+  const fallbackEnd = mesReferenciaFimIpcaParaAnoCalendario(anoCalendario);
+
+  let endYear = fallbackEnd.year;
+  let endMonth = fallbackEnd.month;
+  if (latest) {
+    // Usa o mês mais recente já publicado pelo BCB, sem projetar meses futuros.
+    if (latest.year < anoCalendario) {
+      endYear = latest.year;
+      endMonth = latest.month;
+    } else if (latest.year === anoCalendario) {
+      endYear = latest.year;
+      endMonth = latest.month;
+    }
+  }
+
+  const { fator } = calcularFatorIpcaAcumuladoLc214(map, endYear, endMonth);
+  const base: IndicesLc214Calculados = {
+    ...legacyBase,
+    mes_referencia_fim: monthKey(endYear, endMonth),
+    fator_acumulado_desde_publicacao: fator,
+    redutor_social_mensal_efetivo: Math.round(REDUTOR_SOCIAL_MENSAL_NOMINAL_LC214 * fator * 100) / 100,
+    limite_receita_pf_contribuinte: Math.round(LIMITE_RECEITA_CONTRIBUINTE_PF_NOMINAL * fator * 100) / 100,
+    limite_receita_pf_absoluto: Math.round(LIMITE_RECEITA_ABSOLUTO_PF_NOMINAL * fator * 100) / 100,
+  };
   return {
     ...base,
     ipca_fonte: fonte,
     serie_sgs_codigo: BCB_SGS_IPCA_MENSAL_CODIGO,
     data_consulta_bcb,
+  };
+}
+
+function parseMonthKey(key: string): { year: number; month: number } {
+  const m = key.match(/^(\d{4})-(\d{2})$/);
+  if (!m) throw new Error(`Month key inválida: ${key}`);
+  return { year: Number(m[1]), month: Number(m[2]) };
+}
+
+function previousMonth(year: number, month: number): { year: number; month: number } {
+  if (month === 1) return { year: year - 1, month: 12 };
+  return { year, month: month - 1 };
+}
+
+function compoundPct(values: number[]): number {
+  const factor = values.reduce((acc, pct) => acc * (1 + pct / 100), 1);
+  return Math.round((factor - 1) * 100 * 1_000_000) / 1_000_000;
+}
+
+function compoundFactor(values: number[]): number {
+  const factor = values.reduce((acc, pct) => acc * (1 + pct / 100), 1);
+  return Math.round(factor * 1_000_000) / 1_000_000;
+}
+
+export async function getIpcaSerieDetalhadaParaAno(
+  anoCalendario: number,
+  janelaMeses = 24
+): Promise<IpcaSerieDetalhada> {
+  const { map, fonte, data_consulta_bcb } = await getIpcaMonthlyMapMerged();
+  const endRef = mesReferenciaFimIpcaParaAnoCalendario(anoCalendario);
+  const latestKey = Array.from(map.keys()).sort().at(-1);
+  const end = latestKey ? parseMonthKey(latestKey) : endRef;
+  const totalMeses = Number.isFinite(janelaMeses)
+    ? Math.min(Math.max(Math.trunc(janelaMeses), 6), 60)
+    : 24;
+
+  const keysAsc: string[] = [];
+  let y = end.year;
+  let m = end.month;
+  for (let i = 0; i < totalMeses; i += 1) {
+    keysAsc.push(monthKey(y, m));
+    const prev = previousMonth(y, m);
+    y = prev.year;
+    m = prev.month;
+  }
+  keysAsc.reverse();
+
+  const meses = keysAsc.map((key) => {
+    const { year, month } = parseMonthKey(key);
+    const variacaoMensal = map.get(key) ?? 0;
+
+    const anoPcts: number[] = [];
+    for (let mm = 1; mm <= month; mm += 1) {
+      anoPcts.push(map.get(monthKey(year, mm)) ?? 0);
+    }
+    const acumuladoAnoPct = compoundPct(anoPcts);
+
+    const twelvePcts: number[] = [];
+    let y12 = year;
+    let m12 = month;
+    for (let i = 0; i < 12; i += 1) {
+      const k = monthKey(y12, m12);
+      twelvePcts.push(map.get(k) ?? 0);
+      const prev = previousMonth(y12, m12);
+      y12 = prev.year;
+      m12 = prev.month;
+    }
+    const acumulado12mPct = compoundPct(twelvePcts);
+
+    const lc214Pcts: number[] = [];
+    let yl = LC214_IPCA_FIRST_CORRECTION_YEAR;
+    let ml = LC214_IPCA_FIRST_CORRECTION_MONTH;
+    while (yl < year || (yl === year && ml <= month)) {
+      lc214Pcts.push(map.get(monthKey(yl, ml)) ?? 0);
+      ml += 1;
+      if (ml > 12) {
+        ml = 1;
+        yl += 1;
+      }
+    }
+    const fatorLc214NoMes = compoundFactor(lc214Pcts);
+
+    return {
+      mes_referencia: key,
+      variacao_mensal_pct: variacaoMensal,
+      acumulado_ano_pct: acumuladoAnoPct,
+      acumulado_12m_pct: acumulado12mPct,
+      fator_lc214_no_mes: fatorLc214NoMes,
+    };
+  });
+
+  return {
+    fonte,
+    serie_sgs_codigo: BCB_SGS_IPCA_MENSAL_CODIGO,
+    data_consulta_bcb,
+    ano_calendario: anoCalendario,
+    mes_referencia_fim: monthKey(endRef.year, endRef.month),
+    mes_mais_recente_serie: monthKey(end.year, end.month),
+    meses,
   };
 }

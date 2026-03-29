@@ -409,9 +409,10 @@ export const rulesImoveis: RuleDocumentation[] = [
       'O redutor de 70% resulta em carga efetiva próxima a 8% sobre receita após 2033.',
       'Perfil "ambos": quando há receita de longa duração e de curta temporada, o simulador aplica 70% na parte longa e 50% na curta, proporcionalmente. O redutor da alíquota é exibido no card e em "Ver cálculo IBS/CBS".',
       'Redutor social (Art. 260 LC 214/2025): valor nominal R$ 600/mês por imóvel residencial, atualizado pelo IPCA (sistema usa BCB SGS); deduzido da BASE apenas na parcela de longa duração (acima de 90 dias). Curta temporada (até 90 dias) e locação não residencial não recebem redutor social.',
+      'Para ajuste dos parâmetros legais (redutor e tetos), o índice de cálculo é o fator acumulado composto da série mensal do IPCA (SGS 433), com referência no mês aplicável ao ano-calendário. Os indicadores mensal/acumulado no ano/acumulado 12m são exibidos apenas para transparência e auditoria.',
       'Para PF: só é contribuinte se mais de 3 imóveis + receita acima do limite indexado (nominal R$ 240k), ou receita acima do limite absoluto indexado (nominal R$ 288k). Os tetos são corrigidos pelo mesmo fator IPCA no simulador.',
     ],
-    ultima_atualizacao: '2026-03-20',
+    ultima_atualizacao: '2026-03-29',
     tags: ['reforma', 'ibs', 'cbs', 'redutor'],
     vigencia: {
       inicio: '2027-01-01',

@@ -10,7 +10,6 @@ import { verifyAccessToken } from '../shared/utils/jwt';
  * 3. Payload do JWT (preferencial para rotas autenticadas)
  */
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
-  const isCalibratorRoute = c.req.path.includes('/api/v1/fiscal-files/calibrator');
   let companyId: string | undefined;
   let companyIdFromJwt: string | undefined;
   let roleFromJwt: string | undefined;

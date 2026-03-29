@@ -440,6 +440,29 @@ export const FiscalIndicesIpcaQuerySchema = z.object({
   ano: z.coerce.number().int().min(2020).max(2035),
 });
 
+export const FiscalIndicesIpcaSeriesQuerySchema = z.object({
+  ano: z.coerce.number().int().min(2020).max(2035),
+  janela: z.coerce.number().int().min(6).max(60).default(24),
+});
+
+export const IpcaSerieMesSchema = z.object({
+  mes_referencia: z.string().regex(/^\d{4}-\d{2}$/),
+  variacao_mensal_pct: z.number(),
+  acumulado_ano_pct: z.number(),
+  acumulado_12m_pct: z.number(),
+  fator_lc214_no_mes: z.number(),
+});
+
+export const FiscalIndicesIpcaSeriesResponseSchema = z.object({
+  fonte: z.enum(['bcb_online', 'cache', 'embutido']),
+  serie_sgs_codigo: z.number(),
+  data_consulta_bcb: z.string().optional(),
+  ano_calendario: z.number(),
+  mes_referencia_fim: z.string().regex(/^\d{4}-\d{2}$/),
+  mes_mais_recente_serie: z.string().regex(/^\d{4}-\d{2}$/),
+  meses: z.array(IpcaSerieMesSchema),
+});
+
 export const ListPropertiesQuerySchema = z.object({
   client_id: z.string().uuid().optional(),
   page: z.coerce.number().int().positive().default(1),
@@ -487,6 +510,9 @@ export type SimulateStandaloneAndSaveInput = z.infer<typeof SimulateStandaloneAn
 export type SimulatePropertyTaxInput = z.infer<typeof SimulatePropertyTaxInputSchema>;
 export type SimulatePropertyTaxAndSaveInput = z.infer<typeof SimulatePropertyTaxAndSaveInputSchema>;
 export type UpdatePropertySimulationInput = z.infer<typeof UpdatePropertySimulationInputSchema>;
+export type FiscalIndicesIpcaSeriesQuery = z.infer<typeof FiscalIndicesIpcaSeriesQuerySchema>;
+export type IpcaSerieMes = z.infer<typeof IpcaSerieMesSchema>;
+export type FiscalIndicesIpcaSeriesResponse = z.infer<typeof FiscalIndicesIpcaSeriesResponseSchema>;
 
 export interface PropertySimulation {
   id: string;

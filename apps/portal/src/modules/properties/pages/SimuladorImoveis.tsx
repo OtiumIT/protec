@@ -33,6 +33,7 @@ import type {
   PerfilLocacaoReforma,
   PropertySimulation,
   IndicesLc214,
+  FiscalIndicesIpcaSeriesResponse,
 } from '@shared/core';
 import { calcularTransicaoIBS, type TransicaoIBSResult } from '@shared/core';
 
@@ -284,6 +285,10 @@ export function SimuladorImoveis() {
   /** Secção «Custos operacionais»: recolhível; abre ao carregar imóvel/simulação se já houver valores */
   const [custosOperacionaisAberto, setCustosOperacionaisAberto] = useState(false);
   const [ipcaPreview, setIpcaPreview] = useState<IndicesLc214 | null>(null);
+  const [ipcaSeries, setIpcaSeries] = useState<FiscalIndicesIpcaSeriesResponse | null>(null);
+  const [ipcaSeriesLoading, setIpcaSeriesLoading] = useState(false);
+  const [ipcaSeriesModalOpen, setIpcaSeriesModalOpen] = useState(false);
+  const [showLc214ContaExplicita, setShowLc214ContaExplicita] = useState(false);
   const [lc214AvancadoAberto, setLc214AvancadoAberto] = useState(false);
   const [lc214ManualLim240, setLc214ManualLim240] = useState('');
   const [lc214ManualLim288, setLc214ManualLim288] = useState('');
@@ -295,11 +300,24 @@ export function SimuladorImoveis() {
     let cancelled = false;
     propertyService
       .getFiscalIndicesIpca(ano)
-      .then((d) => {
-        if (!cancelled) setIpcaPreview(d);
+      .then((preview) => {
+        if (cancelled) return;
+        setIpcaPreview(preview);
       })
       .catch(() => {
-        if (!cancelled) setIpcaPreview(null);
+        if (cancelled) return;
+        setIpcaPreview(null);
+      });
+
+    propertyService
+      .getFiscalIndicesIpcaSeries(ano, 24)
+      .then((series) => {
+        if (cancelled) return;
+        setIpcaSeries(series ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIpcaSeries(null);
       });
     return () => {
       cancelled = true;
@@ -1183,6 +1201,55 @@ export function SimuladorImoveis() {
 
   const formatMoney = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const formatPercentPtBr = (v: number, casas = 2) =>
+    `${new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: casas,
+      maximumFractionDigits: casas,
+    }).format(v)}%`;
+  const formatFactorPtBr = (v: number, casas = 6) =>
+    new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: casas,
+      maximumFractionDigits: casas,
+    }).format(v);
+  const formatMonthRefPtBr = (ym: string) => {
+    const m = ym.match(/^(\d{4})-(\d{2})$/);
+    if (!m) return ym;
+    return `${m[2]}/${m[1]}`;
+  };
+
+  const openIpcaSeriesModal = useCallback(async () => {
+    setIpcaSeriesModalOpen(true);
+    setIpcaSeriesLoading(true);
+    try {
+      const data = await propertyService.getFiscalIndicesIpcaSeries(ano, 24);
+      setIpcaSeries(data ?? null);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar série do IPCA');
+    } finally {
+      setIpcaSeriesLoading(false);
+    }
+  }, [ano, showError]);
+
+  const ipcaSerieMaisRecente =
+    ipcaSeries?.meses && ipcaSeries.meses.length > 0
+      ? ipcaSeries.meses[ipcaSeries.meses.length - 1]
+      : null;
+  const lc214RefFim = ipcaPreview?.mes_referencia_fim ?? '';
+  const lc214MesesAplicados = ipcaSeries?.meses
+    ? ipcaSeries.meses.filter(
+        (m) => lc214RefFim !== '' && m.mes_referencia >= '2025-08' && m.mes_referencia <= lc214RefFim
+      )
+    : [];
+  const lc214ContaExplicita =
+    lc214MesesAplicados.length > 0
+      ? lc214MesesAplicados
+          .map(
+            (m) =>
+              `(1 + ${formatPercentPtBr(m.variacao_mensal_pct, 2).replace('%', '')}/100 @ ${formatMonthRefPtBr(m.mes_referencia)})`
+          )
+          .join(' × ')
+      : '';
+  const lc214MesesLista = lc214MesesAplicados.map((m) => formatMonthRefPtBr(m.mes_referencia)).join(', ');
 
   return (
     <Layout>
@@ -1372,32 +1439,123 @@ export function SimuladorImoveis() {
               aria-label="Parâmetros LC 214 indexados pelo IPCA"
             >
               <p className="font-medium text-slate-800 mb-1">
-                IPCA / LC 214 — ano-calendário {ano} (referência {ipcaPreview.mes_referencia_fim})
+                IPCA / LC 214 — ano-calendário {ano} (referência do cálculo: {formatMonthRefPtBr(ipcaPreview.mes_referencia_fim)})
               </p>
-              <ul className="text-xs space-y-0.5 list-disc list-inside text-slate-600">
-                <li>Fator acumulado (desde publicação jul/2025): {ipcaPreview.fator_acumulado_desde_publicacao}</li>
-                <li>Redutor social mensal (nominal R$ 600): {formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel residencial</li>
-                <li>Tetos PF contribuinte IBS/CBS: {formatMoney(ipcaPreview.limite_receita_pf_contribuinte)} / {formatMoney(ipcaPreview.limite_receita_pf_absoluto)}</li>
-                <li>
-                  Fonte:{' '}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">IPCA mensal mais recente</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {ipcaSerieMaisRecente ? formatPercentPtBr(ipcaSerieMaisRecente.variacao_mensal_pct, 2) : '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {ipcaSerieMaisRecente
+                      ? formatMonthRefPtBr(ipcaSerieMaisRecente.mes_referencia)
+                      : 'Carregue a tabela'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">IPCA acumulado no ano</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {ipcaSerieMaisRecente ? formatPercentPtBr(ipcaSerieMaisRecente.acumulado_ano_pct, 2) : '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Mês mais recente</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">IPCA acumulado 12 meses</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {ipcaSerieMaisRecente ? formatPercentPtBr(ipcaSerieMaisRecente.acumulado_12m_pct, 2) : '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Janela móvel</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Fator de correção LC 214 (x)</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowLc214ContaExplicita((v) => !v)}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-600 hover:bg-slate-100"
+                      title={showLc214ContaExplicita ? 'Ocultar conta explícita' : 'Mostrar conta explícita'}
+                      aria-label={showLc214ContaExplicita ? 'Ocultar conta explícita' : 'Mostrar conta explícita'}
+                    >
+                      i
+                    </button>
+                  </div>
+                  <p className="text-base font-semibold text-slate-900">
+                    {formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Equivale a {formatPercentPtBr((ipcaPreview.fator_acumulado_desde_publicacao - 1) * 100, 4)}
+                  </p>
+                </div>
+              </div>
+              {showLc214ContaExplicita && lc214MesesAplicados.length > 0 && (
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Conta explícita do fator LC 214</p>
+                  <p className="text-xs text-slate-700 mt-1 break-words">
+                    Meses aplicados: {lc214MesesLista}
+                  </p>
+                  <p className="text-xs text-slate-700 mt-1 break-words">
+                    {lc214ContaExplicita} = <strong>{formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}</strong>
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Redutor social mensal efetivo</p>
+                  <p className="text-base font-semibold text-slate-900">{formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {lc214ManualRedutorMensal.trim()
+                      ? 'Entrada manual informada'
+                      : `Calculado automaticamente: R$ 600,00 × ${formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}`}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Tetos PF (LC 214)</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    {formatMoney(ipcaPreview.limite_receita_pf_contribuinte)} / {formatMoney(ipcaPreview.limite_receita_pf_absoluto)}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Contribuinte / absoluto</p>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                <span className="font-medium">Atualização automática:</span>
+                <span>
                   {ipcaPreview.ipca_fonte === 'bcb_online'
-                    ? 'BCB SGS (consulta online)'
+                    ? 'sim (consulta online BCB confirmada)'
                     : ipcaPreview.ipca_fonte === 'cache'
-                      ? 'Cache da API (última consulta BCB)'
-                      : 'Dados de contingência (BCB indisponível)'}
-                  {' · '}
-                  <a
-                    href="https://www.bcb.gov.br/estabilidadefinanceira/historicoindicadores"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand underline"
+                      ? 'sim (dados BCB recentes em cache)'
+                      : 'não confirmada online (contingência embutida)'}
+                </span>
+                {ipcaPreview.data_consulta_bcb ? (
+                  <span
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-600"
+                    title={`Última consulta automática: ${new Date(ipcaPreview.data_consulta_bcb).toLocaleString('pt-BR')}`}
+                    aria-label={`Última consulta automática: ${new Date(ipcaPreview.data_consulta_bcb).toLocaleString('pt-BR')}`}
                   >
-                    Banco Central — séries
-                  </a>
-                </li>
-              </ul>
-              {ipcaPreview.ipca_fonte !== 'bcb_online' ? (
-                <p className="text-amber-800 text-xs mt-2">Atenção: não foi possível confirmar o índice em tempo real; valores podem ser aproximados.</p>
+                    i
+                  </span>
+                ) : null}
+                <span>· Série SGS {ipcaPreview.serie_sgs_codigo}</span>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => void openIpcaSeriesModal()}
+                  className="text-brand underline"
+                >
+                  Ver tabela de índices
+                </button>
+                <span>·</span>
+                <a
+                  href="https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand underline"
+                >
+                  Ver últimos índices (API oficial BCB)
+                </a>
+              </div>
+              {ipcaPreview.ipca_fonte === 'embutido' ? (
+                <p className="text-amber-800 text-xs mt-2">Atenção: BCB indisponível no momento; valores podem estar aproximados (contingência).</p>
               ) : null}
             </div>
           )}
@@ -3111,6 +3269,74 @@ export function SimuladorImoveis() {
           </ul>
         )}
       </Card>
+
+      <Modal
+        isOpen={ipcaSeriesModalOpen}
+        onClose={() => setIpcaSeriesModalOpen(false)}
+        title="Tabela de índices IPCA (Série SGS 433)"
+        size="xl"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">
+            Referência do cálculo LC 214: {ipcaPreview ? formatMonthRefPtBr(ipcaPreview.mes_referencia_fim) : '—'}.
+          </p>
+          {ipcaSeriesLoading && (
+            <p className="text-sm text-slate-600">Carregando série do IPCA...</p>
+          )}
+          {!ipcaSeriesLoading && ipcaSeries && (
+            <div className="max-h-[60vh] overflow-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2 border-b border-slate-200">Mês</th>
+                    <th className="text-right px-3 py-2 border-b border-slate-200">Variação mensal</th>
+                    <th className="text-right px-3 py-2 border-b border-slate-200">Acumulado no ano</th>
+                    <th className="text-right px-3 py-2 border-b border-slate-200">Acumulado 12 meses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ipcaSeries.meses
+                    .slice()
+                    .reverse()
+                    .map((row) => {
+                      const isRef = row.mes_referencia === ipcaPreview?.mes_referencia_fim;
+                      return (
+                        <tr key={row.mes_referencia} className={isRef ? 'bg-amber-50/60' : ''}>
+                          <td className="px-3 py-2 border-b border-slate-100">
+                            {formatMonthRefPtBr(row.mes_referencia)}
+                            {isRef ? <span className="ml-2 text-[11px] text-amber-700 font-medium">referência LC214</span> : null}
+                          </td>
+                          <td className="px-3 py-2 border-b border-slate-100 text-right">
+                            {formatPercentPtBr(row.variacao_mensal_pct, 2)}
+                          </td>
+                          <td className="px-3 py-2 border-b border-slate-100 text-right">
+                            {formatPercentPtBr(row.acumulado_ano_pct, 2)}
+                          </td>
+                          <td className="px-3 py-2 border-b border-slate-100 text-right">
+                            {formatPercentPtBr(row.acumulado_12m_pct, 2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="text-xs text-slate-500">
+            Fonte: {ipcaSeries?.fonte === 'bcb_online'
+              ? 'BCB online'
+              : ipcaSeries?.fonte === 'cache'
+                ? 'cache da API'
+                : 'contingência embutida'}
+            {ipcaSeries?.data_consulta_bcb ? ` · Última consulta: ${new Date(ipcaSeries.data_consulta_bcb).toLocaleString('pt-BR')}` : ''}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={() => setIpcaSeriesModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal Visualizar Simulação */}
       <Modal
