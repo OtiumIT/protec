@@ -55,6 +55,8 @@ type GridRow = {
 };
 
 type SaveRowInput = {
+  /** Presente quando a linha já existe no cadastro — o pai deve usar PATCH em vez de criar de novo. */
+  propertyId?: string;
   identificador: string;
   valor_aluguel_mensal: number;
   tipo_locacao: 'fixa' | 'flexivel';
@@ -572,6 +574,7 @@ export function PropertiesInlineGrid({
     try {
       await onSaveRows(
         changed.map((r) => ({
+          ...(r.isPersisted && r.propertyId ? { propertyId: r.propertyId } : {}),
           identificador: r.identificador,
           valor_aluguel_mensal: r.valor_aluguel_mensal,
           tipo_locacao: (r.tipo_locacao || 'fixa') as 'fixa' | 'flexivel',
@@ -599,6 +602,8 @@ export function PropertiesInlineGrid({
         setRows((prev) => ensureDraftCapacity(prev.filter((r) => !savedDraftRowIds.has(r.rowId))));
       }
       await onRefreshClientProperties();
+    } catch {
+      // Erro já exibido pelo pai (ex.: toast); não recarregar lista nem limpar rascunhos.
     } finally {
       setIsSaving(false);
     }

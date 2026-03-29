@@ -608,8 +608,6 @@ export function SimuladorImoveis() {
       setImoveisSelectedIds(new Set());
       return;
     }
-    setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(ano, i)));
-    setCustosOperacionaisAberto(false);
     let cancelled = false;
     setImoveisLoading(true);
     propertyService.list({ client_id: clientId, limit: 100 }).then(
@@ -635,7 +633,7 @@ export function SimuladorImoveis() {
       if (!cancelled) setImoveisLoading(false);
     });
     return () => { cancelled = true; };
-  }, [clientId, ano]);
+  }, [clientId]);
 
   const handleDeleteProperty = async () => {
     if (!deletePropertyModal || deleteConfirmText.toLowerCase() !== 'excluir') return;
@@ -817,8 +815,71 @@ export function SimuladorImoveis() {
     return o;
   };
 
+  /** Mesmas regras de `simulateStandalone`: totais manuais LC ou agregado da seleção de imóveis na grade. */
+  const buildImoveisStandaloneFields = useCallback(() => {
+    const selectedPersistedProperties = imoveisList.filter((p) => imoveisSelectedIds.has(p.id));
+    const selectedDraftProperties = imoveisDraftSelecionados;
+    const usarSelecaoImoveis =
+      selectedPersistedProperties.length > 0 || selectedDraftProperties.length > 0;
+    const quantidadeImoveisResidenciaisSelecionados =
+      selectedPersistedProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length +
+      selectedDraftProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length;
+    const quantidadeImoveisComerciaisSelecionados =
+      selectedPersistedProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length +
+      selectedDraftProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length;
+    const receitaLocacaoResidencialSelecionadaAnual = round2(
+      selectedPersistedProperties
+        .filter((p) => p.natureza_locacao !== 'nao_residencial')
+        .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
+        selectedDraftProperties
+          .filter((p) => p.natureza_locacao !== 'nao_residencial')
+          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+    );
+    const receitaLocacaoNaoResidencialSelecionadaAnual = round2(
+      selectedPersistedProperties
+        .filter((p) => p.natureza_locacao === 'nao_residencial')
+        .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
+        selectedDraftProperties
+          .filter((p) => p.natureza_locacao === 'nao_residencial')
+          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
+    );
+    const qtdTotal = usarSelecaoImoveis
+      ? selectedPersistedProperties.length + selectedDraftProperties.length
+      : quantidadeImoveisTotal;
+    return {
+      usarSelecaoImoveis,
+      quantidade_imoveis: qtdTotal || 1,
+      quantidade_imoveis_residenciais: usarSelecaoImoveis
+        ? quantidadeImoveisResidenciaisSelecionados
+        : quantidadeImoveisResidenciais,
+      quantidade_imoveis_comerciais: usarSelecaoImoveis
+        ? quantidadeImoveisComerciaisSelecionados
+        : quantidadeImoveisComerciais,
+      receita_locacao_residencial_anual: usarSelecaoImoveis
+        ? receitaLocacaoResidencialSelecionadaAnual
+        : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+          ? receitaLocacaoResidencialAnual
+          : undefined,
+      receita_locacao_nao_residencial_anual: usarSelecaoImoveis
+        ? receitaLocacaoNaoResidencialSelecionadaAnual
+        : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
+          ? receitaLocacaoNaoResidencialAnual
+          : undefined,
+    };
+  }, [
+    imoveisList,
+    imoveisSelectedIds,
+    imoveisDraftSelecionados,
+    quantidadeImoveisResidenciais,
+    quantidadeImoveisComerciais,
+    quantidadeImoveisTotal,
+    receitaLocacaoResidencialAnual,
+    receitaLocacaoNaoResidencialAnual,
+  ]);
+
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const imv = buildImoveisStandaloneFields();
     const receitaMensalSomada = meses.reduce(
       (s, m) =>
         s +
@@ -844,72 +905,31 @@ export function SimuladorImoveis() {
       setResult(null);
       try {
         const mesesParaEnvio = buildMesesParaEnvio();
-        const selectedPersistedProperties = imoveisList.filter((p) => imoveisSelectedIds.has(p.id));
-        const selectedDraftProperties = imoveisDraftSelecionados;
-        const usarSelecaoImoveis = selectedPersistedProperties.length > 0 || selectedDraftProperties.length > 0;
-        const quantidadeImoveisResidenciaisSelecionados =
-          selectedPersistedProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length +
-          selectedDraftProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length;
-        const quantidadeImoveisComerciaisSelecionados =
-          selectedPersistedProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length +
-          selectedDraftProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length;
-        const receitaLocacaoResidencialSelecionadaAnual = round2(
-          selectedPersistedProperties
-            .filter((p) => p.natureza_locacao !== 'nao_residencial')
-            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
-          selectedDraftProperties
-            .filter((p) => p.natureza_locacao !== 'nao_residencial')
-            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
-        );
-        const receitaLocacaoNaoResidencialSelecionadaAnual = round2(
-          selectedPersistedProperties
-            .filter((p) => p.natureza_locacao === 'nao_residencial')
-            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
-          selectedDraftProperties
-            .filter((p) => p.natureza_locacao === 'nao_residencial')
-            .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
-        );
-        const quantidadeImoveisResidenciaisInput = usarSelecaoImoveis
-          ? quantidadeImoveisResidenciaisSelecionados
-          : quantidadeImoveisResidenciais;
-        const quantidadeImoveisComerciaisInput = usarSelecaoImoveis
-          ? quantidadeImoveisComerciaisSelecionados
-          : quantidadeImoveisComerciais;
-        const receitaLocacaoResidencialAnualInput = usarSelecaoImoveis
-          ? receitaLocacaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoResidencialAnual
-            : undefined;
-        const receitaLocacaoNaoResidencialAnualInput = usarSelecaoImoveis
-          ? receitaLocacaoNaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoNaoResidencialAnual
-            : undefined;
         const opcoes = montarOpcoesReforma();
         const { result: res } = await propertyService.updateSimulation(editingSimulationId, {
           ano,
           meses: mesesParaEnvio,
           aplicar_equiparacao_hospitalar: false,
-          quantidade_imoveis: quantidadeImoveisTotal,
-          quantidade_imoveis_residenciais: quantidadeImoveisResidenciaisInput,
-          quantidade_imoveis_comerciais: quantidadeImoveisComerciaisInput,
+          quantidade_imoveis: imv.quantidade_imoveis,
+          quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+          quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
           opcoes_reforma: opcoes,
-          receita_locacao_residencial_anual: receitaLocacaoResidencialAnualInput,
-          receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualInput,
+          receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+          receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
         });
         setResult(res);
-      lastSimulationPayloadRef.current = {
-        ano,
-        meses: mesesParaEnvio,
-        aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: quantidadeImoveisTotal,
-        quantidade_imoveis_residenciais: quantidadeImoveisResidenciaisInput,
-        quantidade_imoveis_comerciais: quantidadeImoveisComerciaisInput,
-        opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: receitaLocacaoResidencialAnualInput,
-        receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualInput,
-      };
-      setEditingSimulationId(null);
+        lastSimulationPayloadRef.current = {
+          ano,
+          meses: mesesParaEnvio,
+          aplicar_equiparacao_hospitalar: false,
+          quantidade_imoveis: imv.quantidade_imoveis,
+          quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+          quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
+          opcoes_reforma: opcoes,
+          receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+          receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
+        };
+        setEditingSimulationId(null);
         success('Simulação atualizada.');
         const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
         setSimulations(simRes.simulations);
@@ -924,53 +944,17 @@ export function SimuladorImoveis() {
     setResult(null);
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
-      const selectedPersistedProperties = imoveisList.filter((p) => imoveisSelectedIds.has(p.id));
-      const selectedDraftProperties = imoveisDraftSelecionados;
-      const usarSelecaoImoveis = selectedPersistedProperties.length > 0 || selectedDraftProperties.length > 0;
-      const quantidadeImoveisResidenciaisSelecionados =
-        selectedPersistedProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length +
-        selectedDraftProperties.filter((p) => p.natureza_locacao !== 'nao_residencial').length;
-      const quantidadeImoveisComerciaisSelecionados =
-        selectedPersistedProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length +
-        selectedDraftProperties.filter((p) => p.natureza_locacao === 'nao_residencial').length;
-      const receitaLocacaoResidencialSelecionadaAnual = round2(
-        selectedPersistedProperties
-          .filter((p) => p.natureza_locacao !== 'nao_residencial')
-          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
-        selectedDraftProperties
-          .filter((p) => p.natureza_locacao !== 'nao_residencial')
-          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
-      );
-      const receitaLocacaoNaoResidencialSelecionadaAnual = round2(
-        selectedPersistedProperties
-          .filter((p) => p.natureza_locacao === 'nao_residencial')
-          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0) +
-        selectedDraftProperties
-          .filter((p) => p.natureza_locacao === 'nao_residencial')
-          .reduce((sum, p) => sum + Number(p.valor_aluguel_mensal ?? 0) * 12, 0)
-      );
       const opcoes = montarOpcoesReforma();
-      const qtdTotal = usarSelecaoImoveis
-        ? selectedPersistedProperties.length + selectedDraftProperties.length
-        : quantidadeImoveisTotal;
       const res = await propertyService.simulateStandalone({
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: qtdTotal || 1,
-        quantidade_imoveis_residenciais: usarSelecaoImoveis ? quantidadeImoveisResidenciaisSelecionados : quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: usarSelecaoImoveis ? quantidadeImoveisComerciaisSelecionados : quantidadeImoveisComerciais,
+        quantidade_imoveis: imv.quantidade_imoveis,
+        quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: usarSelecaoImoveis
-          ? receitaLocacaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoResidencialAnual
-            : undefined,
-        receita_locacao_nao_residencial_anual: usarSelecaoImoveis
-          ? receitaLocacaoNaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoNaoResidencialAnual
-            : undefined,
+        receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+        receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
       });
       setResult(res);
       if (clientId) {
@@ -980,20 +964,12 @@ export function SimuladorImoveis() {
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: qtdTotal || 1,
-        quantidade_imoveis_residenciais: usarSelecaoImoveis ? quantidadeImoveisResidenciaisSelecionados : quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: usarSelecaoImoveis ? quantidadeImoveisComerciaisSelecionados : quantidadeImoveisComerciais,
+        quantidade_imoveis: imv.quantidade_imoveis,
+        quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: usarSelecaoImoveis
-          ? receitaLocacaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoResidencialAnual
-            : undefined,
-        receita_locacao_nao_residencial_anual: usarSelecaoImoveis
-          ? receitaLocacaoNaoResidencialSelecionadaAnual
-          : quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0
-            ? receitaLocacaoNaoResidencialAnual
-            : undefined,
+        receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+        receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
       };
       success('Simulação concluída.');
     } catch (err) {
@@ -1095,7 +1071,10 @@ export function SimuladorImoveis() {
       } else {
         setPerfilLocacao('residencial_comum');
       }
-      // Carregar client_id e title para "Salvar como novo"
+      // Carregar client_id e title para "Salvar como novo"; alinhar dropdown do cliente
+      if (sim.client_id) {
+        setClientId(sim.client_id);
+      }
       setSaveClientId(sim.client_id ?? '');
       setSaveTitle(sim.title ?? '');
       setEditingSimulationId(id);
@@ -1129,21 +1108,33 @@ export function SimuladorImoveis() {
     try {
       const mesesParaEnvio = buildMesesParaEnvio();
       const opcoes = montarOpcoesReforma();
+      const imv = buildImoveisStandaloneFields();
       const { result: res } = await propertyService.simulateStandaloneAndSave({
         ano,
         meses: mesesParaEnvio,
         aplicar_equiparacao_hospitalar: false,
-        quantidade_imoveis: quantidadeImoveisTotal,
-        quantidade_imoveis_residenciais: quantidadeImoveisResidenciais,
-        quantidade_imoveis_comerciais: quantidadeImoveisComerciais,
+        quantidade_imoveis: imv.quantidade_imoveis,
+        quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
-        receita_locacao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoResidencialAnual : undefined,
-        receita_locacao_nao_residencial_anual: quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 ? receitaLocacaoNaoResidencialAnual : undefined,
+        receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+        receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
         client_id: saveClientId,
         title: saveTitle || undefined,
         save_simulation: true,
       });
       setResult(res);
+      lastSimulationPayloadRef.current = {
+        ano,
+        meses: mesesParaEnvio,
+        aplicar_equiparacao_hospitalar: false,
+        quantidade_imoveis: imv.quantidade_imoveis,
+        quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
+        opcoes_reforma: opcoes,
+        receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
+        receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
+      };
       setEditingSimulationId(null);
       success('Nova simulação criada com sucesso!');
       const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
@@ -1262,29 +1253,52 @@ export function SimuladorImoveis() {
             if (!clientId) return;
             const validRows = rows.filter((r) => r.identificador.trim().length > 0);
             if (!validRows.length) return;
-            await propertyService.createBatch({
-              client_id: clientId,
-              properties: validRows.map((r) => ({
-                identificador: r.identificador.trim(),
-                valor_aluguel_mensal: r.valor_aluguel_mensal,
-                tipo_locacao: r.tipo_locacao,
-                natureza_locacao: r.natureza_locacao,
-                modo_entrada: 'detalhado',
-                iptu_mensal_padrao: r.iptu_mensal_padrao,
-                condominio_mensal_padrao: r.condominio_mensal_padrao,
-                seguro_mensal_padrao: r.seguro_mensal_padrao,
-                camareira_mensal_padrao: r.camareira_mensal_padrao,
-                seguranca_mensal_padrao: r.seguranca_mensal_padrao,
-                material_limpeza_mensal_padrao: r.material_limpeza_mensal_padrao,
-                lavanderia_enxoval_mensal_padrao: r.lavanderia_enxoval_mensal_padrao,
-                checkin_checkout_mensal_padrao: r.checkin_checkout_mensal_padrao,
-                taxas_pagamento_mensal_padrao: r.taxas_pagamento_mensal_padrao,
-                tarifas_bancarias_mensal_padrao: r.tarifas_bancarias_mensal_padrao,
-                vacancia_mensal_padrao: r.vacancia_mensal_padrao,
-                inadimplencia_mensal_padrao: r.inadimplencia_mensal_padrao,
-              })),
+            try {
+            const payloadComum = (r: (typeof validRows)[number]) => ({
+              identificador: r.identificador.trim(),
+              valor_aluguel_mensal: r.valor_aluguel_mensal,
+              tipo_locacao: r.tipo_locacao,
+              natureza_locacao: r.natureza_locacao,
+              modo_entrada: 'detalhado' as const,
+              matricula_imovel: r.matricula_imovel,
+              inscricao_iptu: r.inscricao_iptu,
+              cartorio_registro: r.cartorio_registro,
+              iptu_mensal_padrao: r.iptu_mensal_padrao,
+              condominio_mensal_padrao: r.condominio_mensal_padrao,
+              seguro_mensal_padrao: r.seguro_mensal_padrao,
+              camareira_mensal_padrao: r.camareira_mensal_padrao,
+              seguranca_mensal_padrao: r.seguranca_mensal_padrao,
+              material_limpeza_mensal_padrao: r.material_limpeza_mensal_padrao,
+              lavanderia_enxoval_mensal_padrao: r.lavanderia_enxoval_mensal_padrao,
+              checkin_checkout_mensal_padrao: r.checkin_checkout_mensal_padrao,
+              taxas_pagamento_mensal_padrao: r.taxas_pagamento_mensal_padrao,
+              tarifas_bancarias_mensal_padrao: r.tarifas_bancarias_mensal_padrao,
+              vacancia_mensal_padrao: r.vacancia_mensal_padrao,
+              inadimplencia_mensal_padrao: r.inadimplencia_mensal_padrao,
             });
+
+            const toUpdate = validRows.filter((r) => r.propertyId);
+            const toCreate = validRows.filter((r) => !r.propertyId);
+
+            await Promise.all(
+              toUpdate.map((r) => propertyService.update(r.propertyId!, payloadComum(r)))
+            );
+
+            if (toCreate.length > 0) {
+              await propertyService.createBatch({
+                client_id: clientId,
+                properties: toCreate.map((r) => ({
+                  ...payloadComum(r),
+                  modo_entrada: 'detalhado',
+                })),
+              });
+            }
+
             success('Imóveis salvos com sucesso.');
+            } catch (err) {
+              showError(err instanceof Error ? err.message : 'Erro ao salvar imóveis');
+              throw err;
+            }
           }}
           onApplyToSimulation={async ({ propertyIds, draftRows }) => {
             setImoveisSelectedIds(new Set(propertyIds));
