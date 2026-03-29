@@ -4,6 +4,7 @@ import html2pdf from 'html2pdf.js';
 import {
   buildReportPdfFilename,
   getDefaultReportHtml2PdfOptions,
+  wrapHtml2PdfInstitutionalClone,
   ReportPrintFooter,
   ReportPrintHeader,
   stripReportExcludedFromClone,
@@ -451,7 +452,7 @@ export function RatingValidator() {
 
   const handleExportPdf = useCallback(() => {
     const el = document.getElementById('rating-validator-resultado-print');
-    if (!el) return;
+    if (!el || !simulationResult) return;
     setPdfExporting(true);
     const clone = el.cloneNode(true) as HTMLElement;
     stripReportExcludedFromClone(clone, 'pdf');
@@ -464,17 +465,28 @@ export function RatingValidator() {
       productSlug: 'Transacao-Tributaria',
       extra: ratingClientName || undefined,
     });
+    const metaLine = [
+      `Rating estimado: ${simulationResult.rating_estimado}`,
+      simulationResult.rating_real ? `Rating RF: ${simulationResult.rating_real}` : null,
+      `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const wrapped = wrapHtml2PdfInstitutionalClone(clone, {
+      reportTitle: 'Transação Tributária — Rating Validator',
+      metaLine,
+    });
     const placeholder = document.createElement('div');
     placeholder.style.position = 'fixed';
     placeholder.style.left = '-9999px';
     placeholder.style.top = '0';
     placeholder.style.width = '210mm';
-    placeholder.appendChild(clone);
+    placeholder.appendChild(wrapped);
     document.body.appendChild(placeholder);
     const run = async () => {
       try {
         const opt = getDefaultReportHtml2PdfOptions({ filename });
-        await html2pdf().set(opt as any).from(clone).save();
+        await html2pdf().set(opt as any).from(wrapped).save();
         success('PDF exportado com sucesso.');
       } catch (e) {
         console.error(e);
@@ -485,7 +497,15 @@ export function RatingValidator() {
       }
     };
     run();
-  }, [success, showError, clients, saveClientIdForRating, formData.client_id, pdfExportMode]);
+  }, [
+    success,
+    showError,
+    clients,
+    saveClientIdForRating,
+    formData.client_id,
+    pdfExportMode,
+    simulationResult,
+  ]);
 
   useEffect(() => {
     if (!pdfExportModalOpen || !simulationResult || !pdfPreviewContentRef.current) return;

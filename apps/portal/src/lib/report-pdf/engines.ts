@@ -5,7 +5,8 @@
  */
 export const REPORT_PDF_ENGINES = {
   'transacao-tributaria': 'html2pdf.js',
-  'irpf-alta-renda': 'html2pdf.js',
+  /** Gráficos Recharts + `@page institutional-report` no print; ver README. */
+  'irpf-alta-renda': 'window.print',
   'in-2306-tributario': 'window.print',
   'simulador-imobiliario': 'window.print',
 } as const;

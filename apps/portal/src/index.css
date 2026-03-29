@@ -42,11 +42,11 @@
     print-color-adjust: exact;
   }
   /*
-   * Simulador Imobiliário (PDF): margem superior em TODAS as folhas.
-   * Padding no #simulador-imoveis-print-wrapper não se repete nas páginas após a 1ª,
-   * o que fazia o cabeçalho fixo (2cm) sobrepor o conteúdo.
+   * Relatórios institucionais (window.print + header/footer position:fixed):
+   * margens em @page valem em TODAS as folhas. Padding no wrapper só empurra o 1º bloco;
+   * sem isso, páginas 2+ ficam com texto sob o cabeçalho fixo (~2cm) / rodapé (~1.2cm).
    */
-  @page imoveis-report {
+  @page institutional-report {
     size: A4;
     margin: 2.75cm 0.5cm 1.45cm 0.5cm;
     -webkit-print-color-adjust: exact;
@@ -188,13 +188,14 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* IN 2306: ajustar offset para não sobrepor o conteúdo no topo */
+  /* IN 2306: área segura via @page institutional-report (todas as folhas) */
   #simulador-tributario-print-wrapper {
-    padding-top: 2.3cm !important;
+    page: institutional-report;
+    padding-top: 0 !important;
     padding-bottom: 1.45cm !important;
   }
   #simulador-tributario-print-wrapper #simulador-tributario-resultado-print {
-    padding-top: 0.15cm !important;
+    padding: 0.35cm 0.1cm 0.35cm !important;
   }
   .report-print-wrapper[data-print-moved="true"] {
     position: static !important;
@@ -275,9 +276,9 @@
     padding: 0.3rem 0.4rem !important;
   }
 
-  /* Simulador Imobiliário: área segura via @page imoveis-report (todas as folhas); wrapper só folga lateral/rodapé */
+  /* Simulador Imobiliário: @page institutional-report; wrapper só folga lateral/rodapé */
   #simulador-imoveis-print-wrapper {
-    page: imoveis-report;
+    page: institutional-report;
     padding-top: 0 !important;
     padding-bottom: 1.45cm !important;
   }
@@ -298,17 +299,15 @@
     line-height: 1.15;
   }
 
-  /* Impressão: IRPF Alta Renda no mesmo padrão do Simulador Imobiliário */
+  /* IRPF Alta Renda: @page institutional-report (todas as folhas) */
   #irpf-alta-renda-print-wrapper,
   #irpf-alta-renda-print-wrapper * {
     visibility: visible;
   }
-  /* IRPF: diminuir respiro vertical para evitar 1ª página “vazia” */
   #irpf-alta-renda-print-wrapper {
-    /* cabeçalho fixo = 2cm; usar apenas um gap discreto */
-    padding-top: 2.05cm !important;
-    /* rodapé fixo = 1.2cm; manter folga menor */
-    padding-bottom: 1.35cm !important;
+    page: institutional-report;
+    padding-top: 0 !important;
+    padding-bottom: 1.45cm !important;
   }
   #irpf-alta-renda-print-wrapper[data-print-mode="resumo"] .irpf-print-params {
     display: none !important;
