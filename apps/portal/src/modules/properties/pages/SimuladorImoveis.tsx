@@ -1249,7 +1249,7 @@ export function SimuladorImoveis() {
   const lc214RefFim = ipcaPreview?.mes_referencia_fim ?? '';
   const lc214MesesAplicados = ipcaSeries?.meses
     ? ipcaSeries.meses.filter(
-        (m) => lc214RefFim !== '' && m.mes_referencia >= '2025-08' && m.mes_referencia <= lc214RefFim
+        (m) => lc214RefFim !== '' && m.mes_referencia >= '2025-02' && m.mes_referencia <= lc214RefFim
       )
     : [];
   const lc214ContaExplicita =

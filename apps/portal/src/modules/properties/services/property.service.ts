@@ -127,7 +127,7 @@ async function buildIpcaSeriesFromBcb(
 
       const valsLc214: number[] = [];
       let y = 2025;
-      let m = 8;
+      let m = 2;
       while (y < year || (y === year && m <= month)) {
         const key = `${y}-${String(m).padStart(2, '0')}`;
         valsLc214.push(monthlyMap.get(key) ?? 0);
