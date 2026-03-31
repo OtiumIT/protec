@@ -90,9 +90,10 @@ async function fetchBcbSgs433(
 }
 
 /**
- * Intervalo amplo o suficiente para simulações 2020–2030 (ago/2025 → dez/2030).
+ * Intervalo amplo o suficiente para simulações (fev/2025 → dez/2030).
+ * Início em fev/2025: primeiro mês de correção IPCA após publicação da LC 214 (16/01/2025).
  */
-const BCB_DATA_INICIAL = '01/08/2025';
+const BCB_DATA_INICIAL = '01/02/2025';
 const BCB_DATA_FINAL = '31/12/2030';
 
 export async function getIpcaMonthlyMapMerged(): Promise<{

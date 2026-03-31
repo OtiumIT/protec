@@ -174,7 +174,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 **Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor setorial da alíquota:** para locação imobiliária em geral (residencial e não residencial) aplica‑se redutor de 70% na longa duração e 50% na curta temporada. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente).
 
-**Redutor social (Art. 260 LC 214/2025):** R$ 600/mês por imóvel residencial, deduzido da **base de cálculo** apenas na parcela de **longa duração** (acima de 90 dias). Curta temporada (até 90 dias) e locação não residencial **não** recebem redutor social.
+**Redutor social (Art. 260 LC 214/2025, redação dada pela LC 227/2026):** R$ 600/mês por imóvel residencial (valor nominal, corrigido mensalmente pelo IPCA a partir da publicação da LC 214 em 16/01/2025), deduzido da **base de cálculo** apenas na parcela de **longa duração** (acima de 90 dias). Curta temporada (até 90 dias) e locação não residencial **não** recebem redutor social.
 
 **Modelo com split (residencial + não residencial):** Quando o usuário informa receita de locação residencial e não residencial separadamente: a parte residencial de longa duração recebe redutor social na base; a parte curta temporada e a não residencial não têm redutor social.
 

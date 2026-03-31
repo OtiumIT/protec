@@ -419,8 +419,8 @@ export interface OpcoesReformaCalculo {
   /** Receita anual de locação não residencial (sem redutor social). */
   receita_locacao_nao_residencial_anual?: number;
   /**
-   * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
-   * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × 12 × quantidade_imoveis_residenciais.
+   * Redutor social anual para locação residencial (LC 214/2025, Art. 260, redação LC 227/2026).
+   * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × fator_IPCA × 12 × quantidade_imoveis_residenciais.
    */
   redutor_social_residencial_anual?: number;
   /** Fator de aproveitamento de crédito sobre custos operacionais (0 a 1). */
@@ -458,7 +458,7 @@ export function calcularReforma2027(
   redutor_short_pct?: number;
   /** IBS/CBS líquido antes de redutor social (para memória de cálculo). */
   ibs_cbs_antes_redutor_social?: number;
-  /** Valor do redutor social aplicado na base (Art. 260). */
+  /** Valor do redutor social aplicado na base (Art. 260 LC 214, redação LC 227/2026). */
   redutor_social_aplicado?: number;
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;

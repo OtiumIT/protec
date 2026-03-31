@@ -1,10 +1,11 @@
 /**
  * Parâmetros LC 214/2025 corrigidos pelo IPCA (série mensal % — ex. BCB SGS 433).
- * Data-base nominal: publicação da lei (jul/2025). Correção composta a partir do mês seguinte.
+ * Data-base nominal: publicação da LC 214/2025 (16/01/2025). Correção composta a partir do mês seguinte.
+ * Art. 260 par. único (redação dada pela LC 227/2026): atualização mensal a partir da data de publicação.
  */
 
 export const LC214_IPCA_ANCHOR_YEAR = 2025;
-export const LC214_IPCA_ANCHOR_MONTH = 7;
+export const LC214_IPCA_ANCHOR_MONTH = 1;
 /** Série SGS BCB — variação mensal % do IPCA */
 export const BCB_SGS_IPCA_MENSAL_CODIGO = 433;
 
@@ -36,8 +37,8 @@ export function monthKey(year: number, month: number): string {
 /**
  * Último mês do IPCA usado para parâmetros do ano-calendário da simulação:
  * - ano >= 2026: dezembro do ano anterior (ex.: simulação 2027 → até 2026-12).
- * - ano === 2025: dezembro/2025 (agosto–dezembro após publicação).
- * - ano < 2025: ancora jul/2025 (sem meses de correção → fator 1).
+ * - ano === 2025: dezembro/2025 (fevereiro–dezembro após publicação em jan/2025).
+ * - ano < 2025: ancora jan/2025 (sem meses de correção → fator 1).
  */
 export function mesReferenciaFimIpcaParaAnoCalendario(anoCalendario: number): {
   year: number;
@@ -58,10 +59,10 @@ function compareYm(aY: number, aM: number, bY: number, bM: number): number {
 }
 
 /**
- * Primeiro mês com correção: agosto/2025 (mês seguinte à publicação em jul/2025).
+ * Primeiro mês com correção: fevereiro/2025 (mês seguinte à publicação da LC 214 em 16/01/2025).
  */
 export const LC214_IPCA_FIRST_CORRECTION_YEAR = 2025;
-export const LC214_IPCA_FIRST_CORRECTION_MONTH = 8;
+export const LC214_IPCA_FIRST_CORRECTION_MONTH = 2;
 
 /**
  * Fator acumulado = produto (1 + variacao%/100) para cada mês no intervalo [primeira correção, fim] inclusivo.

@@ -8,14 +8,14 @@ import {
 
 function run(): void {
   const empty = new Map<string, number>();
-  const { fator: f0 } = calcularFatorIpcaAcumuladoLc214(empty, 2025, 7);
-  assert.equal(f0, 1, 'Antes de ago/2025 sem meses no intervalo → fator 1');
+  const { fator: f0 } = calcularFatorIpcaAcumuladoLc214(empty, 2025, 1);
+  assert.equal(f0, 1, 'Antes de fev/2025 sem meses no intervalo → fator 1');
 
   const map = new Map<string, number>([
-    [monthKey(2025, 8), 0.5],
-    [monthKey(2025, 9), 0.5],
+    [monthKey(2025, 2), 0.5],
+    [monthKey(2025, 3), 0.5],
   ]);
-  const { fator } = calcularFatorIpcaAcumuladoLc214(map, 2025, 9);
+  const { fator } = calcularFatorIpcaAcumuladoLc214(map, 2025, 3);
   const esperado = 1.005 * 1.005;
   assert.ok(Math.abs(fator - esperado) < 0.0001, 'Dois meses 0,5% compõem o fator esperado');
 
