@@ -7,3 +7,5 @@ export { ReportPrintHeader, ReportPrintFooter, formatDatePtBr, BRAND } from './R
 export type { ReportPrintChromeVariant } from './ReportPrintChrome';
 export { ReportExportChoiceModal } from './ReportExportChoiceModal';
 export type { ReportExportChoiceOption } from './ReportExportChoiceModal';
+export { ReportCoverSection } from './ReportCoverSection';
+export { useReportPrint } from './useReportPrint';

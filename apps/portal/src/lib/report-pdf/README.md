@@ -1,34 +1,69 @@
 # Relatórios PDF (Portal)
 
-## Motores (híbrido)
+## Motor
 
-| Produto | Motor | Motivo |
-|---------|--------|--------|
-| Transação Tributária | `html2pdf.js` | Clone off-screen + tabelas; cabeçalho/rodapé institucional via `wrapHtml2PdfInstitutionalClone` (alinhado ao modal de preview) |
-| IRPF Alta Renda | `window.print()` | Relatório longo + Recharts; cabeçalho/rodapé fixos por página; área segura com `@page institutional-report` |
-| Simulador IN 2306 | `window.print()` | Relatório longo + cabeçalho/rodapé por página; `@page institutional-report` |
-| Simulador Imobiliário | `window.print()` | Idem + pré-visualização antes de imprimir; `@page institutional-report` |
+Todos os relatórios usam `window.print()` com `@page institutional-report`, header/footer fixos via CSS e capa institucional na primeira página.
 
-Detalhes em [`engines.ts`](./engines.ts).
+| Produto | Motor | Componentes |
+|---------|--------|-------------|
+| Transação Tributária | `window.print()` | `ReportPrintHeader` + `ReportCoverSection` + `ReportPrintFooter` |
+| IRPF Alta Renda | `window.print()` | idem |
+| Simulador IN 2306 | `window.print()` | idem |
+| Simulador Imobiliário | `window.print()` | idem |
 
-## Área segura multipágina (`window.print`)
+## Componentes compartilhados
 
-Relatórios com `ReportPrintHeader` / `ReportPrintFooter` em `position: fixed` precisam de **margens em `@page` nomeado** (ex.: `institutional-report` em [`index.css`](../../index.css)), repetidas em **todas** as folhas. `padding-top` no wrapper só afeta o início do fluxo; nas páginas seguintes o conteúdo pode ficar sob o cabeçalho fixo se a margem de página não reservar a faixa.
+### `useReportPrint(wrapperId)`
+Hook que encapsula a lógica de mover o wrapper para `document.body`, chamar `window.print()` e restaurar após a impressão. Aceita callbacks `beforePrint` e `afterPrint`.
 
-## Blocos do documento (spec)
+### `ReportPrintHeader` / `ReportPrintFooter`
+Cabeçalho e rodapé institucionais. Duas variantes:
+- `printSheet` — oculto na tela, fixo ao imprimir (1.8 cm / 1 cm)
+- `previewModal` — visível no modal de pré-visualização
 
-- **Bloco A — Capa / contexto**: logo, título do relatório, linha de contexto (ano, receita, cliente quando houver), marca IATax (`ReportPrintHeader`).
-- **Bloco B — Corpo**: resultado da simulação (cards, tabelas, gráficos); evitar corte com `.keep` / `.pdf-keep-together`.
-- **Bloco C — Encerramento**: rodapé institucional com data (`ReportPrintFooter`); disclaimers e base legal permanecem no corpo quando específicos do módulo.
+### `ReportCoverSection`
+Capa institucional na primeira página: título do relatório, nome do cliente, subtítulo e detalhes (ano, receita etc.). Duas variantes: `printSheet` (hidden na tela, block ao imprimir) e `previewModal` (sempre visível).
+
+### `stripReportExcludedFromClone`
+Remove nós marcados com `data-report-exclude="pdf"` ou `"preview"` de um clone do DOM.
+
+### `buildReportPdfFilename`
+Gera nome padronizado: `IATax-{produto}-{extra}-{data}.pdf`.
+
+## Área segura (CSS)
+
+O CSS em `index.css` define:
+
+```
+@page institutional-report {
+  margin: 2.2cm 0.8cm 1.3cm 0.8cm;
+}
+```
+
+- **Header fixo**: 1.8 cm (logo + título + meta + marca)
+- **Footer fixo**: 1 cm (marca + data)
+- **Área útil de conteúdo**: ~17.4 cm largura x 25.2 cm altura
+
+A classe `.report-print-wrapper` aplica `page: institutional-report` automaticamente.
+
+## Blocos do documento
+
+- **Bloco A — Capa**: `ReportCoverSection` (nome do cliente, dados contextuais)
+- **Bloco B — Corpo**: resultado da simulação (cards, tabelas, gráficos); use `.keep` / `.pdf-keep-together` para evitar cortes
+- **Bloco C — Encerramento**: `ReportPrintFooter` (marca + data)
 
 ## Convenções
 
-- **Nome de arquivo**: `buildReportPdfFilename` em [`filename.ts`](./filename.ts).
-- **html2pdf**: `getDefaultReportHtml2PdfOptions` em [`html2pdf-defaults.ts`](./html2pdf-defaults.ts); clone institucional em [`html2pdf-institutional-wrap.ts`](./html2pdf-institutional-wrap.ts).
-- **Exclusão de nós**: `data-report-exclude="pdf"` | `"preview"`; helper `stripReportExcludedFromClone` em [`strip-report-excluded.ts`](./strip-report-excluded.ts).
+- **Nome de arquivo**: `buildReportPdfFilename` em `filename.ts`
+- **Exclusão de nós**: `data-report-exclude="pdf"` | `"preview"`; helper `stripReportExcludedFromClone`
+- **Conteúdo do resultado**: adicionar classe `report-resultado-content` no div interno do resultado
 
-## Checklist de impressão (novo relatório ou ajuste de layout)
+## Checklist (novo relatório ou ajuste de layout)
 
-- [ ] Multipágina: conteúdo na página 2+ não coberto pelo cabeçalho/rodapé fixos (`@page` + `index.css`).
-- [ ] Preview: clone + `stripReportExcludedFromClone` coerente com o que vai para PDF/impressão.
-- [ ] Exportar: `window.print` com wrapper movido para `document.body` + `afterprint` onde aplicável.
+- [ ] Wrapper com classe `report-print-wrapper`
+- [ ] `ReportPrintHeader` + `ReportPrintFooter` com `variant="printSheet"`
+- [ ] `ReportCoverSection` com dados do módulo
+- [ ] Div interno do resultado com classe `report-resultado-content`
+- [ ] `useReportPrint(wrapperId)` no handler de exportação
+- [ ] Modal de preview com variante `previewModal` nos mesmos componentes
+- [ ] Elementos não-impressos com `print:hidden` e `data-report-exclude="preview"`

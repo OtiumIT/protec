@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
+import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   simuladorIN2306Service,
@@ -120,33 +122,20 @@ export function SimuladorIN2306() {
 
   const clientNameTrib = useMemo(() => clients.find((c) => c.id === clientIdTrib)?.name, [clients, clientIdTrib]);
 
+  const { print: doPrintTributario } = useReportPrint('simulador-tributario-print-wrapper');
+
   const handlePrintPdf = useCallback((resumida: boolean) => {
     setPrintModalOpen(false);
-    const wrapper = document.getElementById('simulador-tributario-print-wrapper');
-    const el = document.getElementById('simulador-tributario-resultado-print');
-    if (!wrapper || !el) return;
-    el.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
-
-    const parent = wrapper.parentElement;
-    const placeholder = document.createElement('div');
-    placeholder.id = 'simulador-tributario-print-placeholder';
-    if (parent) {
-      parent.insertBefore(placeholder, wrapper);
-      document.body.appendChild(wrapper);
-      wrapper.setAttribute('data-print-moved', 'true');
-    }
-    const cleanup = () => {
-      wrapper.removeAttribute('data-print-moved');
-      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
-        document.body.removeChild(wrapper);
-        parent.replaceChild(wrapper, placeholder);
-      }
-      el.removeAttribute('data-print-resumida');
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(() => window.print(), 150);
-  }, []);
+    doPrintTributario({
+      beforePrint: (wrapper) => {
+        wrapper.setAttribute('data-print-resumida', resumida ? 'true' : 'false');
+      },
+      afterPrint: () => {
+        const wrapper = document.getElementById('simulador-tributario-print-wrapper');
+        wrapper?.removeAttribute('data-print-resumida');
+      },
+    });
+  }, [doPrintTributario]);
 
   useEffect(() => {
     if (!printModalOpen || !tributarioResult || !printPreviewContentRef.current) return;
@@ -1189,7 +1178,16 @@ export function SimuladorIN2306() {
                     .filter(Boolean)
                     .join(' · ')}
                 />
-              <div ref={resultadoTributarioRef} id="simulador-tributario-resultado-print" className="space-y-6">
+                <ReportCoverSection
+                  variant="printSheet"
+                  title="Simulador tributário – LC 224/2025 (IN RFB 2.306/2026)"
+                  clientName={clientNameTrib || undefined}
+                  details={[
+                    { label: 'Ano-base', value: String(tributarioResult.ano) },
+                    { label: 'Receita total informada', value: formatMoney(receitaTotalInformada) },
+                  ]}
+                />
+              <div ref={resultadoTributarioRef} id="simulador-tributario-resultado-print" className="space-y-6 report-resultado-content">
                 {/* Cabeçalho do resultado: título + resumo + botão PDF */}
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
                   <div>
@@ -1803,6 +1801,15 @@ export function SimuladorIN2306() {
                         ]
                           .filter(Boolean)
                           .join(' · ')}
+                      />
+                      <ReportCoverSection
+                        variant="previewModal"
+                        title="Simulador tributário – LC 224/2025 (IN RFB 2.306/2026)"
+                        clientName={clientNameTrib || undefined}
+                        details={[
+                          { label: 'Ano-base', value: String(tributarioResult.ano) },
+                          { label: 'Receita total informada', value: formatMoney(receitaTotalInformada) },
+                        ]}
                       />
                       <div ref={printPreviewContentRef} className="report-preview-content" />
                       <ReportPrintFooter variant="previewModal" />

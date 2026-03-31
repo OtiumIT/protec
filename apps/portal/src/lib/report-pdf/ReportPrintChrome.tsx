@@ -17,11 +17,11 @@ type HeaderProps = {
 export function ReportPrintHeader({ variant, reportTitle, metaLine }: HeaderProps) {
   const inner = (
     <>
-      <img src="/logo-iatax.png" alt="" className="h-9 w-9 object-contain" aria-hidden />
+      <img src="/logo-iatax.png" alt="" className="h-8 w-8 object-contain" aria-hidden />
       <div className="flex-1 min-w-0">
-        <h2 className="text-base font-bold text-slate-900">{reportTitle}</h2>
-        {metaLine ? <p className="text-xs text-slate-600">{metaLine}</p> : null}
-        <p className="text-[10px] text-slate-500">{BRAND}</p>
+        <h2 className="text-sm font-bold text-slate-900 leading-tight">{reportTitle}</h2>
+        {metaLine ? <p className="text-[10px] text-slate-600 leading-tight mt-0.5">{metaLine}</p> : null}
+        <p className="text-[9px] text-slate-400 leading-tight mt-0.5">{BRAND}</p>
       </div>
     </>
   );
@@ -51,8 +51,8 @@ export function ReportPrintFooter({ variant }: FooterProps) {
   if (variant === 'printSheet') {
     return (
       <footer className="print-report-footer report-print-footer hidden print:flex" aria-hidden="true">
-        <span className="text-[10px] text-slate-500">{BRAND}</span>
-        <span className="text-[10px] text-slate-500">{dateStr}</span>
+        <span className="text-[9px] text-slate-500">{BRAND}</span>
+        <span className="text-[9px] text-slate-500">{dateStr}</span>
       </footer>
     );
   }

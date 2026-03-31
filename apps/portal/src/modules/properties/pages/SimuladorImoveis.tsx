@@ -14,6 +14,8 @@ import { PropertiesInlineGrid, type SimulationDraftRowInput } from '../component
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
+import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { formatCnpj, formatCpf } from '../../../shared/utils/masks';
 import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
 import {
@@ -508,30 +510,12 @@ export function SimuladorImoveis() {
     reportEmissionDateStr,
   ]);
 
+  const { print: doPrintImoveis } = useReportPrint('simulador-imoveis-print-wrapper');
+
   const handleDoPrint = useCallback(() => {
-    const wrapper = document.getElementById('simulador-imoveis-print-wrapper');
-    const content = document.getElementById('simulador-imoveis-resultado-print');
-    if (!wrapper || !content) return;
-    const parent = wrapper.parentElement;
-    const placeholder = document.createElement('div');
-    placeholder.id = 'simulador-imoveis-print-placeholder';
-    if (parent) {
-      parent.insertBefore(placeholder, wrapper);
-      document.body.appendChild(wrapper);
-      wrapper.setAttribute('data-print-moved', 'true');
-    }
     setShowPrintPreview(false);
-    const cleanup = () => {
-      wrapper.removeAttribute('data-print-moved');
-      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
-        document.body.removeChild(wrapper);
-        parent.replaceChild(wrapper, placeholder);
-      }
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(() => window.print(), 150);
-  }, []);
+    doPrintImoveis();
+  }, [doPrintImoveis]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -2108,38 +2092,17 @@ export function SimuladorImoveis() {
             reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
             metaLine={`Emissão ${reportEmissionDateStr}`}
           />
-          <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 print:pt-2">
-          <section className="print-imoveis-cover hidden print:block break-inside-avoid mb-1" aria-hidden="true">
-            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50 via-white to-white pl-5 pr-4 py-5 sm:pl-6 sm:pr-5 border-l-[3px] border-l-brand shadow-sm print:shadow-none print:border-slate-300 print:from-slate-50 print:to-white">
-              {effectiveClientName ? (
-                <h2 className="print-imoveis-cover__title text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-[1.15]">
-                  {effectiveClientName}
-                </h2>
-              ) : (
-                <p className="text-base text-slate-500 leading-snug">
-                  Nome do cliente não informado — preencha no passo de exportação ou vincule um cliente cadastrado.
-                </p>
-              )}
-              {coverDocumentLabel ? (
-                <p className="text-sm text-slate-600 mt-3 font-medium tabular-nums">{coverDocumentLabel}</p>
-              ) : null}
-              <div className="mt-4 pt-4 border-t border-slate-200/90 flex flex-col gap-1.5 text-xs text-slate-600 print:text-[10px]">
-                <p>
-                  <span className="font-semibold text-slate-700">Ano-base</span>{' '}
-                  <span className="text-slate-800">{result.ano}</span>
-                  {result.fluxo_caixa?.[0] ? (
-                    <>
-                      <span className="text-slate-400 mx-1.5">·</span>
-                      <span className="font-semibold text-slate-700">Receita (Carnê-Leão / LP)</span>{' '}
-                      <span className="font-semibold text-slate-900 tabular-nums">
-                        {formatMoney(result.fluxo_caixa[0].receita_total)}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-              </div>
-            </div>
-          </section>
+          <ReportCoverSection
+            variant="printSheet"
+            title="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
+            clientName={effectiveClientName || undefined}
+            subtitle={coverDocumentLabel || undefined}
+            details={[
+              { label: 'Ano-base', value: String(result.ano) },
+              ...(result.fluxo_caixa?.[0] ? [{ label: 'Receita (Carnê-Leão / LP)', value: formatMoney(result.fluxo_caixa[0].receita_total) }] : []),
+            ]}
+          />
+          <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 report-resultado-content print:pt-2">
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>
@@ -3418,6 +3381,16 @@ export function SimuladorImoveis() {
                 variant="previewModal"
                 reportTitle={effectiveReportTitle}
                 metaLine={`Emissão ${reportEmissionDateStr}`}
+              />
+              <ReportCoverSection
+                variant="previewModal"
+                title="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
+                clientName={effectiveClientName || undefined}
+                subtitle={coverDocumentLabel || undefined}
+                details={[
+                  ...(result ? [{ label: 'Ano-base', value: String(result.ano) }] : []),
+                  ...(result?.fluxo_caixa?.[0] ? [{ label: 'Receita (Carnê-Leão / LP)', value: formatMoney(result.fluxo_caixa[0].receita_total) }] : []),
+                ]}
               />
               <div ref={printPreviewContentRef} className="report-preview-content" />
               <ReportPrintFooter variant="previewModal" />

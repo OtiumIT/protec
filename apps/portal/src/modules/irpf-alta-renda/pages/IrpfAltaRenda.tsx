@@ -38,6 +38,8 @@ import {
   ReportPrintHeader,
   stripReportExcludedFromClone,
 } from '../../../lib/report-pdf';
+import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const DEMO_KEY_WINDOW_MS = 1500;
@@ -231,6 +233,7 @@ export function IrpfAltaRenda() {
   const printWrapperRef = useRef<HTMLDivElement>(null);
   const waitingDemoDigitRef = useRef<number>(0);
   const demoKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { print: doPrintIrpf } = useReportPrint('irpf-alta-renda-print-wrapper');
 
   const loadData = useCallback(async () => {
     setListLoading(true);
@@ -449,30 +452,14 @@ export function IrpfAltaRenda() {
   const handleOpenPdfModal = () => setPdfExportModalOpen(true);
 
   const startPdfExport = () => {
-    const wrapper = document.getElementById('irpf-alta-renda-print-wrapper');
-    if (!wrapper) return;
     setPdfExportModalOpen(false);
-    wrapper.setAttribute('data-print-mode', pdfExportMode);
-    const parent = wrapper.parentElement;
-    const placeholder = document.createElement('div');
-    placeholder.id = 'irpf-alta-renda-print-placeholder';
-    if (parent) {
-      parent.insertBefore(placeholder, wrapper);
-      document.body.appendChild(wrapper);
-      wrapper.setAttribute('data-print-moved', 'true');
-    }
     setPrintExporting(true);
-    const cleanup = () => {
-      wrapper.removeAttribute('data-print-moved');
-      if (parent && placeholder.parentElement && wrapper.parentElement === document.body) {
-        document.body.removeChild(wrapper);
-        parent.replaceChild(wrapper, placeholder);
-      }
-      window.removeEventListener('afterprint', cleanup);
-      setPrintExporting(false);
-    };
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(() => window.print(), 150);
+    doPrintIrpf({
+      beforePrint: (wrapper) => {
+        wrapper.setAttribute('data-print-mode', pdfExportMode);
+      },
+      afterPrint: () => setPrintExporting(false),
+    });
   };
 
   useEffect(() => {
@@ -1454,6 +1441,16 @@ export function IrpfAltaRenda() {
                     .filter(Boolean)
                     .join(' · ')}
                 />
+                <ReportCoverSection
+                  variant="previewModal"
+                  title="IRPF Alta Renda — Simulação de imposto"
+                  clientName={contribuinteNome || undefined}
+                  subtitle={contribuinteCpf ? `CPF: ${contribuinteCpf}` : undefined}
+                  details={[
+                    { label: 'Ano-base', value: String(ano) },
+                    ...(result ? [{ label: 'Base de Cálculo Combinada', value: formatCurrency(result.base_calculo_combinada) }] : []),
+                  ]}
+                />
                 {pdfExportMode === 'completo' && (
                   <ParametrosSimulacaoPrint
                     contribuinteNome={contribuinteNome}
@@ -2013,6 +2010,16 @@ export function IrpfAltaRenda() {
               .filter(Boolean)
               .join(' · ')}
           />
+          <ReportCoverSection
+            variant="printSheet"
+            title="IRPF Alta Renda — Simulação de imposto"
+            clientName={contribuinteNome || undefined}
+            subtitle={contribuinteCpf ? `CPF: ${contribuinteCpf}` : undefined}
+            details={[
+              { label: 'Ano-base', value: String(ano) },
+              ...(result ? [{ label: 'Base de Cálculo Combinada', value: formatCurrency(result.base_calculo_combinada) }] : []),
+            ]}
+          />
           <div className="irpf-print-params hidden print:block px-5 pb-3">
             <ParametrosSimulacaoPrint
               contribuinteNome={contribuinteNome}
@@ -2034,7 +2041,7 @@ export function IrpfAltaRenda() {
               bccCalculado={bccCalculado}
             />
           </div>
-          <div id="irpf-alta-renda-resultado-print" className="space-y-4">
+          <div id="irpf-alta-renda-resultado-print" className="space-y-4 report-resultado-content">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Resultado da simulação – IRPF Alta Renda</h2>
