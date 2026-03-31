@@ -1155,9 +1155,17 @@ export class PropertyService {
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
         ? 50
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
-    const usarRedutorDiferenciado =
+    let usarRedutorDiferenciado =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
-    const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
+    let usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
+    if (
+      input.opcoes_reforma?.perfil_locacao === undefined &&
+      receitaLongaTotal > 0 &&
+      receitaShortTotal > 0
+    ) {
+      usarAmbosRedutores = true;
+      usarRedutorDiferenciado = false;
+    }
     const anoRefReforma = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaStandalone: OpcoesReformaCalculo = {
       ano: anoRefReforma,

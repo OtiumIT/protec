@@ -142,11 +142,15 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
   - retorna metadado (`metadata.usou_defaults_cadastro`) para transparência no frontend.
 - `calcularPJ` suporta `aplicar_equiparacao_hospitalar` na fórmula (8% IRPJ e 12% CSLL).
 - `calcularReforma2027` aceita `fator_credito_custos_operacionais` para modular créditos por elegibilidade de lançamentos.
+- **Modelo split (residencial + não residencial)**: quando há receita de ambos os tipos e redutor social > 0, o motor aplica os redutores de longa (70%) e curta (50%) duração proporcionalmente na receita residencial. Imóveis não residenciais utilizam taxa ponderada pela composição longa/curta da carteira (não mais o redutor fixo de longa duração). O retorno inclui `redutor_diferenciado_short: true` quando ambos os redutores são usados.
+- **Auto-detecção de perfil misto**: tanto `simulate` quanto `simulateStandalone` detectam automaticamente quando há receita longa e curta (e `perfil_locacao` não foi definido), ativando `usar_ambos_redutores = true`.
+- **Projeção 2027-2033 (portal)**: a tabela ano-a-ano deriva o fator de redução diretamente do resultado do backend (`ibs_cbs_sobre_receita / receita / (aliquota_nominal / 100)`), garantindo que o valor de 2033 seja consistente com o card de resultado.
 
 ### Uso em `simulate` vs `aggregatePreview`
 
 - **`aggregate-preview`** (e o carregamento da grade no portal) separa receita **tradicional** vs **curta temporada** por imóvel conforme `tipo_locacao` (`fixa` → tradicional; `flexivel` → curto).
 - **`POST /properties/simulate`** (com `property_ids`) usa o mesmo agregado mensal: para cada mês e imóvel, a receita base segue a mesma regra (lançamento do mês ou `valor_aluguel_mensal`). Em seguida acumula **anualmente** `receita_longa_total` e `receita_short_total` (fixa → longa, flexível → curta) e repassa a `calcularReforma2027` com `usar_ambos_redutores` / `usar_redutor_diferenciado_short` coerentes com `opcoes_reforma.perfil_locacao`, alinhado ao `simulate-standalone`. Se `perfil_locacao` não for enviado e existir receita longa **e** curta derivadas do cadastro, o serviço assume perfil **ambos** para o motor da Reforma.
+- **`POST /properties/simulate-standalone`**: mesma auto-detecção — se `perfil_locacao` não for enviado e `receita_aluguel_tradicional` + `receita_aluguel_curto` ambos > 0, assume perfil **ambos**.
 - **`perfil_locacao` global** (residencial comum, hospedagem/temporada ou ambos) deve refletir a carteira: carteira mista fixa + flexível combina com **ambos**; o portal pré-seleciona **ambos** ao carregar imóveis nessa situação.
 
 ## Fluxos e Endpoints

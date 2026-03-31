@@ -511,15 +511,17 @@ export function calcularReforma2027(
   let ibsCbsAntesRedutorSocial: number | undefined;
   let redutorSocialAplicado: number | undefined;
 
+  let splitUsouRedutorDiferenciado = false;
+
   if (usarModeloSplit) {
-    // Modelo com split: residencial (base reduzida + redutor(es) de alíquota) e não residencial (mesmo redutor setorial, sem redutor social)
     const receitaTotalSplit = receitaResidencial + receitaNaoResidencial;
 
-    // Decomposição da parte residencial em longa x curta usando receitas totais do simulador
     const totalReceitaLongShort = receitaLonga + receitaShort;
     const partLongResidencial =
       totalReceitaLongShort > 0 ? Math.min(1, Math.max(0, receitaLonga / totalReceitaLongShort)) : 1;
     const partShortResidencial = 1 - partLongResidencial;
+
+    splitUsouRedutorDiferenciado = partShortResidencial > 0 && redutorLong !== redutorShort;
 
     const aliquotaBase = aliquotaNominal / 100;
     const rateLong = aliquotaBase * (1 - redutorLong / 100);
@@ -528,7 +530,6 @@ export function calcularReforma2027(
     const receitaResidencialLong = receitaResidencial * partLongResidencial;
     const receitaResidencialShort = receitaResidencial * partShortResidencial;
 
-    // LC 214/2025 Art. 260: redutor social apenas na longa duração (acima de 90 dias). Curta temporada (até 90 dias) não recebe.
     const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual : 0;
     const baseResidencialLong = Math.max(0, round2(receitaResidencialLong - redutorSocialLong));
     const baseResidencialShort = receitaResidencialShort;
@@ -536,8 +537,10 @@ export function calcularReforma2027(
     const ibsCbsResidencialLong = round2(baseResidencialLong * rateLong);
     const ibsCbsResidencialShort = round2(baseResidencialShort * rateShort);
 
-    // Locação não residencial: mesmo redutor setorial da alíquota de longa duração, sem redutor social
-    const rateNaoResidencial = rateLong;
+    // Não residencial: taxa ponderada pela composição longa/curta da carteira
+    const rateNaoResidencial = splitUsouRedutorDiferenciado
+      ? rateLong * partLongResidencial + rateShort * partShortResidencial
+      : rateLong;
     const ibsCbsNaoResidencial = round2(receitaNaoResidencial * rateNaoResidencial);
 
     const ibsCbsResidencial = round2(ibsCbsResidencialLong + ibsCbsResidencialShort);
@@ -547,7 +550,6 @@ export function calcularReforma2027(
       receitaTotalSplit > 0 ? ibsCbsReceita / receitaTotalSplit : 0;
     creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
 
-    // Para exibição, manter o redutor de longa duração como referência principal
     redutorExibicao = redutorLong;
 
     const impostoResidencialSemRedutorBase = round2(
@@ -628,7 +630,7 @@ export function calcularReforma2027(
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...(impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 }),
     ...(aplicouTransicao && { aplicou_transicao_art487: true }),
-    ...(usarRedutorDiferenciado && {
+    ...((usarRedutorDiferenciado || splitUsouRedutorDiferenciado) && {
       redutor_diferenciado_short: true,
       redutor_long_pct: redutorLong,
       redutor_short_pct: redutorShort,

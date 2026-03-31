@@ -2617,15 +2617,13 @@ export function SimuladorImoveis() {
                 : receitaBase;
               const refReforma = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
               const custos = refReforma?.custos_operacionais_total ?? 0;
-              const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.csll ?? 0);
+              const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.irpj_postergado ?? 0) + (result.cenarios.pj.csll ?? 0);
               const aliqNominalRef = (refReforma as { aliquota_nominal_ibs_cbs?: number })?.aliquota_nominal_ibs_cbs ?? 26.5;
               const debitoRef = (refReforma as { ibs_cbs_sobre_receita?: number })?.ibs_cbs_sobre_receita ?? 0;
               const fatorReducao =
-                perfilLocacao === 'ambos' && receita > 0 && aliqNominalRef > 0
+                receita > 0 && aliqNominalRef > 0
                   ? debitoRef / receita / (aliqNominalRef / 100)
                   : (100 - (perfilLocacao === 'hospedagem_temporada' ? 50 : 70)) / 100;
-              const redutorSocialAnual = quantidadeImoveisResidenciais > 0 ? 600 * 12 * quantidadeImoveisResidenciais : 0;
-              const baseTributavelProjecao = redutorSocialAnual > 0 ? Math.max(0, receita - redutorSocialAnual) : receita;
 
               const anos = [
                 { ano: '2027/2028', ibsNominal: 0.1 },
@@ -2655,7 +2653,7 @@ export function SimuladorImoveis() {
                         const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
                         const ibsEfetivo = round2(item.ibsNominal * fatorReducao);
                         const aliqCombinada = cbsEfetiva + ibsEfetivo;
-                        const ibsCbsBruto = round2((baseTributavelProjecao * aliqCombinada) / 100);
+                        const ibsCbsBruto = round2((receita * aliqCombinada) / 100);
                         const creditos = round2((custos * aliqCombinada) / 100);
                         const ibsCbsLiquido = Math.max(0, round2(ibsCbsBruto - creditos));
                         const total = round2(ibsCbsLiquido + irpjCsll);
@@ -2679,7 +2677,7 @@ export function SimuladorImoveis() {
               );
             })()}
             <p className="text-xs text-slate-500 mt-3">
-              {perfilLocacao === 'ambos'
+              {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short || perfilLocacao === 'ambos'
                 ? 'CBS e IBS com redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
                 : `CBS com redutor da alíquota ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
             </p>
