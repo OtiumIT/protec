@@ -260,6 +260,7 @@ export function SimuladorImoveis() {
   const [aliquotaPlenaIBS, setAliquotaPlenaIBS] = useState<number>(19);
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
   const [anoReferenciaReforma, setAnoReferenciaReforma] = useState<number>(2033);
+  const [projecaoModo, setProjecaoModo] = useState<'anual' | 'mensal'>('anual');
   const [quantidadeImoveisResidenciais, setQuantidadeImoveisResidenciais] = useState<number>(1);
   const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
   const [receitaLocacaoResidencialAnual, setReceitaLocacaoResidencialAnual] = useState<number>(0);
@@ -2585,8 +2586,30 @@ export function SimuladorImoveis() {
 
           {/* Card de Projeção Ano a Ano (2027-2033) - Reforma PJ */}
           <Card className="mt-6 p-4 border-violet-200/50 bg-violet-50/10">
-            <h3 className="text-lg font-semibold text-slate-800 mb-3">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL) – Projeção 2027-2033</h3>
-            <p className="text-xs text-slate-500 mb-4">Demonstração da tributação ano a ano considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <h3 className="text-lg font-semibold text-slate-800">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL) – Projeção 2027-2033</h3>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs shrink-0">
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 font-medium transition-colors ${projecaoModo === 'anual' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                  onClick={() => setProjecaoModo('anual')}
+                >
+                  Anual
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 font-medium transition-colors ${projecaoModo === 'mensal' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                  onClick={() => setProjecaoModo('mensal')}
+                >
+                  Mensal
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              {projecaoModo === 'mensal'
+                ? 'Estimativa mensal da tributação (valores anuais ÷ 12) considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).'
+                : 'Demonstração da tributação ano a ano considerando a transição gradual do IBS (0,1% fixo em 2027/2028, progressivo de 2029 a 2033).'}
+            </p>
             {(() => {
               const receitaBase = result.cenarios.pf.receita_bruta_total;
               const receita = quantidadeImoveisResidenciais > 0 && quantidadeImoveisComerciais > 0 && (receitaLocacaoResidencialAnual > 0 || receitaLocacaoNaoResidencialAnual > 0)
@@ -2601,6 +2624,8 @@ export function SimuladorImoveis() {
                 receita > 0 && aliqNominalRef > 0
                   ? debitoRef / receita / (aliqNominalRef / 100)
                   : (100 - (perfilLocacao === 'hospedagem_temporada' ? 50 : 70)) / 100;
+
+              const divisor = projecaoModo === 'mensal' ? 12 : 1;
 
               const anos = [
                 { ano: '2027/2028', ibsNominal: 0.1 },
@@ -2617,11 +2642,11 @@ export function SimuladorImoveis() {
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50">
                         <th className="py-2 px-3 text-left font-medium text-slate-600">Ano</th>
-                        <th className="py-2 px-3 text-right font-medium text-slate-600">CBS</th>
-                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS</th>
-                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS/CBS Líq.</th>
-                        <th className="py-2 px-3 text-right font-medium text-slate-600">IRPJ+CSLL</th>
-                        <th className="py-2 px-3 text-right font-medium text-slate-700">Total</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">CBS{projecaoModo === 'mensal' ? '/mês' : ''}</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS{projecaoModo === 'mensal' ? '/mês' : ''}</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IBS/CBS Líq.{projecaoModo === 'mensal' ? '/mês' : ''}</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-600">IRPJ+CSLL{projecaoModo === 'mensal' ? '/mês' : ''}</th>
+                        <th className="py-2 px-3 text-right font-medium text-slate-700">Total{projecaoModo === 'mensal' ? '/mês' : ''}</th>
                         <th className="py-2 px-3 text-right font-medium text-slate-600">Alíq. Efet.</th>
                       </tr>
                     </thead>
@@ -2639,11 +2664,11 @@ export function SimuladorImoveis() {
                         return (
                           <tr key={item.ano} className="border-b border-slate-100 hover:bg-slate-50">
                             <td className="py-2 px-3 font-medium text-slate-700">{item.ano}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * cbsEfetiva) / 100))}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * ibsEfetivo) / 100))}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(ibsCbsLiquido)}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(irpjCsll)}</td>
-                            <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(total)}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * cbsEfetiva) / 100 / divisor))}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * ibsEfetivo) / 100 / divisor))}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(ibsCbsLiquido / divisor))}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(irpjCsll / divisor))}</td>
+                            <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(round2(total / divisor))}</td>
                             <td className="py-2 px-3 text-right text-slate-500">{aliqEfetiva.toFixed(1)}%</td>
                           </tr>
                         );
@@ -2654,6 +2679,7 @@ export function SimuladorImoveis() {
               );
             })()}
             <p className="text-xs text-slate-500 mt-3">
+              {projecaoModo === 'mensal' ? 'Valores mensais estimados (total anual ÷ 12). ' : ''}
               {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short || perfilLocacao === 'ambos'
                 ? 'CBS e IBS com redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
                 : `CBS com redutor da alíquota ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
