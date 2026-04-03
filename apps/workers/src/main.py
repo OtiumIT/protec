@@ -29,8 +29,16 @@ from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
 
-ROOT_ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.env"))
-load_dotenv(ROOT_ENV_PATH)
+def _load_env_optional() -> None:
+    """Produção (ECS): variáveis vêm do ambiente ou secrets da task. Dev local: carrega .env na raiz do monorepo."""
+    if os.getenv("DATABASE_URL", "").strip():
+        return
+    root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.env"))
+    if os.path.isfile(root_env):
+        load_dotenv(root_env)
+
+
+_load_env_optional()
 
 
 def normalize_text(value: str | None) -> str:

@@ -44,3 +44,9 @@ Também disponível via scripts:
 pnpm run run-once
 pnpm run dev
 ```
+
+## Docker / produção (ECS)
+
+Imagem definida em [`Dockerfile`](Dockerfile). Em produção as variáveis vêm do ambiente da task (secrets apontando para SSM `/protec-api/*`), não do arquivo `.env`.
+
+Deploy na AWS: [`docs/DEPLOY_LAMBDA.md`](../../docs/DEPLOY_LAMBDA.md) (SSM) e [`docs/DEPLOY_WORKERS.md`](../../docs/DEPLOY_WORKERS.md) (stack `protec-workers`, ECR, ECS).

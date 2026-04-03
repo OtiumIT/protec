@@ -1,0 +1,73 @@
+# Deploy workers Python (ECS Fargate + ECR). Pré-requisitos: SSM /protec-api/* e IAM OIDC (ver docs/DEPLOY_WORKERS.md).
+
+name: Deploy Workers ECS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/workers/**'
+      - 'infra/workers-template.yaml'
+      - '.github/workflows/deploy-workers.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      STACK_NAME: protec-workers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/workers-template.yaml \
+            --stack-name "$STACK_NAME" \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides "ImageTag=${GITHUB_SHA}" \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+
+      - name: Get ECR repository URI
+        id: ecr
+        run: |
+          URI=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUri`].OutputValue' --output text)
+          echo "uri=$URI" >> "$GITHUB_OUTPUT"
+          echo "ECR URI: $URI"
+
+      - name: Login to ECR
+        run: |
+          URI="${{ steps.ecr.outputs.uri }}"
+          REGISTRY="${URI%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ steps.ecr.outputs.uri }}:${GITHUB_SHA}"
+          docker build -t "$IMAGE" -f apps/workers/Dockerfile apps/workers
+          docker push "$IMAGE"
+          echo "Pushed $IMAGE"
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster protec-workers \
+            --service protec-workers \
+            --region "$AWS_REGION" \
+            --force-new-deployment \
+            --no-cli-pager
