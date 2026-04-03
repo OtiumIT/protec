@@ -79,6 +79,7 @@ Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/wo
 |--------|-------------|
 | `User ... is not authorized to perform: ecr:CreateRepository` | Anexe à role OIDC **`ecr:CreateRepository`** (veja IAM abaixo). Sem isso o recurso `WorkerRepository` falha. |
 | Stack **`ROLLBACK_FAILED`** (rollback não concluiu) | O CloudFormation tentou apagar roles IAM e a role OIDC não tinha `iam:DeleteRole` / `iam:DeleteRolePolicy`. **(1)** Anexe essas permissões à `iatax_github` (ou equivalente). **(2)** No console CloudFormation, **Delete** na stack `protec-workers` **ou** rode o workflow de novo: o job **Remove stack protec-workers se estiver em falha** tenta excluir automaticamente. Se ainda falhar, um usuário **administrador** na AWS deve excluir a stack ou as roles órfãs (`protec-workers-TaskRole-*`, `protec-workers-TaskExecutionRole-*`). |
+| Stack **`DELETE_FAILED`** | A exclusão da stack parou porque algum recurso não pôde ser removido (quase sempre **IAM**). O workflow **falha com mensagem explícita** e lista eventos. Corrija permissões (`iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:DeletePolicy` nas policies inline) na role OIDC **ou** exclua a stack na console com um usuário **administrador** / apague manualmente as roles indicadas nos eventos da stack. |
 | `ROLLBACK_COMPLETE` após primeiro erro | Stack vazia de recursos úteis: pode **Delete** no console e rodar o workflow outra vez (com IAM ECR corrigido). |
 | `CannotPullContainerError` | Imagem com a tag do deploy existe no ECR? Rode o push e `update-service --force-new-deployment`. |
 | Task para com erro de SSM | A role de execução da task tem `ssm:GetParameters` em `arn:...:parameter/protec-api/*`? Parâmetros existem na mesma conta/região? |
@@ -155,6 +156,20 @@ Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedi
       "Sid": "Ec2WorkersVpc",
       "Effect": "Allow",
       "Action": ["ec2:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamCfRollbackDelete",
+      "Effect": "Allow",
+      "Action": [
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:DeletePolicy",
+        "iam:GetRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies"
+      ],
       "Resource": "*"
     },
     {

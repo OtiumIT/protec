@@ -32,7 +32,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      # Stack em ROLLBACK_FAILED / CREATE_FAILED não aceita deploy até ser removida (igual protec-api).
+      # ROLLBACK_* precisa de delete; DELETE_FAILED exige IAM extra ou exclusão manual na console.
       - name: Remover stack protec-workers se estiver em falha
         run: |
           set +e
@@ -44,13 +44,38 @@ jobs:
             exit 0
           fi
           echo "Status atual: $STATUS"
+
+          if [ "$STATUS" = "DELETE_FAILED" ]; then
+            echo "::error::Stack em DELETE_FAILED: a AWS não apagou um recurso (ex.: roles IAM sem permissão iam:DeleteRole na role OIDC)."
+            aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region "$AWS_REGION" \
+              --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' --output table || true
+            echo "Ação: conceda iam:DeleteRole, iam:DeleteRolePolicy, iam:DetachRolePolicy à role OIDC ou exclua a stack com usuário admin. Ver docs/DEPLOY_WORKERS.md"
+            exit 1
+          fi
+
           case "$STATUS" in
-            ROLLBACK_FAILED|CREATE_FAILED|DELETE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED|ROLLBACK_COMPLETE)
+            ROLLBACK_FAILED|CREATE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED|ROLLBACK_COMPLETE)
               echo "::warning::Removendo stack em estado $STATUS para permitir novo deploy"
               aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "$AWS_REGION"
               echo "Aguardando exclusão (pode levar vários minutos)..."
+              set +e
               aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "$AWS_REGION"
-              echo "Stack removido."
+              WAIT_RC=$?
+              set -e
+              if [ "$WAIT_RC" -eq 0 ]; then
+                echo "Stack removida."
+                exit 0
+              fi
+              if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" &>/dev/null; then
+                echo "Stack não existe mais (ok)."
+                exit 0
+              fi
+              FINAL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query 'Stacks[0].StackStatus' --output text)
+              echo "::error::Exclusão não concluiu. Status: $FINAL"
+              aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region "$AWS_REGION" \
+                --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' --output table || true
+              echo "Se o status for DELETE_FAILED: IAM (delete role) ou exclusão manual na console. docs/DEPLOY_WORKERS.md"
+              exit 1
               ;;
             *)
               echo "Stack em estado utilizável ($STATUS) — não removendo."
