@@ -9,7 +9,7 @@ Processamento assíncrono de `fiscal_files` (`apps/workers`) em **ECS Fargate**,
    - `/protec-api/SUPABASE_URL`
    - `/protec-api/SUPABASE_SERVICE_KEY`
 
-2. **Role OIDC do GitHub** (mesma usada em `Deploy API Lambda`) com permissões adicionais para ECR, ECS e CloudFormation desta stack. Veja a seção [IAM](#iam-política-complementar-para-a-role-oidc) abaixo.
+2. **Role OIDC do GitHub** (mesma usada em `Deploy API Lambda`) com permissões adicionais para **criar** o repositório ECR (`ecr:CreateRepository`), além de push/pull e ECS. Sem `ecr:CreateRepository`, o deploy falha com `AccessDenied` no recurso `WorkerRepository`. Veja [IAM](#iam-política-complementar-para-a-role-oidc).
 
 3. **Docker** no ambiente local (apenas para deploy manual).
 
@@ -77,6 +77,9 @@ Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/wo
 
 | Sintoma | Verificação |
 |--------|-------------|
+| `User ... is not authorized to perform: ecr:CreateRepository` | Anexe à role OIDC **`ecr:CreateRepository`** (veja IAM abaixo). Sem isso o recurso `WorkerRepository` falha. |
+| Stack **`ROLLBACK_FAILED`** (rollback não concluiu) | O CloudFormation tentou apagar roles IAM e a role OIDC não tinha `iam:DeleteRole` / `iam:DeleteRolePolicy`. **(1)** Anexe essas permissões à `iatax_github` (ou equivalente). **(2)** No console CloudFormation, **Delete** na stack `protec-workers` **ou** rode o workflow de novo: o job **Remove stack protec-workers se estiver em falha** tenta excluir automaticamente. Se ainda falhar, um usuário **administrador** na AWS deve excluir a stack ou as roles órfãs (`protec-workers-TaskRole-*`, `protec-workers-TaskExecutionRole-*`). |
+| `ROLLBACK_COMPLETE` após primeiro erro | Stack vazia de recursos úteis: pode **Delete** no console e rodar o workflow outra vez (com IAM ECR corrigido). |
 | `CannotPullContainerError` | Imagem com a tag do deploy existe no ECR? Rode o push e `update-service --force-new-deployment`. |
 | Task para com erro de SSM | A role de execução da task tem `ssm:GetParameters` em `arn:...:parameter/protec-api/*`? Parâmetros existem na mesma conta/região? |
 | Timeout / falha ao conectar no Postgres | Security group só tem egress; confirme se o endpoint do banco é acessível pela internet (ex.: Supabase). Sem NAT, a task usa IP público. |
@@ -84,29 +87,42 @@ Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/wo
 
 ## IAM: política complementar para a role OIDC
 
-A role usada pelo GitHub Actions no deploy da API já costuma incluir `cloudformation:*` e `iam:*` para criar a Lambda. Para os workers, garanta pelo menos:
+A role usada pelo GitHub Actions no deploy da API já costuma incluir `cloudformation:*` e `iam:*` para criar a Lambda. Para os workers, o CloudFormation **cria** o repositório ECR — a role precisa de **`ecr:CreateRepository`** (e ações relacionadas ao repositório), não só de push.
 
-- **ECR**: `GetAuthorizationToken` (resource `*`) e operações de push na imagem no repositório criado pela stack (ou `*` no repositório).
-- **ECS**: `UpdateService`, `DescribeServices`, `DescribeClusters` nos recursos do cluster/serviço `protec-workers` (ou `*` durante a adoção).
-- **CloudFormation**: mesmo nível já usado para `protec-api` (criar/atualizar stack `protec-workers`).
-- **IAM**: `PassRole` para as roles que o CloudFormation anexa à task (`ecs-tasks.amazonaws.com`).
+Garanta também:
 
-Exemplo de bloco **adicional** (ajuste `ACCOUNT_ID` e refine ARNs quando estiver estável):
+- **ECR**: `GetAuthorizationToken` (`Resource: *`) + criação/alteração do repositório (`CreateRepository`, lifecycle, scan) + push de imagem no `protec-worker`.
+- **ECS**: `UpdateService`, `DescribeServices`, `DescribeClusters`, `RegisterTaskDefinition`, etc., para o workflow concluir após o push.
+- **EC2**: `ec2:*` em VPC/subnet/SG/IGW **ou** as ações que o CloudFormation usar ao criar a VPC do template (a role da API muitas vezes não inclui EC2).
+- **CloudFormation**: criar/atualizar stack `protec-workers`.
+- **IAM**: `PassRole` para `ecs-tasks.amazonaws.com` nas roles criadas pelo template. Para **rollback/exclusão** da stack, a mesma role precisa poder remover o que criou: `iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:RemoveRoleFromInstanceProfile` (se aplicável), etc. — em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
+
+Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedicada). Ajuste `REGION` e `ACCOUNT_ID`:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "EcrPushProtecWorker",
+      "Sid": "EcrAuth",
+      "Effect": "Allow",
+      "Action": ["ecr:GetAuthorizationToken"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrCreateRepoForCf",
       "Effect": "Allow",
       "Action": [
-        "ecr:GetAuthorizationToken"
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:DescribeRepositories",
+        "ecr:PutLifecyclePolicy",
+        "ecr:PutImageScanningConfiguration"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "EcrRepoProtecWorker",
+      "Sid": "EcrPushProtecWorker",
       "Effect": "Allow",
       "Action": [
         "ecr:BatchCheckLayerAvailability",
@@ -115,26 +131,50 @@ Exemplo de bloco **adicional** (ajuste `ACCOUNT_ID` e refine ARNs quando estiver
         "ecr:PutImage",
         "ecr:InitiateLayerUpload",
         "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:DescribeRepositories"
+        "ecr:CompleteLayerUpload"
       ],
       "Resource": "arn:aws:ecr:REGION:ACCOUNT_ID:repository/protec-worker"
     },
     {
-      "Sid": "EcsUpdateProtecWorkers",
+      "Sid": "EcsWorkers",
       "Effect": "Allow",
       "Action": [
         "ecs:UpdateService",
         "ecs:DescribeServices",
-        "ecs:DescribeClusters"
+        "ecs:DescribeClusters",
+        "ecs:RegisterTaskDefinition",
+        "ecs:DescribeTaskDefinition",
+        "ecs:CreateCluster",
+        "ecs:DeleteCluster",
+        "ecs:CreateService",
+        "ecs:DeleteService"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "Ec2WorkersVpc",
+      "Effect": "Allow",
+      "Action": ["ec2:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LogsWorkers",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/ecs/protec-workers*"
     }
   ]
 }
 ```
 
-`GetAuthorizationToken` em ECR exige `Resource: *` na AWS.
+**Nota:** `ecr:CreateRepository` na AWS é avaliado com recurso inexistente; por isso muitas políticas usam `"Resource": "*"` só para esse bloco ou incluem `*` na lista. Se a policy acima for rejeitada pelo editor IAM, separe em dois statements: um com `CreateRepository`/`DeleteRepository` e `Resource: "*"` e outro com push restrito ao ARN do repositório.
+
+`GetAuthorizationToken` em ECR exige `Resource: *`.
 
 Se o deploy CloudFormation falhar por IAM, amplie as mesmas permissões que já funcionam para o stack `protec-api` (criação de roles/policies pelo CFN).
 

@@ -32,6 +32,31 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
+      # Stack em ROLLBACK_FAILED / CREATE_FAILED não aceita deploy até ser removida (igual protec-api).
+      - name: Remover stack protec-workers se estiver em falha
+        run: |
+          set +e
+          STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ] || [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
+            echo "Stack $STACK_NAME não existe ou não consultável — seguindo."
+            exit 0
+          fi
+          echo "Status atual: $STATUS"
+          case "$STATUS" in
+            ROLLBACK_FAILED|CREATE_FAILED|DELETE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED|ROLLBACK_COMPLETE)
+              echo "::warning::Removendo stack em estado $STATUS para permitir novo deploy"
+              aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "$AWS_REGION"
+              echo "Aguardando exclusão (pode levar vários minutos)..."
+              aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "$AWS_REGION"
+              echo "Stack removido."
+              ;;
+            *)
+              echo "Stack em estado utilizável ($STATUS) — não removendo."
+              ;;
+          esac
+
       - name: Deploy CloudFormation stack
         run: |
           aws cloudformation deploy \
