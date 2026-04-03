@@ -103,12 +103,13 @@ Resources:
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ECS worker — apenas saída (HTTPS, Postgres na internet)
+      # EC2 GroupDescription must be ASCII-only (no em-dash or accented chars).
+      GroupDescription: ECS fiscal worker outbound HTTPS and Postgres
       VpcId: !Ref VPC
       SecurityGroupEgress:
         - IpProtocol: '-1'
           CidrIp: 0.0.0.0/0
-          Description: Egress necessario para Supabase e Postgres
+          Description: Outbound for Supabase and Postgres
 
   WorkerRepository:
     Type: AWS::ECR::Repository

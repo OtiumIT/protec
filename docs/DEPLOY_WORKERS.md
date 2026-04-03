@@ -78,6 +78,7 @@ Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/wo
 | Sintoma | Verificação |
 |--------|-------------|
 | `User ... is not authorized to perform: ecr:CreateRepository` | Anexe à role OIDC **`ecr:CreateRepository`** (veja IAM abaixo). Sem isso o recurso `WorkerRepository` falha. |
+| `iam:CreateRole` / `UnauthorizedTaggingOperation` em `TaskRole` ou `TaskExecutionRole` | Falta permissão para **criar** (e taguear) roles IAM. Inclua `iam:CreateRole`, `iam:TagRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`, `iam:PassRole` nas roles criadas pela stack (ou `iam:*` na role de deploy). Ver [IAM](#iam-política-complementar-para-a-role-oidc). |
 | Stack **`ROLLBACK_FAILED`** (rollback não concluiu) | O CloudFormation tentou apagar roles IAM e a role OIDC não tinha `iam:DeleteRole` / `iam:DeleteRolePolicy`. **(1)** Anexe essas permissões à `iatax_github` (ou equivalente). **(2)** No console CloudFormation, **Delete** na stack `protec-workers` **ou** rode o workflow de novo: o job **Remove stack protec-workers se estiver em falha** tenta excluir automaticamente. Se ainda falhar, um usuário **administrador** na AWS deve excluir a stack ou as roles órfãs (`protec-workers-TaskRole-*`, `protec-workers-TaskExecutionRole-*`). |
 | Stack **`DELETE_FAILED`** | A exclusão da stack parou porque algum recurso não pôde ser removido (quase sempre **IAM**). O workflow **falha com mensagem explícita** e lista eventos. Corrija permissões (`iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:DeletePolicy` nas policies inline) na role OIDC **ou** exclua a stack na console com um usuário **administrador** / apague manualmente as roles indicadas nos eventos da stack. |
 | `ROLLBACK_COMPLETE` após primeiro erro | Stack vazia de recursos úteis: pode **Delete** no console e rodar o workflow outra vez (com IAM ECR corrigido). |
@@ -96,7 +97,7 @@ Garanta também:
 - **ECS**: `UpdateService`, `DescribeServices`, `DescribeClusters`, `RegisterTaskDefinition`, etc., para o workflow concluir após o push.
 - **EC2**: `ec2:*` em VPC/subnet/SG/IGW **ou** as ações que o CloudFormation usar ao criar a VPC do template (a role da API muitas vezes não inclui EC2).
 - **CloudFormation**: criar/atualizar stack `protec-workers`.
-- **IAM**: `PassRole` para `ecs-tasks.amazonaws.com` nas roles criadas pelo template. Para **rollback/exclusão** da stack, a mesma role precisa poder remover o que criou: `iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:RemoveRoleFromInstanceProfile` (se aplicável), etc. — em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
+- **IAM**: o CloudFormation **cria** roles (`TaskExecutionRole`, `TaskRole`). A role OIDC precisa de pelo menos: `iam:CreateRole`, `iam:TagRole`, `iam:UntagRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`, `iam:PassRole` (principal `ecs-tasks.amazonaws.com`), além de `iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy` para rollback/exclusão. Sem `iam:CreateRole` o erro costuma ser `UnauthorizedTaggingOperation` / `not authorized to perform: iam:CreateRole` no recurso `TaskRole` ou `TaskExecutionRole`. Em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
 
 Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedicada). Ajuste `REGION` e `ACCOUNT_ID`:
 
@@ -159,18 +160,37 @@ Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedi
       "Resource": "*"
     },
     {
-      "Sid": "IamCfRollbackDelete",
+      "Sid": "IamCfCreateAndTagRoles",
       "Effect": "Allow",
       "Action": [
+        "iam:CreateRole",
         "iam:DeleteRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:PutRolePolicy",
         "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
-        "iam:DeletePolicy",
         "iam:GetRole",
         "iam:ListRolePolicies",
         "iam:ListAttachedRolePolicies"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:iam::ACCOUNT_ID:role/protec-workers-*"
+      ]
+    },
+    {
+      "Sid": "IamPassRoleEcsTasks",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": [
+        "arn:aws:iam::ACCOUNT_ID:role/protec-workers-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
     },
     {
       "Sid": "LogsWorkers",
