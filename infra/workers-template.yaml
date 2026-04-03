@@ -148,6 +148,14 @@ Resources:
       LogGroupName: /ecs/protec-workers
       RetentionInDays: 30
 
+  # One per account; ECS Fargate services fail without it ("Unable to assume the service linked role").
+  # If the role already exists (ECS used before), remove this resource or skip create (see DEPLOY_WORKERS.md).
+  ECSServiceLinkedRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: ecs.amazonaws.com
+      Description: Service-linked role for Amazon ECS
+
   TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -228,6 +236,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn:
       - WorkerTaskDefinition
+      - ECSServiceLinkedRole
     Properties:
       ServiceName: protec-workers
       Cluster: !Ref ECSCluster

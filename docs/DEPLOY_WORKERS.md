@@ -80,6 +80,7 @@ Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/wo
 | `User ... is not authorized to perform: ecr:CreateRepository` | Anexe à role OIDC **`ecr:CreateRepository`** (veja IAM abaixo). Sem isso o recurso `WorkerRepository` falha. |
 | `iam:CreateRole` / `UnauthorizedTaggingOperation` em `TaskRole` ou `TaskExecutionRole` | Falta permissão para **criar** (e taguear) roles IAM. Inclua `iam:CreateRole`, `iam:TagRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`, `iam:PassRole` nas roles criadas pela stack (ou `iam:*` na role de deploy). Ver [IAM](#iam-política-complementar-para-a-role-oidc). |
 | `iam:GetRolePolicy` em `WorkerTaskDefinition` | O CloudFormation precisa ler a policy inline da role de execução ao criar a task definition. Inclua **`iam:GetRolePolicy`** no mesmo `Resource` das roles `protec-workers-*`. |
+| `Unable to assume the service linked role` / `WorkerService` | Falta a **service-linked role** do ECS na conta. O template cria `AWS::IAM::ServiceLinkedRole` para `ecs.amazonaws.com`. A role OIDC precisa de **`iam:CreateServiceLinkedRole`**. **Alternativa (uma vez na conta):** `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com`. Se a role **já existir**, remova o recurso `ECSServiceLinkedRole` do template (ou o create da stack falhará com recurso duplicado). |
 | Stack **`ROLLBACK_FAILED`** (rollback não concluiu) | O CloudFormation tentou apagar roles IAM e a role OIDC não tinha `iam:DeleteRole` / `iam:DeleteRolePolicy`. **(1)** Anexe essas permissões à `iatax_github` (ou equivalente). **(2)** No console CloudFormation, **Delete** na stack `protec-workers` **ou** rode o workflow de novo: o job **Remove stack protec-workers se estiver em falha** tenta excluir automaticamente. Se ainda falhar, um usuário **administrador** na AWS deve excluir a stack ou as roles órfãs (`protec-workers-TaskRole-*`, `protec-workers-TaskExecutionRole-*`). |
 | Stack **`DELETE_FAILED`** | A exclusão da stack parou porque algum recurso não pôde ser removido (quase sempre **IAM**). O workflow **falha com mensagem explícita** e lista eventos. Corrija permissões (`iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:DeletePolicy` nas policies inline) na role OIDC **ou** exclua a stack na console com um usuário **administrador** / apague manualmente as roles indicadas nos eventos da stack. |
 | `ROLLBACK_COMPLETE` após primeiro erro | Stack vazia de recursos úteis: pode **Delete** no console e rodar o workflow outra vez (com IAM ECR corrigido). |
@@ -98,7 +99,7 @@ Garanta também:
 - **ECS**: `UpdateService`, `DescribeServices`, `DescribeClusters`, `RegisterTaskDefinition`, etc., para o workflow concluir após o push.
 - **EC2**: `ec2:*` em VPC/subnet/SG/IGW **ou** as ações que o CloudFormation usar ao criar a VPC do template (a role da API muitas vezes não inclui EC2).
 - **CloudFormation**: criar/atualizar stack `protec-workers`.
-- **IAM**: o CloudFormation **cria** roles (`TaskExecutionRole`, `TaskRole`). A role OIDC precisa de pelo menos: `iam:CreateRole`, `iam:TagRole`, `iam:UntagRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`, `iam:PassRole` (principal `ecs-tasks.amazonaws.com`), além de `iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy` para rollback/exclusão. Sem `iam:CreateRole` o erro costuma ser `UnauthorizedTaggingOperation` / `not authorized to perform: iam:CreateRole` no recurso `TaskRole` ou `TaskExecutionRole`. Em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
+- **IAM**: o template cria a **service-linked role** do ECS (`ecs.amazonaws.com`) e as roles da task (`TaskExecutionRole`, `TaskRole`). A role OIDC precisa de **`iam:CreateServiceLinkedRole`** (`Resource: *`) e, nas roles `protec-workers-*`, pelo menos: `CreateRole`, `TagRole`, `UntagRole`, `PutRolePolicy`, `AttachRolePolicy`, `GetRolePolicy`, `GetRole`, `List*`, `PassRole` (para `ecs-tasks.amazonaws.com`), além de `DeleteRole`, `DeleteRolePolicy`, `DetachRolePolicy` para rollback/exclusão. Em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
 
 Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedicada). Ajuste `REGION` e `ACCOUNT_ID`:
 
@@ -158,6 +159,12 @@ Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedi
       "Sid": "Ec2WorkersVpc",
       "Effect": "Allow",
       "Action": ["ec2:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamCreateEcsServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": ["iam:CreateServiceLinkedRole"],
       "Resource": "*"
     },
     {
