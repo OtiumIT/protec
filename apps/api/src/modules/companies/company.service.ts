@@ -112,6 +112,16 @@ export class CompanyService {
         if (error.constraint?.includes('domain')) {
           throw new AppError('Domínio já cadastrado', 'DOMAIN_ALREADY_EXISTS', 409);
         }
+        if (
+          error.constraint?.includes('idx_users_email') ||
+          error.constraint?.includes('users_email')
+        ) {
+          throw new AppError(
+            'Este e-mail já está cadastrado. Use outro e-mail ou faça login.',
+            'EMAIL_ALREADY_EXISTS',
+            409
+          );
+        }
       }
       
       throw error;

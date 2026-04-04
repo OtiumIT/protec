@@ -4,6 +4,7 @@ import { hashPassword } from '../../shared/utils/password';
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import { AppError } from '../../shared/utils/error-handler';
 import type { User } from '@shared/core';
+import { normalizeUserEmail } from '@shared/core';
 
 export class UserService {
   constructor(
@@ -15,6 +16,8 @@ export class UserService {
    * Criar usuário com validação de seats
    */
   async create(companyId: string, data: CreateUserData): Promise<User> {
+    const emailNorm = normalizeUserEmail(data.email);
+
     // Verificar limite de seats
     const subscription = await this.subscriptionService.getByCompany(companyId);
     if (!subscription) {
@@ -27,7 +30,7 @@ export class UserService {
     }
 
     // Verificar se email já existe no tenant atual
-    const existingUser = await this.userRepo.findByEmail(data.email, companyId);
+    const existingUser = await this.userRepo.findByEmail(emailNorm, companyId);
     if (existingUser) {
       const statusInfo = existingUser.status === 'inactive' ? ' (usuário inativo)' : '';
       throw new AppError(
@@ -37,17 +40,14 @@ export class UserService {
       );
     }
 
-    // Verificar se email existe como super_admin (não pode ser usado em tenants)
-    const existingSuperAdmin = await this.userRepo.findByEmailGlobal(data.email);
-    if (existingSuperAdmin && existingSuperAdmin.tenant_id === null) {
-      throw new AppError('Email já existe como super admin e não pode ser usado em tenants', 'EMAIL_ALREADY_EXISTS', 409);
-    }
-
-    // Debug: verificar se email existe em outros tenants (apenas para log)
-    const allUsersWithEmail = await this.userRepo.findAllByEmail(data.email);
-    if (allUsersWithEmail.length > 0) {
-      console.log(`[UserService.create] Email ${data.email} encontrado em outros tenants:`, 
-        allUsersWithEmail.map(u => ({ id: u.id, tenant_id: u.tenant_id, role: u.role, status: u.status }))
+    const existingElsewhere = await this.userRepo.findByEmailGlobal(emailNorm);
+    if (existingElsewhere) {
+      throw new AppError(
+        existingElsewhere.tenant_id === null
+          ? 'Este e-mail já está em uso pela conta de administrador da plataforma e não pode ser reutilizado.'
+          : 'Este e-mail já está cadastrado em outro escritório.',
+        'EMAIL_ALREADY_EXISTS',
+        409
       );
     }
 
@@ -57,6 +57,7 @@ export class UserService {
     // Criar usuário
     const user = await this.userRepo.create(companyId, {
       ...data,
+      email: emailNorm,
       password: passwordHash,
     });
 
@@ -72,8 +73,6 @@ export class UserService {
       role: user.role,
       status: user.status,
     });
-
-    console.log(`[UserService.create] Usuário criado com sucesso: ${user.email}, status: ${user.status}, tenant_id: ${companyId}`);
 
     return user;
   }
@@ -101,6 +100,19 @@ export class UserService {
     // Não permitir alterar role para super_admin
     if (data.role === 'super_admin' && currentUser.role !== 'super_admin') {
       throw new AppError('Cannot set role to super_admin', 'FORBIDDEN', 403);
+    }
+
+    if (data.email !== undefined) {
+      const emailNorm = normalizeUserEmail(data.email);
+      const conflict = await this.userRepo.findByEmailGlobalExcluding(emailNorm, id);
+      if (conflict) {
+        throw new AppError(
+          'Este e-mail já está cadastrado por outro utilizador.',
+          'EMAIL_ALREADY_EXISTS',
+          409
+        );
+      }
+      data = { ...data, email: emailNorm };
     }
 
     // Atualizar
@@ -184,10 +196,10 @@ export class UserService {
    * Criar super_admin (sem company_id)
    */
   async createSuperAdmin(data: CreateUserData): Promise<User> {
-    // Verificar se email já existe (globalmente, sem company_id)
-    const existingUser = await this.userRepo.findByEmailGlobal(data.email);
+    const emailNorm = normalizeUserEmail(data.email);
+    const existingUser = await this.userRepo.findByEmailGlobal(emailNorm);
     if (existingUser) {
-      throw new AppError('Email already exists', 'EMAIL_ALREADY_EXISTS', 409);
+      throw new AppError('Este e-mail já está cadastrado.', 'EMAIL_ALREADY_EXISTS', 409);
     }
 
     // Hash da senha
@@ -196,6 +208,7 @@ export class UserService {
     // Criar super_admin
     const user = await this.userRepo.createSuperAdmin({
       ...data,
+      email: emailNorm,
       password: passwordHash,
     });
 

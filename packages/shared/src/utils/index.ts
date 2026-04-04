@@ -2,6 +2,7 @@
 
 export * from './masks.js';
 export * from './fiscal-ipca.js';
+export * from './email.js';
 
 export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

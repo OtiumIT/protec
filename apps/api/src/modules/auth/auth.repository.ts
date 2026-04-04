@@ -8,18 +8,21 @@ export class AuthRepository extends BaseRepository {
    */
   async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE email = $1 AND tenant_id = $2',
+      `SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users
+       WHERE lower(trim(email)) = $1 AND tenant_id = $2`,
       [email, tenantId]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar usuário por email (sem filtro de tenant - usado no login antes de identificar tenant)
+   * Buscar usuário por email (sem filtro de tenant - login).
+   * Parâmetro deve ser e-mail já normalizado (trim + lower).
    */
   async findByEmailOnly(email: string): Promise<User | null> {
     const result = await query<User>(
-      'SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users WHERE email = $1',
+      `SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users
+       WHERE lower(trim(email)) = $1 LIMIT 1`,
       [email]
     );
     return result.rows[0] || null;

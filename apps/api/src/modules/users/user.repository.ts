@@ -32,32 +32,51 @@ export class UserRepository extends BaseRepository {
    */
   async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1 AND tenant_id = $2',
+      `SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users
+       WHERE lower(trim(email)) = $1 AND tenant_id = $2`,
       [email, tenantId]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar usuário por email globalmente (para verificar duplicatas de super_admin)
+   * Buscar usuário por email globalmente (único e-mail permitido por login)
    */
   async findByEmailGlobal(email: string): Promise<User | null> {
     const result = await this.query<User>(
-      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1',
+      `SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users
+       WHERE lower(trim(email)) = $1 LIMIT 1`,
       [email],
-      false // Não requer filtro de tenant
+      false
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Buscar todos os usuários com um email específico (para debug)
+   * Verifica se outro utilizador (não o excluído) já usa o e-mail normalizado
+   */
+  async findByEmailGlobalExcluding(
+    email: string,
+    excludeUserId: string
+  ): Promise<User | null> {
+    const result = await this.query<User>(
+      `SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users
+       WHERE lower(trim(email)) = $1 AND id <> $2 LIMIT 1`,
+      [email, excludeUserId],
+      false
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Buscar todos os utilizadores com o mesmo e-mail normalizado (diagnóstico)
    */
   async findAllByEmail(email: string): Promise<User[]> {
     const result = await this.query<User>(
-      'SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users WHERE email = $1 ORDER BY created_at DESC',
+      `SELECT id, email, name, tenant_id, role, status, created_at, updated_at FROM users
+       WHERE lower(trim(email)) = $1 ORDER BY created_at DESC`,
       [email],
-      false // Não requer filtro de tenant
+      false
     );
     return result.rows;
   }

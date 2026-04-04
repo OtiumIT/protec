@@ -36,6 +36,23 @@ export function errorHandler(error: unknown, c: Context): Response {
     );
   }
 
+  // Violação de unicidade no e-mail (users) — ex.: corrida entre duas requisições
+  if (error instanceof Error && (error as any).code === '23505') {
+    const constraint = String((error as any).constraint ?? '');
+    if (constraint.includes('idx_users_email')) {
+      doLog(409, 'EMAIL_ALREADY_EXISTS', 'Este e-mail já está cadastrado.');
+      return c.json<ApiError>(
+        {
+          error: {
+            message: 'Este e-mail já está cadastrado.',
+            code: 'EMAIL_ALREADY_EXISTS',
+          },
+        },
+        409
+      );
+    }
+  }
+
   // Erro de conexão com banco de dados
   if (error instanceof Error && ('code' in error)) {
     const errorCode = (error as any).code;

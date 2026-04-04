@@ -9,6 +9,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPaylo
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import { AppError } from '../../shared/utils/error-handler';
 import type { User, Company } from '@shared/core';
+import { normalizeUserEmail } from '@shared/core';
 
 export interface AuthTokens {
   access: string;
@@ -64,6 +65,16 @@ export class AuthService {
       );
     }
 
+    const emailNorm = normalizeUserEmail(data.user.email);
+    const emailAlreadyUsed = await this.userRepo.findByEmailGlobal(emailNorm);
+    if (emailAlreadyUsed) {
+      throw new AppError(
+        'Este e-mail já está cadastrado. Use outro e-mail ou faça login.',
+        'EMAIL_ALREADY_EXISTS',
+        409
+      );
+    }
+
     // Nome de exibição: nome fantasia ou razão social/nome completo
     const name = (data.company.trade_name?.trim() || data.company.legal_name.trim()).slice(0, 255);
     const cnpjNormalized = data.company.cnpj ? data.company.cnpj.replace(/\D/g, '') : undefined;
@@ -78,7 +89,7 @@ export class AuthService {
       cnpj: cnpjNormalized,
       cpf: cpfNormalized,
       phone: data.company.phone || undefined,
-      contact_email: data.user.email,
+      contact_email: emailNorm,
       contact_name: data.user.name,
     });
 
@@ -95,7 +106,7 @@ export class AuthService {
     const passwordHash = await hashPassword(data.user.password);
     const user = await this.userRepo.create(company.id, {
       name: data.user.name,
-      email: data.user.email,
+      email: emailNorm,
       password: passwordHash,
       role: 'admin',
     });
@@ -120,15 +131,16 @@ export class AuthService {
    * Login
    */
   async login(email: string, password: string, companyId?: string): Promise<{ user: User; tokens: AuthTokens }> {
+    const emailNorm = normalizeUserEmail(email);
     // Buscar usuário
     let user: User | null;
     
     // Primeiro tentar buscar super_admin (sem company_id)
-    user = await this.authRepo.findByEmailOnly(email);
+    user = await this.authRepo.findByEmailOnly(emailNorm);
     
     // Se não encontrou super_admin e tem companyId, buscar por tenant
     if (!user && companyId) {
-      user = await this.authRepo.findByEmail(email, companyId);
+      user = await this.authRepo.findByEmail(emailNorm, companyId);
     }
     
     if (user && user.tenant_id === null) {

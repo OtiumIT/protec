@@ -9,8 +9,9 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 - **Quando aplicar**: Endpoint `POST /auth/register`
 - **Validação**: 
   - Nome da empresa: mínimo 3 caracteres
-  - Email do usuário: formato válido e único por empresa
+  - E-mail do utilizador: formato válido, **único em toda a plataforma** (chave de login); armazenado normalizado (`trim` + minúsculas)
   - Senha: mínimo 8 caracteres
+- **Conflito**: Se o e-mail já existir → `409` com código `EMAIL_ALREADY_EXISTS`
 - **Processo**:
   1. Criar empresa (company)
   2. Hash da senha com BCrypt (10 rounds)
@@ -25,7 +26,7 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
   - Email e senha obrigatórios
   - Verificar se usuário existe e senha está correta
 - **Processo**:
-  1. Buscar usuário por email e company_id
+  1. Normalizar e-mail (`trim` + minúsculas) e buscar utilizador por `lower(trim(email))` (sem ambiguidade: um e-mail = um utilizador)
   2. Verificar senha com BCrypt
   3. Gerar novos tokens (access + refresh)
   4. Armazenar refresh token no banco (não invalida tokens anteriores)
