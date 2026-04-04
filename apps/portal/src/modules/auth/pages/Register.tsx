@@ -6,10 +6,24 @@ import { Input } from '../../../shared/components/ui/Input';
 import { PasswordInput } from '../../../shared/components/ui/PasswordInput';
 import { Card } from '../../../shared/components/ui/Card';
 import { formatCnpj, formatCpf, formatPhoneBR, parseDigits, isValidCpf, isValidCnpj } from '../../../shared/utils/masks';
+import { useToast } from '../../../shared/components/ui/Toast';
+
+function friendlyRegisterError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes('schema_migrations') ||
+    lower.includes('duplicate key') ||
+    lower.includes('violates unique constraint')
+  ) {
+    return 'Não foi possível concluir o cadastro. Tente novamente em instantes ou contate o suporte.';
+  }
+  return message;
+}
 
 export function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const { error: showError, ToastContainer } = useToast();
   const [personType, setPersonType] = useState<'pf' | 'pj'>('pj');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
@@ -22,7 +36,6 @@ export function Register() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   /** Erro visual no campo Confirmar senha (borda/label vermelhos) */
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +55,6 @@ export function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setPasswordConfirmError('');
     setIsLoading(true);
 
@@ -50,23 +62,23 @@ export function Register() {
     const cpfDigits = parseDigits(cpf);
     if (personType === 'pj') {
       if (cnpjDigits.length !== 14) {
-        setError('CNPJ deve ter 14 dígitos.');
+        showError('CNPJ deve ter 14 dígitos.');
         setIsLoading(false);
         return;
       }
       if (!isValidCnpj(cnpjDigits)) {
-        setError('CNPJ inválido. Verifique os dígitos.');
+        showError('CNPJ inválido. Verifique os dígitos.');
         setIsLoading(false);
         return;
       }
     } else {
       if (cpfDigits.length !== 11) {
-        setError('CPF deve ter 11 dígitos.');
+        showError('CPF deve ter 11 dígitos.');
         setIsLoading(false);
         return;
       }
       if (!isValidCpf(cpfDigits)) {
-        setError('CPF inválido. Verifique os dígitos.');
+        showError('CPF inválido. Verifique os dígitos.');
         setIsLoading(false);
         return;
       }
@@ -93,7 +105,8 @@ export function Register() {
       });
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao cadastrar. Tente novamente.');
+      const raw = err instanceof Error ? err.message : 'Falha ao cadastrar. Tente novamente.';
+      showError(friendlyRegisterError(raw));
     } finally {
       setIsLoading(false);
     }
@@ -101,6 +114,7 @@ export function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <ToastContainer />
       <Card className="w-full max-w-md">
         <div className="mb-6">
           <Link
@@ -128,12 +142,6 @@ export function Register() {
             ? 'Cadastre-se e comece a usar a plataforma.'
             : 'Crie seu escritório de contabilidade e comece a usar a plataforma.'}
         </p>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

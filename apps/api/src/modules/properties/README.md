@@ -113,7 +113,7 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - **Módulos**: Feature toggle `GESTAO_IMOVEIS`
 - **Repositories**: `ClientRepository` (validação de cliente)
 - **Tabelas**: `properties`, `property_transactions`, `property_monthly_totals` (tenant), `clients` (tenant)
-- **Migrations relevantes**: `036_properties.sql`, `038_property_monthly_totals.sql`, `046_property_simulations.sql`, `049_property_transactions_fiscal_credit.sql`, `050_properties_defaults.sql`
+- **Migrations relevantes**: `036_properties.sql`, `038_property_monthly_totals.sql`, `046_property_simulations.sql`, `050_properties_defaults.sql`, `051_properties_rent_and_nature.sql`, `052_property_transactions_fiscal_credit.sql`
 
 ## Grid de cadastro (portal)
 
