@@ -19,6 +19,7 @@ export function Register() {
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -66,6 +67,12 @@ export function Register() {
         setIsLoading(false);
         return;
       }
+    }
+
+    if (password !== passwordConfirm) {
+      setError('As senhas não coincidem.');
+      setIsLoading(false);
+      return;
     }
 
     try {
@@ -223,7 +230,15 @@ export function Register() {
             autoComplete="new-password"
             minLength={8}
           />
-          <p className="text-xs text-slate-500">Mínimo de 8 caracteres</p>
+          <PasswordInput
+            label="Confirmar senha"
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+            required
+            autoComplete="new-password"
+            minLength={8}
+          />
+          <p className="text-xs text-slate-500">Mínimo de 8 caracteres em ambos os campos</p>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Cadastrando...' : 'Cadastrar'}
