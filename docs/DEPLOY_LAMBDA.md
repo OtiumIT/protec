@@ -2,7 +2,7 @@
 
 A API roda em **Lambda + API Gateway HTTP API**. O deploy é feito automaticamente via GitHub Actions em cada push na `main`.
 
-**Workers Python (fiscal_files):** stack ECS Fargate separada; ver [DEPLOY_WORKERS.md](DEPLOY_WORKERS.md) (reutiliza SSM `/protec-api/*`).
+**Workers Python (fiscal_files):** EC2 t3a.nano + systemd; ver [DEPLOY_WORKERS.md](DEPLOY_WORKERS.md) (reutiliza SSM `/protec-api/*`).
 
 ## Descontinuar a Vercel (API)
 

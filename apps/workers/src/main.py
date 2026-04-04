@@ -528,8 +528,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sleep-seconds",
         type=int,
-        default=15,
-        help="Intervalo entre ciclos quando --loop estiver ativo.",
+        default=60,
+        help="Intervalo entre ciclos quando --loop estiver ativo (segundos).",
     )
     return parser
 

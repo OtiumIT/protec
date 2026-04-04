@@ -1,6 +1,8 @@
-# Deploy workers Python (ECS Fargate + ECR). Pré-requisitos: SSM /protec-api/* e IAM OIDC (ver docs/DEPLOY_WORKERS.md).
+# Deploy workers Python via SSM para EC2 (t3a.nano).
+# Pré-requisitos: instância EC2 com tag Name=protec-worker, SSM Agent, /protec-api/* no SSM.
+# Role OIDC precisa de ssm:SendCommand, ssm:GetCommandInvocation, ec2:DescribeInstances.
 
-name: Deploy Workers ECS
+name: Deploy Workers EC2
 
 on:
   push:
@@ -8,9 +10,12 @@ on:
       - main
     paths:
       - 'apps/workers/**'
-      - 'infra/workers-template.yaml'
       - '.github/workflows/deploy-workers.yml'
   workflow_dispatch:
+
+concurrency:
+  group: workers-ec2-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write
@@ -19,9 +24,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-      STACK_NAME: protec-workers
+      INSTANCE_TAG: protec-worker
+      DEPLOY_BUCKET: protec-worker-deploy-688123783562
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,119 +39,60 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      # ROLLBACK_* precisa de delete; DELETE_FAILED exige IAM extra ou exclusão manual na console.
-      - name: Remover stack protec-workers se estiver em falha
+      - name: Find worker instance ID
+        id: ec2
         run: |
-          set +e
-          STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
-          RC=$?
-          set -e
-          if [ "$RC" -ne 0 ] || [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
-            echo "Stack $STACK_NAME não existe ou não consultável — seguindo."
-            exit 0
-          fi
-          echo "Status atual: $STATUS"
-
-          if [ "$STATUS" = "DELETE_FAILED" ]; then
-            echo "::error::Stack em DELETE_FAILED: a AWS não apagou um recurso (ex.: roles IAM sem permissão iam:DeleteRole na role OIDC)."
-            aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region "$AWS_REGION" \
-              --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' --output table || true
-            echo "Ação: conceda iam:DeleteRole, iam:DeleteRolePolicy, iam:DetachRolePolicy à role OIDC ou exclua a stack com usuário admin. Ver docs/DEPLOY_WORKERS.md"
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=$INSTANCE_TAG" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' --output text --region "$AWS_REGION")
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "::error::Nenhuma instancia EC2 com tag Name=$INSTANCE_TAG em estado running."
             exit 1
           fi
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "Instance: $INSTANCE_ID"
 
-          case "$STATUS" in
-            ROLLBACK_FAILED|CREATE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED|ROLLBACK_COMPLETE)
-              echo "::warning::Removendo stack em estado $STATUS para permitir novo deploy"
-              aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "$AWS_REGION"
-              echo "Aguardando exclusão (pode levar vários minutos)..."
-              set +e
-              aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "$AWS_REGION"
-              WAIT_RC=$?
-              set -e
-              if [ "$WAIT_RC" -eq 0 ]; then
-                echo "Stack removida."
+      - name: Upload worker code to S3
+        run: |
+          tar czf /tmp/workers.tar.gz -C apps/workers .
+          aws s3 cp /tmp/workers.tar.gz "s3://$DEPLOY_BUCKET/workers.tar.gz" --region "$AWS_REGION"
+          echo "Uploaded workers.tar.gz to s3://$DEPLOY_BUCKET/"
+
+      - name: Deploy via SSM
+        run: |
+          INSTANCE_ID="${{ steps.ec2.outputs.instance_id }}"
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --timeout-seconds 120 \
+            --parameters '{"commands":["set -e","aws s3 cp s3://'"$DEPLOY_BUCKET"'/workers.tar.gz /tmp/workers.tar.gz --region '"$AWS_REGION"'","mkdir -p /opt/protec-workers/src","tar xzf /tmp/workers.tar.gz -C /opt/protec-workers/","rm -f /tmp/workers.tar.gz","python3.12 -m pip install --break-system-packages -q -r /opt/protec-workers/requirements.txt 2>/dev/null || python3.12 -m pip install -q -r /opt/protec-workers/requirements.txt","cp /opt/protec-workers/protec-worker.service /etc/systemd/system/protec-worker.service","systemctl daemon-reload","systemctl restart protec-worker","sleep 3","systemctl is-active protec-worker"]}' \
+            --region "$AWS_REGION" \
+            --query Command.CommandId --output text)
+          echo "SSM Command: $CMD_ID"
+
+          for i in $(seq 1 24); do
+            sleep 5
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region "$AWS_REGION" \
+              --query Status --output text 2>/dev/null || echo "Pending")
+            echo "[$i] Status: $STATUS"
+            case "$STATUS" in
+              Success)
+                echo "Deploy concluido com sucesso."
                 exit 0
-              fi
-              if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" &>/dev/null; then
-                echo "Stack não existe mais (ok)."
-                exit 0
-              fi
-              FINAL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query 'Stacks[0].StackStatus' --output text)
-              echo "::error::Exclusão não concluiu. Status: $FINAL"
-              aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region "$AWS_REGION" \
-                --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' --output table || true
-              echo "Se o status for DELETE_FAILED: IAM (delete role) ou exclusão manual na console. docs/DEPLOY_WORKERS.md"
-              exit 1
-              ;;
-            *)
-              echo "Stack em estado utilizável ($STATUS) — não removendo."
-              ;;
-          esac
-
-      # Ordem crítica: com DesiredCount>=1 o ECS puxa a imagem na hora; se o deploy CF rodar antes do push,
-      # a tag (ex.: GITHUB_SHA) não existe no ECR e o serviço não estabiliza → CloudFormation falha (exit 255).
-      # Primeira criação: CF com DesiredCount=0 (sem task), push, depois CF com parâmetros finais.
-      # Stack já existente: push primeiro, depois CF (imagem já disponível).
-      - name: Bootstrap stack (apenas se não existir)
-        run: |
-          set -e
-          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" &>/dev/null; then
-            echo "Stack $STACK_NAME já existe — bootstrap pulado."
-            exit 0
-          fi
-          echo "Primeira criação: stack com DesiredCount=0 até a imagem existir no ECR."
-          aws cloudformation deploy \
-            --template-file infra/workers-template.yaml \
-            --stack-name "$STACK_NAME" \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides "ImageTag=${GITHUB_SHA} DesiredCount=0" \
-            --region "$AWS_REGION" \
-            --no-fail-on-empty-changeset
-
-      - name: Get ECR repository URI
-        id: ecr
-        run: |
-          set -e
-          # JMESPath: string literal com aspas simples (backticks não são string no JMESPath padrão).
-          URI=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" \
-            --query "Stacks[0].Outputs[?OutputKey=='EcrRepositoryUri'].OutputValue" --output text)
-          if [ -z "$URI" ] || [ "$URI" = "None" ]; then
-            ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-            URI="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/protec-worker"
-            echo "::warning::Output EcrRepositoryUri vazio; usando URI derivada do repositório protec-worker."
-          fi
-          echo "uri=$URI" >> "$GITHUB_OUTPUT"
-          echo "ECR URI: $URI"
-
-      - name: Login to ECR
-        run: |
-          URI="${{ steps.ecr.outputs.uri }}"
-          REGISTRY="${URI%%/*}"
-          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
-
-      - name: Build and push image
-        run: |
-          IMAGE="${{ steps.ecr.outputs.uri }}:${GITHUB_SHA}"
-          docker build -t "$IMAGE" -f apps/workers/Dockerfile apps/workers
-          docker push "$IMAGE"
-          echo "Pushed $IMAGE"
-
-      - name: Deploy CloudFormation stack (imagem já no ECR)
-        run: |
-          aws cloudformation deploy \
-            --template-file infra/workers-template.yaml \
-            --stack-name "$STACK_NAME" \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides "ImageTag=${GITHUB_SHA} DesiredCount=1" \
-            --region "$AWS_REGION" \
-            --no-fail-on-empty-changeset
-
-      - name: Force new ECS deployment
-        run: |
-          aws ecs update-service \
-            --cluster protec-workers \
-            --service protec-workers \
-            --region "$AWS_REGION" \
-            --force-new-deployment \
-            --no-cli-pager
+                ;;
+              Failed|TimedOut|Cancelled)
+                echo "::error::SSM command falhou: $STATUS"
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --region "$AWS_REGION" \
+                  --query '[StandardOutputContent,StandardErrorContent]' --output text || true
+                exit 1
+                ;;
+            esac
+          done
+          echo "::error::Timeout aguardando SSM command."
+          exit 1

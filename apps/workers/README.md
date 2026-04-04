@@ -49,4 +49,4 @@ pnpm run dev
 
 Imagem definida em [`Dockerfile`](Dockerfile). Em produção as variáveis vêm do ambiente da task (secrets apontando para SSM `/protec-api/*`), não do arquivo `.env`.
 
-Deploy na AWS: [`docs/DEPLOY_LAMBDA.md`](../../docs/DEPLOY_LAMBDA.md) (SSM) e [`docs/DEPLOY_WORKERS.md`](../../docs/DEPLOY_WORKERS.md) (stack `protec-workers`, ECR, ECS).
+Deploy na AWS: [`docs/DEPLOY_LAMBDA.md`](../../docs/DEPLOY_LAMBDA.md) (SSM) e [`docs/DEPLOY_WORKERS.md`](../../docs/DEPLOY_WORKERS.md) (EC2 t3a.nano + systemd + SSM deploy).

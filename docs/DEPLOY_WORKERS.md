@@ -1,229 +1,138 @@
-# Deploy dos workers Python (ECS Fargate)
+# Deploy dos Workers Python (EC2 + systemd)
 
-Processamento assíncrono de `fiscal_files` (`apps/workers`) em **ECS Fargate**, stack CloudFormation **`protec-workers`**, imagem em **ECR** `protec-worker`. Rede: **VPC dedicada** com subnets públicas e **AssignPublicIp** (sem NAT Gateway no primeiro corte).
+Processamento assincrono de `fiscal_files` (`apps/workers`) em **EC2 t3a.nano**, servico **systemd** `protec-worker`, deploy via **SSM Run Command**.
 
-## Pré-requisitos
+## Infraestrutura
 
-1. **SSM Parameter Store** com os mesmos parâmetros da API (`infra/setup-ssm.sh`), no mínimo:
+| Recurso | Valor |
+|---------|-------|
+| Instancia | `t3a.nano` (2 vCPU AMD, 0.5 GB) |
+| AMI | Amazon Linux 2023 (x86_64) |
+| Instance ID | `i-0543526ca45992d24` |
+| Tag | `Name=protec-worker`, `Project=protec` |
+| Security Group | `sg-0c5b6287943e476dc` (egress-only) |
+| IAM Role | `protec-worker-ec2-role` |
+| Instance Profile | `protec-worker-ec2-profile` |
+| S3 Deploy Bucket | `protec-worker-deploy-688123783562` |
+| VPC | Default (`vpc-4033093a`) |
+| Regiao | `us-east-1` |
+| Custo estimado | ~$4/mes (instancia + EBS 8GB gp3) |
+
+## Pre-requisitos
+
+1. **SSM Parameter Store** com os mesmos parametros da API (`infra/setup-ssm.sh`):
    - `/protec-api/DATABASE_URL`
    - `/protec-api/SUPABASE_URL`
    - `/protec-api/SUPABASE_SERVICE_KEY`
 
-2. **Role OIDC do GitHub** (mesma usada em `Deploy API Lambda`) com permissões adicionais para **criar** o repositório ECR (`ecr:CreateRepository`), além de push/pull e ECS. Sem `ecr:CreateRepository`, o deploy falha com `AccessDenied` no recurso `WorkerRepository`. Veja [IAM](#iam-política-complementar-para-a-role-oidc).
+2. **Role OIDC** (`iatax_github`) com policy `ProtecWorkerEC2Deploy`:
+   - `ssm:SendCommand`, `ssm:GetCommandInvocation` (deploy remoto)
+   - `ec2:DescribeInstances` (localizar instancia por tag)
+   - `s3:PutObject`, `s3:GetObject` em `protec-worker-deploy-688123783562/*`
 
-3. **Docker** no ambiente local (apenas para deploy manual).
-
-## Deploy automático (GitHub Actions)
+## Deploy automatico (GitHub Actions)
 
 O workflow [`.github/workflows/deploy-workers.yml`](../.github/workflows/deploy-workers.yml) roda em:
 
-- `push` na branch `main` alterando `apps/workers/**`, `infra/workers-template.yaml` ou o próprio workflow;
+- `push` na branch `main` alterando `apps/workers/**` ou o proprio workflow;
 - `workflow_dispatch` (manual).
 
-Passos do job: `cloudformation deploy` → build/push da imagem com tag `${GITHUB_SHA}` → `ecs update-service --force-new-deployment`.
-
-Variáveis: use `vars.AWS_REGION` (opcional; padrão `us-east-1`) e `secrets.AWS_OIDC_ROLE_ARN` ou `vars.AWS_OIDC_ROLE_ARN` como na API.
+Passos:
+1. Localiza a instancia EC2 por tag `Name=protec-worker`
+2. Empacota `apps/workers/` em tarball e faz upload para S3
+3. SSM `send-command`: baixa do S3, extrai em `/opt/protec-workers/`, `pip install`, copia unit file, `systemctl restart`
+4. Aguarda confirmacao de sucesso via SSM
 
 ## Deploy manual
 
-Na raiz do monorepo (com AWS CLI configurado):
-
 ```bash
-export AWS_REGION="${AWS_REGION:-us-east-1}"
-export IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse HEAD)}"
+# Na raiz do monorepo, com AWS CLI configurado
+INSTANCE_ID="i-0543526ca45992d24"
+REGION="us-east-1"
+BUCKET="protec-worker-deploy-688123783562"
 
-aws cloudformation deploy \
-  --template-file infra/workers-template.yaml \
-  --stack-name protec-workers \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides "ImageTag=${IMAGE_TAG}" \
-  --region "$AWS_REGION"
+tar czf /tmp/workers.tar.gz -C apps/workers .
+aws s3 cp /tmp/workers.tar.gz "s3://$BUCKET/workers.tar.gz" --region "$REGION"
 
-ECR_URI=$(aws cloudformation describe-stacks --stack-name protec-workers --region "$AWS_REGION" \
-  --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUri`].OutputValue' --output text)
-
-REGISTRY="${ECR_URI%%/*}"
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
-
-docker build -t "${ECR_URI}:${IMAGE_TAG}" -f apps/workers/Dockerfile apps/workers
-docker push "${ECR_URI}:${IMAGE_TAG}"
-
-aws ecs update-service \
-  --cluster protec-workers \
-  --service protec-workers \
-  --region "$AWS_REGION" \
-  --force-new-deployment
+aws ssm send-command \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters '{"commands":["set -e","aws s3 cp s3://'"$BUCKET"'/workers.tar.gz /tmp/workers.tar.gz --region '"$REGION"'","tar xzf /tmp/workers.tar.gz -C /opt/protec-workers/","rm -f /tmp/workers.tar.gz","python3.12 -m pip install --break-system-packages -q -r /opt/protec-workers/requirements.txt","cp /opt/protec-workers/protec-worker.service /etc/systemd/system/protec-worker.service","systemctl daemon-reload","systemctl restart protec-worker"]}' \
+  --region "$REGION"
 ```
 
-Na **primeira** execução, o serviço ECS pode falhar o pull até o push terminar; após o push e o `update-service`, as tasks devem estabilizar.
+## Estrutura na instancia
+
+```
+/opt/protec-workers/
+  .env                    # Gerado por fetch-env.sh (secretos do SSM)
+  fetch-env.sh            # Le parametros SSM e escreve .env
+  requirements.txt
+  protec-worker.service   # Copiado pelo deploy para /etc/systemd/system/
+  src/
+    main.py
+```
+
+## Systemd
+
+```bash
+# Status
+systemctl status protec-worker
+
+# Logs (ultimas 50 linhas)
+journalctl -u protec-worker --no-pager -n 50
+
+# Logs em tempo real
+journalctl -u protec-worker -f
+
+# Reiniciar
+systemctl restart protec-worker
+
+# Parar
+systemctl stop protec-worker
+```
+
+## Acesso a instancia
+
+Sem key pair SSH. Acesso via **SSM Session Manager**:
+
+```bash
+aws ssm start-session --target i-0543526ca45992d24 --region us-east-1
+```
+
+Ou pelo console AWS: EC2 > Instances > Connect > Session Manager.
 
 ## Observabilidade
 
-- **Logs**: grupo CloudWatch `/ecs/protec-workers`, retenção 30 dias. Streams por task (`fiscal-worker/...`).
-- **Container Insights**: desligado na stack para reduzir custo. Para alarmes nativos de contagem de tasks, ative Container Insights no cluster e crie alarmes em `ECS/ContainerInsights`.
-- **Métricas recomendadas depois**: filtrar nos logs por `processed` / `errors` do worker; opcional **metric filter** + alarme em taxa de linhas com `❌` ou `error`.
-
-## Evolução: de polling para fila
-
-Hoje o worker lista schemas `tenant_*` e usa `FOR UPDATE SKIP LOCKED` em `fiscal_files`. Caminho típico de evolução:
-
-1. **Manter Fargate**, mas a API publica mensagens (SQS/EventBridge) por arquivo ou tenant após upload.
-2. O worker passa a consumir a fila (long polling) em vez de varrer todos os tenants a cada ciclo; reduz carga no banco e melhora priorização.
-3. **DLQ** para falhas repetidas e política de retry explícita.
-
-Isso não exige trocar de ECS para Lambda; exige mudança de código em `apps/workers` e permissões IAM para SQS.
+- **Logs**: `journalctl -u protec-worker` (local na instancia).
+- **Worker output**: cada ciclo imprime `processed=N, errors=N`.
+- **Monitoramento basico**: CloudWatch metricas EC2 (CPU, Status Checks). Alertas opcionais.
+- Para centralizar logs em CloudWatch Logs, instale o CloudWatch Agent e configure o journal.
 
 ## Troubleshooting
 
-| Sintoma | Verificação |
-|--------|-------------|
-| `User ... is not authorized to perform: ecr:CreateRepository` | Anexe à role OIDC **`ecr:CreateRepository`** (veja IAM abaixo). Sem isso o recurso `WorkerRepository` falha. |
-| `iam:CreateRole` / `UnauthorizedTaggingOperation` em `TaskRole` ou `TaskExecutionRole` | Falta permissão para **criar** (e taguear) roles IAM. Inclua `iam:CreateRole`, `iam:TagRole`, `iam:PutRolePolicy`, `iam:AttachRolePolicy`, `iam:PassRole` nas roles criadas pela stack (ou `iam:*` na role de deploy). Ver [IAM](#iam-política-complementar-para-a-role-oidc). |
-| `iam:GetRolePolicy` em `WorkerTaskDefinition` | O CloudFormation precisa ler a policy inline da role de execução ao criar a task definition. Inclua **`iam:GetRolePolicy`** no mesmo `Resource` das roles `protec-workers-*`. |
-| `Unable to assume the service linked role` / `WorkerService` | Falta a **service-linked role** do ECS na conta. O template cria `AWS::IAM::ServiceLinkedRole` para `ecs.amazonaws.com`. A role OIDC precisa de **`iam:CreateServiceLinkedRole`**. **Alternativa (uma vez na conta):** `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com`. Se a role **já existir**, remova o recurso `ECSServiceLinkedRole` do template (ou o create da stack falhará com recurso duplicado). |
-| Stack **`ROLLBACK_FAILED`** (rollback não concluiu) | O CloudFormation tentou apagar roles IAM e a role OIDC não tinha `iam:DeleteRole` / `iam:DeleteRolePolicy`. **(1)** Anexe essas permissões à `iatax_github` (ou equivalente). **(2)** No console CloudFormation, **Delete** na stack `protec-workers` **ou** rode o workflow de novo: o job **Remove stack protec-workers se estiver em falha** tenta excluir automaticamente. Se ainda falhar, um usuário **administrador** na AWS deve excluir a stack ou as roles órfãs (`protec-workers-TaskRole-*`, `protec-workers-TaskExecutionRole-*`). |
-| Stack **`DELETE_FAILED`** | A exclusão da stack parou porque algum recurso não pôde ser removido (quase sempre **IAM**). O workflow **falha com mensagem explícita** e lista eventos. Corrija permissões (`iam:DeleteRole`, `iam:DeleteRolePolicy`, `iam:DetachRolePolicy`, `iam:DeletePolicy` nas policies inline) na role OIDC **ou** exclua a stack na console com um usuário **administrador** / apague manualmente as roles indicadas nos eventos da stack. |
-| `ROLLBACK_COMPLETE` após primeiro erro | Stack vazia de recursos úteis: pode **Delete** no console e rodar o workflow outra vez (com IAM ECR corrigido). |
-| `CannotPullContainerError` | Imagem com a tag do deploy existe no ECR? Rode o push e `update-service --force-new-deployment`. |
-| Task para com erro de SSM | A role de execução da task tem `ssm:GetParameters` em `arn:...:parameter/protec-api/*`? Parâmetros existem na mesma conta/região? |
-| Timeout / falha ao conectar no Postgres | Security group só tem egress; confirme se o endpoint do banco é acessível pela internet (ex.: Supabase). Sem NAT, a task usa IP público. |
-| `ResourceInitializationError` secrets | Nomes SSM exatos: `/protec-api/DATABASE_URL`, etc. (como em `setup-ssm.sh`). |
+| Sintoma | Verificacao |
+|---------|-------------|
+| Worker parado | `systemctl status protec-worker` + `journalctl -u protec-worker -n 50` |
+| Erro de conexao Postgres | Verificar `/opt/protec-workers/.env` e acesso de rede (SG egress) |
+| Erro SSM params | Instance profile tem `ssm:GetParameter` em `/protec-api/*`? Params existem? |
+| Deploy falha "Nenhuma instancia" | Tag `Name=protec-worker` existe? Instancia em `running`? |
+| SSM command timeout | SSM Agent online? `aws ssm describe-instance-information` |
+| Pip install falha | `python3.12 -m pip install -r requirements.txt` manual via SSM |
 
-## IAM: política complementar para a role OIDC
+## Evolucao: de polling para fila
 
-A role usada pelo GitHub Actions no deploy da API já costuma incluir `cloudformation:*` e `iam:*` para criar a Lambda. Para os workers, o CloudFormation **cria** o repositório ECR — a role precisa de **`ecr:CreateRepository`** (e ações relacionadas ao repositório), não só de push.
+Hoje o worker lista schemas `tenant_*` e usa `FOR UPDATE SKIP LOCKED` em `fiscal_files`. Caminho de evolucao:
 
-Garanta também:
+1. API publica mensagens (SQS) por arquivo apos upload
+2. Worker consome a fila (long polling) em vez de varrer todos os tenants
+3. DLQ para falhas repetidas e retry explicito
 
-- **ECR**: `GetAuthorizationToken` (`Resource: *`) + criação/alteração do repositório (`CreateRepository`, lifecycle, scan) + push de imagem no `protec-worker`.
-- **ECS**: `UpdateService`, `DescribeServices`, `DescribeClusters`, `RegisterTaskDefinition`, etc., para o workflow concluir após o push.
-- **EC2**: `ec2:*` em VPC/subnet/SG/IGW **ou** as ações que o CloudFormation usar ao criar a VPC do template (a role da API muitas vezes não inclui EC2).
-- **CloudFormation**: criar/atualizar stack `protec-workers`.
-- **IAM**: o template cria a **service-linked role** do ECS (`ecs.amazonaws.com`) e as roles da task (`TaskExecutionRole`, `TaskRole`). A role OIDC precisa de **`iam:CreateServiceLinkedRole`** (`Resource: *`) e, nas roles `protec-workers-*`, pelo menos: `CreateRole`, `TagRole`, `UntagRole`, `PutRolePolicy`, `AttachRolePolicy`, `GetRolePolicy`, `GetRole`, `List*`, `PassRole` (para `ecs-tasks.amazonaws.com`), além de `DeleteRole`, `DeleteRolePolicy`, `DetachRolePolicy` para rollback/exclusão. Em muitos times usa-se `iam:*` na role de deploy, como no SAM da API.
+Nao exige trocar de EC2; exige mudanca de codigo em `apps/workers` e permissoes SQS no instance profile.
 
-Política **complementar** sugerida (inline na role `iatax_github` ou anexa dedicada). Ajuste `REGION` e `ACCOUNT_ID`:
+## Referencias
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "EcrAuth",
-      "Effect": "Allow",
-      "Action": ["ecr:GetAuthorizationToken"],
-      "Resource": "*"
-    },
-    {
-      "Sid": "EcrCreateRepoForCf",
-      "Effect": "Allow",
-      "Action": [
-        "ecr:CreateRepository",
-        "ecr:DeleteRepository",
-        "ecr:DescribeRepositories",
-        "ecr:PutLifecyclePolicy",
-        "ecr:PutImageScanningConfiguration"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "EcrPushProtecWorker",
-      "Effect": "Allow",
-      "Action": [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload"
-      ],
-      "Resource": "arn:aws:ecr:REGION:ACCOUNT_ID:repository/protec-worker"
-    },
-    {
-      "Sid": "EcsWorkers",
-      "Effect": "Allow",
-      "Action": [
-        "ecs:UpdateService",
-        "ecs:DescribeServices",
-        "ecs:DescribeClusters",
-        "ecs:RegisterTaskDefinition",
-        "ecs:DescribeTaskDefinition",
-        "ecs:CreateCluster",
-        "ecs:DeleteCluster",
-        "ecs:CreateService",
-        "ecs:DeleteService"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "Ec2WorkersVpc",
-      "Effect": "Allow",
-      "Action": ["ec2:*"],
-      "Resource": "*"
-    },
-    {
-      "Sid": "IamCreateEcsServiceLinkedRole",
-      "Effect": "Allow",
-      "Action": ["iam:CreateServiceLinkedRole"],
-      "Resource": "*"
-    },
-    {
-      "Sid": "IamCfCreateAndTagRoles",
-      "Effect": "Allow",
-      "Action": [
-        "iam:CreateRole",
-        "iam:DeleteRole",
-        "iam:TagRole",
-        "iam:UntagRole",
-        "iam:PutRolePolicy",
-        "iam:DeleteRolePolicy",
-        "iam:AttachRolePolicy",
-        "iam:DetachRolePolicy",
-        "iam:GetRole",
-        "iam:GetRolePolicy",
-        "iam:ListRolePolicies",
-        "iam:ListAttachedRolePolicies"
-      ],
-      "Resource": [
-        "arn:aws:iam::ACCOUNT_ID:role/protec-workers-*"
-      ]
-    },
-    {
-      "Sid": "IamPassRoleEcsTasks",
-      "Effect": "Allow",
-      "Action": ["iam:PassRole"],
-      "Resource": [
-        "arn:aws:iam::ACCOUNT_ID:role/protec-workers-*"
-      ],
-      "Condition": {
-        "StringEquals": {
-          "iam:PassedToService": "ecs-tasks.amazonaws.com"
-        }
-      }
-    },
-    {
-      "Sid": "LogsWorkers",
-      "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:PutRetentionPolicy",
-        "logs:DeleteLogGroup",
-        "logs:DescribeLogGroups"
-      ],
-      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/ecs/protec-workers*"
-    }
-  ]
-}
-```
-
-**Nota:** `ecr:CreateRepository` na AWS é avaliado com recurso inexistente; por isso muitas políticas usam `"Resource": "*"` só para esse bloco ou incluem `*` na lista. Se a policy acima for rejeitada pelo editor IAM, separe em dois statements: um com `CreateRepository`/`DeleteRepository` e `Resource: "*"` e outro com push restrito ao ARN do repositório.
-
-`GetAuthorizationToken` em ECR exige `Resource: *`.
-
-Se o deploy CloudFormation falhar por IAM, amplie as mesmas permissões que já funcionam para o stack `protec-api` (criação de roles/policies pelo CFN).
-
-## Referências no repositório
-
-- Template: [`infra/workers-template.yaml`](../infra/workers-template.yaml)
 - Worker: [`apps/workers/src/main.py`](../apps/workers/src/main.py)
+- Systemd unit: [`apps/workers/protec-worker.service`](../apps/workers/protec-worker.service)
+- User-data: [`infra/ec2-workers-userdata.sh`](../infra/ec2-workers-userdata.sh)
 - API / SSM: [`docs/DEPLOY_LAMBDA.md`](DEPLOY_LAMBDA.md)
