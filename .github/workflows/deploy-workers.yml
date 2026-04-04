@@ -105,8 +105,15 @@ jobs:
       - name: Get ECR repository URI
         id: ecr
         run: |
+          set -e
+          # JMESPath: string literal com aspas simples (backticks não são string no JMESPath padrão).
           URI=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" \
-            --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUri`].OutputValue' --output text)
+            --query "Stacks[0].Outputs[?OutputKey=='EcrRepositoryUri'].OutputValue" --output text)
+          if [ -z "$URI" ] || [ "$URI" = "None" ]; then
+            ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+            URI="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/protec-worker"
+            echo "::warning::Output EcrRepositoryUri vazio; usando URI derivada do repositório protec-worker."
+          fi
           echo "uri=$URI" >> "$GITHUB_OUTPUT"
           echo "ECR URI: $URI"
 
