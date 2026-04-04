@@ -10,6 +10,8 @@ import { PoliticaPrivacidade } from './landing/pages/PoliticaPrivacidade';
 import { TermosDeUso } from './landing/pages/TermosDeUso';
 import { Login } from './modules/auth/pages/Login';
 import { Register } from './modules/auth/pages/Register';
+import { ForgotPassword } from './modules/auth/pages/ForgotPassword';
+import { ResetPassword } from './modules/auth/pages/ResetPassword';
 import { Dashboard } from './modules/system/pages/Dashboard';
 import { Clients } from './modules/clients/pages/Clients';
 import { Tenants } from './modules/companies/pages/Tenants';
@@ -69,7 +71,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<div className="min-h-screen flex items-center justify-center"><p className="text-slate-600">Página em desenvolvimento</p></div>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/dashboard"
         element={

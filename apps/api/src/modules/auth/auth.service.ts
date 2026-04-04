@@ -8,8 +8,10 @@ import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import { AppError } from '../../shared/utils/error-handler';
+import { emailService } from '../../shared/services/email.service';
 import type { User, Company } from '@shared/core';
 import { normalizeUserEmail } from '@shared/core';
+import { randomBytes } from 'crypto';
 
 export interface AuthTokens {
   access: string;
@@ -228,5 +230,54 @@ export class AuthService {
       access: generateAccessToken(payload),
       refresh: generateRefreshToken(payload),
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Recuperação de senha
+  // ──────────────────────────────────────────────────────────────
+
+  /**
+   * Solicitar recuperação de senha.
+   * Sempre retorna sucesso para não revelar se o e-mail existe (prevenção de enumeração).
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const emailNorm = normalizeUserEmail(email);
+    const user = await this.authRepo.findByEmailOnly(emailNorm);
+
+    if (!user) {
+      // Resposta silenciosa — não vazar se o e-mail existe
+      return;
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await this.authRepo.createPasswordResetToken(user.id, token, expiresAt);
+
+    await emailService.sendPasswordReset(user.email, token);
+
+    logSensitiveOperation('password_reset_requested', user.id, user.tenant_id ?? 'super_admin');
+  }
+
+  /**
+   * Redefinir senha usando token de recuperação.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const resetToken = await this.authRepo.findPasswordResetToken(token);
+
+    if (!resetToken) {
+      throw new AppError(
+        'Token inválido ou expirado. Solicite um novo link de recuperação.',
+        'INVALID_OR_EXPIRED_TOKEN',
+        400
+      );
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await this.authRepo.updatePasswordHash(resetToken.user_id, passwordHash);
+    await this.authRepo.markTokenAsUsed(token);
+
+    logSensitiveOperation('password_reset_completed', resetToken.user_id, 'system');
   }
 }

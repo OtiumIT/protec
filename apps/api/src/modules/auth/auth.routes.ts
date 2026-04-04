@@ -10,7 +10,7 @@ import { PlanRepository } from '../plans/plan.repository';
 import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
 import { FeatureToggleRepository } from '../feature-toggles/feature-toggle.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema } from '@shared/core';
+import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema, ForgotPasswordSchema, ResetPasswordSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const authRoutes = new Hono();
@@ -189,6 +189,53 @@ authRoutes.get(
             role: user.role,
             tenant_id: user.tenant_id,
           },
+        },
+      });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /auth/forgot-password
+ * Solicitar link de recuperação de senha.
+ * Retorna sempre 200 para não revelar se o e-mail está cadastrado.
+ */
+authRoutes.post(
+  '/forgot-password',
+  zValidator('json', ForgotPasswordSchema),
+  async (c) => {
+    try {
+      const { email } = c.req.valid('json');
+      await authService.forgotPassword(email);
+
+      return c.json({
+        data: {
+          message: 'Se este e-mail estiver cadastrado, você receberá as instruções em breve.',
+        },
+      });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /auth/reset-password
+ * Redefinir senha com token recebido por e-mail.
+ */
+authRoutes.post(
+  '/reset-password',
+  zValidator('json', ResetPasswordSchema),
+  async (c) => {
+    try {
+      const { token, password } = c.req.valid('json');
+      await authService.resetPassword(token, password);
+
+      return c.json({
+        data: {
+          message: 'Senha redefinida com sucesso.',
         },
       });
     } catch (error) {

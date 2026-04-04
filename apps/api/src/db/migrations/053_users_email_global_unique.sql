@@ -14,6 +14,32 @@ UPDATE public.users
 SET email = lower(trim(email))
 WHERE email IS NOT NULL;
 
+-- Duplicatas por lower(trim(email)) impedem o índice único: manter um registo por e-mail
+-- (o mais antigo por created_at, depois id) e remover os restantes.
+WITH ranked AS (
+  SELECT id,
+         ROW_NUMBER() OVER (
+           PARTITION BY lower(trim(email))
+           ORDER BY created_at ASC NULLS LAST, id ASC
+         ) AS rn
+  FROM public.users
+),
+to_remove AS (SELECT id FROM ranked WHERE rn > 1)
+UPDATE public.api_error_logs l
+SET user_id = NULL
+WHERE l.user_id IN (SELECT id FROM to_remove);
+
+WITH ranked AS (
+  SELECT id,
+         ROW_NUMBER() OVER (
+           PARTITION BY lower(trim(email))
+           ORDER BY created_at ASC NULLS LAST, id ASC
+         ) AS rn
+  FROM public.users
+),
+to_remove AS (SELECT id FROM ranked WHERE rn > 1)
+DELETE FROM public.users u WHERE u.id IN (SELECT id FROM to_remove);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower_trim_unique
   ON public.users (lower(trim(email)));
 

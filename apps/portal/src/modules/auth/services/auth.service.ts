@@ -75,4 +75,18 @@ export const authService = {
       tenantId,
     });
   },
+
+  async forgotPassword(email: string): Promise<void> {
+    await apiRequest('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    await apiRequest('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password, confirmPassword: password }),
+    });
+  },
 };
