@@ -171,6 +171,18 @@
     overflow-x: visible !important;
   }
 
+  /* ── <details>: mostrar conteúdo recolhido no PDF (impressão) ── */
+  /*
+   * Com details fechados, o browser oculta os nós após <summary>.
+   * Forçar display nos filhos diretos (exceto summary) replica “tudo expandido”.
+   * Vale para <details> nativos e para os controlados por React (open=…), pois o DOM mantém os nós.
+   */
+  .report-print-wrapper details > *:not(summary) {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+
   /* ── Tabelas (padrão para todos os relatórios) ── */
   .report-print-wrapper table {
     width: 100% !important;
