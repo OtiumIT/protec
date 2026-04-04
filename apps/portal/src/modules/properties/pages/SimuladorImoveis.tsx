@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -43,6 +43,16 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+/** Nome sugerido ao guardar PDF (Chrome usa `document.title` como nome do ficheiro). */
+function sanitizePdfDocumentTitle(raw: string): string {
+  const t = raw
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+  return t || 'Simulador-imobiliario';
 }
 
 type MesFields = Omit<SimulateStandaloneMesInput, 'mes_referencia'>;
@@ -482,6 +492,32 @@ export function SimuladorImoveis() {
         ? `CPF: ${formatCpf(effectiveClientRecord.cpf)}`
         : null;
 
+  /** Nome do cliente vindo do cadastro (sem texto manual em «Nome do cliente»). */
+  const clientNameFromSelection = useMemo(() => {
+    return (
+      (viewingSimulation?.client_id &&
+        clients.find((c) => c.id === viewingSimulation.client_id)?.name?.trim()) ||
+      (saveClientId && clients.find((c) => c.id === saveClientId)?.name?.trim()) ||
+      (clientId && clients.find((c) => c.id === clientId)?.name?.trim()) ||
+      ''
+    );
+  }, [viewingSimulation?.client_id, saveClientId, clientId, clients]);
+
+  /** Preenche título e cliente do PDF com valores padrão (ano + cliente se houver). */
+  useEffect(() => {
+    if (!result) return;
+    setReportTitleName((prev) => {
+      if (prev.trim()) return prev;
+      return clientNameFromSelection
+        ? `Simulador imobiliário ${result.ano} – ${clientNameFromSelection}`
+        : `Simulador imobiliário ${result.ano}`;
+    });
+    setReportClientName((prev) => {
+      if (prev.trim()) return prev;
+      return clientNameFromSelection;
+    });
+  }, [result, clientNameFromSelection]);
+
   const reportEmissionDateStr = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -514,9 +550,15 @@ export function SimuladorImoveis() {
   const { print: doPrintImoveis } = useReportPrint('simulador-imoveis-print-wrapper');
 
   const handleDoPrint = useCallback(() => {
+    const prevTitle = document.title;
+    document.title = sanitizePdfDocumentTitle(effectiveReportTitle);
     setShowPrintPreview(false);
-    doPrintImoveis();
-  }, [doPrintImoveis]);
+    doPrintImoveis({
+      afterPrint: () => {
+        document.title = prevTitle;
+      },
+    });
+  }, [doPrintImoveis, effectiveReportTitle]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -3377,24 +3419,34 @@ export function SimuladorImoveis() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nome do relatório (opcional)</label>
               <Input
-                placeholder="Ex: Estudo tributário de locação 2026"
+                placeholder={
+                  result
+                    ? clientNameFromSelection
+                      ? `Simulador imobiliário ${result.ano} – ${clientNameFromSelection}`
+                      : `Simulador imobiliário ${result.ano}`
+                    : 'Simulador imobiliário'
+                }
                 value={reportTitleName}
                 onChange={(e) => setReportTitleName(e.target.value)}
                 className="w-full"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                O título é sugerido automaticamente (ano + cliente, se houver); ajuste se precisar. Também define o nome
+                sugerido ao salvar o PDF no navegador.
+              </p>
             </div>
           )}
           {!viewingSimulation?.client_id && !saveClientId && !clientId && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nome do cliente (opcional)</label>
               <Input
-                placeholder="Ex: João Silva"
+                placeholder="Nome na capa do relatório"
                 value={reportClientName}
                 onChange={(e) => setReportClientName(e.target.value)}
                 className="w-full"
               />
               <p className="text-xs text-slate-500 mt-1">
-                O nome digitado aparece na capa do PDF e na pré-visualização abaixo.
+                Preenchido automaticamente quando há cliente selecionado na simulação; pode editar para a capa do PDF.
               </p>
             </div>
           )}

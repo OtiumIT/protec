@@ -105,10 +105,15 @@
   }
 
   /* ── Header fixo (1.8 cm) ── */
+  /*
+   * Chrome posiciona position:fixed relativo à área de conteúdo (interior das margens @page),
+   * não à borda física do papel. top: -2.2cm = -(@page margin-top) coloca o header no topo
+   * do papel, dentro da margem, sem sobrepor o conteúdo da página.
+   */
   .report-print-wrapper .print-report-header,
   .report-print-wrapper .report-print-header {
     position: fixed;
-    top: 0;
+    top: -2.2cm;
     left: 0;
     right: 0;
     height: 1.8cm;
@@ -124,10 +129,11 @@
   }
 
   /* ── Footer fixo (1 cm) ── */
+  /* bottom: -1.3cm = -(@page margin-bottom) → rodapé no fundo do papel, dentro da margem */
   .report-print-wrapper .print-report-footer,
   .report-print-wrapper .report-print-footer {
     position: fixed;
-    bottom: 0;
+    bottom: -1.3cm;
     left: 0;
     right: 0;
     height: 1cm;
@@ -228,6 +234,25 @@
   /* ── Rating Validator: modo resumo/completo ── */
   .report-print-wrapper[data-pdf-mode="resumo"] .pdf-only-complete {
     display: none !important;
+  }
+
+  /* ── SimuladorImoveis: cards grandes (exceto gráfico) podem quebrar entre páginas ── */
+  /*
+   * O seletor :not(:has(.print-imoveis-chart-trimestral)) exclui o card do gráfico,
+   * mantendo break-inside: avoid para não cortar o SVG do Recharts no meio.
+   * Os 4 cards de regime ficam dentro do div.grid e não são filhos diretos,
+   * portanto não são afetados por estas regras.
+   */
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)),
+  #simulador-imoveis-resultado-print > .rounded-2xl:not(:has(.print-imoveis-chart-trimestral)) {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  /* Elementos internos (details, rounded-lg) dentro dos cards permitidos também quebram */
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) .rounded-lg,
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) details {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 }
 
