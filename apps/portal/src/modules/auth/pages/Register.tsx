@@ -20,6 +20,8 @@ export function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  /** Erro visual no campo Confirmar senha (borda/label vermelhos) */
+  const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,6 +43,7 @@ export function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setPasswordConfirmError('');
     setIsLoading(true);
 
     const cnpjDigits = parseDigits(cnpj);
@@ -70,7 +73,7 @@ export function Register() {
     }
 
     if (password !== passwordConfirm) {
-      setError('As senhas não coincidem.');
+      setPasswordConfirmError('As senhas não coincidem.');
       setIsLoading(false);
       return;
     }
@@ -225,7 +228,10 @@ export function Register() {
           <PasswordInput
             label="Senha"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setPasswordConfirmError('');
+            }}
             required
             autoComplete="new-password"
             minLength={8}
@@ -233,7 +239,11 @@ export function Register() {
           <PasswordInput
             label="Confirmar senha"
             value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
+            onChange={(e) => {
+              setPasswordConfirm(e.target.value);
+              setPasswordConfirmError('');
+            }}
+            error={passwordConfirmError || undefined}
             required
             autoComplete="new-password"
             minLength={8}

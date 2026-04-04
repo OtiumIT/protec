@@ -60,6 +60,8 @@ export function Administrators() {
     onConfirm: () => {},
   });
 
+  const [passwordConfirmFieldError, setPasswordConfirmFieldError] = useState('');
+
   const [formData, setFormData] = useState<CreateUserData>({
     name: '',
     email: '',
@@ -105,12 +107,14 @@ export function Administrators() {
       setEditingUser(null);
       setFormData({ name: '', email: '', password: '', passwordConfirm: '' });
     }
+    setPasswordConfirmFieldError('');
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
+    setPasswordConfirmFieldError('');
     setFormData({ name: '', email: '', password: '', passwordConfirm: '' });
   };
 
@@ -127,7 +131,7 @@ export function Administrators() {
     }
 
     if (!editingUser && formData.password !== formData.passwordConfirm) {
-      showError('As senhas não coincidem.');
+      setPasswordConfirmFieldError('As senhas não coincidem.');
       return;
     }
 
@@ -415,7 +419,10 @@ export function Administrators() {
                   <PasswordInput
                     label="Senha"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      setPasswordConfirmFieldError('');
+                    }}
                     required
                     minLength={8}
                   />
@@ -424,7 +431,11 @@ export function Administrators() {
                 <PasswordInput
                   label="Confirmar senha"
                   value={formData.passwordConfirm ?? ''}
-                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, passwordConfirm: e.target.value });
+                    setPasswordConfirmFieldError('');
+                  }}
+                  error={passwordConfirmFieldError || undefined}
                   required
                   minLength={8}
                 />
