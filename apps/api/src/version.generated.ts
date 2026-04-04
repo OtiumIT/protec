@@ -2,4 +2,4 @@
  * Gerado em tempo de build por scripts/build-lambda.mjs
  */
 export const API_VERSION = '1.0.0';
-export const API_UPDATED_AT = '2026-04-03T12:46:58.900Z';
+export const API_UPDATED_AT = '2026-04-04T14:59:44.553Z';

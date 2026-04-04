@@ -82,13 +82,23 @@ jobs:
               ;;
           esac
 
-      - name: Deploy CloudFormation stack
+      # Ordem crítica: com DesiredCount>=1 o ECS puxa a imagem na hora; se o deploy CF rodar antes do push,
+      # a tag (ex.: GITHUB_SHA) não existe no ECR e o serviço não estabiliza → CloudFormation falha (exit 255).
+      # Primeira criação: CF com DesiredCount=0 (sem task), push, depois CF com parâmetros finais.
+      # Stack já existente: push primeiro, depois CF (imagem já disponível).
+      - name: Bootstrap stack (apenas se não existir)
         run: |
+          set -e
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" &>/dev/null; then
+            echo "Stack $STACK_NAME já existe — bootstrap pulado."
+            exit 0
+          fi
+          echo "Primeira criação: stack com DesiredCount=0 até a imagem existir no ECR."
           aws cloudformation deploy \
             --template-file infra/workers-template.yaml \
             --stack-name "$STACK_NAME" \
             --capabilities CAPABILITY_IAM \
-            --parameter-overrides "ImageTag=${GITHUB_SHA}" \
+            --parameter-overrides "ImageTag=${GITHUB_SHA} DesiredCount=0" \
             --region "$AWS_REGION" \
             --no-fail-on-empty-changeset
 
@@ -112,6 +122,16 @@ jobs:
           docker build -t "$IMAGE" -f apps/workers/Dockerfile apps/workers
           docker push "$IMAGE"
           echo "Pushed $IMAGE"
+
+      - name: Deploy CloudFormation stack (imagem já no ECR)
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/workers-template.yaml \
+            --stack-name "$STACK_NAME" \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides "ImageTag=${GITHUB_SHA} DesiredCount=1" \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
 
       - name: Force new ECS deployment
         run: |
