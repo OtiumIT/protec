@@ -7,6 +7,7 @@ interface User {
   name: string;
   role: string;
   tenant_id: string | null;
+  must_change_password?: boolean;
 }
 
 interface AuthContextType {

@@ -17,7 +17,7 @@ export class AuthRepository extends BaseRepository {
    */
   async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const result = await this.query<User>(
-      `SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users
+      `SELECT id, email, name, tenant_id, role, status, must_change_password, created_at, updated_at FROM public.users
        WHERE lower(trim(email)) = $1 AND tenant_id = $2`,
       [email, tenantId]
     );
@@ -30,7 +30,7 @@ export class AuthRepository extends BaseRepository {
    */
   async findByEmailOnly(email: string): Promise<User | null> {
     const result = await query<User>(
-      `SELECT id, email, name, tenant_id, role, created_at, updated_at FROM public.users
+      `SELECT id, email, name, tenant_id, role, status, must_change_password, created_at, updated_at FROM public.users
        WHERE lower(trim(email)) = $1 LIMIT 1`,
       [email]
     );
@@ -155,6 +155,20 @@ export class AuthRepository extends BaseRepository {
     await query(
       'UPDATE public.users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [passwordHash, userId]
+    );
+  }
+
+  /**
+   * Limpar flag must_change_password e temp_password_enc na access_list.
+   */
+  async clearMustChangePassword(userId: string): Promise<void> {
+    await query(
+      'UPDATE public.users SET must_change_password = FALSE, updated_at = NOW() WHERE id = $1',
+      [userId]
+    );
+    await query(
+      'UPDATE access_list SET temp_password_enc = NULL, updated_at = NOW() WHERE user_id = $1',
+      [userId]
     );
   }
 }

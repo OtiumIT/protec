@@ -7,7 +7,8 @@ export type User = {
   name: string;
   tenant_id: string | null; // null para super_admin; id do escritório/tenant
   role: string;
-  status?: 'active' | 'inactive'; // Status do usuário
+  status?: 'active' | 'inactive';
+  must_change_password?: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -233,6 +234,22 @@ export type ApiError = {
     code: string;
     details?: any;
   };
+};
+
+export type AccessListEntry = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  cpf?: string;
+  company_name?: string;
+  user_id?: string;
+  tenant_id?: string;
+  status: 'pending' | 'active' | 'inactive';
+  activated_at?: Date | string;
+  deactivated_at?: Date | string;
+  created_at: Date | string;
+  updated_at: Date | string;
 };
 
 export type Property = {

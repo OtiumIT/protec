@@ -155,6 +155,10 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
+    if (user.status === 'inactive') {
+      throw new AppError('Sua conta está inativa. Entre em contato com o suporte.', 'ACCOUNT_INACTIVE', 403);
+    }
+
     const passwordHash = await this.authRepo.findPasswordHash(user.id, user.tenant_id);
     if (!passwordHash) {
       throw new Error('Invalid credentials');
@@ -257,6 +261,28 @@ export class AuthService {
     await emailService.sendPasswordReset(user.email, token);
 
     logSensitiveOperation('password_reset_requested', user.id, user.tenant_id ?? 'super_admin');
+  }
+
+  /**
+   * Trocar senha (autenticado). Usado no primeiro login com must_change_password.
+   */
+  async changePassword(userId: string, tenantId: string | null, currentPassword: string, newPassword: string): Promise<void> {
+    const passwordHash = await this.authRepo.findPasswordHash(userId, tenantId);
+    if (!passwordHash) {
+      throw new AppError('Usuário não encontrado', 'NOT_FOUND', 404);
+    }
+
+    const isValid = await verifyPassword(currentPassword, passwordHash);
+    if (!isValid) {
+      throw new AppError('Senha atual incorreta', 'INVALID_PASSWORD', 400);
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await this.authRepo.updatePasswordHash(userId, newHash);
+
+    await this.authRepo.clearMustChangePassword(userId);
+
+    logSensitiveOperation('password_changed', userId, tenantId ?? 'system');
   }
 
   /**

@@ -34,15 +34,24 @@ import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
+import { AccessList } from './modules/access-list/pages/AccessList';
+import { ChangePassword } from './modules/auth/pages/ChangePassword';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+
+  if (user.must_change_password && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function ScrollToTop() {
@@ -251,6 +260,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Glossario />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/access-list"
+        element={
+          <PrivateRoute>
+            <AccessList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/change-password"
+        element={
+          <PrivateRoute>
+            <ChangePassword />
           </PrivateRoute>
         }
       />

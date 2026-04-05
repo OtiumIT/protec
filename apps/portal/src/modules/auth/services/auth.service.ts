@@ -30,6 +30,7 @@ export interface AuthResponse {
       name: string;
       role: string;
       tenant_id: string | null;
+      must_change_password?: boolean;
     };
     tokens: {
       access: string;

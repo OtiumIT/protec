@@ -10,7 +10,7 @@ import { PlanRepository } from '../plans/plan.repository';
 import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
 import { FeatureToggleRepository } from '../feature-toggles/feature-toggle.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema, ForgotPasswordSchema, ResetPasswordSchema } from '@shared/core';
+import { LoginSchema, RegisterSchema, RefreshTokenSchema, LogoutSchema, ForgotPasswordSchema, ResetPasswordSchema, ChangePasswordSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const authRoutes = new Hono();
@@ -90,6 +90,7 @@ authRoutes.post(
             name: result.user.name,
             role: result.user.role,
             tenant_id: result.user.tenant_id,
+            must_change_password: result.user.must_change_password || false,
           },
           tokens: result.tokens,
         },
@@ -188,7 +189,33 @@ authRoutes.get(
             name: user.name,
             role: user.role,
             tenant_id: user.tenant_id,
+            must_change_password: user.must_change_password || false,
           },
+        },
+      });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /auth/change-password
+ * Trocar senha (autenticado). Usado no primeiro login com must_change_password.
+ */
+authRoutes.post(
+  '/change-password',
+  authMiddleware,
+  zValidator('json', ChangePasswordSchema),
+  async (c) => {
+    try {
+      const user = c.get('user');
+      const { currentPassword, newPassword } = c.req.valid('json');
+      await authService.changePassword(user.id, user.tenant_id, currentPassword, newPassword);
+
+      return c.json({
+        data: {
+          message: 'Senha alterada com sucesso.',
         },
       });
     } catch (error) {

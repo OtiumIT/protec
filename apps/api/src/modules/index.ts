@@ -16,6 +16,7 @@ import { judicialProcessRoutes } from './judicial-processes/judicial-process.rou
 import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.routes';
 import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
 import { propertyRoutes } from './properties/property.routes';
+import { accessListRoutes } from './access-list/access-list.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 import { API_VERSION, API_UPDATED_AT } from '../version';
@@ -200,6 +201,7 @@ app.route('/api/v1/judicial-processes', judicialProcessRoutes);
 app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
 app.route('/api/v1/properties', propertyRoutes);
+app.route('/api/v1/access-list', accessListRoutes);
 app.route('/api/v1/debug', debugRoutes);
 
 app.get('/api/v1/swagger.json', (c) => c.json(openApiSpec));
