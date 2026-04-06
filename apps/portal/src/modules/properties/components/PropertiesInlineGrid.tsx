@@ -55,6 +55,8 @@ type GridRow = {
 };
 
 type SaveRowInput = {
+  /** Id da linha na grelha (rascunho ou imóvel) — usado para gerar nome padrão se o identificador estiver vazio. */
+  rowId: string;
   /** Presente quando a linha já existe no cadastro — o pai deve usar PATCH em vez de criar de novo. */
   propertyId?: string;
   identificador: string;
@@ -574,6 +576,7 @@ export function PropertiesInlineGrid({
     try {
       await onSaveRows(
         changed.map((r) => ({
+          rowId: r.rowId,
           ...(r.isPersisted && r.propertyId ? { propertyId: r.propertyId } : {}),
           identificador: r.identificador,
           valor_aluguel_mensal: r.valor_aluguel_mensal,

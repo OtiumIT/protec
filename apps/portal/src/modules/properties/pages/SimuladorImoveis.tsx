@@ -1276,7 +1276,12 @@ export function SimuladorImoveis() {
   };
 
   const formatMoney = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v);
   const formatPercentPtBr = (v: number, casas = 2) =>
     `${new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: casas,
@@ -1394,11 +1399,19 @@ export function SimuladorImoveis() {
           }}
           onSaveRows={async (rows) => {
             if (!clientId) return;
-            const validRows = rows.filter((r) => r.identificador.trim().length > 0);
-            if (!validRows.length) return;
+            if (!rows.length) return;
+            const rowsNormalized = rows.map((r, idx) => {
+              const trimmed = r.identificador.trim();
+              if (trimmed) return { ...r, identificador: trimmed };
+              const suffix =
+                r.propertyId != null
+                  ? r.propertyId.replace(/-/g, '').slice(0, 8)
+                  : r.rowId.split('-').pop()?.slice(0, 10) ?? String(idx + 1);
+              return { ...r, identificador: `Sem nome (${suffix})` };
+            });
             try {
-            const payloadComum = (r: (typeof validRows)[number]) => ({
-              identificador: r.identificador.trim(),
+            const payloadComum = (r: (typeof rowsNormalized)[number]) => ({
+              identificador: r.identificador,
               valor_aluguel_mensal: r.valor_aluguel_mensal,
               tipo_locacao: r.tipo_locacao,
               natureza_locacao: r.natureza_locacao,
@@ -1420,8 +1433,8 @@ export function SimuladorImoveis() {
               inadimplencia_mensal_padrao: r.inadimplencia_mensal_padrao,
             });
 
-            const toUpdate = validRows.filter((r) => r.propertyId);
-            const toCreate = validRows.filter((r) => !r.propertyId);
+            const toUpdate = rowsNormalized.filter((r) => r.propertyId);
+            const toCreate = rowsNormalized.filter((r) => !r.propertyId);
 
             await Promise.all(
               toUpdate.map((r) => propertyService.update(r.propertyId!, payloadComum(r)))
@@ -2298,7 +2311,7 @@ export function SimuladorImoveis() {
               {formatMoney(result.cenarios.pf.imposto_total)}
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(1)}%
+              Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
             </p>
             <details className="mt-3">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
@@ -2321,7 +2334,7 @@ export function SimuladorImoveis() {
               {formatMoney(result.cenarios.pj.imposto_total)}
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva: {result.cenarios.pj.aliquota_efetiva.toFixed(1)}%
+              Alíquota efetiva: {result.cenarios.pj.aliquota_efetiva.toFixed(2)}%
             </p>
             {(() => {
               const pres16 = (result.memoria_calculo as { aplicar_presuncao_16_servicos?: boolean } | undefined)?.aplicar_presuncao_16_servicos;
@@ -2404,7 +2417,7 @@ export function SimuladorImoveis() {
                   <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
                     <p className="text-xs text-emerald-800 font-medium flex items-center gap-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Economia com presunção 16%: {formatMoney(economia)} ({economiaPct.toFixed(1)}%)
+                      Economia com presunção 16%: {formatMoney(economia)} ({economiaPct.toFixed(2)}%)
                     </p>
                     <p className="text-[10px] text-emerald-700 mt-0.5">
                       Se usasse 32% (locação): {formatMoney(cenario32)} | Com 16% (serviços): {formatMoney(result.cenarios.pj.imposto_total)}
@@ -2513,7 +2526,7 @@ export function SimuladorImoveis() {
                       {formatMoney(irHoje)}
                     </p>
                     <p className="text-sm text-slate-600 mt-1">
-                      Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(1)}%
+                      Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
                     </p>
                     <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
                       <p className="text-sm text-emerald-800 font-medium">
@@ -2541,7 +2554,7 @@ export function SimuladorImoveis() {
                     {formatMoney(totalPF2027)}
                   </p>
                   <p className="text-sm text-slate-600 mt-1">
-                    Alíquota total: {aliquotaTotal.toFixed(1)}%
+                    Alíquota total: {aliquotaTotal.toFixed(2)}%
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     IR (Carnê-Leão, mesmo de hoje): {formatMoney(irHoje)} + IBS/CBS: {formatMoney(ibsCbs)} = total acima.
@@ -2569,7 +2582,7 @@ export function SimuladorImoveis() {
               {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
+              Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(2) ?? '0'}%
               {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
                 <span className="text-slate-500"> (com redutor 70% longa duração e 40% curta temporada)</span>
               ) : (
@@ -2647,24 +2660,24 @@ export function SimuladorImoveis() {
                     <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Composição da alíquota IBS/CBS (LC 214/2025)</p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva (redutor da alíquota)</p>
-                    <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(1)}%</span></p>
+                    <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(2)}%</span></p>
                     {redutorDiferenciado ? (
                       <>
                         <p>Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(2)}%</span></p>
                       </>
                     ) : (
                       <>
                         <p>× (100% − Redutor da alíquota {refExt.redutor_locacao_aplicado_pct ?? 70}%): <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70)).toFixed(0)}%</span></p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(2)}%</span></p>
                       </>
                     )}
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Débito sobre receita</p>
-                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(1)}% = <span className="text-slate-800">{formatMoney(debitoBruto)}</span></p>
+                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debitoBruto)}</span></p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
-                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(1)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
+                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: IBS/CBS líquido</p>
                     {temRedutorSocial ? (
@@ -2781,7 +2794,7 @@ export function SimuladorImoveis() {
                             <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(ibsCbsLiquido / divisor))}</td>
                             <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(irpjCsll / divisor))}</td>
                             <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(round2(total / divisor))}</td>
-                            <td className="py-2 px-3 text-right text-slate-500">{aliqEfetiva.toFixed(1)}%</td>
+                            <td className="py-2 px-3 text-right text-slate-500">{aliqEfetiva.toFixed(2)}%</td>
                           </tr>
                         );
                       })}
@@ -2872,14 +2885,14 @@ export function SimuladorImoveis() {
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="py-2 px-3 text-slate-700">Alíquota efetiva</td>
-                    <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(1)}%</td>
-                    <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(1)}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(2)}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(2)}%</td>
                     <td className="py-2 px-3 text-right text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs
-                        ? (pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(1) + '%'
+                        ? (pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(2) + '%'
                         : '—'}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-600">{refPj?.aliquota_efetiva?.toFixed(1) ?? '0'}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{refPj?.aliquota_efetiva?.toFixed(2) ?? '0'}%</td>
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="py-2 px-3 text-slate-700">Receita bruta</td>
@@ -3072,7 +3085,7 @@ export function SimuladorImoveis() {
                     return (
                       <>
                         <p>Receita bruta: {formatMoney(d.receita_bruta_total)} | Despesas dedutíveis: {formatMoney(d.despesas_dedutiveis_total)} | Base de cálculo: {formatMoney(d.base_calculo_total)}</p>
-                        <p>Imposto total: {formatMoney(d.imposto_total)} | Alíquota efetiva anual: {d.aliquota_efetiva_anual.toFixed(1)}%</p>
+                        <p>Imposto total: {formatMoney(d.imposto_total)} | Alíquota efetiva anual: {d.aliquota_efetiva_anual.toFixed(2)}%</p>
                         {d.trimestres?.length ? (
                           <table className="w-full mt-2 text-slate-600">
                             <thead><tr><th className="text-left">Trim</th><th className="text-right">Receita</th><th className="text-right">Desp.ded.</th><th className="text-right">Base</th><th className="text-right">IR</th></tr></thead>
@@ -3089,7 +3102,7 @@ export function SimuladorImoveis() {
                   return (
                     <>
                       <p>Receita bruta: {formatMoney(pf.receita_bruta_total)} | Despesas dedutíveis: {formatMoney(pf.despesas_dedutiveis_total)} | Base de cálculo: {formatMoney(pf.base_calculo_total)}</p>
-                      <p>Imposto total: {formatMoney(pf.imposto_total)} | Alíquota efetiva anual: {pf.aliquota_efetiva_anual.toFixed(1)}%</p>
+                      <p>Imposto total: {formatMoney(pf.imposto_total)} | Alíquota efetiva anual: {pf.aliquota_efetiva_anual.toFixed(2)}%</p>
                       {pf.trimestres?.length ? (
                         <table className="w-full mt-2 text-slate-600">
                           <thead><tr><th className="text-left">Trim</th><th className="text-right">Receita</th><th className="text-right">Desp.ded.</th><th className="text-right">Base</th><th className="text-right">IR</th></tr></thead>
@@ -3170,7 +3183,7 @@ export function SimuladorImoveis() {
                         {d.ir_pf != null && (
                           <p className="text-slate-700 font-medium">PF em 2027: IR (Carnê-Leão) + IBS/CBS → Total: {formatMoney(d.imposto_total)} (IR: {formatMoney(d.ir_pf)} + IBS/CBS: {formatMoney(d.ibs_cbs_liquido)})</p>
                         )}
-                        <p>Alíquota nominal IBS/CBS: {d.aliquota_nominal_ibs_cbs}% | Redutor locação: {d.redutor_locacao_pct}% | Alíquota efetiva total: {d.aliquota_efetiva.toFixed(1)}%</p>
+                        <p>Alíquota nominal IBS/CBS: {d.aliquota_nominal_ibs_cbs}% | Redutor locação: {d.redutor_locacao_pct}% | Alíquota efetiva total: {d.aliquota_efetiva.toFixed(2)}%</p>
                         <p>Receita: {formatMoney(d.receita_bruta_total)} | Custos oper.: {formatMoney(d.custos_operacionais_total)} | Créditos IBS/CBS: {formatMoney(d.creditos_ibs_cbs)}</p>
                         <p>IBS/CBS sobre receita: {formatMoney(d.ibs_cbs_sobre_receita)} | Líquido: {formatMoney(d.ibs_cbs_liquido)}{d.ir_pf != null ? <> | IR (PF): {formatMoney(d.ir_pf)}</> : null} | Imposto total: {formatMoney(d.imposto_total)}</p>
                       </>
@@ -3182,7 +3195,7 @@ export function SimuladorImoveis() {
                       {refWithIr?.ir_pf != null && (
                         <p className="text-slate-700 font-medium">PF em 2027: IR (Carnê-Leão) + IBS/CBS → Total: {formatMoney(ref.imposto_total)} (IR: {formatMoney(refWithIr.ir_pf)} + IBS/CBS: {formatMoney(ref.ibs_cbs_liquido)})</p>
                       )}
-                      <p>Alíquota nominal: {ref.aliquota_nominal_ibs_cbs}% | Redutor locação: {ref.redutor_locacao_aplicado_pct}% | Alíquota efetiva: {ref.aliquota_efetiva.toFixed(1)}%</p>
+                      <p>Alíquota nominal: {ref.aliquota_nominal_ibs_cbs}% | Redutor locação: {ref.redutor_locacao_aplicado_pct}% | Alíquota efetiva: {ref.aliquota_efetiva.toFixed(2)}%</p>
                       <p>Receita: {formatMoney(ref.receita_bruta_total)} | Custos oper.: {formatMoney(ref.custos_operacionais_total)} | Créditos IBS/CBS: {formatMoney(ref.creditos_ibs_cbs)}</p>
                       <p>IBS/CBS sobre receita: {formatMoney(ref.ibs_cbs_sobre_receita)} | Líquido: {formatMoney(ref.ibs_cbs_liquido)} | Imposto total: {formatMoney(ref.imposto_total)}</p>
                     </>
@@ -3239,7 +3252,7 @@ export function SimuladorImoveis() {
           acoes.push(`A partir de aproximadamente ${formatMoney(result.break_even.valor_mensal_break_even)}/mês de receita, PJ tende a ficar mais vantajosa que PF (break-even).`);
         }
         if (reformaPj?.aliquota_efetiva != null) {
-          acoes.push(`Reforma LC 214/2025: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(1)}%). Planeje revisão na vigência da reforma.`);
+          acoes.push(`Reforma LC 214/2025: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(2)}%). Planeje revisão na vigência da reforma.`);
         }
         acoes.push('Holding em 2027: além do imposto, faz sentido por planejamento sucessório (ITCMD progressivo), proteção patrimonial e tributação na venda (menor que ganho de capital na PF).');
         acoes.push('Contratos de locação firmados até 16/01/2025 podem optar por alíquota de transição 3,65% até o fim do contrato ou 31/12/2028.');
@@ -3313,7 +3326,7 @@ export function SimuladorImoveis() {
             Créditos IBS/CBS: potencial {formatMoney(result.analise_custos.creditos_ibs_cbs.total_potencial)} | aproveitado {formatMoney(result.analise_custos.creditos_ibs_cbs.total_aproveitado)} | não aproveitado {formatMoney(result.analise_custos.creditos_ibs_cbs.nao_aproveitado)}
           </p>
           <p className="text-sm text-slate-600 mt-1">
-            Margem operacional: antes dos tributos {result.analise_custos.indicadores.margem_operacional_antes_tributos.toFixed(1)}% | após tributos (PJ) {result.analise_custos.indicadores.margem_operacional_apos_tributos_pj.toFixed(1)}%
+            Margem operacional: antes dos tributos {result.analise_custos.indicadores.margem_operacional_antes_tributos.toFixed(2)}% | após tributos (PJ) {result.analise_custos.indicadores.margem_operacional_apos_tributos_pj.toFixed(2)}%
           </p>
           {result.analise_custos.categorias.length > 0 && (
             <div className="mt-3 overflow-x-auto">
@@ -3331,7 +3344,7 @@ export function SimuladorImoveis() {
                     <tr key={c.categoria} className="border-t border-slate-200">
                       <td className="py-1 pr-2">{c.categoria}</td>
                       <td className="py-1 pr-2">{formatMoney(c.valor)}</td>
-                      <td className="py-1 pr-2">{c.participacao_percentual.toFixed(1)}%</td>
+                      <td className="py-1 pr-2">{c.participacao_percentual.toFixed(2)}%</td>
                       <td className="py-1 pr-2">{formatMoney(c.credito_potencial)}</td>
                     </tr>
                   ))}
