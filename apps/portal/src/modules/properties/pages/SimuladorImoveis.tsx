@@ -2650,7 +2650,6 @@ export function SimuladorImoveis() {
                   redutor_social_aplicado?: number;
                 };
                 const aliqNominal = refExt.aliquota_nominal_ibs_cbs ?? 26.5;
-                const receita = ref.receita_bruta_total ?? 0;
                 const debito = refExt.ibs_cbs_sobre_receita ?? 0;
                 const creditos = ref.creditos_ibs_cbs ?? 0;
                 const custos = refExt.custos_operacionais_total ?? 0;
@@ -2660,7 +2659,9 @@ export function SimuladorImoveis() {
                 const csll = refExt.csll ?? 0;
                 const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
                 const pctRedutorLonga = refExt.redutor_long_pct ?? refExt.redutor_locacao_aplicado_pct ?? 70;
+                const pctRedutorShort = refExt.redutor_short_pct ?? 40;
                 const aliqEfetivaLonga = round2(aliqNominal * (1 - pctRedutorLonga / 100));
+                const aliqEfetivaShort = round2(aliqNominal * (1 - pctRedutorShort / 100));
 
                 const idxLc214 = result.indices_lc214;
                 const mensalRedutorSocialEfetivo = idxLc214?.redutor_social_mensal_efetivo ?? 600;
@@ -2670,21 +2671,26 @@ export function SimuladorImoveis() {
                     : perfilLocacao !== 'hospedagem_temporada'
                       ? quantidadeImoveisResidenciais
                       : 0;
-                const tetoBaseAnualTeorico = round2(
-                  Math.max(0, nImoveisArt260) * mensalRedutorSocialEfetivo * 12
-                );
-                const rateLongaDecimal = aliqNominal > 0 ? aliqEfetivaLonga / 100 : 0;
-                const impostoRedutorSocial = refExt.redutor_social_aplicado ?? 0;
-                const baseDeduzidaAnualApi = refExt.redutor_social_base_deduzida_anual;
-                const baseDeduzidaAnual =
-                  baseDeduzidaAnualApi ??
-                  (rateLongaDecimal > 0 && impostoRedutorSocial > 0
-                    ? round2(impostoRedutorSocial / rateLongaDecimal)
-                    : 0);
-                const baseLiquida = round2(receita - baseDeduzidaAnual);
-                const ibsSobreBaseLiquida = debito;
+
+                const recResAnual = receitaLocacaoResidencialAnual;
+                const recNaoResAnual = receitaLocacaoNaoResidencialAnual;
+                const recLongaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_tradicional ?? 0), 0);
+                const recCurtaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_curto ?? 0), 0);
+                const totalLongShort = recLongaMeses + recCurtaMeses;
+                const partLong = totalLongShort > 0 ? recLongaMeses / totalLongShort : 1;
+                const recResLonga = round2(recResAnual * partLong);
+                const recResCurta = round2(recResAnual * (1 - partLong));
+                const temSplit = redutorDiferenciado && (recResLonga > 0 || recResCurta > 0 || recNaoResAnual > 0);
+
+                const redutorAnual = round2(Math.max(0, nImoveisArt260) * mensalRedutorSocialEfetivo * 12);
+                const baseDeduzida = temRedutorSocial ? round2(Math.min(recResLonga, redutorAnual)) : 0;
+                const baseResLonga = round2(recResLonga - baseDeduzida);
+                const ibsResLonga = round2(baseResLonga * aliqEfetivaLonga / 100);
+                const ibsResCurta = round2(recResCurta * aliqEfetivaShort / 100);
+                const ibsNaoRes = round2(recNaoResAnual * aliqEfetivaLonga / 100);
+                const ibsTotalTipos = round2(ibsResLonga + ibsResCurta + ibsNaoRes);
+
                 const temPassoIrpjCsll = irpj > 0 || csll > 0;
-                const passoNumIrpj = temRedutorSocial ? 5 : 4;
 
                 return (
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
@@ -2694,8 +2700,9 @@ export function SimuladorImoveis() {
                     <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(2)}%</span></p>
                     {redutorDiferenciado ? (
                       <>
-                        <p className="font-sans text-slate-600">Redutor 70% (longa duração, Art. 261) e 40% (curta temporada, Art. 281), proporcionais à receita.</p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}% (longa)</span></p>
+                        <p className="font-sans text-slate-600">Longa duração: {aliqNominal.toFixed(2)}% × (100% − {pctRedutorLonga}%) = <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span> (Art. 261)</p>
+                        <p className="font-sans text-slate-600">Curta temporada: {aliqNominal.toFixed(2)}% × (100% − {pctRedutorShort}%) = <span className="text-slate-800 font-semibold">{aliqEfetivaShort.toFixed(2)}%</span> (Art. 281)</p>
+                        <p className="font-sans text-slate-600">Não residencial: mesma da longa duração = <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span></p>
                       </>
                     ) : (
                       <>
@@ -2704,39 +2711,104 @@ export function SimuladorImoveis() {
                       </>
                     )}
 
-                    {temRedutorSocial ? (
+                    {temSplit ? (
+                      <>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-3">Passo 2: IBS/CBS por tipo de imóvel</p>
+                        <table className="w-full mt-1 font-sans text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-500">
+                              <th className="text-left py-1 pr-2 font-medium">Tipo</th>
+                              <th className="text-right py-1 px-2 font-medium">Receita anual</th>
+                              <th className="text-right py-1 px-2 font-medium">Redutor social</th>
+                              <th className="text-right py-1 px-2 font-medium">Base líquida</th>
+                              <th className="text-right py-1 px-2 font-medium">Alíquota</th>
+                              <th className="text-right py-1 pl-2 font-medium">IBS/CBS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recResLonga > 0 && (
+                              <tr className="border-b border-slate-100">
+                                <td className="py-1 pr-2 text-slate-700">Residencial longa</td>
+                                <td className="py-1 px-2 text-right">{formatMoney(recResLonga)}</td>
+                                <td className="py-1 px-2 text-right text-emerald-700">
+                                  {baseDeduzida > 0 ? `−${formatMoney(baseDeduzida)}` : '—'}
+                                </td>
+                                <td className="py-1 px-2 text-right font-semibold">{formatMoney(baseResLonga)}</td>
+                                <td className="py-1 px-2 text-right">{aliqEfetivaLonga.toFixed(2)}%</td>
+                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsResLonga)}</td>
+                              </tr>
+                            )}
+                            {recResCurta > 0 && (
+                              <tr className="border-b border-slate-100">
+                                <td className="py-1 pr-2 text-slate-700">Residencial curta</td>
+                                <td className="py-1 px-2 text-right">{formatMoney(recResCurta)}</td>
+                                <td className="py-1 px-2 text-right text-slate-400">—</td>
+                                <td className="py-1 px-2 text-right">{formatMoney(recResCurta)}</td>
+                                <td className="py-1 px-2 text-right">{aliqEfetivaShort.toFixed(2)}%</td>
+                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsResCurta)}</td>
+                              </tr>
+                            )}
+                            {recNaoResAnual > 0 && (
+                              <tr className="border-b border-slate-100">
+                                <td className="py-1 pr-2 text-slate-700">Não residencial</td>
+                                <td className="py-1 px-2 text-right">{formatMoney(recNaoResAnual)}</td>
+                                <td className="py-1 px-2 text-right text-slate-400">—</td>
+                                <td className="py-1 px-2 text-right">{formatMoney(recNaoResAnual)}</td>
+                                <td className="py-1 px-2 text-right">{aliqEfetivaLonga.toFixed(2)}%</td>
+                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsNaoRes)}</td>
+                              </tr>
+                            )}
+                            <tr className="border-t border-slate-300 font-semibold">
+                              <td className="py-1 pr-2 text-slate-800" colSpan={5}>Total IBS/CBS</td>
+                              <td className="py-1 pl-2 text-right text-slate-800">{formatMoney(ibsTotalTipos)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {baseDeduzida > 0 && (
+                          <p className="font-sans text-[11px] text-slate-500 mt-1">
+                            Redutor social Art. 260: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 meses = {formatMoney(redutorAnual)}
+                            {baseDeduzida < redutorAnual ? ' (limitado à receita de longa duração)' : ''}
+                          </p>
+                        )}
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-3">Passo 3: Créditos sobre custos operacionais</p>
+                        <p>{formatMoney(custos)} = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
+
+                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">
+                          = IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span>
+                        </p>
+                      </>
+                    ) : temRedutorSocial ? (
                       <>
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Base de cálculo (redutor social Art. 260)</p>
-                        <p>Receita anual (longa duração): <span className="text-slate-800">{formatMoney(receita)}</span></p>
-                        <p>(−) Redutor social: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 = <span className="text-emerald-700">−{formatMoney(baseDeduzidaAnual)}</span></p>
-                        {baseDeduzidaAnual < tetoBaseAnualTeorico && baseDeduzidaAnual > 0 && (
-                          <p className="text-[11px] font-sans text-slate-500">(limitado à receita de longa duração)</p>
-                        )}
-                        <p className="border-t border-slate-200 pt-1">= Base líquida: <span className="text-slate-800 font-semibold">{formatMoney(baseLiquida)}</span></p>
+                        <p>Receita anual: <span className="text-slate-800">{formatMoney(ref.receita_bruta_total ?? 0)}</span></p>
+                        <p>(−) Redutor social: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 = <span className="text-emerald-700">−{formatMoney(baseDeduzida)}</span></p>
+                        <p className="border-t border-slate-200 pt-1">= Base líquida: <span className="text-slate-800 font-semibold">{formatMoney(round2((ref.receita_bruta_total ?? 0) - baseDeduzida))}</span></p>
 
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: IBS/CBS sobre base líquida</p>
-                        <p>{formatMoney(baseLiquida)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800 font-semibold">{formatMoney(ibsSobreBaseLiquida)}</span></p>
+                        <p>{formatMoney(round2((ref.receita_bruta_total ?? 0) - baseDeduzida))} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800 font-semibold">{formatMoney(debito)}</span></p>
 
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: Créditos sobre custos operacionais</p>
                         <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
 
-                        <p className="border-t border-slate-200 pt-1 mt-1">= IBS/CBS líquido: {formatMoney(ibsSobreBaseLiquida)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">= IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span></p>
                       </>
                     ) : (
                       <>
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: IBS/CBS sobre receita</p>
-                        <p>{formatMoney(receita)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
+                        <p>{formatMoney(ref.receita_bruta_total ?? 0)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
 
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
                         <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
 
-                        <p className="border-t border-slate-200 pt-1 mt-1">= IBS/CBS líquido: {formatMoney(debito)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">= IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span></p>
                       </>
                     )}
                     
                     {temPassoIrpjCsll && (
                       <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo {passoNumIrpj}: IRPJ + CSLL (lucro presumido)</p>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">IRPJ + CSLL (lucro presumido)</p>
                         <p>IRPJ: <span className="text-slate-800">{formatMoney(irpj)}</span> + CSLL: <span className="text-slate-800">{formatMoney(csll)}</span></p>
                       </>
                     )}
