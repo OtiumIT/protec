@@ -9,6 +9,7 @@ import {
   faGear,
   faBookOpen,
   faClipboardList,
+  faLock,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
@@ -42,6 +43,8 @@ interface MenuCategory {
   items: MenuItem[];
   /** Quando definido, a categoria é um link direto (clique navega, sem submenu) */
   directLink?: string;
+  /** Indica módulo visível porém indisponível no plano atual */
+  locked?: boolean;
 }
 
 /** Ícones de categoria - Font Awesome para consistência visual */
@@ -466,6 +469,8 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         isParentActive(item) || (item.children?.some((c) => isActive(c.path)) ?? false)
     );
 
+  const lockedModuleTooltip = 'Não disponível no plano. Fale com o admin para liberar este módulo.';
+
   /** Constrói categorias (Início + módulos + Administração por último) */
   const buildCategories = (items: MenuItem[]): MenuCategory[] => {
     const categories: MenuCategory[] = [];
@@ -509,11 +514,11 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
 
     const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
+      { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
       { key: 'FISCAL_FILES', item: fiscalFiles },
       { key: 'RATING_VALIDATOR', item: rating },
       { key: 'SIMULADOR_IN_2306', item: simulador },
       { key: 'IRPF_ALTA_RENDA', item: irpf },
-      { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
     ];
     const moduleIcons: Record<string, React.ReactNode> = {
       FISCAL_FILES: CATEGORY_ICONS.bookOpen,
@@ -525,7 +530,14 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     moduleOrder.forEach(({ key, item }) => {
       if (item) {
         const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
-        categories.push({ id: key.toLowerCase(), name: moduleName, icon: moduleIcons[key] ?? item.icon, items: [item] });
+        const isLocked = !isSuperAdmin && !activeModules.has(key);
+        categories.push({
+          id: key.toLowerCase(),
+          name: moduleName,
+          icon: moduleIcons[key] ?? item.icon,
+          items: [item],
+          locked: isLocked,
+        });
       }
     });
 
@@ -540,20 +552,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
   // Filtrar itens do menu baseado na busca e módulos ativos
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
-    let filtered = items;
-
-    // Filtrar por módulos ativos (apenas para admin de tenant, não super_admin)
-    if (!isSuperAdmin && !FORCE_SHOW_ALL_MODULES) {
-      // Itens sem moduleKey (Dashboard, Clientes, etc.) sempre aparecem
-      // Só itens com moduleKey dependem da resposta de /modules/active
-      filtered = items.filter((item) => {
-        if (item.moduleKey) {
-          if (isLoadingModules) return false;
-          return activeModules.has(item.moduleKey);
-        }
-        return true;
-      });
-    }
+    const filtered = items;
 
     // Filtrar por busca
     if (!searchQuery) return filtered;
@@ -631,6 +630,19 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
   /** Renderiza os itens de uma categoria com wrapper tab line unificado */
   const renderCategoryItems = (cat: MenuCategory) => {
+    if (cat.locked) {
+      return (
+        <li className="list-none">
+          <div className={tabLineWrapperClass}>
+            <div className="px-3 py-2 text-xs text-slate-500 flex items-center gap-2">
+              <FontAwesomeIcon icon={faLock} className="w-3 h-3 text-slate-400" />
+              <span>Não disponível no plano</span>
+            </div>
+          </div>
+        </li>
+      );
+    }
+
     const hasSingleItemWithChildren =
       cat.items.length === 1 && cat.items[0].children?.length && !cat.items[0].path;
 
@@ -844,15 +856,17 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                   aria-expanded={isExpanded}
                   aria-controls={panelId}
                   onClick={() => {
+                    if (cat.locked) return;
                     if (isCollapsed && onToggleCollapse) onToggleCollapse();
                     toggleCategory(cat.id);
                   }}
-                  title={cat.name}
+                  title={cat.locked ? `${cat.name} - ${lockedModuleTooltip}` : cat.name}
                   className={`
                     w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
                     group relative
                     ${hasActive || isExpanded ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
                     ${isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'}
+                    ${cat.locked ? 'opacity-70 cursor-not-allowed' : ''}
                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
                   `}
                 >
@@ -861,10 +875,18 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                       {cat.icon}
                     </span>
                     {!isCollapsed && (
-                      <span className="text-sm font-semibold break-words text-left leading-snug">{cat.name}</span>
+                      <div className="min-w-0 flex-1 text-left">
+                        <span className="text-sm font-semibold break-words leading-snug block">{cat.name}</span>
+                        {cat.locked && (
+                          <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <FontAwesomeIcon icon={faLock} className="w-3 h-3" />
+                            <span>Não disponível no plano</span>
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {!isCollapsed && (
+                  {!isCollapsed && !cat.locked && (
                     <svg
                       className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''} ${hasActive ? 'text-brand' : 'text-slate-400'}`}
                       fill="none"

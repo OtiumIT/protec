@@ -712,6 +712,7 @@ export function SimuladorImoveis() {
     if (!hasAnySource) {
       setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(ano, i)));
       setCustosOperacionaisAberto(false);
+      setResult(null);
       setCoverageWarning(null);
       return;
     }
@@ -749,7 +750,8 @@ export function SimuladorImoveis() {
     }
 
     setMeses(baseMeses);
-    setCustosOperacionaisAberto(hasCustoOperacionalData(baseMeses));
+    setCustosOperacionaisAberto(false);
+    setResult(null);
     const selected = imoveisList.filter((p) => ids.includes(p.id));
     const fixas = selected.filter((p) => p.tipo_locacao === 'fixa');
     const flexiveis = selected.filter((p) => p.tipo_locacao === 'flexivel');
@@ -767,9 +769,13 @@ export function SimuladorImoveis() {
 
     const allSelected = [...selected, ...draftRows.map((r) => r as any)];
     const qRes = allSelected.filter((p) => p.natureza_locacao !== 'nao_residencial').length;
+    const qResLonga = allSelected.filter(
+      (p) => p.natureza_locacao !== 'nao_residencial' && p.tipo_locacao === 'fixa'
+    ).length;
     const qCom = allSelected.filter((p) => p.natureza_locacao === 'nao_residencial').length;
     if (qRes > 0 || qCom > 0) {
       setQuantidadeImoveisResidenciais(qRes);
+      setQuantidadeImoveisResidenciaisLonga(Math.min(qResLonga, qRes));
       setQuantidadeImoveisComerciais(qCom);
     }
     const recRes = round2(

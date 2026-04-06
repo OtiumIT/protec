@@ -304,6 +304,8 @@ export function PropertiesInlineGrid({
 }: Props) {
   const [rows, setRows] = useState<GridRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [iptuInputMode, setIptuInputMode] = useState<'mensal' | 'anual'>('mensal');
+  const [seguroInputMode, setSeguroInputMode] = useState<'mensal' | 'anual'>('mensal');
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(() => readColumnPrefs());
   const [showColumnsMenu, setShowColumnsMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -658,6 +660,10 @@ export function PropertiesInlineGrid({
   };
 
   const canEditCell = (row: GridRow) => !row.isPersisted || row.isEditing;
+  const toDisplayValue = (monthlyValue: number, mode: 'mensal' | 'anual') =>
+    mode === 'anual' ? monthlyValue * 12 : monthlyValue;
+  const toStoredMonthlyValue = (inputValue: number, mode: 'mensal' | 'anual') =>
+    mode === 'anual' ? inputValue / 12 : inputValue;
 
   return (
     <div className="border border-slate-200 rounded-lg p-4 bg-white space-y-3">
@@ -672,7 +678,14 @@ export function PropertiesInlineGrid({
 
       <div className="flex items-center justify-between gap-3 flex-wrap border border-slate-200 rounded-md p-2 bg-slate-50/60">
         <div className="flex gap-2 flex-wrap items-center">
-          <Button type="button" variant="primary" size="sm" onClick={() => void saveRows()} disabled={isSaving || !hasRowsToSave}>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => void saveRows()}
+            disabled={isSaving || !hasRowsToSave}
+          >
             {isSaving ? 'Salvando...' : 'Salvar imóveis'}
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={enableEditSelected} disabled={selectedSavedRowsCount === 0}>Editar selecionadas</Button>
@@ -717,6 +730,30 @@ export function PropertiesInlineGrid({
               Editando (salvo)
             </span>
           )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <label className="inline-flex items-center gap-1.5">
+            <span className="font-medium text-slate-700">IPTU:</span>
+            <select
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+              value={iptuInputMode}
+              onChange={(e) => setIptuInputMode(e.target.value as 'mensal' | 'anual')}
+            >
+              <option value="mensal">Mensal</option>
+              <option value="anual">Anual</option>
+            </select>
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <span className="font-medium text-slate-700">Seguro:</span>
+            <select
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+              value={seguroInputMode}
+              onChange={(e) => setSeguroInputMode(e.target.value as 'mensal' | 'anual')}
+            >
+              <option value="mensal">Mensal</option>
+              <option value="anual">Anual</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -994,11 +1031,30 @@ export function PropertiesInlineGrid({
                   )}
 
                   {visibleColumns.includes('iptu_mensal_padrao') && (
-                    <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.iptu_mensal_padrao)}>
+                    <td
+                      className="py-2 px-2 min-w-[150px]"
+                      title={`Mensal: ${formatMoneyTooltip(row.iptu_mensal_padrao)} | Anual: ${formatMoneyTooltip(
+                        row.iptu_mensal_padrao * 12
+                      )}`}
+                    >
                       {canEditCell(row) ? (
-                        <MoneyInput value={row.iptu_mensal_padrao} onChange={(v) => updateRow(row.rowId, { iptu_mensal_padrao: v })} title={formatMoneyTooltip(row.iptu_mensal_padrao)} />
+                        <MoneyInput
+                          value={toDisplayValue(row.iptu_mensal_padrao, iptuInputMode)}
+                          onChange={(v) =>
+                            updateRow(row.rowId, {
+                              iptu_mensal_padrao: toStoredMonthlyValue(v, iptuInputMode),
+                            })
+                          }
+                          title={
+                            iptuInputMode === 'anual'
+                              ? 'Entrada anual (será convertida para mensal no cadastro)'
+                              : 'Entrada mensal'
+                          }
+                        />
                       ) : (
-                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.iptu_mensal_padrao)}</span>
+                        <span className="block px-2 py-1 text-slate-800 text-right">
+                          {formatMoneyTooltip(toDisplayValue(row.iptu_mensal_padrao, iptuInputMode))}
+                        </span>
                       )}
                     </td>
                   )}
@@ -1012,11 +1068,30 @@ export function PropertiesInlineGrid({
                     </td>
                   )}
                   {visibleColumns.includes('seguro_mensal_padrao') && (
-                    <td className="py-2 px-2 min-w-[150px]" title={formatMoneyTooltip(row.seguro_mensal_padrao)}>
+                    <td
+                      className="py-2 px-2 min-w-[150px]"
+                      title={`Mensal: ${formatMoneyTooltip(row.seguro_mensal_padrao)} | Anual: ${formatMoneyTooltip(
+                        row.seguro_mensal_padrao * 12
+                      )}`}
+                    >
                       {canEditCell(row) ? (
-                        <MoneyInput value={row.seguro_mensal_padrao} onChange={(v) => updateRow(row.rowId, { seguro_mensal_padrao: v })} title={formatMoneyTooltip(row.seguro_mensal_padrao)} />
+                        <MoneyInput
+                          value={toDisplayValue(row.seguro_mensal_padrao, seguroInputMode)}
+                          onChange={(v) =>
+                            updateRow(row.rowId, {
+                              seguro_mensal_padrao: toStoredMonthlyValue(v, seguroInputMode),
+                            })
+                          }
+                          title={
+                            seguroInputMode === 'anual'
+                              ? 'Entrada anual (será convertida para mensal no cadastro)'
+                              : 'Entrada mensal'
+                          }
+                        />
                       ) : (
-                        <span className="block px-2 py-1 text-slate-800 text-right">{formatMoneyTooltip(row.seguro_mensal_padrao)}</span>
+                        <span className="block px-2 py-1 text-slate-800 text-right">
+                          {formatMoneyTooltip(toDisplayValue(row.seguro_mensal_padrao, seguroInputMode))}
+                        </span>
                       )}
                     </td>
                   )}
