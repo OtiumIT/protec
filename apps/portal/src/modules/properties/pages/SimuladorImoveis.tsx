@@ -2316,7 +2316,7 @@ export function SimuladorImoveis() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <h3 className="font-semibold text-slate-700 mb-2">Pessoa Física (Carnê-Leão)</h3>
             <p className="text-2xl font-bold text-brand">
