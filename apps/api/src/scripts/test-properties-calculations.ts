@@ -54,6 +54,29 @@ function run(): void {
   const pfContribuinte = verificarContribuinteIbsCbsPF(4, 260_000);
   assert.equal(pfContribuinte.contribuinte, true, 'PF com >3 imóveis e >240k é contribuinte IBS/CBS.');
 
+  // Reforma: receita_longa_total + receita_short_total + usar_ambos_redutores (alinhado a simulate por property_ids)
+  const aggReformaMix = makeAggregated(10_000, 5_000, 500);
+  const reformaSemLongShort = calcularReforma2027(aggReformaMix, undefined, 70, {
+    ano: 2033,
+    fator_credito_custos_operacionais: 1,
+    redutor_social_residencial_anual: 0,
+  });
+  const reformaComAmbos = calcularReforma2027(aggReformaMix, undefined, 70, {
+    ano: 2033,
+    fator_credito_custos_operacionais: 1,
+    redutor_social_residencial_anual: 0,
+    receita_longa_total: 60_000,
+    receita_short_total: 60_000,
+    usar_ambos_redutores: true,
+    usar_redutor_diferenciado_short: false,
+  });
+  assert.equal(reformaComAmbos.redutor_diferenciado_short, true, 'Perfil ambos deve ativar decomposição long/short.');
+  assert.notEqual(
+    reformaComAmbos.ibs_cbs_liquido,
+    reformaSemLongShort.ibs_cbs_liquido,
+    'Com long/short explícitos e ambos redutores, IBS/CBS líquido difere do modelo unificado.'
+  );
+
   console.log('OK: test-properties-calculations');
 }
 

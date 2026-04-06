@@ -10,6 +10,7 @@ import {
   verificarContribuinteIbsCbsPF,
   type OpcoesReformaCalculo,
 } from './calculations';
+import { resolveLc214IndicesParaSimulacao } from './property-lc214-resolve';
 import type {
   CreatePropertyInput,
   CreatePropertiesBatchInput,
@@ -89,7 +90,7 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
   {
     cenario: 'reforma',
     norma: 'Redutor diferenciado (LC 214/2025)',
-    descricao: 'Redução de 50% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay).',
+    descricao: 'Redução de 40% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay, Art. 281 LC 214/2025).',
   },
 ];
 
@@ -697,6 +698,9 @@ export class PropertyService {
     let custosOperacionaisTotal = 0;
     let receitaLocacaoResidencialAnualAuto = 0;
     let receitaLocacaoNaoResidencialAnualAuto = 0;
+    /** Soma anual alinhada ao aggregatePreview: fixa → tradicional, flexível → curto */
+    let receitaLongaTotalAuto = 0;
+    let receitaShortTotalAuto = 0;
     let quantidadeImoveisResidenciaisAuto = 0;
     let quantidadeImoveisComerciaisAuto = 0;
     const mesesSoma: Array<{
@@ -717,6 +721,11 @@ export class PropertyService {
         const receitaMensalCadastro = entry.defaults.valor_aluguel_mensal ?? 0;
         const receitaBaseMes = receitaMesLançada > 0 ? receitaMesLançada : receitaMensalCadastro;
         rec += receitaBaseMes;
+        if (entry.tipo_locacao === 'flexivel') {
+          receitaShortTotalAuto += receitaBaseMes;
+        } else {
+          receitaLongaTotalAuto += receitaBaseMes;
+        }
         if (entry.natureza_locacao === 'nao_residencial') {
           receitaLocacaoNaoResidencialAnualAuto += receitaBaseMes;
         } else {
@@ -768,8 +777,20 @@ export class PropertyService {
 
     const redutorLocacaoSimulate =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
-        ? 50
+        ? 40
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
+
+    const perfilLocacaoReforma = input.opcoes_reforma?.perfil_locacao;
+    let usarAmbosRedutoresSimulate = perfilLocacaoReforma === 'ambos';
+    let usarRedutorDiferenciadoSimulate = perfilLocacaoReforma === 'hospedagem_temporada';
+    if (
+      perfilLocacaoReforma === undefined &&
+      receitaLongaTotalAuto > 0 &&
+      receitaShortTotalAuto > 0
+    ) {
+      usarAmbosRedutoresSimulate = true;
+      usarRedutorDiferenciadoSimulate = false;
+    }
 
     const quantidadeImoveisResidenciaisSimulate =
       input.quantidade_imoveis_residenciais ?? quantidadeImoveisResidenciaisAuto;
@@ -780,10 +801,19 @@ export class PropertyService {
     const receitaLocacaoNaoResidencialAnualSimulate =
       input.receita_locacao_nao_residencial_anual ?? receitaLocacaoNaoResidencialAnualAuto;
 
-    const redutorSocialResidencialAnualSimulate =
-      quantidadeImoveisResidenciaisSimulate > 0
-        ? 600 * 12 * quantidadeImoveisResidenciaisSimulate
-        : undefined;
+    // Art. 260 LC 214/2025: redutor social só para imóveis residenciais de longa duração (> 90 dias).
+    const quantidadeImoveisResidenciaisLongaSimulate =
+      input.quantidade_imoveis_residenciais_longa ??
+      (perfilLocacaoReforma === 'residencial_comum' || perfilLocacaoReforma === undefined
+        ? quantidadeImoveisResidenciaisSimulate
+        : 0);
+
+    const lc214Simulate = await resolveLc214IndicesParaSimulacao({
+      anoCalendario: input.ano,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisLongaSimulate,
+      opcoesReforma: input.opcoes_reforma ?? undefined,
+    });
+    const redutorSocialResidencialAnualSimulate = lc214Simulate.redutorSocialResidencialAnual;
 
     const anoRefReformaSimulate = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaSimulate: OpcoesReformaCalculo = {
@@ -792,7 +822,14 @@ export class PropertyService {
       aliquota_ibs_plena: input.opcoes_reforma?.aliquota_ibs_plena,
       aliquota_cbs_estimada: input.opcoes_reforma?.aliquota_cbs_estimada,
       redutor_locacao_pct: redutorLocacaoSimulate,
+      redutor_short_stay_pct: input.opcoes_reforma?.redutor_short_stay_pct,
       contrato_antes_16012025: input.opcoes_reforma?.contrato_antes_16012025,
+      usar_redutor_diferenciado_short: usarAmbosRedutoresSimulate
+        ? false
+        : usarRedutorDiferenciadoSimulate,
+      usar_ambos_redutores: usarAmbosRedutoresSimulate,
+      receita_longa_total: receitaLongaTotalAuto,
+      receita_short_total: receitaShortTotalAuto,
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualSimulate,
@@ -814,11 +851,11 @@ export class PropertyService {
         ? quantidadeImoveisResidenciaisParaContribuinte +
           quantidadeImoveisComerciaisSimulate
         : quantidadeImoveisResidenciaisAuto + quantidadeImoveisComerciaisAuto) || 0;
-    const { contribuinte: contribuinteIbsCbsPF } =
-      verificarContribuinteIbsCbsPF(
-        quantidadeImoveisTotalSimulate,
-        aggregatedTotal.receita_total
-      );
+    const { contribuinte: contribuinteIbsCbsPF } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisTotalSimulate,
+      aggregatedTotal.receita_total,
+      lc214Simulate.limitesContribuinte
+    );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
     const impostoTotalPFReforma = contribuinteIbsCbsPF
       ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
@@ -989,9 +1026,16 @@ export class PropertyService {
           ibs_cbs_liquido: cenarioReforma.ibs_cbs_liquido,
           imposto_total: cenarioReformaPF.imposto_total,
           ir_pf: cenarioReformaPF.ir_pf,
+          ...(cenarioReforma.redutor_social_base_deduzida_anual != null && {
+            redutor_social_base_deduzida_anual: cenarioReforma.redutor_social_base_deduzida_anual,
+          }),
+          ...(cenarioReforma.redutor_social_aplicado != null && {
+            redutor_social_aplicado: cenarioReforma.redutor_social_aplicado,
+          }),
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
+      indices_lc214: lc214Simulate.indices_lc214,
     };
   }
 
@@ -1086,14 +1130,24 @@ export class PropertyService {
 
     const quantidadeImoveisResidenciaisStandalone =
       input.quantidade_imoveis_residenciais ??
-      // fallback: se não informado, assumir que todos os imóveis são residenciais
       input.quantidade_imoveis ??
       0;
 
+    // Art. 260 LC 214/2025: redutor social só para imóveis residenciais de longa duração (> 90 dias).
+    // Curta temporada é equiparada a hotelaria (Arts. 253/278) e não gera redutor social.
+    const quantidadeImoveisResidenciaisLongaStandalone =
+      input.quantidade_imoveis_residenciais_longa ??
+      (input.opcoes_reforma?.perfil_locacao === 'residencial_comum' || input.opcoes_reforma?.perfil_locacao === undefined
+        ? quantidadeImoveisResidenciaisStandalone
+        : 0);
+
+    const lc214Standalone = await resolveLc214IndicesParaSimulacao({
+      anoCalendario: input.ano,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisLongaStandalone,
+      opcoesReforma: input.opcoes_reforma ?? undefined,
+    });
     const redutorSocialResidencialAnualStandalone =
-      quantidadeImoveisResidenciaisStandalone > 0
-        ? 600 * 12 * quantidadeImoveisResidenciaisStandalone
-        : undefined;
+      lc214Standalone.redutorSocialResidencialAnual;
 
     const aggregatedTotal = {
       ano: input.ano,
@@ -1119,11 +1173,19 @@ export class PropertyService {
     // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
     const redutorLocacao =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
-        ? 50
+        ? 40
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
-    const usarRedutorDiferenciado =
+    let usarRedutorDiferenciado =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
-    const usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
+    let usarAmbosRedutores = input.opcoes_reforma?.perfil_locacao === 'ambos';
+    if (
+      input.opcoes_reforma?.perfil_locacao === undefined &&
+      receitaLongaTotal > 0 &&
+      receitaShortTotal > 0
+    ) {
+      usarAmbosRedutores = true;
+      usarRedutorDiferenciado = false;
+    }
     const anoRefReforma = input.opcoes_reforma?.ano_referencia_reforma ?? 2033;
     const opcoesReformaStandalone: OpcoesReformaCalculo = {
       ano: anoRefReforma,
@@ -1158,11 +1220,11 @@ export class PropertyService {
           quantidadeImoveisComerciaisStandalone
         : input.quantidade_imoveis ?? 1) || 1;
 
-    const { contribuinte: contribuinteIbsCbsPFStandalone } =
-      verificarContribuinteIbsCbsPF(
-        quantidadeImoveisTotalStandalone,
-        receitaTotal
-      );
+    const { contribuinte: contribuinteIbsCbsPFStandalone } = verificarContribuinteIbsCbsPF(
+      quantidadeImoveisTotalStandalone,
+      receitaTotal,
+      lc214Standalone.limitesContribuinte
+    );
     /** Em 2027 a PF continua pagando IR (Carnê-Leão) além de IBS/CBS; total = IR + IBS/CBS. Se não for contribuinte IBS/CBS, só IR. */
     const impostoTotalPFReformaStandalone = contribuinteIbsCbsPFStandalone
       ? Math.round((cenarioPF.imposto_total + cenarioReforma.ibs_cbs_liquido) * 100) / 100
@@ -1298,9 +1360,16 @@ export class PropertyService {
           ibs_cbs_liquido: cenarioReforma.ibs_cbs_liquido,
           imposto_total: cenarioReformaPFStandalone.imposto_total,
           ir_pf: cenarioReformaPFStandalone.ir_pf,
+          ...(cenarioReforma.redutor_social_base_deduzida_anual != null && {
+            redutor_social_base_deduzida_anual: cenarioReforma.redutor_social_base_deduzida_anual,
+          }),
+          ...(cenarioReforma.redutor_social_aplicado != null && {
+            redutor_social_aplicado: cenarioReforma.redutor_social_aplicado,
+          }),
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
+      indices_lc214: lc214Standalone.indices_lc214,
     };
   }
 

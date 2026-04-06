@@ -148,7 +148,7 @@ export const BatchPropertyTransactionSchema = z.object({
   transactions: z.array(PropertyTransactionSchema).min(1),
 });
 
-/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 50%, ou ambos (proporcional) */
+/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 40% (Art. 281), ou ambos (proporcional) */
 export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedagem_temporada', 'ambos']);
 export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
 
@@ -163,11 +163,11 @@ export const OpcoesReformaSchema = z.object({
   aliquota_cbs_estimada: z.number().min(0).max(100).optional().default(9),
   /** Redutor para locação residencial (reforma): 70 = alíquota efetiva = nominal × 30%. Padrão 70. */
   redutor_locacao_pct: z.number().min(0).max(100).optional(),
-  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem. */
-  redutor_short_stay_pct: z.number().min(0).max(100).optional().default(50),
+  /** Redutor para curta temporada / hospedagem: 40% (Art. 281 LC 214/2025). */
+  redutor_short_stay_pct: z.number().min(0).max(100).optional().default(40),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: z.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%), hospedagem_temporada (50%) ou ambos (70%+50% proporcional). */
+  /** Perfil: residencial_comum (70%), hospedagem_temporada (40%, Art. 281) ou ambos (70%+40% proporcional). */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
@@ -175,7 +175,15 @@ export const OpcoesReformaSchema = z.object({
    * Opcional para manter compatibilidade; calculado no backend quando não enviado.
    */
   redutor_social_residencial_anual: monetaryValue.optional(),
+  /** Override: teto com mais de 3 imóveis (R$). Se só este campo for enviado, o absoluto usa 120% deste valor. */
+  limite_receita_contribuinte_pf_manual: monetaryValue.optional(),
+  /** Override: teto absoluto PF contribuinte IBS/CBS (R$). */
+  limite_receita_absoluto_contribuinte_pf_manual: monetaryValue.optional(),
+  /** Override: redutor social mensal por imóvel residencial (R$), antes de multiplicar por 12 × quantidade. */
+  redutor_social_mensal_manual: monetaryValue.optional(),
 });
+
+export type OpcoesReforma = z.infer<typeof OpcoesReformaSchema>;
 
 /** Simulador standalone: campos granulares por mês */
 export const SimulateStandaloneMesSchema = z.object({
@@ -220,8 +228,10 @@ export const SimulateStandaloneInputSchema = z.object({
   opcoes_reforma: OpcoesReformaSchema.optional(),
   /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
   quantidade_imoveis: z.number().int().min(1).optional(),
-  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  /** Quantidade total de imóveis residenciais (longa + curta), para teste de contribuinte PF IBS/CBS */
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis residenciais de LONGA duração (> 90 dias) — somente estes geram redutor social Art. 260 LC 214/2025 */
+  quantidade_imoveis_residenciais_longa: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
@@ -244,8 +254,10 @@ export const SimulatePropertyTaxInputSchema = z.object({
   aplicar_presuncao_16_servicos: z.boolean().optional().default(false),
   aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
-  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  /** Quantidade total de imóveis residenciais (longa + curta), para teste de contribuinte PF IBS/CBS */
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis residenciais de LONGA duração (> 90 dias) — somente estes geram redutor social Art. 260 LC 214/2025 */
+  quantidade_imoveis_residenciais_longa: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */
@@ -311,7 +323,12 @@ export const CenarioReforma2027Schema = z.object({
   ibs_cbs_sobre_receita: z.number(),
   /** IBS/CBS líquido antes de aplicar redutor social (para memória de cálculo). */
   ibs_cbs_antes_redutor_social: z.number().optional(),
-  /** Valor do redutor social aplicado (Art. 260). */
+  /**
+   * Dedução anual na base de cálculo (receita de longa duração), em R$:
+   * min(receita longa, redutor_social_residencial_anual). Art. 260 (12 meses × valor mensal corrigido × imóveis).
+   */
+  redutor_social_base_deduzida_anual: z.number().optional(),
+  /** Redução do IBS/CBS em R$ correspondente à base deduzida (base deduzida × alíquota efetiva). */
   redutor_social_aplicado: z.number().optional(),
   ibs_cbs_liquido: z.number(),
   imposto_total: z.number(),
@@ -326,7 +343,7 @@ export const CenarioReforma2027Schema = z.object({
   imposto_transicao_365: z.number().optional(),
   /** true se foi aplicado o regime de transição (3,65%) por ser menor que o regime normal */
   aplicou_transicao_art487: z.boolean().optional(),
-  /** true quando foi aplicado redutor 50% na parte short stay (hospedagem/temporada) */
+  /** true quando foi aplicado redutor 40% na parte short stay (hospedagem/temporada, Art. 281) */
   redutor_diferenciado_short: z.boolean().optional(),
   /** Na ótica PJ em 2027+: IRPJ e CSLL (excl. PIS/COFINS substituídos por IBS/CBS) */
   irpj: z.number().optional(),
@@ -391,6 +408,21 @@ export const AnaliseCustosSchema = z.object({
   alertas: z.array(z.string()),
 });
 
+export const IndicesLc214Schema = z.object({
+  ipca_fonte: z.enum(['bcb_online', 'cache', 'embutido']),
+  serie_sgs_codigo: z.number(),
+  mes_referencia_fim: z.string(),
+  fator_acumulado_desde_publicacao: z.number(),
+  redutor_social_mensal_nominal: z.number(),
+  redutor_social_mensal_efetivo: z.number(),
+  limite_receita_pf_contribuinte: z.number(),
+  limite_receita_pf_absoluto: z.number(),
+  data_consulta_bcb: z.string().optional(),
+  parametros_origem: z.enum(['calculado', 'manual_parcial', 'manual_completo']),
+});
+
+export type IndicesLc214 = z.infer<typeof IndicesLc214Schema>;
+
 export const PropertyTaxSimulationResponseSchema = z.object({
   ano: z.number(),
   cenarios: z.object({
@@ -407,8 +439,37 @@ export const PropertyTaxSimulationResponseSchema = z.object({
   fluxo_caixa: z.array(FluxoCaixaSchema),
   analise_custos: AnaliseCustosSchema.optional(),
   memoria_calculo: z.record(z.unknown()).optional(),
+  /** IPCA/LC 214: índices e parâmetros efetivos (transparência). */
+  indices_lc214: IndicesLc214Schema.optional(),
   /** Embasamentos legais por cenário (PF, PJ, Reforma 2027) */
   embasamentos_legais: z.array(EmbasamentoLegalSchema).optional(),
+});
+
+export const FiscalIndicesIpcaQuerySchema = z.object({
+  ano: z.coerce.number().int().min(2020).max(2035),
+});
+
+export const FiscalIndicesIpcaSeriesQuerySchema = z.object({
+  ano: z.coerce.number().int().min(2020).max(2035),
+  janela: z.coerce.number().int().min(6).max(60).default(24),
+});
+
+export const IpcaSerieMesSchema = z.object({
+  mes_referencia: z.string().regex(/^\d{4}-\d{2}$/),
+  variacao_mensal_pct: z.number(),
+  acumulado_ano_pct: z.number(),
+  acumulado_12m_pct: z.number(),
+  fator_lc214_no_mes: z.number(),
+});
+
+export const FiscalIndicesIpcaSeriesResponseSchema = z.object({
+  fonte: z.enum(['bcb_online', 'cache', 'embutido']),
+  serie_sgs_codigo: z.number(),
+  data_consulta_bcb: z.string().optional(),
+  ano_calendario: z.number(),
+  mes_referencia_fim: z.string().regex(/^\d{4}-\d{2}$/),
+  mes_mais_recente_serie: z.string().regex(/^\d{4}-\d{2}$/),
+  meses: z.array(IpcaSerieMesSchema),
 });
 
 export const ListPropertiesQuerySchema = z.object({
@@ -458,6 +519,9 @@ export type SimulateStandaloneAndSaveInput = z.infer<typeof SimulateStandaloneAn
 export type SimulatePropertyTaxInput = z.infer<typeof SimulatePropertyTaxInputSchema>;
 export type SimulatePropertyTaxAndSaveInput = z.infer<typeof SimulatePropertyTaxAndSaveInputSchema>;
 export type UpdatePropertySimulationInput = z.infer<typeof UpdatePropertySimulationInputSchema>;
+export type FiscalIndicesIpcaSeriesQuery = z.infer<typeof FiscalIndicesIpcaSeriesQuerySchema>;
+export type IpcaSerieMes = z.infer<typeof IpcaSerieMesSchema>;
+export type FiscalIndicesIpcaSeriesResponse = z.infer<typeof FiscalIndicesIpcaSeriesResponseSchema>;
 
 export interface PropertySimulation {
   id: string;

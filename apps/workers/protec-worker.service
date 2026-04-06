@@ -1,0 +1,20 @@
+[Unit]
+Description=Protec fiscal file worker (Python)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/protec-workers
+EnvironmentFile=/opt/protec-workers/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/opt/protec-workers/fetch-env.sh
+ExecStart=/usr/bin/python3.12 src/main.py --loop --sleep-seconds 60
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=protec-worker
+
+[Install]
+WantedBy=multi-user.target

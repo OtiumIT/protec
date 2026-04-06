@@ -68,10 +68,10 @@ function PlanCard({ plan, isHighlighted }: { plan: Plan; isHighlighted: boolean 
       </ul>
       <div className="mt-5">
         <Link
-          to="/register"
+          to="/fale-conosco"
           className="w-full inline-flex items-center justify-center rounded-lg bg-landing-cta px-5 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors min-h-[44px]"
         >
-          Experimente grátis por 7 dias
+          Solicitar acesso
         </Link>
       </div>
     </article>

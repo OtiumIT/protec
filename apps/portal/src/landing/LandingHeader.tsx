@@ -24,7 +24,7 @@ export function LandingHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <LogoProvisorio dark variant="iatax" onClick={() => setMobileMenuOpen(false)} className="flex-shrink-0" />
 
-        {/* Desktop: menu centralizado + Criar conta em destaque à direita */}
+        {/* Desktop: menu centralizado + Entrar à direita */}
         <nav className="hidden sm:flex flex-1 justify-center items-center gap-6 lg:gap-8" aria-label="Navegação principal">
           {navLinks.map((link) => (
             <Link
@@ -40,41 +40,23 @@ export function LandingHeader() {
             </Link>
           ))}
         </nav>
-        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+        <div className="hidden sm:flex items-center flex-shrink-0">
           <Link
-            to="/register"
+            to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2.5 rounded-md transition-colors min-h-[44px] inline-flex items-center"
             onClick={() => setMobileMenuOpen(false)}
           >
-            Criar conta
-          </Link>
-          <Link
-            to="/login"
-            className="rounded-lg p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
-            aria-label="Entrar"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            Entrar
           </Link>
         </div>
 
-        {/* Mobile: Criar conta + ícone Entrar + Hamburger */}
+        {/* Mobile: Entrar + Hamburger */}
         <div className="flex sm:hidden items-center gap-2">
           <Link
-            to="/register"
+            to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-3 py-2 rounded-md transition-colors"
           >
-            Criar conta
-          </Link>
-          <Link
-            to="/login"
-            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
-            aria-label="Entrar"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            Entrar
           </Link>
           <button
             type="button"
@@ -125,18 +107,9 @@ export function LandingHeader() {
               ))}
               <li className="border-t border-white/10 pt-4 mt-4">
                 <Link
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block rounded-lg px-4 py-3 text-base font-semibold text-white bg-landing-cta hover:bg-orange-600 transition-colors text-center"
-                >
-                  Criar conta
-                </Link>
-              </li>
-              <li>
-                <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block rounded-lg px-4 py-3 text-base font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                  className="block rounded-lg px-4 py-3 text-base font-semibold text-white bg-landing-cta hover:bg-orange-600 transition-colors text-center"
                 >
                   Entrar
                 </Link>

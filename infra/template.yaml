@@ -49,6 +49,9 @@ Resources:
           STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/protec-api/STRIPE_SECRET_KEY}}'
           STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/protec-api/STRIPE_WEBHOOK_SECRET}}'
           OPENAI_API_KEY: !Sub '{{resolve:ssm:/protec-api/OPENAI_API_KEY}}'
+          RESEND_API_KEY: !Sub '{{resolve:ssm:/protec-api/RESEND_API_KEY}}'
+          APP_URL: !Sub '{{resolve:ssm:/protec-api/APP_URL}}'
+          EMAIL_FROM: !Sub '{{resolve:ssm:/protec-api/EMAIL_FROM}}'
           FORCE_ALL_MODULES_ACTIVE: 'false'
 
 Outputs:

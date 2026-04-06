@@ -2,6 +2,8 @@
 
 A API roda em **Lambda + API Gateway HTTP API**. O deploy é feito automaticamente via GitHub Actions em cada push na `main`.
 
+**Workers Python (fiscal_files):** EC2 t3a.nano + systemd; ver [DEPLOY_WORKERS.md](DEPLOY_WORKERS.md) (reutiliza SSM `/protec-api/*`).
+
 ## Descontinuar a Vercel (API)
 
 1. **Pare de usar** o projeto Vercel da API (pode arquivar/remover o projeto ou desligar o domínio apontando para a Vercel).
@@ -121,4 +123,24 @@ Se ainda aparecer erro antigo, no CloudFormation **exclua** o stack `aws-sam-cli
 Inclua na policy:
 
 - `s3:CreateBucket`, `s3:HeadBucket`, `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` no bucket `protec-sam-artifacts-688123783562` (ou `arn:aws:s3:::protec-sam-artifacts-688123783562/*`)
+
+### CORS bloqueado no browser (`No 'Access-Control-Allow-Origin'`)
+
+A API só devolve cabeçalhos CORS para origens listadas em **`/protec-api/CORS_ORIGIN`** (URLs completas, separadas por vírgula) ou **`/protec-api/CORS_ORIGIN_DOMAINS`** (domínios base, ex.: `iataxsistemas.com.br`, cobre `www` e subdomínios). Veja [`apps/api/src/modules/index.ts`](../apps/api/src/modules/index.ts).
+
+1. **Atualize o SSM** (ex.: produção no Cloudflare em `https://iataxsistemas.com.br`):
+
+   ```bash
+   # Opção A — domínio (recomendado: cobre www e subdomínios do mesmo domínio)
+   aws ssm put-parameter --name /protec-api/CORS_ORIGIN_DOMAINS --value "iataxsistemas.com.br" --type String --overwrite --region us-east-1
+
+   # Opção B — URL exata (use várias origens separadas por vírgula, sem espaços extras)
+   aws ssm put-parameter --name /protec-api/CORS_ORIGIN --value "https://iataxsistemas.com.br,https://www.iataxsistemas.com.br" --type String --overwrite --region us-east-1
+   ```
+
+   Se já existir outra origem (ex. preview do Pages), **junte** na mesma string: `https://preview.pages.dev,https://iataxsistemas.com.br`.
+
+2. **Faça um novo deploy do stack** (`sam deploy` ou push na `main` que dispare o workflow **Deploy API Lambda**). O template resolve `{{resolve:ssm:...}}` no **momento do deploy**; só atualizar o SSM **não** altera as variáveis de ambiente da Lambda até o próximo deploy.
+
+3. Confirme com o endpoint de diagnóstico (após o deploy): `GET /api/v1/debug/cors?origin=https://iataxsistemas.com.br` — o campo `wouldAllow` deve ser `true`.
 

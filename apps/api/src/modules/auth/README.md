@@ -9,8 +9,9 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 - **Quando aplicar**: Endpoint `POST /auth/register`
 - **Validação**: 
   - Nome da empresa: mínimo 3 caracteres
-  - Email do usuário: formato válido e único por empresa
+  - E-mail do utilizador: formato válido, **único em toda a plataforma** (chave de login); armazenado normalizado (`trim` + minúsculas)
   - Senha: mínimo 8 caracteres
+- **Conflito**: Se o e-mail já existir → `409` com código `EMAIL_ALREADY_EXISTS`
 - **Processo**:
   1. Criar empresa (company)
   2. Hash da senha com BCrypt (10 rounds)
@@ -25,7 +26,7 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
   - Email e senha obrigatórios
   - Verificar se usuário existe e senha está correta
 - **Processo**:
-  1. Buscar usuário por email e company_id
+  1. Normalizar e-mail (`trim` + minúsculas) e buscar utilizador por `lower(trim(email))` (sem ambiguidade: um e-mail = um utilizador)
   2. Verificar senha com BCrypt
   3. Gerar novos tokens (access + refresh)
   4. Armazenar refresh token no banco (não invalida tokens anteriores)
@@ -66,8 +67,8 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 
 ## Dependências
 - **Módulos**: `companies` (criação de empresa no registro)
-- **Services compartilhados**: `jwt.ts`, `password.ts`
-- **Tabelas**: `users`, `companies`, `refresh_tokens`
+- **Services compartilhados**: `jwt.ts`, `password.ts`, `email.service.ts` (Resend)
+- **Tabelas**: `users`, `companies`, `refresh_tokens`, `password_reset_tokens`
 
 ## Endpoints
 
@@ -100,6 +101,20 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 - **Resposta**: `{ data: { user } }`
 - **Autenticação**: Requerida
 
+### POST /auth/forgot-password
+- **Descrição**: Solicitar link de recuperação de senha por e-mail
+- **Body**: `{ email }`
+- **Resposta**: `{ data: { message } }` — **sempre 200** (não revela se o e-mail existe)
+- **Validação**: Zod schema `ForgotPasswordSchema`
+- **Comportamento**: Gera token de 64 hex chars, válido por 1h, uso único; envia e-mail via Resend; remove tokens anteriores não usados do mesmo usuário
+
+### POST /auth/reset-password
+- **Descrição**: Redefinir senha com token recebido por e-mail
+- **Body**: `{ token, password, confirmPassword }`
+- **Resposta**: `{ data: { message } }`
+- **Validação**: Zod schema `ResetPasswordSchema`
+- **Erros**: `400 INVALID_OR_EXPIRED_TOKEN` se token inválido, expirado ou já utilizado
+
 ## Fluxos Importantes
 
 ### Fluxo de Registro
@@ -118,6 +133,21 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 4. Gerar tokens
 5. Armazenar refresh token
 6. Retornar dados
+
+### Fluxo de Recuperação de Senha
+1. `POST /auth/forgot-password` com `{ email }`
+2. API busca usuário por e-mail normalizado
+3. Se não existe → retorna 200 silencioso (anti-enumeração)
+4. Gera token: `crypto.randomBytes(32).toString('hex')` (64 chars hex)
+5. Remove tokens anteriores não usados do usuário
+6. Salva token na tabela `password_reset_tokens` com `expires_at = NOW() + 1h`
+7. Envia e-mail via Resend com link `{APP_URL}/reset-password?token={token}`
+8. Usuário clica no link → página `ResetPassword` no portal
+9. `POST /auth/reset-password` com `{ token, password, confirmPassword }`
+10. API valida token (existe, não expirou, não foi usado)
+11. Hasha nova senha (BCrypt 10 rounds)
+12. Atualiza `password_hash` no usuário
+13. Marca token como `used_at = NOW()`
 
 ## Casos Especiais
 - **Super Admin**: Role especial que pode acessar qualquer tenant (implementar se necessário)

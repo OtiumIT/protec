@@ -6,6 +6,8 @@ export const UserSchema = z.object({
   name: z.string().min(3),
   tenant_id: z.string().uuid().nullable(),
   role: z.string(),
+  status: z.enum(['active', 'inactive']).optional(),
+  must_change_password: z.boolean().optional(),
   created_at: z.date(),
   updated_at: z.date(),
 });

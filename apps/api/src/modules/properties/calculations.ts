@@ -56,34 +56,45 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export type LimitesContribuinteIbsCbsPF = {
+  limite_receita_com_mais_de_tres_imoveis: number;
+  limite_receita_absoluto: number;
+};
+
 /**
  * Verifica se a Pessoa Física é contribuinte de IBS/CBS na locação de imóveis (LC 214/2025).
  * Critérios:
- * - Mais de 3 imóveis E receita > R$ 240.000/ano = contribuinte
- * - OU receita > R$ 288.000/ano (20% acima de 240k) = contribuinte independente do número de imóveis
+ * - Mais de 3 imóveis E receita acima do limite indexado (nominal R$ 240k) = contribuinte
+ * - OU receita acima do limite absoluto indexado (nominal R$ 288k) = contribuinte independente do número de imóveis
  * - Caso contrário = não contribuinte (apenas IR Carnê-Leão)
  */
 export function verificarContribuinteIbsCbsPF(
   quantidadeImoveis: number,
-  receitaAnual: number
+  receitaAnual: number,
+  limites?: LimitesContribuinteIbsCbsPF
 ): { contribuinte: boolean; motivo: string } {
-  if (receitaAnual > LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF) {
+  const lim240 = limites?.limite_receita_com_mais_de_tres_imoveis ?? LIMITE_RECEITA_IBS_CBS_PF;
+  const lim288 = limites?.limite_receita_absoluto ?? LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF;
+  const lim240Fmt = lim240.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  const lim288Fmt = lim288.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+  if (receitaAnual > lim288) {
     return {
       contribuinte: true,
-      motivo: `Receita anual > R$ 288.000 (${((receitaAnual / LIMITE_RECEITA_IBS_CBS_PF - 1) * 100).toFixed(0)}% acima de R$ 240k)`,
+      motivo: `Receita anual > R$ ${lim288Fmt} (limite absoluto para contribuinte IBS/CBS PF)`,
     };
   }
-  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > LIMITE_RECEITA_IBS_CBS_PF) {
+  if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > lim240) {
     return {
       contribuinte: true,
-      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (${quantidadeImoveis}) e receita > R$ 240.000`,
+      motivo: `Mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (${quantidadeImoveis}) e receita > R$ ${lim240Fmt}`,
     };
   }
   return {
     contribuinte: false,
     motivo: quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF
-      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ 288.000`
-      : `Receita ≤ R$ 240.000`,
+      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ ${lim288Fmt}`
+      : `Receita ≤ R$ ${lim240Fmt}`,
   };
 }
 
@@ -380,8 +391,8 @@ const ALIQUOTA_IBS_2027_2028 = 0.1;
 const ALIQUOTA_CBS_DEFAULT = 9;
 /** Redutor locação residencial comum (LC 214/2025 Art. 261) */
 const REDUTOR_LOCACAO_RESIDENCIAL = 70;
-/** Redutor hospedagem / curta temporada */
-const REDUTOR_SHORT_STAY = 50;
+/** Redutor hospedagem / curta temporada (Art. 281 LC 214/2025) */
+const REDUTOR_SHORT_STAY = 40;
 /** Regime de transição Art. 487: 3,65% sobre receita bruta (contratos até 16/01/2025) */
 const ALIQUOTA_TRANSICAO_ART487 = 3.65;
 
@@ -397,9 +408,9 @@ export interface OpcoesReformaCalculo {
   redutor_short_stay_pct?: number;
   /** Regime transição: 3,65% sobre receita; resultado = min(3,65%, regime normal) */
   contrato_antes_16012025?: boolean;
-  /** Se true, aplica 50% no montante de receita short e 70% no long (quando short > long) */
+  /** Se true, aplica 40% no montante de receita short e 70% no long (quando short > long) */
   usar_redutor_diferenciado_short?: boolean;
-  /** Se true (perfil "ambos"), aplica 70% na parte longa e 50% na curta, proporcional à receita de cada tipo. */
+  /** Se true (perfil "ambos"), aplica 70% na parte longa e 40% na curta, proporcional à receita de cada tipo. */
   usar_ambos_redutores?: boolean;
   receita_longa_total?: number;
   receita_short_total?: number;
@@ -408,8 +419,8 @@ export interface OpcoesReformaCalculo {
   /** Receita anual de locação não residencial (sem redutor social). */
   receita_locacao_nao_residencial_anual?: number;
   /**
-   * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
-   * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × 12 × quantidade_imoveis_residenciais.
+   * Redutor social anual para locação residencial (LC 214/2025, Art. 260, redação LC 227/2026).
+   * Valor absoluto em reais abatido da BASE de cálculo (não do imposto): 600 × fator_IPCA × 12 × quantidade_imoveis_residenciais.
    */
   redutor_social_residencial_anual?: number;
   /** Fator de aproveitamento de crédito sobre custos operacionais (0 a 1). */
@@ -419,7 +430,7 @@ export interface OpcoesReformaCalculo {
 /**
  * Cenário Reforma: IBS/CBS com créditos sobre custos.
  * 2027/2028: IBS 0,1% (fixo) + CBS (editável); 2029+: IBS (transição) + CBS (editável).
- * Redutor 70% locação residencial; 50% curta temporada quando dominante (Art. 261).
+ * Redutor 70% locação residencial; 40% curta temporada (Art. 281 LC 214/2025).
  * Regime transição Art. 487: opção 3,65% sobre faturamento (contratos antes 16/01/2025).
  */
 export function calcularReforma2027(
@@ -440,14 +451,16 @@ export function calcularReforma2027(
   /** Regime transição Art. 487 aplicado (imposto a 3,65%) */
   imposto_transicao_365?: number;
   aplicou_transicao_art487?: boolean;
-  /** Quando redutor proporcional: 50% na parte short, 70% na long */
+  /** Quando redutor proporcional: 40% na parte short, 70% na long */
   redutor_diferenciado_short?: boolean;
   /** Percentuais aplicados quando redutor diferenciado (para exibição na UI). */
   redutor_long_pct?: number;
   redutor_short_pct?: number;
   /** IBS/CBS líquido antes de redutor social (para memória de cálculo). */
   ibs_cbs_antes_redutor_social?: number;
-  /** Valor do redutor social aplicado na base (Art. 260). */
+  /** Dedução nominal anual na base (receita longa), Art. 260 — antes de multiplicar pela alíquota. */
+  redutor_social_base_deduzida_anual?: number;
+  /** Redução do imposto IBS/CBS (base deduzida × alíquota efetiva). */
   redutor_social_aplicado?: number;
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
@@ -499,16 +512,19 @@ export function calcularReforma2027(
   let redutorExibicao: number;
   let ibsCbsAntesRedutorSocial: number | undefined;
   let redutorSocialAplicado: number | undefined;
+  let redutorSocialBaseDeduzidaAnual: number | undefined;
+
+  let splitUsouRedutorDiferenciado = false;
 
   if (usarModeloSplit) {
-    // Modelo com split: residencial (base reduzida + redutor(es) de alíquota) e não residencial (mesmo redutor setorial, sem redutor social)
     const receitaTotalSplit = receitaResidencial + receitaNaoResidencial;
 
-    // Decomposição da parte residencial em longa x curta usando receitas totais do simulador
     const totalReceitaLongShort = receitaLonga + receitaShort;
     const partLongResidencial =
       totalReceitaLongShort > 0 ? Math.min(1, Math.max(0, receitaLonga / totalReceitaLongShort)) : 1;
     const partShortResidencial = 1 - partLongResidencial;
+
+    splitUsouRedutorDiferenciado = partShortResidencial > 0 && redutorLong !== redutorShort;
 
     const aliquotaBase = aliquotaNominal / 100;
     const rateLong = aliquotaBase * (1 - redutorLong / 100);
@@ -517,7 +533,6 @@ export function calcularReforma2027(
     const receitaResidencialLong = receitaResidencial * partLongResidencial;
     const receitaResidencialShort = receitaResidencial * partShortResidencial;
 
-    // LC 214/2025 Art. 260: redutor social apenas na longa duração (acima de 90 dias). Curta temporada (até 90 dias) não recebe.
     const redutorSocialLong = redutorSocialAnual > 0 ? redutorSocialAnual : 0;
     const baseResidencialLong = Math.max(0, round2(receitaResidencialLong - redutorSocialLong));
     const baseResidencialShort = receitaResidencialShort;
@@ -525,7 +540,7 @@ export function calcularReforma2027(
     const ibsCbsResidencialLong = round2(baseResidencialLong * rateLong);
     const ibsCbsResidencialShort = round2(baseResidencialShort * rateShort);
 
-    // Locação não residencial: mesmo redutor setorial da alíquota de longa duração, sem redutor social
+    // Não residencial sempre usa redutor 70% (longa duração) — Art. 261 LC 214/2025
     const rateNaoResidencial = rateLong;
     const ibsCbsNaoResidencial = round2(receitaNaoResidencial * rateNaoResidencial);
 
@@ -536,15 +551,16 @@ export function calcularReforma2027(
       receitaTotalSplit > 0 ? ibsCbsReceita / receitaTotalSplit : 0;
     creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
 
-    // Para exibição, manter o redutor de longa duração como referência principal
     redutorExibicao = redutorLong;
 
     const impostoResidencialSemRedutorBase = round2(
       receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
     );
-    redutorSocialAplicado = round2(
-      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong
-    );
+    const baseDedSocialSplit = round2(Math.min(receitaResidencialLong, redutorSocialLong));
+    if (baseDedSocialSplit > 0) {
+      redutorSocialBaseDeduzidaAnual = baseDedSocialSplit;
+    }
+    redutorSocialAplicado = round2(baseDedSocialSplit * rateLong);
     ibsCbsAntesRedutorSocial = round2(
       impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
     );
@@ -565,9 +581,13 @@ export function calcularReforma2027(
       const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
       creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
       redutorExibicao = redutorLong;
-      redutorSocialAplicado = aplicaRedutorSocial
-        ? round2(Math.min(receitaLonga, redutorSocialAnual) * rateLong)
-        : 0;
+      if (aplicaRedutorSocial) {
+        const baseDed = round2(Math.min(receitaLonga, redutorSocialAnual));
+        if (baseDed > 0) redutorSocialBaseDeduzidaAnual = baseDed;
+        redutorSocialAplicado = round2(baseDed * rateLong);
+      } else {
+        redutorSocialAplicado = 0;
+      }
       ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
         ? (() => {
             const debitoSemRedutor = receitaLonga * rateLong + receitaShort * rateShort;
@@ -581,9 +601,13 @@ export function calcularReforma2027(
       ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaRate);
       creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate * fatorCreditoCustos);
       redutorExibicao = redutor;
-      redutorSocialAplicado = aplicaRedutorSocial
-        ? round2(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate)
-        : 0;
+      if (aplicaRedutorSocial) {
+        const baseDed = round2(Math.min(receita_total, redutorSocialAnual));
+        if (baseDed > 0) redutorSocialBaseDeduzidaAnual = baseDed;
+        redutorSocialAplicado = round2(baseDed * aliquotaEfetivaRate);
+      } else {
+        redutorSocialAplicado = 0;
+      }
       ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
         ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
         : undefined;
@@ -617,12 +641,16 @@ export function calcularReforma2027(
     redutor_locacao_aplicado_pct: redutorExibicao,
     ...(impostoTransicao365 != null && { imposto_transicao_365: impostoTransicao365 }),
     ...(aplicouTransicao && { aplicou_transicao_art487: true }),
-    ...(usarRedutorDiferenciado && {
+    ...((usarRedutorDiferenciado || splitUsouRedutorDiferenciado) && {
       redutor_diferenciado_short: true,
       redutor_long_pct: redutorLong,
       redutor_short_pct: redutorShort,
     }),
     ...(ibsCbsAntesRedutorSocial != null && { ibs_cbs_antes_redutor_social: ibsCbsAntesRedutorSocial }),
+    ...(redutorSocialBaseDeduzidaAnual != null &&
+      redutorSocialBaseDeduzidaAnual > 0 && {
+        redutor_social_base_deduzida_anual: redutorSocialBaseDeduzidaAnual,
+      }),
     ...(redutorSocialAplicado != null && redutorSocialAplicado > 0 && { redutor_social_aplicado: redutorSocialAplicado }),
   };
 }

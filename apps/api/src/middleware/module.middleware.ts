@@ -13,7 +13,6 @@ const FREE_PLAN_GRACE_DAYS = 7;
 export function requireModule(moduleKey: string) {
   return async (c: Context, next: Next): Promise<Response | void> => {
     const companyId = c.get('companyId');
-    const isCalibratorRoute = c.req.path.includes('/api/v1/fiscal-files/calibrator');
 
     if (!companyId) {
       return c.json(
@@ -70,12 +69,6 @@ export function requireModule(moduleKey: string) {
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
       [companyId, moduleKey]
     );
-
-    if (isCalibratorRoute) {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H6',location:'apps/api/src/middleware/module.middleware.ts:module-check',message:'Module middleware evaluated calibrator request',data:{path:c.req.path,moduleKey,hasActiveModule:result.rows.length>0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
 
     if (result.rows.length === 0) {
       return c.json(

@@ -44,7 +44,13 @@ Na API, o identificador do escritório é exposto como **tenant_id** (no banco a
   2. Validar permissões
   3. Executar operação
 
-### Regra 4: Hash de Senha
+### Regra 4: E-mail único (login)
+- **Quando aplicar**: Criação ou alteração de e-mail (`POST /users`, `PUT /users/:id`, criação de super_admin)
+- **Validação**: O e-mail não pode existir noutra linha de `public.users` (inclui outro tenant e super_admin). Comparação após normalização (`trim` + minúsculas).
+- **Erro**: `409` com código `EMAIL_ALREADY_EXISTS` quando o e-mail já está em uso
+- **Nota**: Isto é distinto do isolamento por tenant nas queries: o e-mail identifica **uma** conta na plataforma.
+
+### Regra 5: Hash de Senha
 - **Quando aplicar**: Ao criar ou atualizar senha
 - **Validação**: Senha mínimo 8 caracteres
 - **Processo**: Sempre usar BCrypt com 10 rounds
@@ -77,7 +83,7 @@ Na API, o identificador do escritório é exposto como **tenant_id** (no banco a
 - **Autenticação**: Requerida
 - **Validação**: 
   - Validação de seats (limite de usuários)
-  - Email único por empresa
+  - E-mail único na plataforma (ver Regra 4)
   - Senha mínimo 8 caracteres
 
 ### PUT /users/:id
@@ -85,7 +91,7 @@ Na API, o identificador do escritório é exposto como **tenant_id** (no banco a
 - **Body**: `{ name?, email?, role? }`
 - **Resposta**: `{ data: { user } }`
 - **Autenticação**: Requerida
-- **Validação**: Permissões de edição
+- **Validação**: Permissões de edição; se `email` for enviado, não pode coincidir com outro utilizador (Regra 4)
 
 ### DELETE /users/:id
 - **Descrição**: Deletar usuário

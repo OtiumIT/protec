@@ -8,7 +8,10 @@ import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import { AppError } from '../../shared/utils/error-handler';
+import { emailService } from '../../shared/services/email.service';
 import type { User, Company } from '@shared/core';
+import { normalizeUserEmail } from '@shared/core';
+import { randomBytes } from 'crypto';
 
 export interface AuthTokens {
   access: string;
@@ -64,6 +67,16 @@ export class AuthService {
       );
     }
 
+    const emailNorm = normalizeUserEmail(data.user.email);
+    const emailAlreadyUsed = await this.userRepo.findByEmailGlobal(emailNorm);
+    if (emailAlreadyUsed) {
+      throw new AppError(
+        'Este e-mail já está cadastrado. Use outro e-mail ou faça login.',
+        'EMAIL_ALREADY_EXISTS',
+        409
+      );
+    }
+
     // Nome de exibição: nome fantasia ou razão social/nome completo
     const name = (data.company.trade_name?.trim() || data.company.legal_name.trim()).slice(0, 255);
     const cnpjNormalized = data.company.cnpj ? data.company.cnpj.replace(/\D/g, '') : undefined;
@@ -78,7 +91,7 @@ export class AuthService {
       cnpj: cnpjNormalized,
       cpf: cpfNormalized,
       phone: data.company.phone || undefined,
-      contact_email: data.user.email,
+      contact_email: emailNorm,
       contact_name: data.user.name,
     });
 
@@ -95,7 +108,7 @@ export class AuthService {
     const passwordHash = await hashPassword(data.user.password);
     const user = await this.userRepo.create(company.id, {
       name: data.user.name,
-      email: data.user.email,
+      email: emailNorm,
       password: passwordHash,
       role: 'admin',
     });
@@ -120,15 +133,16 @@ export class AuthService {
    * Login
    */
   async login(email: string, password: string, companyId?: string): Promise<{ user: User; tokens: AuthTokens }> {
+    const emailNorm = normalizeUserEmail(email);
     // Buscar usuário
     let user: User | null;
     
     // Primeiro tentar buscar super_admin (sem company_id)
-    user = await this.authRepo.findByEmailOnly(email);
+    user = await this.authRepo.findByEmailOnly(emailNorm);
     
     // Se não encontrou super_admin e tem companyId, buscar por tenant
     if (!user && companyId) {
-      user = await this.authRepo.findByEmail(email, companyId);
+      user = await this.authRepo.findByEmail(emailNorm, companyId);
     }
     
     if (user && user.tenant_id === null) {
@@ -139,6 +153,10 @@ export class AuthService {
 
     if (!user) {
       throw new Error('Invalid credentials');
+    }
+
+    if (user.status === 'inactive') {
+      throw new AppError('Sua conta está inativa. Entre em contato com o suporte.', 'ACCOUNT_INACTIVE', 403);
     }
 
     const passwordHash = await this.authRepo.findPasswordHash(user.id, user.tenant_id);
@@ -216,5 +234,76 @@ export class AuthService {
       access: generateAccessToken(payload),
       refresh: generateRefreshToken(payload),
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Recuperação de senha
+  // ──────────────────────────────────────────────────────────────
+
+  /**
+   * Solicitar recuperação de senha.
+   * Sempre retorna sucesso para não revelar se o e-mail existe (prevenção de enumeração).
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const emailNorm = normalizeUserEmail(email);
+    const user = await this.authRepo.findByEmailOnly(emailNorm);
+
+    if (!user) {
+      // Resposta silenciosa — não vazar se o e-mail existe
+      return;
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await this.authRepo.createPasswordResetToken(user.id, token, expiresAt);
+
+    await emailService.sendPasswordReset(user.email, token);
+
+    logSensitiveOperation('password_reset_requested', user.id, user.tenant_id ?? 'super_admin');
+  }
+
+  /**
+   * Trocar senha (autenticado). Usado no primeiro login com must_change_password.
+   */
+  async changePassword(userId: string, tenantId: string | null, currentPassword: string, newPassword: string): Promise<void> {
+    const passwordHash = await this.authRepo.findPasswordHash(userId, tenantId);
+    if (!passwordHash) {
+      throw new AppError('Usuário não encontrado', 'NOT_FOUND', 404);
+    }
+
+    const isValid = await verifyPassword(currentPassword, passwordHash);
+    if (!isValid) {
+      throw new AppError('Senha atual incorreta', 'INVALID_PASSWORD', 400);
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await this.authRepo.updatePasswordHash(userId, newHash);
+
+    await this.authRepo.clearMustChangePassword(userId);
+
+    logSensitiveOperation('password_changed', userId, tenantId ?? 'system');
+  }
+
+  /**
+   * Redefinir senha usando token de recuperação.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const resetToken = await this.authRepo.findPasswordResetToken(token);
+
+    if (!resetToken) {
+      throw new AppError(
+        'Token inválido ou expirado. Solicite um novo link de recuperação.',
+        'INVALID_OR_EXPIRED_TOKEN',
+        400
+      );
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await this.authRepo.updatePasswordHash(resetToken.user_id, passwordHash);
+    await this.authRepo.markTokenAsUsed(token);
+
+    logSensitiveOperation('password_reset_completed', resetToken.user_id, 'system');
   }
 }

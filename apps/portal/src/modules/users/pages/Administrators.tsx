@@ -26,6 +26,8 @@ interface CreateUserData {
   name: string;
   email: string;
   password: string;
+  /** Apenas formulário; não enviado à API */
+  passwordConfirm?: string;
 }
 
 function getAuthHeaders() {
@@ -58,10 +60,13 @@ export function Administrators() {
     onConfirm: () => {},
   });
 
+  const [passwordConfirmFieldError, setPasswordConfirmFieldError] = useState('');
+
   const [formData, setFormData] = useState<CreateUserData>({
     name: '',
     email: '',
     password: '',
+    passwordConfirm: '',
   });
 
   useEffect(() => {
@@ -96,18 +101,21 @@ export function Administrators() {
         name: user.name,
         email: user.email,
         password: '',
+        passwordConfirm: '',
       });
     } else {
       setEditingUser(null);
-      setFormData({ name: '', email: '', password: '' });
+      setFormData({ name: '', email: '', password: '', passwordConfirm: '' });
     }
+    setPasswordConfirmFieldError('');
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
-    setFormData({ name: '', email: '', password: '' });
+    setPasswordConfirmFieldError('');
+    setFormData({ name: '', email: '', password: '', passwordConfirm: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +127,11 @@ export function Administrators() {
 
     if (!formData.password && !editingUser) {
       showError('Senha é obrigatória para novos administradores');
+      return;
+    }
+
+    if (!editingUser && formData.password !== formData.passwordConfirm) {
+      setPasswordConfirmFieldError('As senhas não coincidem.');
       return;
     }
 
@@ -401,15 +414,31 @@ export function Administrators() {
               />
             </div>
             {!editingUser && (
-              <div>
+              <div className="space-y-4">
+                <div>
+                  <PasswordInput
+                    label="Senha"
+                    value={formData.password}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      setPasswordConfirmFieldError('');
+                    }}
+                    required
+                    minLength={8}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Mínimo de 8 caracteres</p>
+                </div>
                 <PasswordInput
-                  label="Senha"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  label="Confirmar senha"
+                  value={formData.passwordConfirm ?? ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, passwordConfirm: e.target.value });
+                    setPasswordConfirmFieldError('');
+                  }}
+                  error={passwordConfirmFieldError || undefined}
                   required
                   minLength={8}
                 />
-                <p className="mt-1 text-xs text-slate-500">Mínimo de 8 caracteres</p>
               </div>
             )}
             <div className="flex space-x-3 pt-4">

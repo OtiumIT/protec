@@ -86,9 +86,6 @@ export function FiscalFilesCalibrator() {
       const data = await fiscalFileService.listCalibratorRules(clientId);
       setRules(data);
     } catch (error: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H9',location:'apps/portal/src/modules/fiscal-files/pages/FiscalFilesCalibrator.tsx:loadRules-catch',message:'Calibrator page failed to load rules',data:{clientId:clientId||null,errorMessage:error?.message||'unknown'},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       showError(error?.message || 'Erro ao carregar regras do calibrador');
     } finally {
       setIsLoadingRules(false);

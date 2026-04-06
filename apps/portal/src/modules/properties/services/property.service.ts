@@ -1,9 +1,169 @@
 import apiRequest from '../../../shared/services/api';
-import type { Property, PropertyTransaction, PropertySimulation, SimulateStandaloneInput } from '@shared/core';
+import type {
+  Property,
+  PropertyTransaction,
+  PropertySimulation,
+  SimulateStandaloneInput,
+  IndicesLc214,
+  FiscalIndicesIpcaSeriesResponse,
+} from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
 export interface PropertyWithClient extends Property {
   client_name?: string;
+}
+
+let ipcaSeriesEndpointUnavailable = false;
+const ipcaSeriesInFlight = new Map<string, Promise<FiscalIndicesIpcaSeriesResponse | null>>();
+
+type BcbSerieRow = { data: string; valor: string };
+
+function monthKeyFromBrDate(br: string): string | null {
+  const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}`;
+}
+
+function previousMonthKey(key: string): string {
+  const m = key.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return key;
+  let year = Number(m[1]);
+  let month = Number(m[2]);
+  month -= 1;
+  if (month === 0) {
+    month = 12;
+    year -= 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function compoundPct(values: number[]): number {
+  const factor = values.reduce((acc, pct) => acc * (1 + pct / 100), 1);
+  return Math.round((factor - 1) * 100 * 1_000_000) / 1_000_000;
+}
+
+function compoundFactor(values: number[]): number {
+  const factor = values.reduce((acc, pct) => acc * (1 + pct / 100), 1);
+  return Math.round(factor * 1_000_000) / 1_000_000;
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+function getMesReferenciaFimIpcaParaAnoCalendario(anoCalendario: number): {
+  year: number;
+  month: number;
+} {
+  if (anoCalendario < 2025) return { year: 2025, month: 7 };
+  if (anoCalendario === 2025) return { year: 2025, month: 12 };
+  return { year: anoCalendario - 1, month: 12 };
+}
+
+async function buildIpcaSeriesFromBcb(
+  ano: number,
+  janela = 24
+): Promise<FiscalIndicesIpcaSeriesResponse | null> {
+  try {
+    const n = Math.min(Math.max(Math.trunc(janela), 6), 60);
+    const ref = getMesReferenciaFimIpcaParaAnoCalendario(ano);
+    // A série de auditoria deve mostrar o mês mais recente disponível no BCB
+    // (não apenas o mês de referência do cálculo LC214).
+    const endDate = new Date();
+    const startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    startDate.setMonth(startDate.getMonth() - Math.max(n + 24, 36));
+    const pad2 = (v: number) => String(v).padStart(2, '0');
+    const brDate = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+    const rangeUrl =
+      `https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json` +
+      `&dataInicial=${encodeURIComponent(brDate(startDate))}` +
+      `&dataFinal=${encodeURIComponent(brDate(endDate))}`;
+    const latestUrl =
+      'https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json';
+
+    const urls = [rangeUrl, latestUrl];
+    let raw: BcbSerieRow[] = [];
+    for (const url of urls) {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const payload = (await res.json()) as BcbSerieRow[];
+      if (Array.isArray(payload) && payload.length > 0) {
+        raw = payload;
+        break;
+      }
+    }
+    if (raw.length === 0) return null;
+    const parsedAsc = raw
+      .map((r) => {
+        const mes = monthKeyFromBrDate(r.data);
+        const valor = Number(String(r.valor).replace(',', '.'));
+        if (!mes || !Number.isFinite(valor)) return null;
+        return { mes_referencia: mes, variacao_mensal_pct: valor };
+      })
+      .filter((x): x is { mes_referencia: string; variacao_mensal_pct: number } => !!x)
+      .sort((a, b) => a.mes_referencia.localeCompare(b.mes_referencia));
+
+    if (parsedAsc.length === 0) return null;
+    const monthlyMap = new Map(parsedAsc.map((r) => [r.mes_referencia, r.variacao_mensal_pct]));
+
+    const meses = parsedAsc.map((row) => {
+      const [yearStr, monthStr] = row.mes_referencia.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+
+      const anoVals: number[] = [];
+      for (let mm = 1; mm <= month; mm += 1) {
+        const key = `${year}-${String(mm).padStart(2, '0')}`;
+        anoVals.push(monthlyMap.get(key) ?? 0);
+      }
+
+      const vals12: number[] = [];
+      let cursor = row.mes_referencia;
+      for (let i = 0; i < 12; i += 1) {
+        vals12.push(monthlyMap.get(cursor) ?? 0);
+        cursor = previousMonthKey(cursor);
+      }
+
+      const valsLc214: number[] = [];
+      let y = 2025;
+      let m = 2;
+      while (y < year || (y === year && m <= month)) {
+        const key = `${y}-${String(m).padStart(2, '0')}`;
+        valsLc214.push(monthlyMap.get(key) ?? 0);
+        m += 1;
+        if (m > 12) {
+          m = 1;
+          y += 1;
+        }
+      }
+
+      return {
+        mes_referencia: row.mes_referencia,
+        variacao_mensal_pct: row.variacao_mensal_pct,
+        acumulado_ano_pct: compoundPct(anoVals),
+        acumulado_12m_pct: compoundPct(vals12),
+        fator_lc214_no_mes: compoundFactor(valsLc214),
+      };
+    });
+
+    const mesesRecortados = meses.slice(-n);
+    const mesesFinal = mesesRecortados.length > 0 ? mesesRecortados : meses;
+    const mesMaisRecenteSerie = mesesFinal.length > 0
+      ? mesesFinal[mesesFinal.length - 1]!.mes_referencia
+      : `${ref.year}-${String(ref.month).padStart(2, '0')}`;
+    return {
+      fonte: 'bcb_online',
+      serie_sgs_codigo: 433,
+      data_consulta_bcb: new Date().toISOString(),
+      ano_calendario: ano,
+      mes_referencia_fim: `${ref.year}-${String(ref.month).padStart(2, '0')}`,
+      mes_mais_recente_serie: mesMaisRecenteSerie,
+      meses: mesesFinal,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function getAuthHeaders() {
@@ -392,6 +552,81 @@ export const propertyService = {
       }
     );
     return response.data;
+  },
+
+  async getFiscalIndicesIpca(ano: number): Promise<IndicesLc214> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: IndicesLc214 }>(
+      `/api/v1/properties/fiscal-indices/ipca?ano=${encodeURIComponent(String(ano))}`,
+      { token, tenantId }
+    );
+    const preview = response.data;
+
+    // Ajuste de compatibilidade: se a API local ainda estiver com referência antiga
+    // e a série já tiver meses do próprio ano (ex.: 01/2026 e 02/2026), atualiza a prévia.
+    try {
+      const series = await this.getFiscalIndicesIpcaSeries(ano, 24);
+      const latest = series?.meses?.[series.meses.length - 1];
+      if (
+        latest &&
+        latest.mes_referencia.startsWith(`${ano}-`) &&
+        latest.mes_referencia > preview.mes_referencia_fim
+      ) {
+        const fatorNovo = latest.fator_lc214_no_mes;
+        const fatorAntigo = preview.fator_acumulado_desde_publicacao || 1;
+        const baseLim240 = preview.limite_receita_pf_contribuinte / fatorAntigo;
+        const baseLim288 = preview.limite_receita_pf_absoluto / fatorAntigo;
+        return {
+          ...preview,
+          mes_referencia_fim: latest.mes_referencia,
+          fator_acumulado_desde_publicacao: fatorNovo,
+          redutor_social_mensal_efetivo: round2(preview.redutor_social_mensal_nominal * fatorNovo),
+          limite_receita_pf_contribuinte: round2(baseLim240 * fatorNovo),
+          limite_receita_pf_absoluto: round2(baseLim288 * fatorNovo),
+        };
+      }
+    } catch {
+      // Mantém resposta original caso a série não esteja disponível.
+    }
+    return preview;
+  },
+
+  async getFiscalIndicesIpcaSeries(
+    ano: number,
+    janela = 24
+  ): Promise<FiscalIndicesIpcaSeriesResponse | null> {
+    const key = `${ano}:${janela}`;
+    const running = ipcaSeriesInFlight.get(key);
+    if (running) return running;
+
+    const task = (async (): Promise<FiscalIndicesIpcaSeriesResponse | null> => {
+    if (ipcaSeriesEndpointUnavailable) {
+      return buildIpcaSeriesFromBcb(ano, janela);
+    }
+    const { token, tenantId } = getAuthHeaders();
+    try {
+      const response = await apiRequest<{ data: FiscalIndicesIpcaSeriesResponse }>(
+        `/api/v1/properties/fiscal-indices/ipca/series?ano=${encodeURIComponent(
+          String(ano)
+        )}&janela=${encodeURIComponent(String(janela))}`,
+        { token, tenantId }
+      );
+      return response.data;
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : '').toLowerCase();
+      if (msg.includes('404') || msg.includes('not found')) {
+        ipcaSeriesEndpointUnavailable = true;
+        return buildIpcaSeriesFromBcb(ano, janela);
+      }
+      throw err;
+    }
+    })();
+    ipcaSeriesInFlight.set(key, task);
+    try {
+      return await task;
+    } finally {
+      ipcaSeriesInFlight.delete(key);
+    }
   },
 
   async aggregatePreview(

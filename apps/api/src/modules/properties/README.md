@@ -89,10 +89,14 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 ### Regra 8: Cenário Reforma 2027
 
 - IBS/CBS com alíquota nominal estimada configurável (padrão 26,5%; faixa típica 26,5% a 28%)
-- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota (longa duração, acima de 90 dias) e 50% (curta temporada, até 90 dias) → efetiva = nominal × (1 − redutor). Padrão `redutor_locacao_pct: 70`.
-- **Redutor social (Art. 260 LC 214/2025)**: R$ 600/mês por imóvel residencial, deduzido da base **apenas** na parcela de longa duração. Curta temporada (até 90 dias) não recebe redutor social.
+- **Redutor para locação**: o setor imobiliário tem redução de 70% na alíquota (longa duração, > 90 dias — Art. 261 § único) e 40% (curta temporada, ≤ 90 dias, equiparada a hotelaria — Art. 281) → efetiva = nominal × (1 − redutor). Padrão `redutor_locacao_pct: 70`. Não residencial sempre usa 70%.
+- **Redutor social (Art. 260 LC 214/2025, redação dada pela LC 227/2026)**: valor **nominal** R$ 600/mês por imóvel residencial de **longa duração** (> 90 dias), corrigido pelo IPCA e **multiplicado por 12 meses** × quantidade de imóveis de longa duração (teto anual dedutível da base, limitado à receita de longa duração). Curta temporada (≤ 90 dias) é equiparada a hotelaria (Arts. 253/278 LC 214/2025) e **não recebe** redutor social. Locação não residencial também não recebe.
+- **Campos na resposta (transparência)**: `redutor_social_base_deduzida_anual` = valor em R$ efetivamente abatido da **base** (receita longa) no ano; `redutor_social_aplicado` = **redução do IBS/CBS** em R$ (base abatida × alíquota efetiva da parcela longa). A UI não deve confundir os dois (o segundo é bem menor que o teto mensal × imóveis).
+- **Correção IPCA (parâmetros LC 214)**: o backend compõe fator acumulado a partir da **variação mensal % do IPCA** (BCB SGS, série 433), de **fev/2025** (mês seguinte à publicação da LC 214 em 16/01/2025) até o mês de referência derivado do **ano-calendário** da simulação (ex.: ano 2026 → IPCA até dez/2025; ano 2025 → até dez/2025). Esse fator atualiza o **redutor social mensal** e os **limites de receita** para enquadramento de PF contribuinte de IBS/CBS (nominais R$ 240k / R$ 288k na data de publicação). Cache TTL ~24h na API; se o BCB falhar, usa-se snapshot embutido (`ipca-fallback-series`) e `indices_lc214.ipca_fonte` indica `embutido` ou `cache`.
+- **Overrides**: `opcoes_reforma` aceita `limite_receita_contribuinte_pf_manual`, `limite_receita_absoluto_contribuinte_pf_manual`, `redutor_social_mensal_manual` e o já existente `redutor_social_residencial_anual` (anual total). A resposta inclui `indices_lc214` com `parametros_origem` para transparência.
+- **GET /properties/fiscal-indices/ipca?ano=** — preview dos índices para o ano-calendário (mesma lógica do cálculo).
 - **Reforma PJ**: `reforma_2027_pj.imposto_total` = IBS/CBS + IRPJ + CSLL (PIS/COFINS substituídos por IBS/CBS; IRPJ e CSLL sobre lucro presumido).
-- **Reforma PF**: quando a PF **não** é contribuinte de IBS/CBS (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k), `reforma_2027_pf.imposto_total` = apenas IR (Carnê-Leão), `reforma_2027_pf.ibs_cbs_liquido` = 0. No comparativo de cenários do portal, a coluna Reforma PF exibe "—" (não se aplica) nesses casos.
+- **Reforma PF**: quando a PF **não** é contribuinte de IBS/CBS (LC 214/2025: até 3 imóveis e receita ≤ limite absoluto indexado; ou receita ≤ limite “com mais de 3 imóveis” conforme regra), `reforma_2027_pf.imposto_total` = apenas IR (Carnê-Leão), `reforma_2027_pf.ibs_cbs_liquido` = 0. No comparativo de cenários do portal, a coluna Reforma PF exibe "—" (não se aplica) nesses casos.
 - Créditos sobre custos operacionais deduzem do imposto sobre receita
 - Opção `opcoes_reforma.redutor_locacao_pct` (0–100); se omitido, usa 70
 
@@ -110,7 +114,12 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - **Módulos**: Feature toggle `GESTAO_IMOVEIS`
 - **Repositories**: `ClientRepository` (validação de cliente)
 - **Tabelas**: `properties`, `property_transactions`, `property_monthly_totals` (tenant), `clients` (tenant)
-- **Migrations relevantes**: `036_properties.sql`, `038_property_monthly_totals.sql`, `046_property_simulations.sql`, `049_property_transactions_fiscal_credit.sql`, `050_properties_defaults.sql`
+- **Migrations relevantes**: `036_properties.sql`, `038_property_monthly_totals.sql`, `046_property_simulations.sql`, `050_properties_defaults.sql`, `051_properties_rent_and_nature.sql`, `052_property_transactions_fiscal_credit.sql`
+
+## Grid de cadastro (portal)
+
+- **Duplicar linha**: ação apenas no frontend; insere um **rascunho** abaixo da linha de origem copiando aluguel, `tipo_locacao`, `natureza_locacao` e todos os *defaults* mensais (`*_mensal_padrao`). O **identificador** recebe sufixo ` (cópia)` quando havia texto. **Matrícula, inscrição IPTU e cartório não são copiados** — cada bem deve ter documentação própria (rastreabilidade e alinhamento com a Regra 3.2: revisão manual após OCR ou sugestões).
+- **Seleção em massa**: checkbox no cabeçalho da grade marca ou desmarca todas as linhas **elegíveis para simulação** (`valor_aluguel_mensal` > 0), sem alterar linhas vazias ou sem aluguel.
 
 ## Matriz de Uso dos Campos de Cadastro
 
@@ -134,6 +143,16 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
   - retorna metadado (`metadata.usou_defaults_cadastro`) para transparência no frontend.
 - `calcularPJ` suporta `aplicar_equiparacao_hospitalar` na fórmula (8% IRPJ e 12% CSLL).
 - `calcularReforma2027` aceita `fator_credito_custos_operacionais` para modular créditos por elegibilidade de lançamentos.
+- **Modelo split (residencial + não residencial)**: quando há receita de ambos os tipos e redutor social > 0, o motor aplica os redutores de longa (70%, Art. 261) e curta (40%, Art. 281) duração proporcionalmente na receita residencial. Imóveis não residenciais sempre utilizam redutor 70% (longa duração). O retorno inclui `redutor_diferenciado_short: true` quando ambos os redutores são usados. Redutor social Art. 260 aplica-se **somente** a imóveis residenciais de longa duração (novo campo `quantidade_imoveis_residenciais_longa`).
+- **Auto-detecção de perfil misto**: tanto `simulate` quanto `simulateStandalone` detectam automaticamente quando há receita longa e curta (e `perfil_locacao` não foi definido), ativando `usar_ambos_redutores = true`.
+- **Projeção 2027-2033 (portal)**: a tabela ano-a-ano deriva o fator de redução diretamente do resultado do backend (`ibs_cbs_sobre_receita / receita / (aliquota_nominal / 100)`), garantindo que o valor de 2033 seja consistente com o card de resultado.
+
+### Uso em `simulate` vs `aggregatePreview`
+
+- **`aggregate-preview`** (e o carregamento da grade no portal) separa receita **tradicional** vs **curta temporada** por imóvel conforme `tipo_locacao` (`fixa` → tradicional; `flexivel` → curto).
+- **`POST /properties/simulate`** (com `property_ids`) usa o mesmo agregado mensal: para cada mês e imóvel, a receita base segue a mesma regra (lançamento do mês ou `valor_aluguel_mensal`). Em seguida acumula **anualmente** `receita_longa_total` e `receita_short_total` (fixa → longa, flexível → curta) e repassa a `calcularReforma2027` com `usar_ambos_redutores` / `usar_redutor_diferenciado_short` coerentes com `opcoes_reforma.perfil_locacao`, alinhado ao `simulate-standalone`. Se `perfil_locacao` não for enviado e existir receita longa **e** curta derivadas do cadastro, o serviço assume perfil **ambos** para o motor da Reforma.
+- **`POST /properties/simulate-standalone`**: mesma auto-detecção — se `perfil_locacao` não for enviado e `receita_aluguel_tradicional` + `receita_aluguel_curto` ambos > 0, assume perfil **ambos**.
+- **`perfil_locacao` global** (residencial comum, hospedagem/temporada ou ambos) deve refletir a carteira: carteira mista fixa + flexível combina com **ambos**; o portal pré-seleciona **ambos** ao carregar imóveis nessa situação.
 
 ## Fluxos e Endpoints
 

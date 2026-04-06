@@ -49,3 +49,18 @@ export const RefreshTokenSchema = z.object({
 export const LogoutSchema = z.object({
   token: z.string().min(1),
 });
+
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email('E-mail inválido'),
+});
+
+export const ResetPasswordSchema = z
+  .object({
+    token: z.string().min(1, 'Token inválido'),
+    password: z.string().min(8, 'A senha deve ter no mínimo 8 caracteres'),
+    confirmPassword: z.string().min(8, 'A confirmação de senha deve ter no mínimo 8 caracteres'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  });

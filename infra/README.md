@@ -95,3 +95,7 @@ Crie o secret/parâmetro na AWS e altere o template para usar `!Sub` com a sinta
 ## Outputs
 
 Após o deploy, a URL da API aparece em Outputs → `ApiUrl`. Use essa URL em `VITE_API_URL` no Cloudflare Pages.
+
+## Workers Python (EC2 + systemd)
+
+Instancia EC2 `t3a.nano` com servico systemd `protec-worker`. Deploy via GitHub Actions + SSM Run Command. Ver [`docs/DEPLOY_WORKERS.md`](../docs/DEPLOY_WORKERS.md).

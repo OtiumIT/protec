@@ -51,10 +51,10 @@ export function QuemSomos() {
               </div>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start lg:mt-auto lg:mb-1">
                 <Link
-                  to="/register"
+                  to="/login"
                   className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg bg-landing-cta px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-landing-cta focus:ring-offset-2 focus:ring-offset-[#0f172a]"
                 >
-                  Quero transformar minhas oportunidades
+                  Entrar no sistema
                 </Link>
                 <Link
                   to="/fale-conosco"

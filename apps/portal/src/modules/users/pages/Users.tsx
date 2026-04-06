@@ -29,6 +29,8 @@ interface CreateUserData {
   name: string;
   email: string;
   password: string;
+  /** Apenas formulário; não enviado à API */
+  passwordConfirm?: string;
   role: 'admin' | 'user';
 }
 
@@ -86,10 +88,13 @@ export function Users() {
     onConfirm: () => {},
   });
 
-  const [formData, setFormData] = useState<CreateUserData & { password?: string; status?: 'active' | 'inactive' }>({
+  const [passwordConfirmFieldError, setPasswordConfirmFieldError] = useState('');
+
+  const [formData, setFormData] = useState<CreateUserData & { status?: 'active' | 'inactive' }>({
     name: '',
     email: '',
     password: '',
+    passwordConfirm: '',
     role: 'user',
     status: 'active',
   });
@@ -162,20 +167,23 @@ export function Users() {
         name: user.name,
         email: user.email,
         password: '',
+        passwordConfirm: '',
         role: user.role,
         status: user.status || 'active',
       });
     } else {
       setEditingUser(null);
-      setFormData({ name: '', email: '', password: '', role: 'user', status: 'active' });
+      setFormData({ name: '', email: '', password: '', passwordConfirm: '', role: 'user', status: 'active' });
     }
+    setPasswordConfirmFieldError('');
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
-    setFormData({ name: '', email: '', password: '', role: 'user', status: 'active' });
+    setPasswordConfirmFieldError('');
+    setFormData({ name: '', email: '', password: '', passwordConfirm: '', role: 'user', status: 'active' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,6 +195,11 @@ export function Users() {
 
     if (!formData.password && !editingUser) {
       showError('Senha é obrigatória para novos usuários');
+      return;
+    }
+
+    if (!editingUser && formData.password !== formData.passwordConfirm) {
+      setPasswordConfirmFieldError('As senhas não coincidem.');
       return;
     }
 
@@ -652,15 +665,31 @@ export function Users() {
               required
             />
             {!editingUser && (
-              <div>
+              <div className="space-y-4">
+                <div>
+                  <PasswordInput
+                    label="Senha"
+                    value={formData.password}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      setPasswordConfirmFieldError('');
+                    }}
+                    required
+                    minLength={8}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Mínimo de 8 caracteres</p>
+                </div>
                 <PasswordInput
-                  label="Senha"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  label="Confirmar senha"
+                  value={formData.passwordConfirm ?? ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, passwordConfirm: e.target.value });
+                    setPasswordConfirmFieldError('');
+                  }}
+                  error={passwordConfirmFieldError || undefined}
                   required
                   minLength={8}
                 />
-                <p className="mt-1 text-xs text-slate-500">Mínimo de 8 caracteres</p>
               </div>
             )}
             <div>

@@ -22,7 +22,6 @@
     @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
   }
 
-  /* Evita quebra de página no meio de blocos ao exportar PDF (html2pdf) */
   .pdf-keep-together,
   .keep {
     break-inside: avoid;
@@ -30,16 +29,31 @@
   }
 }
 
-/* Impressão: apenas o resultado do simulador tributário (Exportar PDF) */
+/* ══════════════════════════════════════════════════════════════════════
+   IMPRESSÃO — Relatórios institucionais (window.print)
+   Header fixo 1.8 cm · Footer fixo 1 cm · Margens @page proporcionais
+   ══════════════════════════════════════════════════════════════════════ */
 @media print {
   @page {
     size: A4;
-    /* Margens um pouco menores para aproveitar mais a largura,
-       mas ainda com respiro profissional nas bordas */
-    margin: 1.6cm 0.7cm 1.4cm 0.7cm;
+    margin: 1.6cm 0.8cm 1.4cm 0.8cm;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  /*
+   * Relatórios com header/footer position:fixed:
+   * top  >= header (1.8cm) + folga (0.4cm) = 2.2cm
+   * bottom >= footer (1cm) + folga (0.3cm) = 1.3cm
+   */
+  @page institutional-report {
+    size: A4;
+    margin: 2.2cm 0.8cm 1.3cm 0.8cm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Base ── */
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -47,34 +61,6 @@
   body * {
     visibility: hidden;
   }
-  /* Relatórios window.print: wrapper com cabeçalho/rodapé por página */
-  .report-print-wrapper,
-  .report-print-wrapper * {
-    visibility: visible;
-  }
-  #simulador-tributario-resultado-print,
-  #simulador-tributario-resultado-print * {
-    visibility: visible;
-  }
-  /* Quando movido para body: esconder irmãos (Layout) para evitar páginas em branco */
-  body > *:not(.report-print-wrapper):not(#rating-validator-resultado-print) {
-    display: none !important;
-  }
-  /* Impressão resumida: esconder Memória de Cálculo */
-  #simulador-tributario-resultado-print[data-print-resumida="true"] .print-memoria-calculo {
-    display: none !important;
-  }
-  /* Impressão completa: Memória de Cálculo deve quebrar em múltiplas páginas */
-  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo,
-  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo * {
-    page-break-inside: auto !important;
-    break-inside: auto !important;
-  }
-  /* Manter tabelas íntegras (não quebrar linha no meio) mas permitir que seções quebrem */
-  #simulador-tributario-resultado-print[data-print-resumida="false"] .print-memoria-calculo tr {
-    page-break-inside: avoid;
-  }
-  /* Evitar corte de conteúdo: ancestrais sem restrição de altura/overflow */
   html, body {
     height: auto !important;
     overflow: visible !important;
@@ -86,103 +72,27 @@
     min-height: unset !important;
     height: auto !important;
   }
-  /* Resultado dentro do wrapper: fluxo normal; sem absolute (evita sobreposição ao cabeçalho fixo) */
-  .report-print-wrapper #simulador-tributario-resultado-print {
-    position: static !important;
-    left: auto;
-    top: auto;
-    right: auto;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    padding: 1rem 1.25rem;
-    background: white;
-    overflow: visible;
-    box-sizing: border-box;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  #simulador-tributario-resultado-print * {
-    overflow: visible !important;
-    box-sizing: border-box;
-  }
-  /* Tabelas: fonte legível e estrutura preservada */
-  #simulador-tributario-resultado-print table {
-    width: 100% !important;
-    table-layout: fixed;
-    page-break-inside: auto;
-    font-size: 0.7rem;
-    border-collapse: collapse;
-  }
-  #simulador-tributario-resultado-print th,
-  #simulador-tributario-resultado-print td {
-    padding: 0.3rem 0.4rem !important;
-  }
-  #simulador-tributario-resultado-print .overflow-x-auto {
-    overflow-x: visible !important;
-  }
-  #simulador-tributario-resultado-print tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-  #simulador-tributario-resultado-print thead {
-    display: table-header-group;
-  }
-  /* Cards dos cenários: evitar corte, manter cada card íntegro */
-  #simulador-tributario-resultado-print .grid > *,
-  #simulador-tributario-resultado-print .rounded-xl,
-  #simulador-tributario-resultado-print .rounded-2xl {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  /* Garantir que cabeçalho e primeiros cards não sejam cortados */
-  #simulador-tributario-resultado-print > *:first-child {
-    page-break-after: avoid;
-  }
-  /* Cada card de cenário mantém-se íntegro (não quebra no meio) */
-  #simulador-tributario-resultado-print .grid:first-of-type > * {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
 
-  /* Impressão: resultado do Rating Validator (Transação Tributária) */
-  #rating-validator-resultado-print,
-  #rating-validator-resultado-print * {
+  /* ── Wrapper institucional (todos os relatórios) ── */
+  .report-print-wrapper,
+  .report-print-wrapper * {
     visibility: visible;
   }
-  #rating-validator-resultado-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-    padding: 1.5rem 2rem;
-    background: white;
+  body > *:not(.report-print-wrapper) {
+    display: none !important;
   }
-
-  /* Impressão: Simulador Imobiliário e Simulador IN 2306 (wrapper institucional) */
   .report-print-wrapper {
+    page: institutional-report;
     position: relative;
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
-    padding: 0.2cm 0.1cm;
-    padding-top: 2.2cm;
-    padding-bottom: 1.6cm;
+    padding: 0.3cm 0.2cm 1.3cm;
     background: white;
     overflow: visible;
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-  /* IN 2306: ajustar offset para não sobrepor o conteúdo no topo */
-  #simulador-tributario-print-wrapper {
-    padding-top: 2.3cm !important;
-    padding-bottom: 1.45cm !important;
-  }
-  #simulador-tributario-print-wrapper #simulador-tributario-resultado-print {
-    padding-top: 0.15cm !important;
   }
   .report-print-wrapper[data-print-moved="true"] {
     position: static !important;
@@ -193,35 +103,45 @@
     max-height: none !important;
     min-height: 0 !important;
   }
+
+  /* ── Header fixo (1.8 cm) ── */
+  /*
+   * Chrome posiciona position:fixed relativo à área de conteúdo (interior das margens @page),
+   * não à borda física do papel. top: -2.2cm = -(@page margin-top) coloca o header no topo
+   * do papel, dentro da margem, sem sobrepor o conteúdo da página.
+   */
   .report-print-wrapper .print-report-header,
   .report-print-wrapper .report-print-header {
     position: fixed;
-    top: 0;
+    top: -2.2cm;
     left: 0;
     right: 0;
-    height: 2cm;
+    height: 1.8cm;
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0 1cm;
+    padding: 0 0.8cm;
     border-bottom: 1px solid #e2e8f0;
     background: white;
     z-index: 9999;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  /* ── Footer fixo (1 cm) ── */
+  /* bottom: -1.3cm = -(@page margin-bottom) → rodapé no fundo do papel, dentro da margem */
   .report-print-wrapper .print-report-footer,
   .report-print-wrapper .report-print-footer {
     position: fixed;
-    bottom: 0;
+    bottom: -1.3cm;
     left: 0;
     right: 0;
-    height: 1.2cm;
+    height: 1cm;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1cm;
-    font-size: 10px;
+    padding: 0 0.8cm;
+    font-size: 9px;
     color: #64748b;
     border-top: 1px solid #e2e8f0;
     background: white;
@@ -229,141 +149,163 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  #simulador-imoveis-resultado-print,
-  #simulador-imoveis-resultado-print * {
+
+  /* ── Conteúdo dentro do wrapper ── */
+  .report-print-wrapper .report-resultado-content {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100%;
+    padding: 0.3cm 0.1cm;
+    background: white;
+    overflow: visible !important;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-print-wrapper .report-resultado-content,
+  .report-print-wrapper .report-resultado-content * {
     overflow: visible !important;
     box-sizing: border-box;
   }
-  #simulador-imoveis-resultado-print .overflow-x-auto {
+  .report-print-wrapper .report-resultado-content .overflow-x-auto {
     overflow-x: visible !important;
   }
-  #simulador-imoveis-resultado-print table {
+
+  /* ── <details>: mostrar conteúdo recolhido no PDF (impressão) ── */
+  /*
+   * Com details fechados, o browser oculta os nós após <summary>.
+   * Forçar display nos filhos diretos (exceto summary) replica “tudo expandido”.
+   * Vale para <details> nativos e para os controlados por React (open=…), pois o DOM mantém os nós.
+   */
+  .report-print-wrapper details > *:not(summary) {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+
+  /* ── Tabelas (padrão para todos os relatórios) ── */
+  .report-print-wrapper table {
     width: 100% !important;
     max-width: 100% !important;
     table-layout: fixed;
     page-break-inside: auto;
+    font-size: 0.75rem;
+    border-collapse: collapse;
   }
-  #simulador-imoveis-resultado-print tr {
-    page-break-inside: avoid;
-  }
-  /* Cards e blocos: evitar corte no meio */
-  .report-print-wrapper .grid > *,
-  .report-print-wrapper .rounded-xl,
-  .report-print-wrapper .rounded-2xl,
-  .report-print-wrapper .rounded-lg {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  /* Tabelas: fonte legível, evitar overflow */
-  #simulador-imoveis-resultado-print td,
-  #simulador-imoveis-resultado-print th {
+  .report-print-wrapper th,
+  .report-print-wrapper td {
     word-break: break-word;
     overflow-wrap: break-word;
-    font-size: 0.7rem;
     padding: 0.3rem 0.4rem !important;
   }
+  .report-print-wrapper tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  .report-print-wrapper thead {
+    display: table-header-group;
+  }
 
-  /* Impressão: IRPF Alta Renda no mesmo padrão do Simulador Imobiliário */
-  #irpf-alta-renda-print-wrapper,
-  #irpf-alta-renda-print-wrapper * {
-    visibility: visible;
-  }
-  /* IRPF: diminuir respiro vertical para evitar 1ª página “vazia” */
-  #irpf-alta-renda-print-wrapper {
-    /* cabeçalho fixo = 2cm; usar apenas um gap discreto */
-    padding-top: 2.05cm !important;
-    /* rodapé fixo = 1.2cm; manter folga menor */
-    padding-bottom: 1.35cm !important;
-  }
-  #irpf-alta-renda-print-wrapper[data-print-mode="resumo"] .irpf-print-params {
-    display: none !important;
-  }
-  #irpf-alta-renda-print-wrapper #irpf-alta-renda-resultado-print {
-    position: static !important;
-    width: 100% !important;
-    max-width: 100%;
-    /* Evita “buraco” no topo: wrapper já reserva espaço do header */
-    padding: 0.35cm 0.2cm !important;
-    background: white;
-    overflow: visible !important;
-  }
-  #irpf-alta-renda-resultado-print * {
-    overflow: visible !important;
-    box-sizing: border-box;
-  }
-  #irpf-alta-renda-resultado-print .overflow-x-auto {
-    overflow-x: visible !important;
-  }
-  #irpf-alta-renda-resultado-print table {
-    width: 100% !important;
-    table-layout: auto;
-  }
-  #irpf-alta-renda-resultado-print .rounded-md,
-  #irpf-alta-renda-resultado-print .rounded-lg,
-  #irpf-alta-renda-resultado-print .rounded-xl {
+  /* ── Cards e blocos: evitar corte no meio ── */
+  .report-print-wrapper .grid > *,
+  .report-print-wrapper .rounded-md,
+  .report-print-wrapper .rounded-lg,
+  .report-print-wrapper .rounded-xl,
+  .report-print-wrapper .rounded-2xl {
     page-break-inside: avoid;
     break-inside: avoid;
   }
+  .report-print-wrapper > *:first-child {
+    page-break-after: avoid;
+  }
+
+  /* ── Capa institucional ── */
+  .report-cover-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ── IN 2306: modo resumida/completa ── */
+  .report-print-wrapper[data-print-resumida="true"] .print-memoria-calculo {
+    display: none !important;
+  }
+  .report-print-wrapper[data-print-resumida="false"] .print-memoria-calculo,
+  .report-print-wrapper[data-print-resumida="false"] .print-memoria-calculo * {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  .report-print-wrapper[data-print-resumida="false"] .print-memoria-calculo tr {
+    page-break-inside: avoid;
+  }
+
+  /* ── IRPF Alta Renda: modo resumo/completo ── */
+  .report-print-wrapper[data-print-mode="resumo"] .irpf-print-params {
+    display: none !important;
+  }
+
+  /* ── Rating Validator: modo resumo/completo ── */
+  .report-print-wrapper[data-pdf-mode="resumo"] .pdf-only-complete {
+    display: none !important;
+  }
+
+  /* ── SimuladorImoveis: cards grandes (exceto gráfico) podem quebrar entre páginas ── */
+  /*
+   * O seletor :not(:has(.print-imoveis-chart-trimestral)) exclui o card do gráfico,
+   * mantendo break-inside: avoid para não cortar o SVG do Recharts no meio.
+   * Os 4 cards de regime ficam dentro do div.grid e não são filhos diretos,
+   * portanto não são afetados por estas regras.
+   */
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)),
+  #simulador-imoveis-resultado-print > .rounded-2xl:not(:has(.print-imoveis-chart-trimestral)) {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  /* Elementos internos (details, rounded-lg) dentro dos cards permitidos também quebram */
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) .rounded-lg,
+  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) details {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
 }
 
-/* Estilos para exportação PDF (html2pdf) - IRPF Alta Renda - evitar corte */
-#irpf-alta-renda-resultado-print .overflow-x-auto,
-#irpf-pdf-content .overflow-x-auto {
-  overflow-x: visible !important;
+/* ══════════════════════════════════════════════════════════════════════
+   FORA DO PRINT — regras que valem na tela
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Preview modal: capa deve ficar visível no preview mesmo sendo hidden na tela */
+.report-preview-inner .report-cover-section,
+.report-preview-content .report-cover-section {
+  display: block !important;
 }
-#irpf-alta-renda-resultado-print .overflow-hidden,
-#irpf-pdf-content .overflow-hidden {
-  overflow: visible !important;
-}
-#irpf-alta-renda-resultado-print table,
-#irpf-pdf-content table {
+
+/* Simulador imóveis — Comparativo trimestral (Recharts): legenda à esquerda */
+.print-imoveis-chart-trimestral .recharts-legend-wrapper {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
   width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  transform: none !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
-#irpf-alta-renda-resultado-print td,
-#irpf-alta-renda-resultado-print th,
-#irpf-pdf-content td,
-#irpf-pdf-content th {
-  word-break: break-word;
-  overflow-wrap: break-word;
+.print-imoveis-chart-trimestral .recharts-legend-item {
+  display: inline-block !important;
+  margin-right: 0.75rem !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+  max-width: 100%;
+}
+.print-imoveis-chart-trimestral .recharts-default-legend {
+  text-align: left !important;
+  width: 100% !important;
+  justify-content: flex-start !important;
 }
 
-/* Rating Validator: modo resumo vs completo no preview/exportação */
+/* Rating Validator: modo resumo vs completo (fora do print — preview) */
 #rating-validator-resultado-print[data-pdf-mode="resumo"] .pdf-only-complete {
   display: none !important;
 }
-
-/* PDF html2pdf: largura A4 (margem 8mm ≈ 194mm), conteúdo em 1 coluna */
-.report-html2pdf-root,
-#irpf-pdf-export-root,
-#irpf-pdf-content #irpf-pdf-export-root {
-  width: 194mm !important;
-  min-width: 194mm !important;
-}
-.report-html2pdf-root .irpf-pdf-resultado,
-#irpf-pdf-export-root .irpf-pdf-resultado,
-#irpf-pdf-export-root .irpf-pdf-resultado > * {
-  width: 100% !important;
-  max-width: 100% !important;
-}
-.report-html2pdf-root .grid,
-#irpf-pdf-export-root .grid {
-  grid-template-columns: 1fr !important;
-}
-.report-html2pdf-root .recharts-responsive-container,
-.report-html2pdf-root [class*="ResponsiveContainer"],
-#irpf-pdf-export-root .recharts-responsive-container,
-#irpf-pdf-export-root [class*="ResponsiveContainer"] {
-  width: 100% !important;
-}
-.report-html2pdf-root .rounded-md,
-.report-html2pdf-root .rounded-lg,
-.report-html2pdf-root .rounded-xl,
-.report-html2pdf-root .rounded-2xl,
-#irpf-pdf-export-root .rounded-md,
-#irpf-pdf-export-root .rounded-lg,
-#irpf-pdf-export-root .rounded-xl,
-#irpf-pdf-export-root .rounded-2xl {
-  width: 100% !important;
-  max-width: none !important;
-}
-

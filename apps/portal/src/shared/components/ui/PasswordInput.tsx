@@ -11,11 +11,16 @@ export function PasswordInput({ label, error, className = '', ...props }: Passwo
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+        <label
+          className={`block text-sm font-medium mb-1 ${error ? 'text-red-600' : 'text-slate-700'}`}
+        >
+          {label}
+        </label>
       )}
       <div className="relative">
         <input
           type={showPassword ? 'text' : 'password'}
+          aria-invalid={error ? true : undefined}
           className={`
             w-full bg-white border border-slate-200 rounded-md px-4 py-2 pr-10
             focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20

@@ -9,7 +9,8 @@ import { AvisoLegal } from './landing/pages/AvisoLegal';
 import { PoliticaPrivacidade } from './landing/pages/PoliticaPrivacidade';
 import { TermosDeUso } from './landing/pages/TermosDeUso';
 import { Login } from './modules/auth/pages/Login';
-import { Register } from './modules/auth/pages/Register';
+import { ForgotPassword } from './modules/auth/pages/ForgotPassword';
+import { ResetPassword } from './modules/auth/pages/ResetPassword';
 import { Dashboard } from './modules/system/pages/Dashboard';
 import { Clients } from './modules/clients/pages/Clients';
 import { Tenants } from './modules/companies/pages/Tenants';
@@ -32,15 +33,24 @@ import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
+import { AccessList } from './modules/access-list/pages/AccessList';
+import { ChangePassword } from './modules/auth/pages/ChangePassword';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+
+  if (user.must_change_password && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function ScrollToTop() {
@@ -68,8 +78,9 @@ function AppRoutes() {
       <ScrollToTop />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<div className="min-h-screen flex items-center justify-center"><p className="text-slate-600">Página em desenvolvimento</p></div>} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/dashboard"
         element={
@@ -248,6 +259,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Glossario />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/access-list"
+        element={
+          <PrivateRoute>
+            <AccessList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/change-password"
+        element={
+          <PrivateRoute>
+            <ChangePassword />
           </PrivateRoute>
         }
       />

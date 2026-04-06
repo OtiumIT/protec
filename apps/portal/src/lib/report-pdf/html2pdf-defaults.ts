@@ -1,11 +1,11 @@
-/** Margem 8 mm ≈ conteúdo útil 194 mm em A4 portrait. */
-export const REPORT_HTML2PDF_MARGIN_MM = 8;
+/** Margem em mm (jsPDF): respiro para quebras multipágina e bloco institucional no topo/rodapé. */
+export const REPORT_HTML2PDF_MARGIN_MM = 10;
 
 /** Opções passadas a html2pdf.js (sem tipagem estrita da lib). */
 export type ReportHtml2PdfOptions = Record<string, unknown>;
 
 /**
- * Opções alinhadas entre Transação Tributária e IRPF Alta Renda.
+ * Opções para exportação html2pdf (Transação Tributária e rotas que usam o mesmo fluxo).
  * Sobrescreva apenas o necessário (filename, html2canvas.width, etc.).
  */
 export function getDefaultReportHtml2PdfOptions(overrides: ReportHtml2PdfOptions = {}): ReportHtml2PdfOptions {

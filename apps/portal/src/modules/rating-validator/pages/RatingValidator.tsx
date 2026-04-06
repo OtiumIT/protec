@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import html2pdf from 'html2pdf.js';
 import {
-  buildReportPdfFilename,
-  getDefaultReportHtml2PdfOptions,
   ReportPrintFooter,
   ReportPrintHeader,
   stripReportExcludedFromClone,
 } from '../../../lib/report-pdf';
+import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { Layout } from '../../../shared/components/layout/Layout';
 import {
   ratingValidatorService,
@@ -449,43 +448,19 @@ export function RatingValidator() {
 
   const handleOpenPdfModal = useCallback(() => setPdfExportModalOpen(true), []);
 
+  const { print: doPrintRating } = useReportPrint('rating-validator-print-wrapper');
+
   const handleExportPdf = useCallback(() => {
-    const el = document.getElementById('rating-validator-resultado-print');
-    if (!el) return;
+    if (!simulationResult) return;
+    setPdfExportModalOpen(false);
     setPdfExporting(true);
-    const clone = el.cloneNode(true) as HTMLElement;
-    stripReportExcludedFromClone(clone, 'pdf');
-    clone.setAttribute('data-pdf-mode', pdfExportMode);
-    const ratingClientName =
-      (saveClientIdForRating && clients.find((c) => c.id === saveClientIdForRating)?.name) ||
-      (formData.client_id && clients.find((c) => c.id === formData.client_id)?.name) ||
-      undefined;
-    const filename = buildReportPdfFilename({
-      productSlug: 'Transacao-Tributaria',
-      extra: ratingClientName || undefined,
+    doPrintRating({
+      beforePrint: (wrapper) => {
+        wrapper.setAttribute('data-pdf-mode', pdfExportMode);
+      },
+      afterPrint: () => setPdfExporting(false),
     });
-    const placeholder = document.createElement('div');
-    placeholder.style.position = 'fixed';
-    placeholder.style.left = '-9999px';
-    placeholder.style.top = '0';
-    placeholder.style.width = '210mm';
-    placeholder.appendChild(clone);
-    document.body.appendChild(placeholder);
-    const run = async () => {
-      try {
-        const opt = getDefaultReportHtml2PdfOptions({ filename });
-        await html2pdf().set(opt as any).from(clone).save();
-        success('PDF exportado com sucesso.');
-      } catch (e) {
-        console.error(e);
-        showError('Falha ao exportar PDF. Tente novamente.');
-      } finally {
-        document.body.removeChild(placeholder);
-        setPdfExporting(false);
-      }
-    };
-    run();
-  }, [success, showError, clients, saveClientIdForRating, formData.client_id, pdfExportMode]);
+  }, [doPrintRating, pdfExportMode, simulationResult]);
 
   useEffect(() => {
     if (!pdfExportModalOpen || !simulationResult || !pdfPreviewContentRef.current) return;
@@ -2056,10 +2031,10 @@ export function RatingValidator() {
             {/* Resultado */}
             {simulationResult && (
               <>
-              {/* Conteúdo dedicado para PDF — off-screen, layout de documento para advogados */}
+              {/* Conteúdo dedicado para PDF — off-screen (legado, mantido para referência futura) */}
               <div
                 id="rating-validator-pdf-content"
-                className="fixed left-[-9999px] top-0 w-[210mm] bg-white text-black p-8 space-y-6"
+                className="hidden"
                 aria-hidden="true"
               >
                 <div className="pdf-keep-together">
@@ -2283,7 +2258,31 @@ export function RatingValidator() {
                 )}
               </div>
 
-              <div id="rating-validator-resultado-print" className="space-y-6 pdf-export-root">
+              <div id="rating-validator-print-wrapper" className="report-print-wrapper mt-6">
+                <ReportPrintHeader
+                  variant="printSheet"
+                  reportTitle="Transação Tributária — Rating Validator"
+                  metaLine={[
+                    `Rating estimado: ${simulationResult.rating_estimado}`,
+                    simulationResult.rating_real ? `Rating RF: ${simulationResult.rating_real}` : null,
+                    `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+                  ].filter(Boolean).join(' · ')}
+                />
+                <ReportCoverSection
+                  variant="printSheet"
+                  title="Transação Tributária — Análise da capacidade de pagamento"
+                  clientName={
+                    (saveClientIdForRating && clients.find((c) => c.id === saveClientIdForRating)?.name) ||
+                    (formData.client_id && clients.find((c) => c.id === formData.client_id)?.name) ||
+                    undefined
+                  }
+                  details={[
+                    { label: 'Rating estimado', value: simulationResult.rating_estimado },
+                    ...(simulationResult.rating_real ? [{ label: 'Rating RF', value: simulationResult.rating_real }] : []),
+                    ...(simulationResult.has_discrepancy ? [{ label: 'Discrepância', value: 'Sim — fundamenta revisão' }] : []),
+                  ]}
+                />
+              <div id="rating-validator-resultado-print" className="space-y-6 report-resultado-content">
                 {simulationResult.is_simulation === false && (
                   <Card className="p-4 border border-indigo-200 bg-indigo-50/70">
                     <p className="text-sm text-indigo-900">
@@ -2316,22 +2315,14 @@ export function RatingValidator() {
                     </div>
                   </div>
                 </Card>
-                {/* Cabeçalho profissional para tela e impressão */}
-                <div id="pdf-header" className="pdf-keep-together flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
-                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                        <path d="M2 17l10 5 10-5" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">IATax Soluções Inteligentes</h2>
-                      <p className="text-sm text-slate-600">Transação Tributária · Análise da capacidade de pagamento</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Relatório gerado em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+                {/* Cabeçalho do resultado + botão Exportar PDF */}
+                <div className="pdf-keep-together flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-1">Resultado da análise — Transação Tributária</h2>
+                    <p className="text-sm text-slate-600">
+                      Rating estimado: <strong>{simulationResult.rating_estimado}</strong>
+                      {simulationResult.rating_real ? <> · Rating RF: <strong>{simulationResult.rating_real}</strong></> : null}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -2343,7 +2334,7 @@ export function RatingValidator() {
                     data-report-exclude="preview"
                   >
                     {pdfExporting ? (
-                      'Gerando PDF...'
+                      'Preparando impressão...'
                     ) : (
                       <>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -2888,7 +2879,7 @@ export function RatingValidator() {
 
                 {/* Salvar simulação no histórico (somente para resultados de simulação) */}
                 {simulationResult.is_simulation !== false && (
-                  <Card className="p-6 border border-slate-200 bg-slate-50/50">
+                  <Card className="p-6 border border-slate-200 bg-slate-50/50 print:hidden" data-report-exclude="preview">
                     <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
                     <p className="text-sm text-slate-600 mb-4">
                       Salve esta simulação para consultar depois no Histórico.
@@ -3171,6 +3162,8 @@ export function RatingValidator() {
                   </div>
                 </Card>
                 </div>
+                </div>
+                <ReportPrintFooter variant="printSheet" />
               </div>
               </>
             )}
@@ -3983,7 +3976,7 @@ export function RatingValidator() {
                   Fechar
                 </Button>
                 <Button type="button" onClick={handleExportPdf} disabled={pdfExporting}>
-                  {pdfExporting ? 'Gerando PDF...' : `Exportar PDF (${pdfExportMode})`}
+                  {pdfExporting ? 'Preparando impressão...' : `Imprimir / Exportar PDF (${pdfExportMode})`}
                 </Button>
               </div>
             </div>

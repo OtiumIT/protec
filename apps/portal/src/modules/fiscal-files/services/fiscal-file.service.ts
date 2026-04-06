@@ -318,9 +318,6 @@ export const fiscalFileService = {
     const query = clientId
       ? `?${new URLSearchParams({ client_id: clientId }).toString()}`
       : '';
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/281573c4-5f2f-4955-859d-61c0fbe4e1f6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5323ff'},body:JSON.stringify({sessionId:'5323ff',runId:'pre-fix',hypothesisId:'H1',location:'apps/portal/src/modules/fiscal-files/services/fiscal-file.service.ts:listCalibratorRules',message:'Requesting calibrator rules from frontend service',data:{apiPath:`/api/v1/fiscal-files/calibrator/rules${query}`,hasTenantId:Boolean(tenantId),hasToken:Boolean(token),clientId:clientId||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const response = await apiRequest<{ data: { rules: SpedCalibratorRule[] } }>(
       `/api/v1/fiscal-files/calibrator/rules${query}`,
       { token, tenantId }

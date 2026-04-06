@@ -26,7 +26,15 @@ import {
   PropertySimulationIdParamSchema,
   TransactionIdParamSchema,
   PropertyTaxSimulationResponseSchema,
+  FiscalIndicesIpcaQuerySchema,
+  FiscalIndicesIpcaSeriesQuerySchema,
+  FiscalIndicesIpcaSeriesResponseSchema,
+  IndicesLc214Schema,
 } from '@shared/core';
+import {
+  getIpcaContextoLc214ParaAno,
+  getIpcaSerieDetalhadaParaAno,
+} from '../fiscal-indices/bcb-ipca.service';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const propertyRoutes = new Hono();
@@ -121,6 +129,41 @@ propertyRoutes.post('/extract-property-doc', async (c) => {
     return errorHandler(err, c);
   }
 });
+
+/** GET /properties/fiscal-indices/ipca — IPCA acumulado LC 214 (preview; mesma série do cálculo) */
+propertyRoutes.get(
+  '/fiscal-indices/ipca',
+  zValidator('query', FiscalIndicesIpcaQuerySchema),
+  async (c) => {
+    try {
+      const { ano } = c.req.valid('query');
+      const ctx = await getIpcaContextoLc214ParaAno(ano);
+      const payload = IndicesLc214Schema.parse({
+        ...ctx,
+        parametros_origem: 'calculado',
+      });
+      return c.json({ data: payload }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** GET /properties/fiscal-indices/ipca/series — série detalhada (mensal, ano, 12m) para auditoria */
+propertyRoutes.get(
+  '/fiscal-indices/ipca/series',
+  zValidator('query', FiscalIndicesIpcaSeriesQuerySchema),
+  async (c) => {
+    try {
+      const { ano, janela } = c.req.valid('query');
+      const data = await getIpcaSerieDetalhadaParaAno(ano, janela);
+      const payload = FiscalIndicesIpcaSeriesResponseSchema.parse(data);
+      return c.json({ data: payload }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
 
 /** POST /properties/simulate - Simular carga tributária PF vs PJ vs Reforma (deve vir antes de /:id) */
 propertyRoutes.post(

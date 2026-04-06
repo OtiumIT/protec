@@ -1,4 +1,4 @@
--- Migration: 049_property_transactions_fiscal_credit
+-- Migration: 052_property_transactions_fiscal_credit
 -- Metadados fiscais para classificar crédito IBS/CBS em custos operacionais
 -- Esta migration roda em schemas de tenant (tenant_{company_id})
 

@@ -10,7 +10,6 @@ import { verifyAccessToken } from '../shared/utils/jwt';
  * 3. Payload do JWT (preferencial para rotas autenticadas)
  */
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
-  const isCalibratorRoute = c.req.path.includes('/api/v1/fiscal-files/calibrator');
   let companyId: string | undefined;
   let companyIdFromJwt: string | undefined;
   let roleFromJwt: string | undefined;
@@ -70,9 +69,29 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
     companyId = companyIdFromJwt;
   }
 
-  // 6. Verificar se é super_admin (não precisa de tenant obrigatório)
+  // 6. super_admin: pode operar sem tenant (rotas só public); com companyId, deve usar o schema do tenant
+  //    (senão SELECT em properties/clients etc. cai em public e retorna "tabela não encontrada").
   if (roleFromJwt === 'super_admin') {
     c.set('companyId', companyId || null);
+    if (companyId) {
+      const company = await query<{ id: string }>(
+        'SELECT id FROM public.companies WHERE id = $1',
+        [companyId]
+      );
+      if (company.rows.length === 0) {
+        return c.json(
+          {
+            error: {
+              message: 'Tenant not found. Verifique se o company_id (X-Tenant-ID ou JWT) existe em companies.',
+              code: 'TENANT_NOT_FOUND',
+              path: c.req.path,
+            },
+          },
+          404
+        );
+      }
+      return runWithTenantClient(companyId, () => next());
+    }
     await next();
     return;
   }
