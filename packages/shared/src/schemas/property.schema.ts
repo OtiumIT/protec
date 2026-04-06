@@ -167,7 +167,7 @@ export const OpcoesReformaSchema = z.object({
   redutor_short_stay_pct: z.number().min(0).max(100).optional().default(40),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: z.boolean().optional().default(false),
-  /** Perfil: residencial_comum (70%), hospedagem_temporada (50%) ou ambos (70%+50% proporcional). */
+  /** Perfil: residencial_comum (70%), hospedagem_temporada (40%, Art. 281) ou ambos (70%+40% proporcional). */
   perfil_locacao: PerfilLocacaoReformaSchema.optional(),
   /**
    * Redutor social anual para locação residencial (LC 214/2025, arts. 259 e 260).
@@ -343,7 +343,7 @@ export const CenarioReforma2027Schema = z.object({
   imposto_transicao_365: z.number().optional(),
   /** true se foi aplicado o regime de transição (3,65%) por ser menor que o regime normal */
   aplicou_transicao_art487: z.boolean().optional(),
-  /** true quando foi aplicado redutor 50% na parte short stay (hospedagem/temporada) */
+  /** true quando foi aplicado redutor 40% na parte short stay (hospedagem/temporada, Art. 281) */
   redutor_diferenciado_short: z.boolean().optional(),
   /** Na ótica PJ em 2027+: IRPJ e CSLL (excl. PIS/COFINS substituídos por IBS/CBS) */
   irpj: z.number().optional(),

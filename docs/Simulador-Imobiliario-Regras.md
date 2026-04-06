@@ -95,9 +95,9 @@ Endpoint: `POST /api/v1/properties/simulate`.
 | **aliquota_ibs_plena** | número (0–100) | 19 | Alíquota plena IBS (%) para transição 2029+. Usado na tabela e no cálculo. |
 | **aliquota_cbs_estimada** | número (0–100) | 9 | Alíquota CBS estimada (%). Em 2027/2028 e 2029+ somada ao IBS. Campos editáveis permitem simulações até definição legal. |
 | **redutor_locacao_pct** | número (0–100) | 70 | Redutor para locação de longa duração (%). Ex.: 70 → paga 30% da alíquota nominal. |
-| **redutor_short_stay_pct** | número (0–100) | 50 | Redutor para curta temporada / hospedagem (%). Usado quando o perfil é "hospedagem_temporada". |
+| **redutor_short_stay_pct** | número (0–100) | 40 | Redutor para curta temporada / hospedagem (%, Art. 281 LC 214/2025). Usado quando o perfil é "hospedagem_temporada". |
 | **contrato_antes_16012025** | booleano | false | Contrato firmado antes de 16/01/2025? Se true, aplica-se o regime de transição do Art. 487 LC 214/25: opção de 3,65% sobre faturamento bruto; o resultado é o menor entre esse valor e o regime normal (débito/crédito). |
-| **perfil_locacao** | enum | — | `residencial_comum` (redutor 70%, locação longa duração), `hospedagem_temporada` (redutor 50%, curta temporada) ou `ambos` (aplica 70% na parte de receita longa duração e 50% na parte curta temporada, proporcionalmente à receita de cada tipo). |
+| **perfil_locacao** | enum | — | `residencial_comum` (redutor 70%, locação longa duração), `hospedagem_temporada` (redutor 40%, curta temporada, Art. 281) ou `ambos` (aplica 70% na parte de receita longa duração e 40% na parte curta temporada, proporcionalmente à receita de cada tipo). |
 
 ---
 
@@ -172,7 +172,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 **Ano de referência:** O card principal permite selecionar o ano de referência (2027–2033). Default 2033 (reforma integral) para alinhar com a projeção.
 
-**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor setorial da alíquota:** para locação imobiliária em geral (residencial e não residencial) aplica‑se redutor de 70% na longa duração e 50% na curta temporada. Conforme perfil: só longa (70% em 100%), só curta (50% em 100%) ou **ambos** (70% na receita de longa duração e 50% na de curta temporada, proporcionalmente).
+**Escalonamento da alíquota (2027/2028 vs 2029+):** 2027 e 2028 = IBS 0,1% (fixo) + CBS (editável, default 9%); 2029+ = IBS (transição com alíquota plena editável) + CBS (editável). **Redutor setorial da alíquota:** para locação imobiliária em geral (residencial e não residencial) aplica‑se redutor de 70% na longa duração e 40% na curta temporada (Art. 281 LC 214/2025). Conforme perfil: só longa (70% em 100%), só curta (40% em 100%) ou **ambos** (70% na receita de longa duração e 40% na de curta temporada, proporcionalmente).
 
 **Redutor social (Art. 260 LC 214/2025, redação dada pela LC 227/2026):** R$ 600/mês por imóvel residencial (valor nominal, corrigido mensalmente pelo IPCA a partir da publicação da LC 214 em 16/01/2025), deduzido da **base de cálculo** apenas na parcela de **longa duração** (acima de 90 dias). Curta temporada (até 90 dias) e locação não residencial **não** recebem redutor social.
 
@@ -191,7 +191,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 - O IR considerado é o do cenário “Pessoa Física (Carnê-Leão)” da mesma simulação; em 2027 a PF continua pagando IR sobre a renda e ainda paga IBS/CBS sobre a atividade.
 - **PF não contribuinte de IBS/CBS** (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k): o cenário Reforma PF equivale ao cenário PF atual (só IR). No **comparativo de cenários**, a coluna "Reforma LC 214/2025 PF" exibe **"—"** (não se aplica) para imposto total, alíquota efetiva e diferença.
 
-**Leis/normas:** LC 214/2025 (Art. 261 – redutor 70%; Art. 487 – transição 3,65%); transição 2027-2029 (CBS 9%); redutor 50% hospedagem; EC 132/2023.
+**Leis/normas:** LC 214/2025 (Art. 261 – redutor 70%; Art. 281 – redutor 40% hospedagem; Art. 487 – transição 3,65%); transição 2027-2029 (CBS 9%); EC 132/2023.
 
 ### 3.6 Break-even
 
@@ -282,7 +282,7 @@ Por item (imóvel ou “Simulação” no standalone):
 | **ir_pf** | Valor do IR PF (Carnê-Leão) usado na soma. |
 | **imposto_transicao_365** | (opcional) Valor do imposto a 3,65% (Art. 487) quando elegível. |
 | **aplicou_transicao_art487** | (opcional) true se o regime 3,65% foi aplicado por ser menor. |
-| **redutor_diferenciado_short** | (opcional) true quando foi aplicado redutor 50% na parte short stay. |
+| **redutor_diferenciado_short** | (opcional) true quando foi aplicado redutor 40% na parte short stay (Art. 281). |
 
 ### 4.7 cenarios.reforma_2027_pj (Reforma 2027 – ótica PJ)
 
@@ -337,7 +337,7 @@ Lista utilizada na tela e na API para o simulador.
 | **LC 214/2025** | Arts. 257 e 258 | Redutor de ajuste vinculado ao imóvel para reduzir a base de cálculo nas operações de alienação (venda). |
 | **LC 214/2025** | Art. 487 | Opção de 3,65% sobre faturamento bruto para contratos de locação firmados até 16/01/2025 (regime de transição até fim do contrato ou 31/12/2028). |
 | **Transição 2027-2029** | — | Vigência isolada da CBS (9%) em 2027 e 2028; o IBS passa a vigorar a partir de 2029, quando a alíquota nominal IBS+CBS atinge a faixa de 26,5% a 28%. |
-| **Redutor diferenciado** | LC 214/2025 | Redução de 50% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay). |
+| **Redutor diferenciado** | LC 214/2025, Art. 281 | Redução de 40% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay). |
 
 ---
 
@@ -350,13 +350,13 @@ Lista utilizada na tela e na API para o simulador.
 - **CSLL**: 9%.
 - **PIS**: 0,65% sobre receita; **COFINS**: 3% sobre receita.
 - **IN 2.306/2026**: limite trimestral R$ 1.250.000; limite anual R$ 5.000.000; fator de acréscimo 1,1 (10%).
-- **Reforma**: redutor locação longa duração 70%; redutor curta temporada 50%; 2027/2028 IBS 0,1% + CBS (editável); 2029+ IBS (transição) + CBS (editável); regime de transição Art. 487 = 3,65% sobre receita bruta.
+- **Reforma**: redutor locação longa duração 70%; redutor curta temporada 40% (Art. 281); 2027/2028 IBS 0,1% + CBS (editável); 2029+ IBS (transição) + CBS (editável); regime de transição Art. 487 = 3,65% sobre receita bruta.
 
 ---
 
 ## 7. Observações da tela (UI)
 
-- **Opções da Reforma 2027**: a tela exibe um card com (1) checkbox **"Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487)"** e (2) seletor **Perfil de locação**: Locação de longa duração (Redutor 70%), Locação de curta temporada (Redutor 50%). Em 2027/2028 incide IBS e CBS; a partir de 2029, IBS + CBS.
+- **Opções da Reforma 2027**: a tela exibe um card com (1) checkbox **"Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487)"** e (2) seletor **Perfil de locação**: Locação de longa duração (Redutor 70%), Locação de curta temporada (Redutor 40%, Art. 281). Em 2027/2028 incide IBS e CBS; a partir de 2029, IBS + CBS.
 - **Alíquotas editáveis**: campos para **Alíquota plena IBS (%)** e **Alíquota CBS estimada (%)** permitem simulações até a definição legal (previsão fim de 2026).
 - No card **Reforma 2027 – Pessoa Física**, o total e a alíquota são calculados no front como **IR (cenário PF atual) + IBS/CBS líquido**, para garantir consistência.
 - O breakdown exibido é: **IR (Carnê-Leão, mesmo de hoje): X + IBS/CBS: Y = total acima.**

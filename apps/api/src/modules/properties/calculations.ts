@@ -408,9 +408,9 @@ export interface OpcoesReformaCalculo {
   redutor_short_stay_pct?: number;
   /** Regime transição: 3,65% sobre receita; resultado = min(3,65%, regime normal) */
   contrato_antes_16012025?: boolean;
-  /** Se true, aplica 50% no montante de receita short e 70% no long (quando short > long) */
+  /** Se true, aplica 40% no montante de receita short e 70% no long (quando short > long) */
   usar_redutor_diferenciado_short?: boolean;
-  /** Se true (perfil "ambos"), aplica 70% na parte longa e 50% na curta, proporcional à receita de cada tipo. */
+  /** Se true (perfil "ambos"), aplica 70% na parte longa e 40% na curta, proporcional à receita de cada tipo. */
   usar_ambos_redutores?: boolean;
   receita_longa_total?: number;
   receita_short_total?: number;
@@ -430,7 +430,7 @@ export interface OpcoesReformaCalculo {
 /**
  * Cenário Reforma: IBS/CBS com créditos sobre custos.
  * 2027/2028: IBS 0,1% (fixo) + CBS (editável); 2029+: IBS (transição) + CBS (editável).
- * Redutor 70% locação residencial; 50% curta temporada quando dominante (Art. 261).
+ * Redutor 70% locação residencial; 40% curta temporada (Art. 281 LC 214/2025).
  * Regime transição Art. 487: opção 3,65% sobre faturamento (contratos antes 16/01/2025).
  */
 export function calcularReforma2027(
@@ -451,7 +451,7 @@ export function calcularReforma2027(
   /** Regime transição Art. 487 aplicado (imposto a 3,65%) */
   imposto_transicao_365?: number;
   aplicou_transicao_art487?: boolean;
-  /** Quando redutor proporcional: 50% na parte short, 70% na long */
+  /** Quando redutor proporcional: 40% na parte short, 70% na long */
   redutor_diferenciado_short?: boolean;
   /** Percentuais aplicados quando redutor diferenciado (para exibição na UI). */
   redutor_long_pct?: number;

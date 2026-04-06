@@ -90,7 +90,7 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
   {
     cenario: 'reforma',
     norma: 'Redutor diferenciado (LC 214/2025)',
-    descricao: 'Redução de 50% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay).',
+    descricao: 'Redução de 40% nas alíquotas do IBS/CBS para operações de hospedagem e locação de curtíssima temporada (short stay, Art. 281 LC 214/2025).',
   },
 ];
 

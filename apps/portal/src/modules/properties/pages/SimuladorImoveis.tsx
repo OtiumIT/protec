@@ -2714,59 +2714,57 @@ export function SimuladorImoveis() {
                     {temSplit ? (
                       <>
                         <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-3">Passo 2: IBS/CBS por tipo de imóvel</p>
-                        <table className="w-full mt-1 font-sans text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-200 text-slate-500">
-                              <th className="text-left py-1 pr-2 font-medium">Tipo</th>
-                              <th className="text-right py-1 px-2 font-medium">Receita anual</th>
-                              <th className="text-right py-1 px-2 font-medium">Redutor social</th>
-                              <th className="text-right py-1 px-2 font-medium">Base líquida</th>
-                              <th className="text-right py-1 px-2 font-medium">Alíquota</th>
-                              <th className="text-right py-1 pl-2 font-medium">IBS/CBS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {recResLonga > 0 && (
-                              <tr className="border-b border-slate-100">
-                                <td className="py-1 pr-2 text-slate-700">Residencial longa</td>
-                                <td className="py-1 px-2 text-right">{formatMoney(recResLonga)}</td>
-                                <td className="py-1 px-2 text-right text-emerald-700">
-                                  {baseDeduzida > 0 ? `−${formatMoney(baseDeduzida)}` : '—'}
-                                </td>
-                                <td className="py-1 px-2 text-right font-semibold">{formatMoney(baseResLonga)}</td>
-                                <td className="py-1 px-2 text-right">{aliqEfetivaLonga.toFixed(2)}%</td>
-                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsResLonga)}</td>
-                              </tr>
-                            )}
-                            {recResCurta > 0 && (
-                              <tr className="border-b border-slate-100">
-                                <td className="py-1 pr-2 text-slate-700">Residencial curta</td>
-                                <td className="py-1 px-2 text-right">{formatMoney(recResCurta)}</td>
-                                <td className="py-1 px-2 text-right text-slate-400">—</td>
-                                <td className="py-1 px-2 text-right">{formatMoney(recResCurta)}</td>
-                                <td className="py-1 px-2 text-right">{aliqEfetivaShort.toFixed(2)}%</td>
-                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsResCurta)}</td>
-                              </tr>
-                            )}
-                            {recNaoResAnual > 0 && (
-                              <tr className="border-b border-slate-100">
-                                <td className="py-1 pr-2 text-slate-700">Não residencial</td>
-                                <td className="py-1 px-2 text-right">{formatMoney(recNaoResAnual)}</td>
-                                <td className="py-1 px-2 text-right text-slate-400">—</td>
-                                <td className="py-1 px-2 text-right">{formatMoney(recNaoResAnual)}</td>
-                                <td className="py-1 px-2 text-right">{aliqEfetivaLonga.toFixed(2)}%</td>
-                                <td className="py-1 pl-2 text-right font-semibold text-slate-800">{formatMoney(ibsNaoRes)}</td>
-                              </tr>
-                            )}
-                            <tr className="border-t border-slate-300 font-semibold">
-                              <td className="py-1 pr-2 text-slate-800" colSpan={5}>Total IBS/CBS</td>
-                              <td className="py-1 pl-2 text-right text-slate-800">{formatMoney(ibsTotalTipos)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                        <div className="mt-1 font-sans space-y-2">
+                          {recResLonga > 0 && (
+                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-semibold text-slate-700">Residencial longa</span>
+                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResLonga)}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResLonga)}</span></div>
+                                <div><span className="text-slate-400">Redutor</span> <span className="text-emerald-700 font-medium">{baseDeduzida > 0 ? `−${formatMoney(baseDeduzida)}` : '—'}</span></div>
+                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(baseResLonga)}</span></div>
+                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaLonga.toFixed(2)}%</span></div>
+                              </div>
+                            </div>
+                          )}
+                          {recResCurta > 0 && (
+                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-semibold text-slate-700">Residencial curta</span>
+                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResCurta)}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResCurta)}</span></div>
+                                <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
+                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recResCurta)}</span></div>
+                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaShort.toFixed(2)}%</span></div>
+                              </div>
+                            </div>
+                          )}
+                          {recNaoResAnual > 0 && (
+                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-semibold text-slate-700">Não residencial</span>
+                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsNaoRes)}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recNaoResAnual)}</span></div>
+                                <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
+                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recNaoResAnual)}</span></div>
+                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaLonga.toFixed(2)}%</span></div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-baseline justify-between border-t border-slate-300 pt-1.5">
+                            <span className="text-xs font-semibold text-slate-800">Total IBS/CBS</span>
+                            <span className="text-xs font-bold text-slate-800">{formatMoney(ibsTotalTipos)}</span>
+                          </div>
+                        </div>
 
                         {baseDeduzida > 0 && (
-                          <p className="font-sans text-[11px] text-slate-500 mt-1">
+                          <p className="font-sans text-[11px] text-slate-500 mt-1.5">
                             Redutor social Art. 260: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 meses = {formatMoney(redutorAnual)}
                             {baseDeduzida < redutorAnual ? ' (limitado à receita de longa duração)' : ''}
                           </p>
