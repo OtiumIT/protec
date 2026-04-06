@@ -2721,7 +2721,7 @@ export function SimuladorImoveis() {
                                 <span className="text-xs font-semibold text-slate-700">Residencial longa</span>
                                 <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResLonga)}</span>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
                                 <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResLonga)}</span></div>
                                 <div><span className="text-slate-400">Redutor</span> <span className="text-emerald-700 font-medium">{baseDeduzida > 0 ? `−${formatMoney(baseDeduzida)}` : '—'}</span></div>
                                 <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(baseResLonga)}</span></div>
@@ -2735,7 +2735,7 @@ export function SimuladorImoveis() {
                                 <span className="text-xs font-semibold text-slate-700">Residencial curta</span>
                                 <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResCurta)}</span>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
                                 <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResCurta)}</span></div>
                                 <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
                                 <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recResCurta)}</span></div>
@@ -2749,7 +2749,7 @@ export function SimuladorImoveis() {
                                 <span className="text-xs font-semibold text-slate-700">Não residencial</span>
                                 <span className="text-xs font-bold text-slate-800">{formatMoney(ibsNaoRes)}</span>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
                                 <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recNaoResAnual)}</span></div>
                                 <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
                                 <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recNaoResAnual)}</span></div>
