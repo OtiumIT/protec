@@ -2636,9 +2636,10 @@ export function SimuladorImoveis() {
                 const irpj = refExt.irpj ?? 0;
                 const csll = refExt.csll ?? 0;
                 const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
+                // aliqEfetiva usa debitoBruto (pré-redutor social) para que Passo 1 e Passo 2 sejam consistentes
                 const aliqEfetiva =
                   receita > 0
-                    ? round2((debito / receita) * 100)
+                    ? round2((debitoBruto / receita) * 100)
                     : aliqNominal * (1 - (refExt.redutor_locacao_aplicado_pct ?? 70) / 100);
 
                 return (
@@ -2728,11 +2729,13 @@ export function SimuladorImoveis() {
               const custos = refReforma?.custos_operacionais_total ?? 0;
               const irpjCsll = (result.cenarios.pj.irpj ?? 0) + (result.cenarios.pj.irpj_adicional ?? 0) + (result.cenarios.pj.irpj_postergado ?? 0) + (result.cenarios.pj.csll ?? 0);
               const aliqNominalRef = (refReforma as { aliquota_nominal_ibs_cbs?: number })?.aliquota_nominal_ibs_cbs ?? 26.5;
-              const debitoRef = (refReforma as { ibs_cbs_sobre_receita?: number })?.ibs_cbs_sobre_receita ?? 0;
+              // Usar ibs_cbs_antes_redutor_social (bruto) para fatorReducao; fallback para ibs_cbs_sobre_receita
+              const debitoRefBruto = (refReforma as { ibs_cbs_antes_redutor_social?: number })?.ibs_cbs_antes_redutor_social
+                ?? (refReforma as { ibs_cbs_sobre_receita?: number })?.ibs_cbs_sobre_receita ?? 0;
               const fatorReducao =
                 receita > 0 && aliqNominalRef > 0
-                  ? debitoRef / receita / (aliqNominalRef / 100)
-                  : (100 - (perfilLocacao === 'hospedagem_temporada' ? 50 : 70)) / 100;
+                  ? debitoRefBruto / receita / (aliqNominalRef / 100)
+                  : (100 - (perfilLocacao === 'hospedagem_temporada' ? 40 : 70)) / 100;
 
               const divisor = projecaoModo === 'mensal' ? 12 : 1;
 
