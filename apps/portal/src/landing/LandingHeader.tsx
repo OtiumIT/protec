@@ -40,7 +40,7 @@ export function LandingHeader() {
             </Link>
           ))}
         </nav>
-        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+        <div className="hidden sm:flex items-center flex-shrink-0">
           <Link
             to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2.5 rounded-md transition-colors min-h-[44px] inline-flex items-center"
@@ -48,33 +48,15 @@ export function LandingHeader() {
           >
             Entrar
           </Link>
-          <Link
-            to="/login"
-            className="rounded-lg p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
-            aria-label="Entrar"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </Link>
         </div>
 
-        {/* Mobile: Entrar + ícone + Hamburger */}
+        {/* Mobile: Entrar + Hamburger */}
         <div className="flex sm:hidden items-center gap-2">
           <Link
             to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-3 py-2 rounded-md transition-colors"
           >
             Entrar
-          </Link>
-          <Link
-            to="/login"
-            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
-            aria-label="Entrar"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
           </Link>
           <button
             type="button"
@@ -128,15 +110,6 @@ export function LandingHeader() {
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
                   className="block rounded-lg px-4 py-3 text-base font-semibold text-white bg-landing-cta hover:bg-orange-600 transition-colors text-center"
-                >
-                  Entrar
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block rounded-lg px-4 py-3 text-base font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
                 >
                   Entrar
                 </Link>
