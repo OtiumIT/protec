@@ -255,6 +255,7 @@ export function SimuladorImoveis() {
     aplicar_equiparacao_hospitalar?: boolean;
     quantidade_imoveis: number;
     quantidade_imoveis_residenciais: number;
+    quantidade_imoveis_residenciais_longa?: number;
     quantidade_imoveis_comerciais: number;
     opcoes_reforma: Record<string, unknown>;
     receita_locacao_residencial_anual?: number;
@@ -272,6 +273,7 @@ export function SimuladorImoveis() {
   const [anoReferenciaReforma, setAnoReferenciaReforma] = useState<number>(2033);
   const [projecaoModo, setProjecaoModo] = useState<'anual' | 'mensal'>('anual');
   const [quantidadeImoveisResidenciais, setQuantidadeImoveisResidenciais] = useState<number>(1);
+  const [quantidadeImoveisResidenciaisLonga, setQuantidadeImoveisResidenciaisLonga] = useState<number>(1);
   const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
   const [receitaLocacaoResidencialAnual, setReceitaLocacaoResidencialAnual] = useState<number>(0);
   const [receitaLocacaoNaoResidencialAnual, setReceitaLocacaoNaoResidencialAnual] = useState<number>(0);
@@ -444,6 +446,7 @@ export function SimuladorImoveis() {
     setAliquotaPlenaIBS(19);
     setAliquotaCBS(9);
     setQuantidadeImoveisResidenciais(3);
+    setQuantidadeImoveisResidenciaisLonga(1);
     setQuantidadeImoveisComerciais(2);
     setReceitaLocacaoResidencialAnual(180_000);
     setReceitaLocacaoNaoResidencialAnual(114_000);
@@ -870,7 +873,7 @@ export function SimuladorImoveis() {
       aliquota_ibs_cbs_estimada: ano >= 2027 && ano <= 2028 ? 0.1 + aliquotaCBS : 26.5,
       aliquota_ibs_plena: aliquotaPlenaIBS,
       aliquota_cbs_estimada: aliquotaCBS,
-      redutor_short_stay_pct: 50,
+      redutor_short_stay_pct: 40,
       contrato_antes_16012025: contratoAntes16012025,
       perfil_locacao: perfilLocacao,
     };
@@ -919,12 +922,17 @@ export function SimuladorImoveis() {
     const qtdTotal = usarSelecaoImoveis
       ? selectedPersistedProperties.length + selectedDraftProperties.length
       : quantidadeImoveisTotal;
+    const qLonga = usarSelecaoImoveis
+      ? selectedPersistedProperties.filter((p) => p.natureza_locacao !== 'nao_residencial' && p.tipo_locacao === 'fixa').length +
+        selectedDraftProperties.filter((p) => p.natureza_locacao !== 'nao_residencial' && p.tipo_locacao === 'fixa').length
+      : quantidadeImoveisResidenciaisLonga;
     return {
       usarSelecaoImoveis,
       quantidade_imoveis: qtdTotal || 1,
       quantidade_imoveis_residenciais: usarSelecaoImoveis
         ? quantidadeImoveisResidenciaisSelecionados
         : quantidadeImoveisResidenciais,
+      quantidade_imoveis_residenciais_longa: qLonga,
       quantidade_imoveis_comerciais: usarSelecaoImoveis
         ? quantidadeImoveisComerciaisSelecionados
         : quantidadeImoveisComerciais,
@@ -944,6 +952,7 @@ export function SimuladorImoveis() {
     imoveisSelectedIds,
     imoveisDraftSelecionados,
     quantidadeImoveisResidenciais,
+    quantidadeImoveisResidenciaisLonga,
     quantidadeImoveisComerciais,
     quantidadeImoveisTotal,
     receitaLocacaoResidencialAnual,
@@ -985,6 +994,7 @@ export function SimuladorImoveis() {
           aplicar_equiparacao_hospitalar: false,
           quantidade_imoveis: imv.quantidade_imoveis,
           quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+          quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
           quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
           opcoes_reforma: opcoes,
           receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -997,6 +1007,7 @@ export function SimuladorImoveis() {
           aplicar_equiparacao_hospitalar: false,
           quantidade_imoveis: imv.quantidade_imoveis,
           quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+          quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
           quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
           opcoes_reforma: opcoes,
           receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -1024,6 +1035,7 @@ export function SimuladorImoveis() {
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: imv.quantidade_imoveis,
         quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
         quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -1039,6 +1051,7 @@ export function SimuladorImoveis() {
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: imv.quantidade_imoveis,
         quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
         quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -1069,6 +1082,7 @@ export function SimuladorImoveis() {
         meses?: SimulateStandaloneMesInput[];
         quantidade_imoveis?: number;
         quantidade_imoveis_residenciais?: number;
+        quantidade_imoveis_residenciais_longa?: number;
         quantidade_imoveis_comerciais?: number;
         receita_locacao_residencial_anual?: number;
         receita_locacao_nao_residencial_anual?: number;
@@ -1133,6 +1147,11 @@ export function SimuladorImoveis() {
         setQuantidadeImoveisResidenciais(resolvedRes);
         setQuantidadeImoveisComerciais(resolvedCom);
       }
+      if (input?.quantidade_imoveis_residenciais_longa != null) {
+        setQuantidadeImoveisResidenciaisLonga(input.quantidade_imoveis_residenciais_longa);
+      } else if (resolvedRes !== undefined) {
+        setQuantidadeImoveisResidenciaisLonga(resolvedRes);
+      }
 
       const savedPerfil = input?.opcoes_reforma?.perfil_locacao;
       const perfisValidos: PerfilLocacaoReforma[] = ['residencial_comum', 'hospedagem_temporada', 'ambos'];
@@ -1188,6 +1207,7 @@ export function SimuladorImoveis() {
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: imv.quantidade_imoveis,
         quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
         quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -1203,6 +1223,7 @@ export function SimuladorImoveis() {
         aplicar_equiparacao_hospitalar: false,
         quantidade_imoveis: imv.quantidade_imoveis,
         quantidade_imoveis_residenciais: imv.quantidade_imoveis_residenciais,
+        quantidade_imoveis_residenciais_longa: imv.quantidade_imoveis_residenciais_longa,
         quantidade_imoveis_comerciais: imv.quantidade_imoveis_comerciais,
         opcoes_reforma: opcoes,
         receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
@@ -1610,25 +1631,67 @@ export function SimuladorImoveis() {
               />
               <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-700">Imóveis residenciais (com redutor social)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={quantidadeImoveisResidenciais}
-                  onChange={(e) =>
-                    setQuantidadeImoveisResidenciais(
-                      Math.max(0, parseInt(e.target.value, 10) || 0)
-                    )
-                  }
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
-                />
-                <span className="text-xs text-slate-500">
-                  Redutor social na base do IBS/CBS (LC 214/2025, arts. 259–260, redação dada pela LC 227/2026), corrigido pelo IPCA a partir de jan/2025 — veja o quadro acima ou o resultado após simular.
-                </span>
-              </div>
+            <div className={`grid grid-cols-1 ${perfilLocacao === 'ambos' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
+              {perfilLocacao === 'ambos' ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-slate-700">Residenciais longa duração</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={quantidadeImoveisResidenciaisLonga}
+                      onChange={(e) => {
+                        const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setQuantidadeImoveisResidenciaisLonga(v);
+                        setQuantidadeImoveisResidenciais(v + Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga));
+                      }}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                    />
+                    <span className="text-xs text-slate-500">
+                      Com redutor social Art. 260 LC 214/2025 (R$ 600/mês/imóvel, corrigido IPCA). Só locação residencial {'>'}90 dias gera redutor social.
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-slate-700">Residenciais curta temporada</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga)}
+                      onChange={(e) => {
+                        const curta = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setQuantidadeImoveisResidenciais(quantidadeImoveisResidenciaisLonga + curta);
+                      }}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                    />
+                    <span className="text-xs text-slate-500">
+                      Sem redutor social — equiparada a hotelaria (Arts. 253/278 LC 214/2025). Redutor de alíquota 40% (Art. 281).
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-slate-700">Imóveis residenciais {perfilLocacao === 'residencial_comum' ? '(com redutor social)' : '(sem redutor social)'}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={quantidadeImoveisResidenciais}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                      setQuantidadeImoveisResidenciais(v);
+                      if (perfilLocacao === 'residencial_comum') setQuantidadeImoveisResidenciaisLonga(v);
+                    }}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {perfilLocacao === 'residencial_comum'
+                      ? 'Redutor social Art. 260 LC 214/2025 (R$ 600/mês/imóvel, corrigido IPCA) — locação residencial de longa duração.'
+                      : 'Equiparada a hotelaria (Arts. 253/278 LC 214/2025) — sem redutor social, redutor de alíquota 40% (Art. 281).'}
+                  </span>
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-slate-700">Imóveis comerciais (sem redutor social)</label>
                 <input
@@ -1644,7 +1707,7 @@ export function SimuladorImoveis() {
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
                 />
                 <span className="text-xs text-slate-500">
-                  Entra na contagem total de imóveis (residenciais + comerciais) para verificar se a PF se torna contribuinte de IBS/CBS (limite de 3 imóveis). Ex.: 2 residenciais + 2 comerciais = 4 imóveis.
+                  Entra na contagem total de imóveis (residenciais + comerciais) para verificar se a PF se torna contribuinte de IBS/CBS (limite de 3 imóveis).
                 </span>
               </div>
             </div>
@@ -1673,7 +1736,7 @@ export function SimuladorImoveis() {
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
               >
                 <option value="residencial_comum">Locação de longa duração (Redutor da alíquota 70%)</option>
-                <option value="hospedagem_temporada">Locação de curta temporada (Redutor da alíquota 50%)</option>
+                <option value="hospedagem_temporada">Locação de curta temporada (Redutor da alíquota 40%)</option>
                 <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
               </select>
               <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
@@ -1738,7 +1801,7 @@ export function SimuladorImoveis() {
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
                   <span className="text-xs text-slate-500">
-                    Com redutor social por imóvel/mês (IPCA desde jan/2025, LC 227/2026) e redutor setorial da alíquota (70% longa duração ou 50% curta, conforme perfil escolhido).
+                    Com redutor social por imóvel/mês (IPCA desde jan/2025, LC 227/2026) e redutor setorial da alíquota (70% longa duração ou 40% curta temporada, conforme perfil escolhido).
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -1749,7 +1812,7 @@ export function SimuladorImoveis() {
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
                   <span className="text-xs text-slate-500">
-                    Sem redutor social, mas com o mesmo redutor setorial de alíquota configurado acima (70% longa duração ou 50% curta, conforme perfil).
+                    Sem redutor social, mas com o mesmo redutor setorial de alíquota configurado acima (70% longa duração ou 40% curta temporada, conforme perfil).
                   </span>
                 </div>
               </div>
@@ -2508,7 +2571,7 @@ export function SimuladorImoveis() {
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
               {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
-                <span className="text-slate-500"> (com redutor 70% longa duração e 50% curta temporada)</span>
+                <span className="text-slate-500"> (com redutor 70% longa duração e 40% curta temporada)</span>
               ) : (
                 ((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct != null && (
                   <span className="text-slate-500"> (com redutor {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.redutor_locacao_aplicado_pct ?? 70}% para locação)</span>
@@ -2537,7 +2600,7 @@ export function SimuladorImoveis() {
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
             )}
             {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
-              <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
+              <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
             )}
             <details className="mt-3">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
@@ -2566,6 +2629,10 @@ export function SimuladorImoveis() {
                 const creditos = ref.creditos_ibs_cbs ?? 0;
                 const custos = refExt.custos_operacionais_total ?? 0;
                 const liquido = ref.ibs_cbs_liquido ?? 0;
+                const temRedutorSocial = refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0;
+                const debitoBruto = temRedutorSocial
+                  ? (refExt.ibs_cbs_antes_redutor_social ?? liquido) + creditos
+                  : debito;
                 const irpj = refExt.irpj ?? 0;
                 const csll = refExt.csll ?? 0;
                 const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
@@ -2582,7 +2649,7 @@ export function SimuladorImoveis() {
                     <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(1)}%</span></p>
                     {redutorDiferenciado ? (
                       <>
-                        <p>Redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente à receita de cada tipo.</p>
+                        <p>Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
                         <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(1)}%</span></p>
                       </>
                     ) : (
@@ -2593,20 +2660,20 @@ export function SimuladorImoveis() {
                     )}
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Débito sobre receita</p>
-                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(1)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
+                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(1)}% = <span className="text-slate-800">{formatMoney(debitoBruto)}</span></p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
-                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(1)}% = <span className="text-emerald-700">−{formatMoney(creditos)}</span></p>
+                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(1)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
                     
                     <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: IBS/CBS líquido</p>
-                    {(refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0) ? (
+                    {temRedutorSocial ? (
                       <>
-                        <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800">{formatMoney(refExt.ibs_cbs_antes_redutor_social)}</span></p>
-                        <p>(−) Redutor social Art. 260 LC 214 (R$ 600/imóvel/mês, corrigido IPCA): <span className="text-emerald-700">−{formatMoney(refExt.redutor_social_aplicado ?? 0)}</span></p>
+                        <p>{formatMoney(debitoBruto)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800">{formatMoney(refExt.ibs_cbs_antes_redutor_social ?? liquido)}</span></p>
+                        <p>(−) Redutor social Art. 260 LC 214 (R$ 600/imóvel/mês, corrigido IPCA — apenas longa duração): <span className="text-emerald-700">−{formatMoney(refExt.redutor_social_aplicado ?? 0)}</span></p>
                         <p className="border-t border-slate-200 pt-1">= IBS/CBS líquido: <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
                       </>
                     ) : (
-                      <p>{formatMoney(debito)} − {formatMoney(creditos)} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                      <p>{formatMoney(debitoBruto)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
                     )}
                     
                     {(irpj > 0 || csll > 0) && (
@@ -2723,8 +2790,8 @@ export function SimuladorImoveis() {
             <p className="text-xs text-slate-500 mt-3">
               {projecaoModo === 'mensal' ? 'Valores mensais estimados (total anual ÷ 12). ' : ''}
               {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short || perfilLocacao === 'ambos'
-                ? 'CBS e IBS com redutor da alíquota 70% (longa duração) e 50% (curta temporada), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
-                : `CBS com redutor da alíquota ${perfilLocacao === 'hospedagem_temporada' ? '50%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
+                ? 'CBS e IBS com redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281), aplicados proporcionalmente · IRPJ/CSLL sobre lucro presumido.'
+                : `CBS com redutor da alíquota ${perfilLocacao === 'hospedagem_temporada' ? '40%' : '70%'} · IBS progressivo conforme cronograma LC 214/2025 · IRPJ/CSLL sobre lucro presumido (presunção 16% ou 32%, conforme receita anual).`}
             </p>
           </Card>
 

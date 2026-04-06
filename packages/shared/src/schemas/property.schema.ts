@@ -148,7 +148,7 @@ export const BatchPropertyTransactionSchema = z.object({
   transactions: z.array(PropertyTransactionSchema).min(1),
 });
 
-/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 50%, ou ambos (proporcional) */
+/** Perfil de locação para redutor Reforma: residencial 70%, hospedagem/temporada 40% (Art. 281), ou ambos (proporcional) */
 export const PerfilLocacaoReformaSchema = z.enum(['residencial_comum', 'hospedagem_temporada', 'ambos']);
 export type PerfilLocacaoReforma = z.infer<typeof PerfilLocacaoReformaSchema>;
 
@@ -163,8 +163,8 @@ export const OpcoesReformaSchema = z.object({
   aliquota_cbs_estimada: z.number().min(0).max(100).optional().default(9),
   /** Redutor para locação residencial (reforma): 70 = alíquota efetiva = nominal × 30%. Padrão 70. */
   redutor_locacao_pct: z.number().min(0).max(100).optional(),
-  /** Redutor para curta temporada / hospedagem: 50%. Usado quando perfil é hospedagem. */
-  redutor_short_stay_pct: z.number().min(0).max(100).optional().default(50),
+  /** Redutor para curta temporada / hospedagem: 40% (Art. 281 LC 214/2025). */
+  redutor_short_stay_pct: z.number().min(0).max(100).optional().default(40),
   /** Contrato firmado antes de 16/01/2025? Regime de transição Art. 487 LC 214/25: opção 3,65% sobre faturamento bruto. */
   contrato_antes_16012025: z.boolean().optional().default(false),
   /** Perfil: residencial_comum (70%), hospedagem_temporada (50%) ou ambos (70%+50% proporcional). */
@@ -228,8 +228,10 @@ export const SimulateStandaloneInputSchema = z.object({
   opcoes_reforma: OpcoesReformaSchema.optional(),
   /** Quantidade de imóveis para análise de contribuinte IBS/CBS (Reforma 2027) */
   quantidade_imoveis: z.number().int().min(1).optional(),
-  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  /** Quantidade total de imóveis residenciais (longa + curta), para teste de contribuinte PF IBS/CBS */
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis residenciais de LONGA duração (> 90 dias) — somente estes geram redutor social Art. 260 LC 214/2025 */
+  quantidade_imoveis_residenciais_longa: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). Obrigatório quando misto residencial+comercial. */
@@ -252,8 +254,10 @@ export const SimulatePropertyTaxInputSchema = z.object({
   aplicar_presuncao_16_servicos: z.boolean().optional().default(false),
   aplicar_equiparacao_hospitalar: z.boolean().optional().default(false),
   opcoes_reforma: OpcoesReformaSchema.optional(),
-  /** Quantidade de imóveis residenciais (com direito ao redutor social LC 214/2025) */
+  /** Quantidade total de imóveis residenciais (longa + curta), para teste de contribuinte PF IBS/CBS */
   quantidade_imoveis_residenciais: z.number().int().min(0).optional(),
+  /** Quantidade de imóveis residenciais de LONGA duração (> 90 dias) — somente estes geram redutor social Art. 260 LC 214/2025 */
+  quantidade_imoveis_residenciais_longa: z.number().int().min(0).optional(),
   /** Quantidade de imóveis comerciais (sem redutor social) */
   quantidade_imoveis_comerciais: z.number().int().min(0).optional(),
   /** Receita anual de locação de imóveis residenciais (para redutor social R$ 600 e redutor da alíquota). */

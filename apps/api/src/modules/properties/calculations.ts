@@ -391,8 +391,8 @@ const ALIQUOTA_IBS_2027_2028 = 0.1;
 const ALIQUOTA_CBS_DEFAULT = 9;
 /** Redutor locação residencial comum (LC 214/2025 Art. 261) */
 const REDUTOR_LOCACAO_RESIDENCIAL = 70;
-/** Redutor hospedagem / curta temporada */
-const REDUTOR_SHORT_STAY = 50;
+/** Redutor hospedagem / curta temporada (Art. 281 LC 214/2025) */
+const REDUTOR_SHORT_STAY = 40;
 /** Regime de transição Art. 487: 3,65% sobre receita bruta (contratos até 16/01/2025) */
 const ALIQUOTA_TRANSICAO_ART487 = 3.65;
 
@@ -537,10 +537,8 @@ export function calcularReforma2027(
     const ibsCbsResidencialLong = round2(baseResidencialLong * rateLong);
     const ibsCbsResidencialShort = round2(baseResidencialShort * rateShort);
 
-    // Não residencial: taxa ponderada pela composição longa/curta da carteira
-    const rateNaoResidencial = splitUsouRedutorDiferenciado
-      ? rateLong * partLongResidencial + rateShort * partShortResidencial
-      : rateLong;
+    // Não residencial sempre usa redutor 70% (longa duração) — Art. 261 LC 214/2025
+    const rateNaoResidencial = rateLong;
     const ibsCbsNaoResidencial = round2(receitaNaoResidencial * rateNaoResidencial);
 
     const ibsCbsResidencial = round2(ibsCbsResidencialLong + ibsCbsResidencialShort);

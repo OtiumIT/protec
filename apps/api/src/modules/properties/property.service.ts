@@ -777,7 +777,7 @@ export class PropertyService {
 
     const redutorLocacaoSimulate =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
-        ? 50
+        ? 40
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
 
     const perfilLocacaoReforma = input.opcoes_reforma?.perfil_locacao;
@@ -801,9 +801,16 @@ export class PropertyService {
     const receitaLocacaoNaoResidencialAnualSimulate =
       input.receita_locacao_nao_residencial_anual ?? receitaLocacaoNaoResidencialAnualAuto;
 
+    // Art. 260 LC 214/2025: redutor social só para imóveis residenciais de longa duração (> 90 dias).
+    const quantidadeImoveisResidenciaisLongaSimulate =
+      input.quantidade_imoveis_residenciais_longa ??
+      (perfilLocacaoReforma === 'residencial_comum' || perfilLocacaoReforma === undefined
+        ? quantidadeImoveisResidenciaisSimulate
+        : 0);
+
     const lc214Simulate = await resolveLc214IndicesParaSimulacao({
       anoCalendario: input.ano,
-      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisSimulate,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisLongaSimulate,
       opcoesReforma: input.opcoes_reforma ?? undefined,
     });
     const redutorSocialResidencialAnualSimulate = lc214Simulate.redutorSocialResidencialAnual;
@@ -1117,13 +1124,20 @@ export class PropertyService {
 
     const quantidadeImoveisResidenciaisStandalone =
       input.quantidade_imoveis_residenciais ??
-      // fallback: se não informado, assumir que todos os imóveis são residenciais
       input.quantidade_imoveis ??
       0;
 
+    // Art. 260 LC 214/2025: redutor social só para imóveis residenciais de longa duração (> 90 dias).
+    // Curta temporada é equiparada a hotelaria (Arts. 253/278) e não gera redutor social.
+    const quantidadeImoveisResidenciaisLongaStandalone =
+      input.quantidade_imoveis_residenciais_longa ??
+      (input.opcoes_reforma?.perfil_locacao === 'residencial_comum' || input.opcoes_reforma?.perfil_locacao === undefined
+        ? quantidadeImoveisResidenciaisStandalone
+        : 0);
+
     const lc214Standalone = await resolveLc214IndicesParaSimulacao({
       anoCalendario: input.ano,
-      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisStandalone,
+      quantidadeImoveisResidenciais: quantidadeImoveisResidenciaisLongaStandalone,
       opcoesReforma: input.opcoes_reforma ?? undefined,
     });
     const redutorSocialResidencialAnualStandalone =
@@ -1153,7 +1167,7 @@ export class PropertyService {
     // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
     const redutorLocacao =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
-        ? 50
+        ? 40
         : (input.opcoes_reforma?.redutor_locacao_pct ?? 70);
     let usarRedutorDiferenciado =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada';
