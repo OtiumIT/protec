@@ -24,7 +24,7 @@ export function LandingHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <LogoProvisorio dark variant="iatax" onClick={() => setMobileMenuOpen(false)} className="flex-shrink-0" />
 
-        {/* Desktop: menu centralizado + Criar conta em destaque à direita */}
+        {/* Desktop: menu centralizado + Entrar à direita */}
         <nav className="hidden sm:flex flex-1 justify-center items-center gap-6 lg:gap-8" aria-label="Navegação principal">
           {navLinks.map((link) => (
             <Link
@@ -42,11 +42,11 @@ export function LandingHeader() {
         </nav>
         <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
           <Link
-            to="/register"
+            to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-4 py-2.5 rounded-md transition-colors min-h-[44px] inline-flex items-center"
             onClick={() => setMobileMenuOpen(false)}
           >
-            Criar conta
+            Entrar
           </Link>
           <Link
             to="/login"
@@ -59,13 +59,13 @@ export function LandingHeader() {
           </Link>
         </div>
 
-        {/* Mobile: Criar conta + ícone Entrar + Hamburger */}
+        {/* Mobile: Entrar + ícone + Hamburger */}
         <div className="flex sm:hidden items-center gap-2">
           <Link
-            to="/register"
+            to="/login"
             className="text-sm font-semibold text-white bg-landing-cta hover:bg-orange-600 px-3 py-2 rounded-md transition-colors"
           >
-            Criar conta
+            Entrar
           </Link>
           <Link
             to="/login"
@@ -125,11 +125,11 @@ export function LandingHeader() {
               ))}
               <li className="border-t border-white/10 pt-4 mt-4">
                 <Link
-                  to="/register"
+                  to="/login"
                   onClick={() => setMobileMenuOpen(false)}
                   className="block rounded-lg px-4 py-3 text-base font-semibold text-white bg-landing-cta hover:bg-orange-600 transition-colors text-center"
                 >
-                  Criar conta
+                  Entrar
                 </Link>
               </li>
               <li>

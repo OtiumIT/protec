@@ -22,10 +22,10 @@ export function CTA() {
               Agendar demonstração
             </Link>
             <Link
-              to="/register"
+              to="/login"
               className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-landing-accent focus:ring-offset-2"
             >
-              Criar minha conta
+              Entrar
             </Link>
           </div>
         </div>

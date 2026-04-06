@@ -25,7 +25,7 @@ async function createAdmin() {
   try {
     // 1. Verificar se usuário super_admin já existe
     const existingUser = await query(
-      `SELECT id, email FROM users WHERE email = $1 AND company_id IS NULL LIMIT 1`,
+      `SELECT id, email FROM public.users WHERE lower(trim(email)) = lower(trim($1)) AND tenant_id IS NULL LIMIT 1`,
       [adminEmail]
     );
 
@@ -39,12 +39,12 @@ async function createAdmin() {
     console.log('🔐 Gerando hash da senha...');
     const passwordHash = await hashPassword(adminPassword);
 
-    // 3. Criar usuário super_admin (sem company_id)
+    // 3. Criar usuário super_admin (sem tenant_id)
     console.log('👤 Criando super admin (sem empresa)...');
     const userResult = await query(
-      `INSERT INTO users (email, name, password_hash, company_id, role) 
-       VALUES ($1, $2, $3, NULL, $4) 
-       RETURNING id, email, name, role, company_id, created_at`,
+      `INSERT INTO public.users (email, name, password_hash, tenant_id, role, status) 
+       VALUES ($1, $2, $3, NULL, $4, 'active') 
+       RETURNING id, email, name, role, tenant_id, created_at`,
       [adminEmail, adminName, passwordHash, 'super_admin']
     );
 

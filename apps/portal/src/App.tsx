@@ -9,7 +9,6 @@ import { AvisoLegal } from './landing/pages/AvisoLegal';
 import { PoliticaPrivacidade } from './landing/pages/PoliticaPrivacidade';
 import { TermosDeUso } from './landing/pages/TermosDeUso';
 import { Login } from './modules/auth/pages/Login';
-import { Register } from './modules/auth/pages/Register';
 import { ForgotPassword } from './modules/auth/pages/ForgotPassword';
 import { ResetPassword } from './modules/auth/pages/ResetPassword';
 import { Dashboard } from './modules/system/pages/Dashboard';
@@ -79,7 +78,7 @@ function AppRoutes() {
       <ScrollToTop />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
       <Route
