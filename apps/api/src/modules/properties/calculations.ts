@@ -458,7 +458,9 @@ export function calcularReforma2027(
   redutor_short_pct?: number;
   /** IBS/CBS líquido antes de redutor social (para memória de cálculo). */
   ibs_cbs_antes_redutor_social?: number;
-  /** Valor do redutor social aplicado na base (Art. 260 LC 214, redação LC 227/2026). */
+  /** Dedução nominal anual na base (receita longa), Art. 260 — antes de multiplicar pela alíquota. */
+  redutor_social_base_deduzida_anual?: number;
+  /** Redução do imposto IBS/CBS (base deduzida × alíquota efetiva). */
   redutor_social_aplicado?: number;
 } {
   const { receita_total, custos_operacionais_total, ano: aggAno } = aggregated;
@@ -510,6 +512,7 @@ export function calcularReforma2027(
   let redutorExibicao: number;
   let ibsCbsAntesRedutorSocial: number | undefined;
   let redutorSocialAplicado: number | undefined;
+  let redutorSocialBaseDeduzidaAnual: number | undefined;
 
   let splitUsouRedutorDiferenciado = false;
 
@@ -553,9 +556,11 @@ export function calcularReforma2027(
     const impostoResidencialSemRedutorBase = round2(
       receitaResidencialLong * rateLong + receitaResidencialShort * rateShort
     );
-    redutorSocialAplicado = round2(
-      Math.min(receitaResidencialLong, redutorSocialLong) * rateLong
-    );
+    const baseDedSocialSplit = round2(Math.min(receitaResidencialLong, redutorSocialLong));
+    if (baseDedSocialSplit > 0) {
+      redutorSocialBaseDeduzidaAnual = baseDedSocialSplit;
+    }
+    redutorSocialAplicado = round2(baseDedSocialSplit * rateLong);
     ibsCbsAntesRedutorSocial = round2(
       impostoResidencialSemRedutorBase + ibsCbsNaoResidencial - creditosIbsCbs
     );
@@ -576,9 +581,13 @@ export function calcularReforma2027(
       const rateMedio = receita_total > 0 ? ibsCbsReceita / receita_total : 0;
       creditosIbsCbs = round2(custos_operacionais_total * rateMedio * fatorCreditoCustos);
       redutorExibicao = redutorLong;
-      redutorSocialAplicado = aplicaRedutorSocial
-        ? round2(Math.min(receitaLonga, redutorSocialAnual) * rateLong)
-        : 0;
+      if (aplicaRedutorSocial) {
+        const baseDed = round2(Math.min(receitaLonga, redutorSocialAnual));
+        if (baseDed > 0) redutorSocialBaseDeduzidaAnual = baseDed;
+        redutorSocialAplicado = round2(baseDed * rateLong);
+      } else {
+        redutorSocialAplicado = 0;
+      }
       ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
         ? (() => {
             const debitoSemRedutor = receitaLonga * rateLong + receitaShort * rateShort;
@@ -592,9 +601,13 @@ export function calcularReforma2027(
       ibsCbsReceita = round2(baseTributavel * aliquotaEfetivaRate);
       creditosIbsCbs = round2(custos_operacionais_total * aliquotaEfetivaRate * fatorCreditoCustos);
       redutorExibicao = redutor;
-      redutorSocialAplicado = aplicaRedutorSocial
-        ? round2(Math.min(receita_total, redutorSocialAnual) * aliquotaEfetivaRate)
-        : 0;
+      if (aplicaRedutorSocial) {
+        const baseDed = round2(Math.min(receita_total, redutorSocialAnual));
+        if (baseDed > 0) redutorSocialBaseDeduzidaAnual = baseDed;
+        redutorSocialAplicado = round2(baseDed * aliquotaEfetivaRate);
+      } else {
+        redutorSocialAplicado = 0;
+      }
       ibsCbsAntesRedutorSocial = aplicaRedutorSocial && redutorSocialAplicado
         ? round2(Math.max(0, ibsCbsReceita - creditosIbsCbs) + redutorSocialAplicado)
         : undefined;
@@ -634,6 +647,10 @@ export function calcularReforma2027(
       redutor_short_pct: redutorShort,
     }),
     ...(ibsCbsAntesRedutorSocial != null && { ibs_cbs_antes_redutor_social: ibsCbsAntesRedutorSocial }),
+    ...(redutorSocialBaseDeduzidaAnual != null &&
+      redutorSocialBaseDeduzidaAnual > 0 && {
+        redutor_social_base_deduzida_anual: redutorSocialBaseDeduzidaAnual,
+      }),
     ...(redutorSocialAplicado != null && redutorSocialAplicado > 0 && { redutor_social_aplicado: redutorSocialAplicado }),
   };
 }

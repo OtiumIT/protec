@@ -1434,7 +1434,11 @@ export function SimuladorImoveis() {
             });
 
             const toUpdate = rowsNormalized.filter((r) => r.propertyId);
-            const toCreate = rowsNormalized.filter((r) => !r.propertyId);
+            const toCreate = rowsNormalized.filter((r) => {
+              if (r.propertyId) return false;
+              const rent = Number(r.valor_aluguel_mensal);
+              return Number.isFinite(rent) && rent > 0;
+            });
 
             await Promise.all(
               toUpdate.map((r) => propertyService.update(r.propertyId!, payloadComum(r)))
@@ -1662,7 +1666,11 @@ export function SimuladorImoveis() {
                       className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
                     />
                     <span className="text-xs text-slate-500">
-                      Com redutor social Art. 260 LC 214/2025 (R$ 600/mês/imóvel, corrigido IPCA). Só locação residencial {'>'}90 dias gera redutor social.
+                      Com redutor social Art. 260 LC 214/2025 (
+                      {ipcaPreview
+                        ? `${formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel (nominal R$ 600,00 corrigido IPCA)`
+                        : 'R$ 600,00/mês por imóvel, corrigido IPCA após carregar parâmetros'}
+                      ). Só locação residencial {'>'}90 dias gera redutor social.
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -1700,7 +1708,11 @@ export function SimuladorImoveis() {
                   />
                   <span className="text-xs text-slate-500">
                     {perfilLocacao === 'residencial_comum'
-                      ? 'Redutor social Art. 260 LC 214/2025 (R$ 600/mês/imóvel, corrigido IPCA) — locação residencial de longa duração.'
+                      ? `Redutor social Art. 260 LC 214/2025 (${
+                          ipcaPreview
+                            ? `${formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel (nominal R$ 600,00 × IPCA)`
+                            : 'R$ 600,00/mês por imóvel corrigido IPCA'
+                        }) — locação residencial de longa duração.`
                       : 'Equiparada a hotelaria (Arts. 253/278 LC 214/2025) — sem redutor social, redutor de alíquota 40% (Art. 281).'}
                   </span>
                 </div>
@@ -2634,6 +2646,7 @@ export function SimuladorImoveis() {
                   redutor_long_pct?: number;
                   redutor_short_pct?: number;
                   ibs_cbs_antes_redutor_social?: number;
+                  redutor_social_base_deduzida_anual?: number;
                   redutor_social_aplicado?: number;
                 };
                 const aliqNominal = refExt.aliquota_nominal_ibs_cbs ?? 26.5;
@@ -2643,17 +2656,35 @@ export function SimuladorImoveis() {
                 const custos = refExt.custos_operacionais_total ?? 0;
                 const liquido = ref.ibs_cbs_liquido ?? 0;
                 const temRedutorSocial = refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0;
-                const debitoBruto = temRedutorSocial
-                  ? (refExt.ibs_cbs_antes_redutor_social ?? liquido) + creditos
-                  : debito;
                 const irpj = refExt.irpj ?? 0;
                 const csll = refExt.csll ?? 0;
                 const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
-                // aliqEfetiva usa debitoBruto (pré-redutor social) para que Passo 1 e Passo 2 sejam consistentes
-                const aliqEfetiva =
-                  receita > 0
-                    ? round2((debitoBruto / receita) * 100)
-                    : aliqNominal * (1 - (refExt.redutor_locacao_aplicado_pct ?? 70) / 100);
+                const pctRedutorLonga = refExt.redutor_long_pct ?? refExt.redutor_locacao_aplicado_pct ?? 70;
+                const aliqEfetivaLonga = round2(aliqNominal * (1 - pctRedutorLonga / 100));
+
+                const idxLc214 = result.indices_lc214;
+                const mensalRedutorSocialEfetivo = idxLc214?.redutor_social_mensal_efetivo ?? 600;
+                const nImoveisArt260 =
+                  quantidadeImoveisResidenciaisLonga > 0
+                    ? quantidadeImoveisResidenciaisLonga
+                    : perfilLocacao !== 'hospedagem_temporada'
+                      ? quantidadeImoveisResidenciais
+                      : 0;
+                const tetoBaseAnualTeorico = round2(
+                  Math.max(0, nImoveisArt260) * mensalRedutorSocialEfetivo * 12
+                );
+                const rateLongaDecimal = aliqNominal > 0 ? aliqEfetivaLonga / 100 : 0;
+                const impostoRedutorSocial = refExt.redutor_social_aplicado ?? 0;
+                const baseDeduzidaAnualApi = refExt.redutor_social_base_deduzida_anual;
+                const baseDeduzidaAnual =
+                  baseDeduzidaAnualApi ??
+                  (rateLongaDecimal > 0 && impostoRedutorSocial > 0
+                    ? round2(impostoRedutorSocial / rateLongaDecimal)
+                    : 0);
+                const baseLiquida = round2(receita - baseDeduzidaAnual);
+                const ibsSobreBaseLiquida = debito;
+                const temPassoIrpjCsll = irpj > 0 || csll > 0;
+                const passoNumIrpj = temRedutorSocial ? 5 : 4;
 
                 return (
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
@@ -2663,36 +2694,49 @@ export function SimuladorImoveis() {
                     <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(2)}%</span></p>
                     {redutorDiferenciado ? (
                       <>
-                        <p>Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(2)}%</span></p>
+                        <p className="font-sans text-slate-600">Redutor 70% (longa duração, Art. 261) e 40% (curta temporada, Art. 281), proporcionais à receita.</p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva ponderada: <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}% (longa)</span></p>
                       </>
                     ) : (
                       <>
-                        <p>× (100% − Redutor da alíquota {refExt.redutor_locacao_aplicado_pct ?? 70}%): <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70)).toFixed(0)}%</span></p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetiva.toFixed(2)}%</span></p>
+                        <p>× (100% − {refExt.redutor_locacao_aplicado_pct ?? 70}% redutor) = <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70))}%</span></p>
+                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span></p>
                       </>
                     )}
-                    
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Débito sobre receita</p>
-                    <p>{formatMoney(receita)} × {aliqEfetiva.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debitoBruto)}</span></p>
-                    
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
-                    <p>{formatMoney(custos)} × {aliqEfetiva.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
-                    
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: IBS/CBS líquido</p>
+
                     {temRedutorSocial ? (
                       <>
-                        <p>{formatMoney(debitoBruto)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800">{formatMoney(refExt.ibs_cbs_antes_redutor_social ?? liquido)}</span></p>
-                        <p>(−) Redutor social Art. 260 LC 214 (R$ 600/imóvel/mês, corrigido IPCA — apenas longa duração): <span className="text-emerald-700">−{formatMoney(refExt.redutor_social_aplicado ?? 0)}</span></p>
-                        <p className="border-t border-slate-200 pt-1">= IBS/CBS líquido: <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Base de cálculo (redutor social Art. 260)</p>
+                        <p>Receita anual (longa duração): <span className="text-slate-800">{formatMoney(receita)}</span></p>
+                        <p>(−) Redutor social: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 = <span className="text-emerald-700">−{formatMoney(baseDeduzidaAnual)}</span></p>
+                        {baseDeduzidaAnual < tetoBaseAnualTeorico && baseDeduzidaAnual > 0 && (
+                          <p className="text-[11px] font-sans text-slate-500">(limitado à receita de longa duração)</p>
+                        )}
+                        <p className="border-t border-slate-200 pt-1">= Base líquida: <span className="text-slate-800 font-semibold">{formatMoney(baseLiquida)}</span></p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: IBS/CBS sobre base líquida</p>
+                        <p>{formatMoney(baseLiquida)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800 font-semibold">{formatMoney(ibsSobreBaseLiquida)}</span></p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: Créditos sobre custos operacionais</p>
+                        <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
+
+                        <p className="border-t border-slate-200 pt-1 mt-1">= IBS/CBS líquido: {formatMoney(ibsSobreBaseLiquida)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
                       </>
                     ) : (
-                      <p>{formatMoney(debitoBruto)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                      <>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: IBS/CBS sobre receita</p>
+                        <p>{formatMoney(receita)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
+                        <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
+
+                        <p className="border-t border-slate-200 pt-1 mt-1">= IBS/CBS líquido: {formatMoney(debito)} {creditos > 0 ? `− ${formatMoney(creditos)}` : ''} = <span className="text-slate-800 font-semibold">{formatMoney(liquido)}</span></p>
+                      </>
                     )}
                     
-                    {(irpj > 0 || csll > 0) && (
+                    {temPassoIrpjCsll && (
                       <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 5: IRPJ + CSLL (sobre lucro presumido)</p>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo {passoNumIrpj}: IRPJ + CSLL (lucro presumido)</p>
                         <p>IRPJ: <span className="text-slate-800">{formatMoney(irpj)}</span> + CSLL: <span className="text-slate-800">{formatMoney(csll)}</span></p>
                       </>
                     )}

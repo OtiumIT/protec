@@ -1026,6 +1026,12 @@ export class PropertyService {
           ibs_cbs_liquido: cenarioReforma.ibs_cbs_liquido,
           imposto_total: cenarioReformaPF.imposto_total,
           ir_pf: cenarioReformaPF.ir_pf,
+          ...(cenarioReforma.redutor_social_base_deduzida_anual != null && {
+            redutor_social_base_deduzida_anual: cenarioReforma.redutor_social_base_deduzida_anual,
+          }),
+          ...(cenarioReforma.redutor_social_aplicado != null && {
+            redutor_social_aplicado: cenarioReforma.redutor_social_aplicado,
+          }),
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
@@ -1354,6 +1360,12 @@ export class PropertyService {
           ibs_cbs_liquido: cenarioReforma.ibs_cbs_liquido,
           imposto_total: cenarioReformaPFStandalone.imposto_total,
           ir_pf: cenarioReformaPFStandalone.ir_pf,
+          ...(cenarioReforma.redutor_social_base_deduzida_anual != null && {
+            redutor_social_base_deduzida_anual: cenarioReforma.redutor_social_base_deduzida_anual,
+          }),
+          ...(cenarioReforma.redutor_social_aplicado != null && {
+            redutor_social_aplicado: cenarioReforma.redutor_social_aplicado,
+          }),
         },
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,

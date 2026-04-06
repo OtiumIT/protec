@@ -323,7 +323,12 @@ export const CenarioReforma2027Schema = z.object({
   ibs_cbs_sobre_receita: z.number(),
   /** IBS/CBS líquido antes de aplicar redutor social (para memória de cálculo). */
   ibs_cbs_antes_redutor_social: z.number().optional(),
-  /** Valor do redutor social aplicado (Art. 260). */
+  /**
+   * Dedução anual na base de cálculo (receita de longa duração), em R$:
+   * min(receita longa, redutor_social_residencial_anual). Art. 260 (12 meses × valor mensal corrigido × imóveis).
+   */
+  redutor_social_base_deduzida_anual: z.number().optional(),
+  /** Redução do IBS/CBS em R$ correspondente à base deduzida (base deduzida × alíquota efetiva). */
   redutor_social_aplicado: z.number().optional(),
   ibs_cbs_liquido: z.number(),
   imposto_total: z.number(),

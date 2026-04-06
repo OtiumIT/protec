@@ -216,32 +216,38 @@ function formatNaturezaLocacaoLabel(natureza: GridRow['natureza_locacao']): stri
   return '-';
 }
 
+/** Trata NaN/undefined como zero — evita rascunho “fantasma” com valor inválido. */
+function numIsEmpty(n: number): boolean {
+  return !Number.isFinite(n) || n === 0;
+}
+
 function isGridRowEmpty(row: GridRow): boolean {
   return (
     row.identificador.trim() === '' &&
-    row.valor_aluguel_mensal === 0 &&
+    numIsEmpty(row.valor_aluguel_mensal) &&
     row.tipo_locacao === '' &&
     row.natureza_locacao === '' &&
     row.matricula_imovel.trim() === '' &&
     row.inscricao_iptu.trim() === '' &&
     row.cartorio_registro.trim() === '' &&
-    row.iptu_mensal_padrao === 0 &&
-    row.condominio_mensal_padrao === 0 &&
-    row.seguro_mensal_padrao === 0 &&
-    row.camareira_mensal_padrao === 0 &&
-    row.seguranca_mensal_padrao === 0 &&
-    row.material_limpeza_mensal_padrao === 0 &&
-    row.lavanderia_enxoval_mensal_padrao === 0 &&
-    row.checkin_checkout_mensal_padrao === 0 &&
-    row.taxas_pagamento_mensal_padrao === 0 &&
-    row.tarifas_bancarias_mensal_padrao === 0 &&
-    row.vacancia_mensal_padrao === 0 &&
-    row.inadimplencia_mensal_padrao === 0
+    numIsEmpty(row.iptu_mensal_padrao) &&
+    numIsEmpty(row.condominio_mensal_padrao) &&
+    numIsEmpty(row.seguro_mensal_padrao) &&
+    numIsEmpty(row.camareira_mensal_padrao) &&
+    numIsEmpty(row.seguranca_mensal_padrao) &&
+    numIsEmpty(row.material_limpeza_mensal_padrao) &&
+    numIsEmpty(row.lavanderia_enxoval_mensal_padrao) &&
+    numIsEmpty(row.checkin_checkout_mensal_padrao) &&
+    numIsEmpty(row.taxas_pagamento_mensal_padrao) &&
+    numIsEmpty(row.tarifas_bancarias_mensal_padrao) &&
+    numIsEmpty(row.vacancia_mensal_padrao) &&
+    numIsEmpty(row.inadimplencia_mensal_padrao)
   );
 }
 
 function isRowEligibleForSimulation(row: GridRow): boolean {
-  return row.valor_aluguel_mensal > 0;
+  const rent = Number(row.valor_aluguel_mensal);
+  return Number.isFinite(rent) && rent > 0;
 }
 
 function ensureDraftCapacity(inputRows: GridRow[]): GridRow[] {
@@ -374,7 +380,14 @@ export function PropertiesInlineGrid({
     return s === 'draft' || s === 'editing_saved';
   };
 
-  const hasRowsToSave = rows.some((r) => rowNeedsSave(r));
+  /** Novo imóvel só grava com aluguel mensal > 0 (evita registro vazio ao usar nome padrão). */
+  const canSubmitRowForSave = (row: GridRow) => {
+    if (!rowNeedsSave(row)) return false;
+    if (!row.isPersisted) return isRowEligibleForSimulation(row);
+    return true;
+  };
+
+  const hasRowsToSave = rows.some((r) => canSubmitRowForSave(r));
   const hasPersistedRowsEditing = rows.some((r) => r.isPersisted && r.isEditing);
   const eligibleRowsCount = rows.filter((r) => isRowEligibleForSimulation(r)).length;
   const eligibleRowsForBulk = useMemo(() => rows.filter((r) => isRowEligibleForSimulation(r)), [rows]);
@@ -569,7 +582,7 @@ export function PropertiesInlineGrid({
       onRequireClientToSave();
       return;
     }
-    const changed = rows.filter((r) => rowNeedsSave(r));
+    const changed = rows.filter((r) => canSubmitRowForSave(r));
     if (!changed.length) return;
     const savedDraftRowIds = new Set(changed.filter((r) => !r.isPersisted).map((r) => r.rowId));
     setIsSaving(true);
