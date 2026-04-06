@@ -10,6 +10,8 @@ import {
 
 type StatusFilter = '' | 'pending' | 'active' | 'inactive';
 
+const MODELO_CSV_URL = '/modelo-lista-acesso.csv';
+
 export function AccessList() {
   const [entries, setEntries] = useState<AccessListEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -149,20 +151,43 @@ export function AccessList() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Lista de Acesso</h1>
-            <p className="text-sm text-slate-500 mt-1">Gerenciamento de acessos ao Cálculo Imobiliário</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Lista de Acesso</h1>
+              <p className="text-sm text-slate-500 mt-1">Gerenciamento de acessos ao Cálculo Imobiliário</p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0">
+              <a
+                href={MODELO_CSV_URL}
+                download="modelo-lista-acesso.csv"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-semibold text-sm rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-colors"
+              >
+                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Baixar modelo CSV
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowImport(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand text-white font-semibold text-sm rounded-xl hover:bg-brand/90 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Importar CSV
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowImport(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white font-semibold text-sm rounded-xl hover:bg-brand/90 transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Importar CSV
-          </button>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+            <p className="font-medium text-slate-800 mb-1">Como cadastrar em lote</p>
+            <ol className="list-decimal list-inside space-y-1 text-slate-600">
+              <li>Baixe o modelo, preencha uma linha por pessoa (obrigatórios: <strong className="text-slate-700">nome</strong> e <strong className="text-slate-700">email</strong> — login será o e-mail).</li>
+              <li>Salve em UTF-8; separador vírgula ou ponto e vírgula.</li>
+              <li>Use <strong className="text-slate-700">Importar CSV</strong> e depois libere o acesso na lista (individual ou em lote).</li>
+            </ol>
+          </div>
         </div>
 
         {/* Stats Cards */}

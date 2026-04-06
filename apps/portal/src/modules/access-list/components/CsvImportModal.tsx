@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { accessListService, type ImportResult } from '../services/access-list.service';
 
+const MODELO_CSV_URL = '/modelo-lista-acesso.csv';
+
 interface CsvImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -89,6 +91,22 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {!result && (
             <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm text-slate-600">
+                  Use o arquivo modelo com as colunas corretas. Campos obrigatórios: <strong className="text-slate-800">nome</strong> e{' '}
+                  <strong className="text-slate-800">email</strong>.
+                </p>
+                <a
+                  href={MODELO_CSV_URL}
+                  download="modelo-lista-acesso.csv"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Baixar modelo
+                </a>
+              </div>
               <div
                 className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-brand/50 hover:bg-brand/5 transition-colors"
                 onClick={() => fileRef.current?.click()}
