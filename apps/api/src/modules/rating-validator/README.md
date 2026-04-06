@@ -115,7 +115,7 @@ A classificação é baseada nos três indicadores calculados:
 - **Módulo**: Requer módulo `RATING_VALIDATOR` ativo
 
 ### POST /rating-validator/extract-from-ecd-pdf
-- **Descrição**: Extrai dados do PDF da ECD (SPED Contábil — Recibo de Entrega + Balanço + DRE) via OCR (OpenAI) e retorna JSON estruturado + dados para preencher a simulação.
+- **Descrição**: Extrai dados de PDF contábil via OpenAI. Há **dois perfis de prompt** com o mesmo schema JSON: (1) **ECD/SPED** — recibo de entrega, páginas típicas de balanço e DRE; (2) **Balancete/balanço** — relatório de sistema contábil (Saldo Atual/Anterior, linhas sintéticas de grupo). Com texto extraível do PDF, o backend escolhe o perfil por heurística (`BALANCETE` + colunas de saldo vs. indícios de ECD/recibo). PDF escaneado (sem texto): um único prompt combina **ambos** os conjuntos de regras para o modelo decidir. A resposta pode incluir `extracao_perfil`: `ecd` | `balancete` | `pdf_escaneado_duplo`.
 - **Body**: `multipart/form-data` com campo `file` (arquivo PDF).
 - **Resposta**: `{ data: { ecd: EcdExtracted, simulação_prefill: Omit<SimulateRatingInput, client_id|rating_real|save_simulation> } }`
 - **Autenticação**: Requerida

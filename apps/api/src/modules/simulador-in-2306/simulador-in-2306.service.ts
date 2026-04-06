@@ -1,5 +1,6 @@
 import { SimuladorIN2306Repository, CreateIN2306SimulationData } from './simulador-in-2306.repository';
 import { ClientRepository } from '../clients/client.repository';
+import { FiscalFileRepository } from '../fiscal-files/fiscal-file.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import {
   calcularCenario2025,
@@ -17,11 +18,190 @@ import type {
 } from '@shared/core';
 import type { IN2306Simulation } from '@shared/core';
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export class SimuladorIN2306Service {
   constructor(
     private repo: SimuladorIN2306Repository,
-    private clientRepo: ClientRepository
+    private clientRepo: ClientRepository,
+    private fiscalFileRepo: FiscalFileRepository
   ) {}
+
+  private normalizePrefillFromStored(
+    raw: Record<string, unknown>,
+    competence: string
+  ): {
+    ano: number;
+    trimestres: Array<{
+      produtos_mercadorias: number;
+      servicos: number;
+      servicos_favorecida: number;
+      servicos_hospitalares: number;
+      demais_receitas: number;
+    }>;
+    deducoes_trimestrais: Array<{ pis_cofins_zero: number; icms_destacado: number }>;
+    retencoes_trimestrais: Array<{ irrf: number; orgaos_publicos: number }>;
+    aplicar_equiparacao_hospitalar: boolean;
+  } {
+    const yearFromCompetence = parseInt(competence.slice(0, 4), 10);
+    let ano =
+      typeof raw.ano === 'number' && Number.isFinite(raw.ano)
+        ? Math.min(2030, Math.max(2020, Math.floor(raw.ano)))
+        : yearFromCompetence;
+    if (!Number.isFinite(ano) || ano < 2020) ano = new Date().getFullYear();
+
+    const trimRaw = Array.isArray(raw.trimestres) ? raw.trimestres : [];
+    const trimestres = [0, 1, 2, 3].map((i) => {
+      const t = trimRaw[i] as Record<string, unknown> | undefined;
+      return {
+        produtos_mercadorias: round2(Number(t?.produtos_mercadorias ?? 0)),
+        servicos: round2(Number(t?.servicos ?? 0)),
+        servicos_favorecida: round2(Number(t?.servicos_favorecida ?? 0)),
+        servicos_hospitalares: round2(Number(t?.servicos_hospitalares ?? 0)),
+        demais_receitas: round2(Number(t?.demais_receitas ?? 0)),
+      };
+    });
+
+    const dedRaw = Array.isArray(raw.deducoes_trimestrais) ? raw.deducoes_trimestrais : [];
+    const deducoes_trimestrais = [0, 1, 2, 3].map((i) => {
+      const d = dedRaw[i] as Record<string, unknown> | undefined;
+      return {
+        pis_cofins_zero: round2(Number(d?.pis_cofins_zero ?? 0)),
+        icms_destacado: round2(Number(d?.icms_destacado ?? 0)),
+      };
+    });
+
+    const retRaw = Array.isArray(raw.retencoes_trimestrais) ? raw.retencoes_trimestrais : [];
+    const retencoes_trimestrais = [0, 1, 2, 3].map((i) => {
+      const r = retRaw[i] as Record<string, unknown> | undefined;
+      return {
+        irrf: round2(Number(r?.irrf ?? 0)),
+        orgaos_publicos: round2(Number(r?.orgaos_publicos ?? 0)),
+      };
+    });
+
+    return {
+      ano,
+      trimestres,
+      deducoes_trimestrais,
+      retencoes_trimestrais,
+      aplicar_equiparacao_hospitalar: Boolean(raw.aplicar_equiparacao_hospitalar),
+    };
+  }
+
+  private toIso(d: Date | string): string {
+    if (d instanceof Date) return d.toISOString();
+    return String(d);
+  }
+
+  /**
+   * Competências com SPED/ECD processado e prefill do simulador extraído (validação no servidor).
+   */
+  async listProcessedSpedPrefillCompetences(clientId: string): Promise<string[]> {
+    const client = await this.clientRepo.findById(clientId);
+    if (!client) {
+      throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+    }
+    return this.fiscalFileRepo.listDistinctSimuladorPrefillCompetences(clientId);
+  }
+
+  /**
+   * Consolida o último `module_prefill_simulador_in2306` para cliente + competência.
+   */
+  async getPrefillByCompetence(clientId: string, competence: string): Promise<{
+    client_id: string;
+    competence: string;
+    fiscal_file: {
+      id: string;
+      client_id: string;
+      competence: string;
+      file_name: string;
+    } | null;
+    extracted_at: string;
+    source_files: Array<{ id: string; file_name: string; created_at: string }>;
+    prefill: {
+      ano: number;
+      trimestres: Array<{
+        produtos_mercadorias: number;
+        servicos: number;
+        servicos_favorecida: number;
+        servicos_hospitalares: number;
+        demais_receitas: number;
+      }>;
+      deducoes_trimestrais: Array<{ pis_cofins_zero: number; icms_destacado: number }>;
+      retencoes_trimestrais: Array<{ irrf: number; orgaos_publicos: number }>;
+      aplicar_equiparacao_hospitalar: boolean;
+    };
+    meta: {
+      confidence?: { overall?: number; coverage?: number; linhas_analisadas?: number; linhas_classificadas?: number };
+      origem?: string;
+    };
+  }> {
+    const client = await this.clientRepo.findById(clientId);
+    if (!client) {
+      throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+    }
+
+    const row = await this.fiscalFileRepo.findLatestSimuladorIn2306PrefillByCompetence(
+      clientId,
+      competence
+    );
+    if (!row) {
+      throw new AppError(
+        'Não há dados do simulador extraídos do SPED para este cliente e competência. Envie e processe um arquivo ECD/ECF com leiaute suportado.',
+        'NO_EXTRACTED_DATA',
+        404
+      );
+    }
+
+    const fiscalFile = await this.fiscalFileRepo.findById(row.fiscal_file_id);
+    const data = (row.data || {}) as Record<string, unknown>;
+    const prefill = this.normalizePrefillFromStored(data, competence);
+
+    const sourceFiles = await this.fiscalFileRepo.listProcessedFiscalFilesWithSimuladorPrefill({
+      client_id: clientId,
+      competence,
+      limit: 50,
+    });
+
+    const conf = data.confidence as Record<string, unknown> | undefined;
+    const meta: {
+      confidence?: { overall?: number; coverage?: number; linhas_analisadas?: number; linhas_classificadas?: number };
+      origem?: string;
+    } = {};
+    if (conf && typeof conf === 'object') {
+      meta.confidence = {
+        overall: typeof conf.overall === 'number' ? conf.overall : undefined,
+        coverage: typeof conf.coverage === 'number' ? conf.coverage : undefined,
+        linhas_analisadas: typeof conf.linhas_analisadas === 'number' ? conf.linhas_analisadas : undefined,
+        linhas_classificadas: typeof conf.linhas_classificadas === 'number' ? conf.linhas_classificadas : undefined,
+      };
+    }
+    if (typeof data.origem === 'string') meta.origem = data.origem;
+
+    return {
+      client_id: clientId,
+      competence,
+      fiscal_file: fiscalFile
+        ? {
+            id: fiscalFile.id,
+            client_id: fiscalFile.client_id,
+            competence: fiscalFile.competence,
+            file_name: fiscalFile.file_name,
+          }
+        : null,
+      extracted_at: this.toIso(row.created_at),
+      source_files: sourceFiles.map((f) => ({
+        id: f.id,
+        file_name: f.file_name,
+        created_at: this.toIso(f.created_at),
+      })),
+      prefill,
+      meta,
+    };
+  }
 
   /**
    * Executa simulação conforme parâmetros da IN 2.306/2026

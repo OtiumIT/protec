@@ -32,8 +32,8 @@ Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2
 
 ## Dependências
 - **Módulos**: Nenhum obrigatório além do feature toggle `SIMULADOR_IN_2306`
-- **Repositories**: `ClientRepository` (validação de cliente ao salvar)
-- **Tabelas**: `in_2306_simulations` (tenant), `clients` (tenant)
+- **Repositories**: `ClientRepository` (validação de cliente ao salvar); `FiscalFileRepository` (prefill a partir de SPED processado: `extracted_fiscal_data` com `module_prefill_simulador_in2306`)
+- **Tabelas**: `in_2306_simulations` (tenant), `clients` (tenant), `fiscal_files` / `extracted_fiscal_data` (tenant)
 
 ## Fluxos e Endpoints
 
@@ -51,6 +51,16 @@ Simulador para cálculos e cenários conforme a Nova Instrução Normativa RFB 2
 ### GET /simulador-in-2306
 - Query: `client_id?`, `competence?`, `page`, `limit`
 - Resposta: `{ data: { simulations, total, page, limit } }`
+
+### GET /simulador-in-2306/processed-sped-competences
+- **Query**: `client_id` (UUID)
+- **Validação**: cliente deve existir no tenant (`404 CLIENT_NOT_FOUND` se inválido)
+- **Resposta**: `{ data: { competences: string[] } }` — competências YYYY-MM com ao menos um arquivo fiscal processado e extração `module_prefill_simulador_in2306`
+
+### GET /simulador-in-2306/prefill-by-competence
+- **Query**: `client_id` (UUID), `competence` (YYYY-MM)
+- **Validação**: cliente no tenant; deve existir linha consolidada em `extracted_fiscal_data` (`404 NO_EXTRACTED_DATA` se ausente)
+- **Resposta**: `{ data: { client_id, competence, fiscal_file?, extracted_at, source_files[], prefill: { ano, trimestres[4], deducoes_trimestrais[4], retencoes_trimestrais[4], aplicar_equiparacao_hospitalar }, meta: { confidence?, origem? } } }`
 
 ### GET /simulador-in-2306/:id
 - Resposta: `{ data: { simulation } }`

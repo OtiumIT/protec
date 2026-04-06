@@ -7,6 +7,7 @@ import {
   type SimulateTributarioInput,
   type SimulateIN2306Input,
   type IN2306SimulationResult,
+  type IN2306SpedPrefillPayload,
 } from '../services/simulador-in-2306.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Card } from '../../../shared/components/ui/Card';
@@ -15,6 +16,7 @@ import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { Badge } from '../../../shared/components/ui/Badge';
 import {
   BarChart,
   Bar,
@@ -117,6 +119,14 @@ export function SimuladorIN2306() {
   const lastParcelInputRef = useRef<SimulateIN2306Input | null>(null);
   const [saveClientIdParcel, setSaveClientIdParcel] = useState('');
   const [saveTitleParcel, setSaveTitleParcel] = useState('');
+
+  /** Fluxo “dados reais” por cliente + competência (SPED processado), espelhando o Rating Validator. */
+  const [spedPrefillClientId, setSpedPrefillClientId] = useState('');
+  const [spedPrefillCompetence, setSpedPrefillCompetence] = useState('');
+  const [spedCompetenceOptions, setSpedCompetenceOptions] = useState<string[]>([]);
+  const [spedCompetencesLoading, setSpedCompetencesLoading] = useState(false);
+  const [spedPrefillLoading, setSpedPrefillLoading] = useState(false);
+  const [spedPrefillPayload, setSpedPrefillPayload] = useState<IN2306SpedPrefillPayload | null>(null);
 
   const clientNameTrib = useMemo(() => clients.find((c) => c.id === clientIdTrib)?.name, [clients, clientIdTrib]);
 
@@ -241,6 +251,69 @@ export function SimuladorIN2306() {
     })();
     return () => { cancelled = true; };
   }, [showError]);
+
+  const fetchSpedCompetencesForClient = useCallback(async () => {
+    if (!spedPrefillClientId) {
+      setSpedCompetenceOptions([]);
+      return;
+    }
+    setSpedCompetencesLoading(true);
+    try {
+      const competences = await simuladorIN2306Service.listProcessedSpedPrefillCompetences(spedPrefillClientId);
+      setSpedCompetenceOptions(competences);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erro ao carregar competências (SPED do cliente)');
+    } finally {
+      setSpedCompetencesLoading(false);
+    }
+  }, [spedPrefillClientId, showError]);
+
+  useEffect(() => {
+    void fetchSpedCompetencesForClient();
+  }, [fetchSpedCompetencesForClient]);
+
+  useEffect(() => {
+    if (!spedPrefillCompetence) return;
+    if (spedCompetenceOptions.length > 0 && !spedCompetenceOptions.includes(spedPrefillCompetence)) {
+      setSpedPrefillCompetence('');
+    }
+  }, [spedCompetenceOptions, spedPrefillCompetence]);
+
+  const loadSpedPrefillBySelection = useCallback(async () => {
+    if (!spedPrefillClientId || !spedPrefillCompetence) {
+      setSpedPrefillPayload(null);
+      return;
+    }
+    setSpedPrefillLoading(true);
+    try {
+      const data = await simuladorIN2306Service.getPrefillByCompetence(
+        spedPrefillClientId,
+        spedPrefillCompetence
+      );
+      setSpedPrefillPayload(data);
+      setAno(data.prefill.ano);
+      setTrimestres(data.prefill.trimestres.map((t) => ({ ...EMPTY_TRIMESTRE, ...t })));
+      setDeducoesTrimestrais(data.prefill.deducoes_trimestrais.map((d) => ({ ...EMPTY_DEDUCOES, ...d })));
+      setRetencoesTrimestrais(data.prefill.retencoes_trimestrais.map((r) => ({ ...EMPTY_RETENCOES, ...r })));
+      setEquiparacao(data.prefill.aplicar_equiparacao_hospitalar);
+      setModoAnual(false);
+      setClientIdTrib(data.client_id);
+      setFormParcel((p) => ({ ...p, competence: data.competence }));
+      setSaveClientIdParcel(data.client_id);
+      setTributarioResult(null);
+      setDetalhesAbertos(true);
+      success('Dados validados no servidor e aplicados ao formulário. Revise antes de comparar cenários.');
+    } catch (err) {
+      setSpedPrefillPayload(null);
+      showError(err instanceof Error ? err.message : 'Erro ao carregar pré-preenchimento do SPED');
+    } finally {
+      setSpedPrefillLoading(false);
+    }
+  }, [spedPrefillClientId, spedPrefillCompetence, success, showError]);
+
+  useEffect(() => {
+    void loadSpedPrefillBySelection();
+  }, [loadSpedPrefillBySelection]);
 
   useEffect(() => {
     if (tributarioResult && resultadoTributarioRef.current) {
@@ -864,6 +937,126 @@ export function SimuladorIN2306() {
           Compare a tributação antes e depois da alteração e veja o aumento para o contribuinte.
         </p>
       </div>
+
+      <Card className="mb-6">
+        <div className="space-y-4 p-1">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Dados a partir do SPED (cliente e competência)</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Selecione o cliente e a competência (YYYY-MM) de um arquivo SPED já processado. O servidor confirma que o cliente
+              pertence ao tenant e que existe extração do simulador para essa competência; os valores válidos são aplicados ao
+              comparativo tributário, no mesmo espírito da validação real por competência no módulo de rating.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+              <select
+                value={spedPrefillClientId}
+                onChange={(e) => {
+                  setSpedPrefillClientId(e.target.value);
+                  setSpedPrefillCompetence('');
+                  setSpedPrefillPayload(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white"
+              >
+                <option value="">Selecione o cliente</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Competência</label>
+              <select
+                value={spedPrefillCompetence}
+                onChange={(e) => setSpedPrefillCompetence(e.target.value)}
+                disabled={!spedPrefillClientId}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {!spedPrefillClientId
+                    ? 'Selecione o cliente primeiro'
+                    : spedCompetencesLoading
+                      ? 'Carregando competências...'
+                      : spedCompetenceOptions.length > 0
+                        ? 'Selecione a competência'
+                        : 'Sem competências com SPED processado para este cliente'}
+                </option>
+                {spedCompetenceOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (!spedPrefillClientId) {
+                    showError('Selecione o cliente para atualizar.');
+                    return;
+                  }
+                  void fetchSpedCompetencesForClient();
+                }}
+                disabled={!spedPrefillClientId || spedCompetencesLoading}
+              >
+                {spedCompetencesLoading ? 'Atualizando...' : 'Atualizar lista'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <h4 className="text-sm font-semibold text-slate-800 mb-2">Arquivos fiscais com prefill do simulador nesta competência</h4>
+            {!spedPrefillClientId || !spedPrefillCompetence ? (
+              <p className="text-sm text-slate-500">Selecione o cliente e a competência para listar as fontes.</p>
+            ) : spedPrefillLoading ? (
+              <p className="text-sm text-slate-500">Carregando…</p>
+            ) : !spedPrefillPayload ? (
+              <p className="text-sm text-slate-500">
+                Nenhum dado consolidado para esta seleção (a API retornou erro ou ainda não há extração processada).
+              </p>
+            ) : spedPrefillPayload.source_files.length === 0 ? (
+              <p className="text-sm text-slate-500">Nenhum arquivo listado (consolidação pode vir de registro único).</p>
+            ) : (
+              <ul className="text-sm text-slate-700 space-y-1 max-h-40 overflow-y-auto">
+                {spedPrefillPayload.source_files.map((f) => (
+                  <li key={f.id} className="flex flex-wrap gap-x-2 border-b border-slate-100 pb-1">
+                    <span className="font-mono text-xs text-slate-500">{f.id.slice(0, 8)}…</span>
+                    <span>{f.file_name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {spedPrefillPayload ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Prefill aplicado ao formulário</Badge>
+              {spedPrefillPayload.fiscal_file ? (
+                <span>
+                  Fonte principal: <span className="font-medium">{spedPrefillPayload.fiscal_file.file_name}</span> · extraído em{' '}
+                  {new Date(spedPrefillPayload.extracted_at).toLocaleString('pt-BR')}
+                </span>
+              ) : null}
+              {typeof spedPrefillPayload.meta?.confidence?.overall === 'number' ? (
+                <span className="text-slate-600">
+                  Confiança geral: {Math.round(spedPrefillPayload.meta.confidence.overall * 100)}%
+                </span>
+              ) : null}
+              {spedPrefillPayload.meta?.origem ? (
+                <span className="text-xs text-slate-500 font-mono">({spedPrefillPayload.meta.origem})</span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2 border-b border-slate-200">
           <button

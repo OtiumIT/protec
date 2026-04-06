@@ -290,23 +290,21 @@ export function ecdExtractedToSimulateRatingInput(
         ) || n(pc?.parcelamento_iptu)
       ),
     },
-    passivo_nao_circulante: {
-      emprestimos_financiamentos_lp: round(n(pnc?.emprestimos_financiamentos_lp)),
-      obrigacoes_trabalhistas_lp: round(n(pnc?.obrigacoes_trabalhistas_lp)),
-      tributos_pagar_lp: round(n(pnc?.obrigacoes_tributarias_longo_prazo ?? pnc?.tributos_pagar_lp)),
-      provisoes_lp: round(n(pnc?.provisoes)),
-      outros_passivos_nao_circulantes: round(
-        Math.max(
-          0,
-          pncTotal -
-            n(pnc?.obrigacoes_tributarias_longo_prazo) -
-            n(pnc?.tributos_pagar_lp) -
-            n(pnc?.obrigacoes_coligadas) -
-            n(pnc?.provisoes) -
-            n(pnc?.emprestimos_financiamentos_lp)
-        ) || n(pnc?.obrigacoes_coligadas)
-      ),
-    },
+    passivo_nao_circulante: (() => {
+      const e = n(pnc?.emprestimos_financiamentos_lp);
+      const o = n(pnc?.obrigacoes_trabalhistas_lp);
+      const t = n(pnc?.obrigacoes_tributarias_longo_prazo ?? pnc?.tributos_pagar_lp);
+      const p = n(pnc?.provisoes);
+      const c = n(pnc?.obrigacoes_coligadas);
+      const explicit = e + o + t + p + c;
+      return {
+        emprestimos_financiamentos_lp: round(e),
+        obrigacoes_trabalhistas_lp: round(o),
+        tributos_pagar_lp: round(t),
+        provisoes_lp: round(p),
+        outros_passivos_nao_circulantes: round2(Math.max(0, pncTotal - explicit)),
+      };
+    })(),
     patrimonio_liquido: {
       capital_social: round(n(pl?.capital_social)),
       reservas_capital: round(n(pl?.reservas_capital ?? pl?.reservas)),

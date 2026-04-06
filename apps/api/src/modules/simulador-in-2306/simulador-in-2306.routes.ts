@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { SimuladorIN2306Service } from './simulador-in-2306.service';
 import { SimuladorIN2306Repository } from './simulador-in-2306.repository';
 import { ClientRepository } from '../clients/client.repository';
+import { FiscalFileRepository } from '../fiscal-files/fiscal-file.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { requireModule } from '../../middleware/module.middleware';
@@ -12,6 +13,8 @@ import {
   ListIN2306SimulationsQuerySchema,
   IN2306SimulationIdParamSchema,
   UpdateIN2306SimulationInputSchema,
+  ProcessedSpedCompetencesQuerySchema,
+  IN2306PrefillByCompetenceQuerySchema,
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
@@ -23,7 +26,8 @@ simuladorIN2306Routes.use('/*', requireModule('SIMULADOR_IN_2306'));
 
 const simuladorRepo = new SimuladorIN2306Repository();
 const clientRepo = new ClientRepository();
-const simuladorService = new SimuladorIN2306Service(simuladorRepo, clientRepo);
+const fiscalFileRepo = new FiscalFileRepository();
+const simuladorService = new SimuladorIN2306Service(simuladorRepo, clientRepo, fiscalFileRepo);
 
 /**
  * POST /simulador-in-2306/simulate-tributario
@@ -87,6 +91,42 @@ simuladorIN2306Routes.get(
           limit: query.limit,
         },
       });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/**
+ * GET /simulador-in-2306/processed-sped-competences
+ * Competências com SPED processado e prefill do simulador (validação: cliente existe no tenant).
+ */
+simuladorIN2306Routes.get(
+  '/processed-sped-competences',
+  zValidator('query', ProcessedSpedCompetencesQuerySchema),
+  async (c) => {
+    try {
+      const q = c.req.valid('query');
+      const competences = await simuladorService.listProcessedSpedPrefillCompetences(q.client_id);
+      return c.json({ data: { competences } }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/**
+ * GET /simulador-in-2306/prefill-by-competence
+ * Último prefill consolidado a partir de `module_prefill_simulador_in2306` (validação no servidor).
+ */
+simuladorIN2306Routes.get(
+  '/prefill-by-competence',
+  zValidator('query', IN2306PrefillByCompetenceQuerySchema),
+  async (c) => {
+    try {
+      const q = c.req.valid('query');
+      const data = await simuladorService.getPrefillByCompetence(q.client_id, q.competence);
+      return c.json({ data }, 200);
     } catch (err) {
       return errorHandler(err, c);
     }

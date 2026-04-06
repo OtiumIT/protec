@@ -12,7 +12,10 @@ function getAuthHeaders() {
   return { token, tenantId };
 }
 
-/** Resultado da extração do PDF da ECD (SPED Contábil) */
+/** Perfil de extração no backend (ECD, balancete ou PDF escaneado com regras duplas). */
+export type ExtracaoPdfContabilPerfil = 'ecd' | 'balancete' | 'pdf_escaneado_duplo';
+
+/** Resultado da extração do PDF (ECD/SPED ou balancete) */
 export interface ExtractEcdPdfResult {
   ecd: {
     documento_info?: { periodo_escrituracao?: { inicio?: string; fim?: string }; [key: string]: unknown };
@@ -20,6 +23,7 @@ export interface ExtractEcdPdfResult {
     demonstrativo_contabil?: unknown;
   };
   simulação_prefill: Omit<SimulateRatingInput, 'client_id' | 'rating_real' | 'save_simulation'>;
+  extracao_perfil?: ExtracaoPdfContabilPerfil;
 }
 
 /** Dados de dívida negociada extraídos do recibo PGFN */

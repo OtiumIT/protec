@@ -30,6 +30,7 @@ Este documento registra os blocos e registros usados na primeira versao de extra
   - Passivo circulante
   - Passivo nao circulante
   - Patrimonio liquido
+  - **Nota**: em ECD com varios `J005` (trimestres + exercicio), a mesma descricao em `J100` repete-se por periodo. O parser escolhe a linha cujo `J005` coincide com o fim do periodo do `0000` e, havendo empate, prefere o intervalo igual ao exercicio completo (inicio e fim do cabecalho), nao apenas a ultima ocorrencia no arquivo.
 
 - `J150`: DRE (resumo)
   - Receita bruta

@@ -67,6 +67,82 @@ def parse_date_ddmmyyyy(value: str | None) -> str | None:
     return f"{value[4:8]}-{value[2:4]}-{value[0:2]}"
 
 
+def iso_to_sped_ddmmyyyy(iso: str | None) -> str | None:
+    if not iso:
+        return None
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", iso.strip())
+    if not m:
+        return None
+    return f"{m.group(3)}{m.group(2)}{m.group(1)}"
+
+
+def map_j100_balance_slot(descricao: str) -> str | None:
+    if descricao == "ATIVO":
+        return "ativo_total"
+    if descricao == "ATIVO CIRCULANTE":
+        return "ativo_circulante"
+    if descricao in ("ATIVO NAO CIRCULANTE", "ATIVO NAO-CIRCULANTE"):
+        return "ativo_nao_circulante"
+    if descricao == "PASSIVO":
+        return "passivo_total"
+    if descricao == "PASSIVO CIRCULANTE":
+        return "passivo_circulante"
+    if descricao in ("PASSIVO NAO CIRCULANTE", "PASSIVO NAO-CIRCULANTE"):
+        return "passivo_nao_circulante"
+    if descricao == "PATRIMONIO LIQUIDO":
+        return "patrimonio_liquido"
+    return None
+
+
+def pick_best_j100_balance(
+    candidates: list[dict[str, Any]], slot: str, header: dict[str, Any]
+) -> float | None:
+    of_slot = [c for c in candidates if c.get("slot") == slot]
+    if not of_slot:
+        return None
+    if len(of_slot) == 1:
+        return float(of_slot[0]["valor"])
+
+    header_end = iso_to_sped_ddmmyyyy(header.get("period_end"))
+    header_start = iso_to_sped_ddmmyyyy(header.get("period_start"))
+    pool = of_slot
+    if header.get("type") == "ecd" and header_end:
+        match_end = [c for c in of_slot if c.get("dt_fim") == header_end]
+        if match_end:
+            pool = match_end
+    if header.get("type") == "ecd" and header_start and len(pool) > 1:
+        match_both = [c for c in pool if c.get("dt_ini") == header_start]
+        if match_both:
+            pool = match_both
+    tot = [c for c in pool if str(c.get("ind_tot") or "").upper() == "T"]
+    if tot:
+        pool = tot
+    min_nivel = min(int(c.get("nivel", 99)) for c in pool)
+    pool = [c for c in pool if int(c.get("nivel", 99)) == min_nivel]
+    pool.sort(key=lambda c: int(c.get("file_order", 0)))
+    return float(pool[-1]["valor"]) if pool else None
+
+
+def materialize_j100_balance(
+    candidates: list[dict[str, Any]], header: dict[str, Any]
+) -> dict[str, float]:
+    slots = [
+        "ativo_total",
+        "ativo_circulante",
+        "ativo_nao_circulante",
+        "passivo_total",
+        "passivo_circulante",
+        "passivo_nao_circulante",
+        "patrimonio_liquido",
+    ]
+    out: dict[str, float] = {}
+    for s in slots:
+        v = pick_best_j100_balance(candidates, s, header)
+        if v is not None:
+            out[s] = v
+    return out
+
+
 def is_revenue_description(description: str) -> bool:
     return any(k in description for k in ("RECEITA", "VENDA", "FATURAMENTO", "SERVIC", "PRODUT", "MERCADORIA"))
 
@@ -89,7 +165,10 @@ def parse_sped(content: bytes) -> dict[str, Any]:
 
     header: dict[str, Any] = {"type": "unknown"}
     register_counts: dict[str, int] = {}
-    balance: dict[str, float] = {}
+    j100_candidates: list[dict[str, Any]] = []
+    j100_file_order = 0
+    current_j005_ini: str | None = None
+    current_j005_fim: str | None = None
     dre: dict[str, float] = {}
     conta_descricao_by_codigo: dict[str, str] = {}
     current_quarter_key: str | None = None
@@ -135,25 +214,37 @@ def parse_sped(content: bytes) -> dict[str, Any]:
                 }
             continue
 
+        if reg == "J005":
+            ini = (values[0] or "").strip() if len(values) > 0 else ""
+            fim = (values[1] or "").strip() if len(values) > 1 else ""
+            current_j005_ini = ini if re.match(r"^\d{8}$", ini) else None
+            current_j005_fim = fim if re.match(r"^\d{8}$", fim) else None
+            continue
+
         if reg == "J100":
+            j100_file_order += 1
             descricao = normalize_text(values[5] if len(values) > 5 else "")
             valor = parse_sped_number(values[8] if len(values) > 8 else None)
             if valor is None:
                 continue
-            if descricao == "ATIVO":
-                balance["ativo_total"] = valor
-            elif descricao == "ATIVO CIRCULANTE":
-                balance["ativo_circulante"] = valor
-            elif descricao in ("ATIVO NAO CIRCULANTE", "ATIVO NAO-CIRCULANTE"):
-                balance["ativo_nao_circulante"] = valor
-            elif descricao == "PASSIVO":
-                balance["passivo_total"] = valor
-            elif descricao == "PASSIVO CIRCULANTE":
-                balance["passivo_circulante"] = valor
-            elif descricao in ("PASSIVO NAO CIRCULANTE", "PASSIVO NAO-CIRCULANTE"):
-                balance["passivo_nao_circulante"] = valor
-            elif descricao == "PATRIMONIO LIQUIDO":
-                balance["patrimonio_liquido"] = valor
+            slot = map_j100_balance_slot(descricao)
+            if slot:
+                ind_tot = (values[1] if len(values) > 1 else "").strip().upper()
+                try:
+                    nivel = int((values[2] if len(values) > 2 else "99").strip())
+                except ValueError:
+                    nivel = 99
+                j100_candidates.append(
+                    {
+                        "slot": slot,
+                        "valor": float(valor),
+                        "dt_ini": current_j005_ini,
+                        "dt_fim": current_j005_fim,
+                        "nivel": nivel,
+                        "ind_tot": ind_tot,
+                        "file_order": j100_file_order,
+                    }
+                )
             continue
 
         if reg == "C050":
@@ -225,6 +316,8 @@ def parse_sped(content: bytes) -> dict[str, Any]:
                     "valores_declarados": [],
                 }
             )
+
+    balance = materialize_j100_balance(j100_candidates, header) if j100_candidates else {}
 
     ecf_trimestres = sorted(
         [

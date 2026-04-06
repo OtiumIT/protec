@@ -115,6 +115,112 @@ function parseDateDDMMYYYY(value: string | undefined): string | undefined {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/** Converte ISO YYYY-MM-DD (saída do 0000) para DDMMYYYY do SPED, para cruzar com J005. */
+function isoToSpedDDMMYYYY(iso: string | undefined): string | undefined {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
+  const [y, m, d] = iso.split('-');
+  return `${d}${m}${y}`;
+}
+
+type BalanceSlotKey =
+  | 'ativo_total'
+  | 'ativo_circulante'
+  | 'ativo_nao_circulante'
+  | 'passivo_total'
+  | 'passivo_circulante'
+  | 'passivo_nao_circulante'
+  | 'patrimonio_liquido';
+
+interface J100BalanceCandidate {
+  slot: BalanceSlotKey;
+  valor: number;
+  /** DDMMYYYY do J005 vigente na linha (se houver). */
+  dtIni?: string;
+  dtFim?: string;
+  nivel: number;
+  indTot: string;
+  fileOrder: number;
+}
+
+function mapJ100DescriptionToBalanceSlot(descricaoNorm: string): BalanceSlotKey | null {
+  if (descricaoNorm === 'ATIVO') return 'ativo_total';
+  if (descricaoNorm === 'ATIVO CIRCULANTE') return 'ativo_circulante';
+  if (descricaoNorm === 'ATIVO NAO-CIRCULANTE' || descricaoNorm === 'ATIVO NAO CIRCULANTE') {
+    return 'ativo_nao_circulante';
+  }
+  if (descricaoNorm === 'PASSIVO') return 'passivo_total';
+  if (descricaoNorm === 'PASSIVO CIRCULANTE') return 'passivo_circulante';
+  if (
+    descricaoNorm === 'PASSIVO NAO-CIRCULANTE' ||
+    descricaoNorm === 'PASSIVO NAO CIRCULANTE'
+  ) {
+    return 'passivo_nao_circulante';
+  }
+  if (descricaoNorm === 'PATRIMONIO LIQUIDO') return 'patrimonio_liquido';
+  return null;
+}
+
+/**
+ * ECD costuma repetir a mesma descrição em J100 para cada J005 (trimestre + exercício).
+ * Escolher "última linha do arquivo" pega o período errado se o export não for cronológico.
+ * Regra: alinhar ao período do cabeçalho 0000; preferir demonstração com mesmo início e fim do exercício.
+ */
+function pickBestJ100BalanceCandidate(
+  candidates: J100BalanceCandidate[],
+  slot: BalanceSlotKey,
+  header: SpedHeaderInfo
+): number | undefined {
+  const ofSlot = candidates.filter((c) => c.slot === slot);
+  if (ofSlot.length === 0) return undefined;
+  if (ofSlot.length === 1) return ofSlot[0]!.valor;
+
+  const headerEnd = isoToSpedDDMMYYYY(header.period_end);
+  const headerStart = isoToSpedDDMMYYYY(header.period_start);
+
+  let pool = ofSlot;
+  if (header.type === 'ecd' && headerEnd) {
+    const matchEnd = ofSlot.filter((c) => c.dtFim === headerEnd);
+    if (matchEnd.length > 0) pool = matchEnd;
+  }
+
+  if (header.type === 'ecd' && headerStart && pool.length > 1) {
+    const matchBoth = pool.filter((c) => c.dtIni === headerStart);
+    if (matchBoth.length > 0) pool = matchBoth;
+  }
+
+  const tot = pool.filter((c) => c.indTot === 'T');
+  if (tot.length > 0) pool = tot;
+
+  const minNivel = Math.min(...pool.map((c) => c.nivel));
+  pool = pool.filter((c) => c.nivel === minNivel);
+
+  pool.sort((a, b) => a.fileOrder - b.fileOrder);
+  return pool[pool.length - 1]?.valor;
+}
+
+function materializeBalanceFromJ100Candidates(
+  candidates: J100BalanceCandidate[],
+  header: SpedHeaderInfo
+): SpedBalanceSheetSummary {
+  const slots: BalanceSlotKey[] = [
+    'ativo_total',
+    'ativo_circulante',
+    'ativo_nao_circulante',
+    'passivo_total',
+    'passivo_circulante',
+    'passivo_nao_circulante',
+    'patrimonio_liquido',
+  ];
+  const balance: SpedBalanceSheetSummary = {};
+  for (const s of slots) {
+    const v = pickBestJ100BalanceCandidate(candidates, s, header);
+    if (v !== undefined) {
+      (balance as Record<string, number>)[s] = v;
+    }
+  }
+  return balance;
+}
+
 function parseSpedNumber(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
@@ -364,7 +470,11 @@ export function inspectSpedBuffer(
       };
     }
   > = {};
-  const balance: SpedBalanceSheetSummary = {};
+  const j100Candidates: J100BalanceCandidate[] = [];
+  let j100FileOrder = 0;
+  let currentJ005Ini: string | undefined;
+  let currentJ005Fim: string | undefined;
+
   const dre: SpedDreSummary = {};
   let cadastro: SpedInspectionResult['cadastro'] | undefined;
   const calibratorRules = (options?.calibratorRules || []).filter(
@@ -401,7 +511,16 @@ export function inspectSpedBuffer(
       continue;
     }
 
+    if (parsed.reg === 'J005') {
+      const ini = parsed.values[0]?.trim();
+      const fim = parsed.values[1]?.trim();
+      currentJ005Ini = ini && /^\d{8}$/.test(ini) ? ini : undefined;
+      currentJ005Fim = fim && /^\d{8}$/.test(fim) ? fim : undefined;
+      continue;
+    }
+
     if (parsed.reg === 'J100') {
+      j100FileOrder += 1;
       const codigo = parsed.values[0] || '';
       const descricao = normalizeText(parsed.values[5]);
       const valorFinal = parseSpedNumber(parsed.values[8]);
@@ -412,19 +531,20 @@ export function inspectSpedBuffer(
         valor_final: valorFinal,
       });
 
-      if (descricao === 'ATIVO') balance.ativo_total = valorFinal;
-      else if (descricao === 'ATIVO CIRCULANTE') balance.ativo_circulante = valorFinal;
-      else if (descricao === 'ATIVO NAO-CIRCULANTE' || descricao === 'ATIVO NAO CIRCULANTE') {
-        balance.ativo_nao_circulante = valorFinal;
-      } else if (descricao === 'PASSIVO') balance.passivo_total = valorFinal;
-      else if (descricao === 'PASSIVO CIRCULANTE') balance.passivo_circulante = valorFinal;
-      else if (
-        descricao === 'PASSIVO NAO-CIRCULANTE' ||
-        descricao === 'PASSIVO NAO CIRCULANTE'
-      ) {
-        balance.passivo_nao_circulante = valorFinal;
-      } else if (descricao === 'PATRIMONIO LIQUIDO') {
-        balance.patrimonio_liquido = valorFinal;
+      const indTot = (parsed.values[1] || '').trim().toUpperCase();
+      const nivelParsed = parseInt((parsed.values[2] || '99').trim(), 10);
+      const nivel = Number.isFinite(nivelParsed) ? nivelParsed : 99;
+      const slot = mapJ100DescriptionToBalanceSlot(descricao);
+      if (slot !== null) {
+        j100Candidates.push({
+          slot,
+          valor: valorFinal,
+          dtIni: currentJ005Ini,
+          dtFim: currentJ005Fim,
+          nivel,
+          indTot,
+          fileOrder: j100FileOrder,
+        });
       }
       continue;
     }
@@ -587,6 +707,9 @@ export function inspectSpedBuffer(
       continue;
     }
   }
+
+  const balance: SpedBalanceSheetSummary =
+    j100Candidates.length > 0 ? materializeBalanceFromJ100Candidates(j100Candidates, header) : {};
 
   const hasBalance = Object.keys(balance).length > 0;
   const hasDre = Object.keys(dre).length > 0;

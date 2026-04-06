@@ -87,6 +87,36 @@ export interface IN2306SimulationResult {
   is_simulation: boolean;
 }
 
+/** Resposta GET /simulador-in-2306/prefill-by-competence */
+export interface IN2306SpedPrefillPayload {
+  client_id: string;
+  competence: string;
+  fiscal_file: {
+    id: string;
+    client_id: string;
+    competence: string;
+    file_name: string;
+  } | null;
+  extracted_at: string;
+  source_files: Array<{ id: string; file_name: string; created_at: string }>;
+  prefill: {
+    ano: number;
+    trimestres: ReceitasTrimestre[];
+    deducoes_trimestrais: { pis_cofins_zero: number; icms_destacado: number }[];
+    retencoes_trimestrais: { irrf: number; orgaos_publicos: number }[];
+    aplicar_equiparacao_hospitalar: boolean;
+  };
+  meta: {
+    confidence?: {
+      overall?: number;
+      coverage?: number;
+      linhas_analisadas?: number;
+      linhas_classificadas?: number;
+    };
+    origem?: string;
+  };
+}
+
 function getAuthHeaders() {
   const token = localStorage.getItem('accessToken');
   const tenantId = localStorage.getItem('tenantId');
@@ -163,5 +193,27 @@ export const simuladorIN2306Service = {
       token,
       tenantId,
     });
+  },
+
+  /** Competências YYYY-MM com arquivo fiscal processado e prefill do simulador extraído (validação no servidor). */
+  async listProcessedSpedPrefillCompetences(clientId: string): Promise<string[]> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams({ client_id: clientId });
+    const response = await apiRequest<{ data: { competences: string[] } }>(
+      `/api/v1/simulador-in-2306/processed-sped-competences?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data.competences;
+  },
+
+  /** Último prefill consolidado para cliente + competência (404 se não houver extração). */
+  async getPrefillByCompetence(clientId: string, competence: string): Promise<IN2306SpedPrefillPayload> {
+    const { token, tenantId } = getAuthHeaders();
+    const params = new URLSearchParams({ client_id: clientId, competence });
+    const response = await apiRequest<{ data: IN2306SpedPrefillPayload }>(
+      `/api/v1/simulador-in-2306/prefill-by-competence?${params.toString()}`,
+      { token, tenantId }
+    );
+    return response.data;
   },
 };

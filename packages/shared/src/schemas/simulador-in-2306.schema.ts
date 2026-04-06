@@ -130,6 +130,17 @@ export const ListIN2306SimulationsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
+/** GET /simulador-in-2306/processed-sped-competences */
+export const ProcessedSpedCompetencesQuerySchema = z.object({
+  client_id: z.string().uuid(),
+});
+
+/** GET /simulador-in-2306/prefill-by-competence */
+export const IN2306PrefillByCompetenceQuerySchema = z.object({
+  client_id: z.string().uuid(),
+  competence: z.string().regex(/^\d{4}-\d{2}$/, 'Competence must be in format YYYY-MM'),
+});
+
 export const IN2306SimulationIdParamSchema = z.object({
   id: z.string().uuid(),
 });

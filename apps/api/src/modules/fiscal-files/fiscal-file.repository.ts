@@ -391,4 +391,81 @@ export class FiscalFileRepository extends BaseRepository {
   async deleteCalibratorRule(id: string): Promise<void> {
     await this.query('DELETE FROM fiscal_sped_calibrator_rules WHERE id = $1', [id], false);
   }
+
+  /**
+   * Competências YYYY-MM com ao menos um arquivo fiscal processado e extração
+   * `module_prefill_simulador_in2306` para o cliente.
+   */
+  async listDistinctSimuladorPrefillCompetences(clientId: string): Promise<string[]> {
+    const result = await this.query<{ competence: string }>(
+      `SELECT DISTINCT ff.competence
+       FROM extracted_fiscal_data efd
+       INNER JOIN fiscal_files ff ON ff.id = efd.fiscal_file_id
+       WHERE efd.client_id = $1
+         AND efd.data_type = 'module_prefill_simulador_in2306'
+         AND ff.status = 'processed'
+         AND ff.competence IS NOT NULL
+         AND ff.competence ~ '^\\d{4}-\\d{2}$'
+       ORDER BY ff.competence DESC`,
+      [clientId],
+      false
+    );
+    return result.rows.map((r) => r.competence);
+  }
+
+  /**
+   * Última extração do prefill do simulador IN 2.306 para cliente + competência
+   * (por `extracted_fiscal_data.competence` ou `fiscal_files.competence` do arquivo).
+   */
+  async findLatestSimuladorIn2306PrefillByCompetence(
+    clientId: string,
+    competence: string
+  ): Promise<ExtractedFiscalDataRow | null> {
+    const result = await this.query<ExtractedFiscalDataRow>(
+      `SELECT efd.id, efd.fiscal_file_id, efd.client_id, efd.data_type, efd.competence, efd.data, efd.created_at
+       FROM extracted_fiscal_data efd
+       WHERE efd.client_id = $1
+         AND efd.data_type = 'module_prefill_simulador_in2306'
+         AND (
+           efd.competence = $2
+           OR efd.fiscal_file_id IN (
+             SELECT ff.id FROM fiscal_files ff
+             WHERE ff.client_id = $1
+               AND ff.competence = $2
+               AND ff.status = 'processed'
+           )
+         )
+       ORDER BY efd.created_at DESC
+       LIMIT 1`,
+      [clientId, competence],
+      false
+    );
+    return result.rows[0] || null;
+  }
+
+  /** Arquivos processados da competência que possuem linha de prefill do simulador (auditoria). */
+  async listProcessedFiscalFilesWithSimuladorPrefill(options: {
+    client_id: string;
+    competence: string;
+    limit?: number;
+  }): Promise<Array<{ id: string; file_name: string; created_at: Date }>> {
+    const limit = options.limit ?? 50;
+    const result = await this.query<{ id: string; file_name: string; created_at: Date }>(
+      `SELECT id, file_name, created_at FROM (
+         SELECT DISTINCT ON (ff.id) ff.id, ff.file_name, ff.created_at
+         FROM fiscal_files ff
+         INNER JOIN extracted_fiscal_data efd ON efd.fiscal_file_id = ff.id
+         WHERE ff.client_id = $1
+           AND ff.competence = $2
+           AND ff.status = 'processed'
+           AND efd.data_type = 'module_prefill_simulador_in2306'
+         ORDER BY ff.id, efd.created_at DESC
+       ) sub
+       ORDER BY sub.created_at DESC
+       LIMIT $3`,
+      [options.client_id, options.competence, limit],
+      false
+    );
+    return result.rows;
+  }
 }
