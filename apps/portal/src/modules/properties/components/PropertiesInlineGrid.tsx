@@ -112,7 +112,11 @@ type Props = {
   simulationLoadButtonLoading?: boolean;
 };
 
-const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
+/** Carnê-Leão: só deduz condomínio pago pelo locador; carga assumida pelo locatário não integra a base (art. 47, Lei 7.739/1989). */
+const CONDOMINIO_HEADER_TOOLTIP =
+  'Preencha apenas se o condomínio for pago pelo proprietário (locador). Se o locatário assume o encargo integralmente, deixe em branco ou zero — esse valor não é despesa dedutível na base do Carnê-Leão (art. 47, Lei nº 7.739/1989).';
+
+const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean; headerTooltip?: string }> = [
   { id: 'identificador', label: 'Imovel' },
   { id: 'valor_aluguel_mensal', label: 'Valor do aluguel mensal', isMoney: true },
   { id: 'tipo_locacao', label: 'Tipo da locacao' },
@@ -121,7 +125,7 @@ const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
   { id: 'inscricao_iptu', label: 'Inscrição IPTU' },
   { id: 'cartorio_registro', label: 'Cartório' },
   { id: 'iptu_mensal_padrao', label: 'IPTU Anual', isMoney: true },
-  { id: 'condominio_mensal_padrao', label: 'Condomínio', isMoney: true },
+  { id: 'condominio_mensal_padrao', label: 'Condomínio', isMoney: true, headerTooltip: CONDOMINIO_HEADER_TOOLTIP },
   { id: 'seguro_mensal_padrao', label: 'Seguro Anual', isMoney: true },
   { id: 'camareira_mensal_padrao', label: 'Camareira', isMoney: true },
   { id: 'seguranca_mensal_padrao', label: 'Segurança', isMoney: true },
@@ -846,7 +850,20 @@ export function PropertiesInlineGrid({
               </th>
               <th className="text-left py-2 px-2 w-12">Status</th>
               {COLUMN_DEFS.filter((c) => visibleColumns.includes(c.id)).map((col) => (
-                <th key={col.id} className="text-left py-2 px-2 text-slate-700">{col.label}</th>
+                <th key={col.id} className="text-left py-2 px-2 text-slate-700 align-middle">
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    {col.headerTooltip ? (
+                      <span
+                        title={col.headerTooltip}
+                        aria-label={col.headerTooltip}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] font-semibold cursor-help select-none"
+                      >
+                        ⓘ
+                      </span>
+                    ) : null}
+                  </span>
+                </th>
               ))}
             </tr>
           </thead>
