@@ -87,27 +87,19 @@ export function EPSLanding() {
   };
 
   return (
-    <div className="min-h-screen font-sans text-slate-800 antialiased flex flex-col md:flex-row">
-      {/* Lado esquerdo - branding */}
+    <div className="relative min-h-screen font-sans text-slate-800 antialiased flex flex-col md:flex-row overflow-x-hidden">
+      {/* Lado esquerdo — arte ancorada à esquerda; corta na borda direita do painel (overflow-hidden) */}
       <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/eps-hero-bg.png)' }}
+          className="absolute inset-0 bg-cover bg-left bg-no-repeat"
+          style={{ backgroundImage: "url('/eps-hero-bg.png')" }}
           aria-hidden
         />
-        <div className="absolute inset-0 bg-[#0B1120]/55" aria-hidden />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 to-transparent" aria-hidden />
+        <div className="absolute inset-0 bg-[#0B1120]/50" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0B1120]/65 via-[#0B1120]/25 to-transparent" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/35 to-transparent" aria-hidden />
 
-        {/* Foto do Pablo Arruda - posicionada absolutamente no lado direito, altura total */}
-        <div className="absolute bottom-0 right-0 w-[48%] h-full hidden md:flex items-end justify-center pointer-events-none">
-          <img
-            src="/pablo-arruda.png"
-            alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
-            className="h-full w-auto object-contain object-bottom"
-          />
-        </div>
-
-        <div className="relative z-10 md:max-w-[54%]">
+        <div className="relative z-10 md:max-w-[min(100%,28rem)] md:pr-4">
           {/* Logos + badge */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-16">
             <div className="flex items-center gap-3">
@@ -180,19 +172,43 @@ export function EPSLanding() {
           </ul>
         </div>
 
+        {/* Mobile: retrato abaixo do conteúdo */}
+        <div className="relative z-10 mt-8 flex justify-center md:hidden">
+          <img
+            src="/pablo-arruda.png"
+            alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
+            className="max-h-56 w-auto object-contain object-bottom drop-shadow-xl"
+          />
+        </div>
       </div>
 
-      {/* Lado direito - formulário */}
-      <div
-        className="md:w-1/2 bg-slate-50 flex items-center justify-center p-6 md:p-12"
-        style={{
-          backgroundSize: '40px 40px',
-          backgroundImage:
-            'linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)',
-        }}
-      >
-        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-md overflow-hidden border border-slate-100">
-          <div className="p-8">
+      {/* Lado direito — grid de fundo + Pablo atravessando a divisória + card acima */}
+      <div className="relative md:w-1/2 min-h-screen flex items-center justify-center p-6 md:p-12">
+        <div
+          className="absolute inset-0 bg-slate-50"
+          style={{
+            backgroundSize: '40px 40px',
+            backgroundImage:
+              'linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)',
+          }}
+          aria-hidden
+        />
+
+        {/* Pablo: âncora no limite esquerdo da coluna clara (= meio da viewport); metade no azul, metade no claro */}
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[min(92vh,880px)] w-[min(46vw,520px)] -translate-x-[42%] md:flex md:items-end md:justify-center"
+          aria-hidden
+        >
+          <img
+            src="/pablo-arruda.png"
+            alt=""
+            className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
+          />
+        </div>
+
+        <div className="relative z-20 w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full overflow-hidden border border-slate-100">
+            <div className="p-8">
             {/* Header */}
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-slate-800 mb-2">
@@ -467,6 +483,7 @@ export function EPSLanding() {
               </p>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
