@@ -175,7 +175,7 @@ export function EPSLanding() {
         {/* Mobile: retrato abaixo do conteúdo */}
         <div className="relative z-10 mt-8 flex justify-center md:hidden">
           <img
-            src="/pablo-arruda.png"
+            src="/pablo-arruda2.png"
             alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
             className="max-h-56 w-auto object-contain object-bottom drop-shadow-xl"
           />
@@ -200,7 +200,7 @@ export function EPSLanding() {
           aria-hidden
         >
           <img
-            src="/pablo-arruda.png"
+            src="/pablo-arruda2.png"
             alt=""
             className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
           />
