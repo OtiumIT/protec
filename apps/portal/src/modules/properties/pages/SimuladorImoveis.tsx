@@ -48,7 +48,8 @@ function round2(n: number) {
 /** Nome sugerido ao guardar PDF (Chrome usa `document.title` como nome do ficheiro). */
 function sanitizePdfDocumentTitle(raw: string): string {
   const t = raw
-    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/[–—]/g, '-')           // en-dash / em-dash → hífen comum
+    .replace(/[\\/:*?"<>|]+/g, '-')  // caracteres ilegais em nomes de arquivo
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 120);
@@ -58,14 +59,17 @@ function sanitizePdfDocumentTitle(raw: string): string {
 type MesFields = Omit<SimulateStandaloneMesInput, 'mes_referencia'>;
 type SectionKey = 'receita' | 'despesa' | 'custo';
 
-const ROWS: Array<{ label: string; field: keyof MesFields; section: SectionKey }> = [
+const CONDOMINIO_TOOLTIP =
+  'Dedutível apenas quando pago pelo locador (proprietário). Se o encargo de condomínio for assumido pelo locatário, não integra as despesas dedutíveis da base de cálculo do Carnê-Leão (art. 47, Lei nº 7.739/1989).';
+
+const ROWS: Array<{ label: string; field: keyof MesFields; section: SectionKey; tooltip?: string }> = [
   { label: 'Aluguel tradicional (longo prazo)', field: 'receita_aluguel_tradicional', section: 'receita' },
   { label: 'Aluguel curto prazo (Airbnb, temporada)', field: 'receita_aluguel_curto', section: 'receita' },
   { label: 'Estacionamento / vaga de garagem', field: 'receita_garagem', section: 'receita' },
   { label: 'Outras (lavanderia, depósito, etc.)', field: 'receita_outras', section: 'receita' },
-  { label: 'IPTU', field: 'iptu', section: 'despesa' },
-  { label: 'Condomínio', field: 'condominio', section: 'despesa' },
-  { label: 'Seguro do imóvel', field: 'seguro_imovel', section: 'despesa' },
+  { label: 'IPTU Anual', field: 'iptu', section: 'despesa' },
+  { label: 'Condomínio (pago pelo locador)', field: 'condominio', section: 'despesa', tooltip: CONDOMINIO_TOOLTIP },
+  { label: 'Seguro do imóvel Anual', field: 'seguro_imovel', section: 'despesa' },
   { label: 'Juros de financiamento do imóvel', field: 'juros_financiamento', section: 'despesa' },
   { label: 'Manutenção e conservação', field: 'manutencao_conservacao', section: 'despesa' },
   { label: 'Outras despesas dedutíveis', field: 'outras_dedutiveis', section: 'despesa' },
@@ -151,9 +155,8 @@ function buildDemoMeses(ano: number): SimulateStandaloneMesInput[] {
     receita_aluguel_curto: 9000,
     receita_garagem: 200,
     receita_outras: 0,
-    iptu: 450,
+    // IPTU e Seguro são anuais: valor total concentrado em Janeiro, zero nos demais meses
     condominio: 380,
-    seguro_imovel: 120,
     juros_financiamento: 0,
     manutencao_conservacao: 150,
     outras_dedutiveis: 0,
@@ -178,6 +181,8 @@ function buildDemoMeses(ano: number): SimulateStandaloneMesInput[] {
   return Array.from({ length: 12 }, (_, i) => ({
     mes_referencia: `${ano}-${String(i + 1).padStart(2, '0')}`,
     ...base,
+    iptu: i === 0 ? 5400 : 0,          // R$ 450/mês × 12 = R$ 5.400 anuais em Janeiro
+    seguro_imovel: i === 0 ? 1440 : 0, // R$ 120/mês × 12 = R$ 1.440 anuais em Janeiro
   }));
 }
 
@@ -214,6 +219,24 @@ function emptyMes(ano: number, i: number): SimulateStandaloneMesInput {
   };
 }
 
+const WIZARD_STEPS = [
+  {
+    step: 1 as const,
+    label: 'Cliente e imóveis',
+    description: 'Selecione o cliente e cadastre os imóveis que fazem parte da simulação',
+  },
+  {
+    step: 2 as const,
+    label: 'Parâmetros e meses',
+    description: 'Ajuste os valores mensais de receitas, despesas, custos e as opções da Reforma LC 214/2025',
+  },
+  {
+    step: 3 as const,
+    label: 'Resultado',
+    description: 'Comparativo PF × PJ × Reforma LC 214/2025 — exporte para PDF quando estiver pronto',
+  },
+] as const;
+
 export function SimuladorImoveis() {
   const { success, error: showError, ToastContainer } = useToast();
   const isPaymentRequiredError = (err: unknown): boolean => {
@@ -248,6 +271,7 @@ export function SimuladorImoveis() {
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const printPreviewContentRef = useRef<HTMLDivElement>(null);
   const printWrapperRef = useRef<HTMLDivElement>(null);
+  const wizardStep2TopRef = useRef<HTMLDivElement>(null);
   /** Payload da última simulação (para Salvar no histórico após o resultado). */
   const lastSimulationPayloadRef = useRef<{
     ano: number;
@@ -308,6 +332,9 @@ export function SimuladorImoveis() {
   const [lc214ManualLim240, setLc214ManualLim240] = useState('');
   const [lc214ManualLim288, setLc214ManualLim288] = useState('');
   const [lc214ManualRedutorMensal, setLc214ManualRedutorMensal] = useState('');
+  /** 1 = imóveis; 2 = planilha e parâmetros; 3 = resultado. */
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [isApplyingSimulacao, setIsApplyingSimulacao] = useState(false);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -339,19 +366,32 @@ export function SimuladorImoveis() {
     };
   }, [ano]);
 
+  const CAMPOS_ANUAIS = new Set<keyof MesFields>(['iptu', 'seguro_imovel']);
+
   const aplicarRateioAnual = useCallback(
     (field: keyof MesFields) => {
       const val = round2(valoresAnuais[field] ?? 0);
       if (val <= 0) return;
-      const valorMensal = round2(val / 12);
-      setMeses((prev) =>
-        prev.map((m) => ({
-          ...m,
-          [field]: valorMensal,
-        }))
-      );
-      success('Valor anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+      if (CAMPOS_ANUAIS.has(field)) {
+        setMeses((prev) =>
+          prev.map((m, i) => ({
+            ...m,
+            [field]: i === 0 ? val : 0,
+          }))
+        );
+        success('Valor anual concentrado em Janeiro. Ajuste manualmente se necessário.');
+      } else {
+        const valorMensal = round2(val / 12);
+        setMeses((prev) =>
+          prev.map((m) => ({
+            ...m,
+            [field]: valorMensal,
+          }))
+        );
+        success('Valor anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [valoresAnuais, success]
   );
 
@@ -434,7 +474,8 @@ export function SimuladorImoveis() {
     setMeses(buildDemoMeses(anoDemo));
     setCustosOperacionaisAberto(true);
     setResult(null);
-    success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Clique em "Simular".');
+    setWizardStep(2);
+    success('Demo carregada: predominância Airbnb, ~R$ 140k/ano. Revise os parâmetros e clique em Próximo.');
   }, [success, anoAtual]);
 
   const fillDemo2CenarioIbsCbs = useCallback(() => {
@@ -464,7 +505,8 @@ export function SimuladorImoveis() {
       return next;
     });
     setResult(null);
-    success('Demo carregada: cenário de referência IBS/CBS (2 res. curta, 1 res. longa, 2 não res.), pronto para comparar com a planilha.');
+    setWizardStep(2);
+    success('Demo carregada: cenário de referência IBS/CBS (2 res. curta, 1 res. longa, 2 não res.). Revise e clique em Próximo.');
   }, [anoAtual, success]);
 
   /** Nome do cliente para o relatório: cadastro vinculado (visualização / salvar / simulação) ou texto manual */
@@ -538,6 +580,7 @@ export function SimuladorImoveis() {
     if (!el) return;
     const clone = el.cloneNode(true) as HTMLElement;
     stripReportExcludedFromClone(clone, 'preview');
+    clone.querySelectorAll('details').forEach((d) => d.remove());
     printPreviewContentRef.current.innerHTML = '';
     printPreviewContentRef.current.appendChild(clone);
   }, [
@@ -638,10 +681,10 @@ export function SimuladorImoveis() {
   }, []);
 
   useEffect(() => {
-    if (result) {
+    if (result && wizardStep === 3) {
       resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [result]);
+  }, [result, wizardStep]);
 
   /** Inicializa saveClientId com clientId quando disponível (para Salvar no histórico). */
   useEffect(() => {
@@ -817,7 +860,8 @@ export function SimuladorImoveis() {
     } else {
       setCoverageWarning(null);
     }
-    success('Dados dos imóveis carregados na simulação. Ajuste se necessário e clique em Simular.');
+    success('Dados dos imóveis aplicados à planilha. Ajuste se necessário e clique em Próximo para calcular o resultado.');
+    setWizardStep(2);
     if (highlightTimerRef.current) {
       clearTimeout(highlightTimerRef.current);
       highlightTimerRef.current = null;
@@ -828,7 +872,7 @@ export function SimuladorImoveis() {
       highlightTimerRef.current = null;
     }, 2500);
     setTimeout(() => {
-      monthlyGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   }, [imoveisSelectedIds, imoveisDraftSelecionados, ano, success, imoveisList]);
 
@@ -1020,6 +1064,7 @@ export function SimuladorImoveis() {
           receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
         };
         setEditingSimulationId(null);
+        setWizardStep(3);
         success('Simulação atualizada.');
         const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
         setSimulations(simRes.simulations);
@@ -1063,6 +1108,7 @@ export function SimuladorImoveis() {
         receita_locacao_residencial_anual: imv.receita_locacao_residencial_anual,
         receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
       };
+      setWizardStep(3);
       success('Simulação concluída.');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao simular');
@@ -1177,7 +1223,8 @@ export function SimuladorImoveis() {
       setSaveTitle(sim.title ?? '');
       setEditingSimulationId(id);
       setResult(null);
-      success('Simulação carregada. Edite e clique em Simular para atualizar.');
+      setWizardStep(2);
+      success('Simulação carregada. Ajuste os dados e clique em Próximo para atualizar o resultado.');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao carregar');
     }
@@ -1236,6 +1283,7 @@ export function SimuladorImoveis() {
         receita_locacao_nao_residencial_anual: imv.receita_locacao_nao_residencial_anual,
       };
       setEditingSimulationId(null);
+      setWizardStep(3);
       success('Nova simulação criada com sucesso!');
       const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
       setSimulations(listRes.simulations);
@@ -1345,9 +1393,74 @@ export function SimuladorImoveis() {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025
         </h1>
-        <p className="text-slate-600 mt-2 max-w-2xl">
-          Preencha os totais mensais por categoria. O resultado compara Pessoa Física (Carnê-Leão), Pessoa Jurídica (Lucro Presumido) e o cenário da Reforma Tributária (IBS/CBS).
-        </p>
+
+        {/* Stepper */}
+        <div className="mt-6">
+          <div className="flex items-center" role="list" aria-label="Etapas do simulador">
+            {WIZARD_STEPS.map((s, i) => {
+              const isCompleted = wizardStep > s.step;
+              const isActive = wizardStep === s.step;
+              return (
+                <div
+                  key={s.step}
+                  role="listitem"
+                  className={`flex items-center ${i < WIZARD_STEPS.length - 1 ? 'flex-1' : ''}`}
+                >
+                  <div className="flex flex-col items-center">
+                    {isCompleted ? (
+                      <button
+                        type="button"
+                        aria-label={`Voltar para a etapa ${s.step}: ${s.label}`}
+                        onClick={() => {
+                          setWizardStep(s.step);
+                          if (s.step === 3) setResult(null);
+                        }}
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+                        title={`Voltar para "${s.label}"`}
+                      >
+                        ✓
+                      </button>
+                    ) : (
+                      <div
+                        aria-current={isActive ? 'step' : undefined}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 select-none ${
+                          isActive
+                            ? 'bg-brand text-white ring-4 ring-brand/20'
+                            : 'bg-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {s.step}
+                      </div>
+                    )}
+                    <span
+                      className={`mt-2 text-xs text-center max-w-[90px] leading-tight font-medium transition-colors duration-300 ${
+                        isActive
+                          ? 'text-brand'
+                          : isCompleted
+                            ? 'text-emerald-700 cursor-pointer'
+                            : 'text-slate-400'
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                  {i < WIZARD_STEPS.length - 1 && (
+                    <div
+                      className={`h-1 flex-1 mx-3 mb-5 rounded transition-all duration-500 ${
+                        isCompleted ? 'bg-emerald-400' : 'bg-slate-200'
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-5 border-t border-slate-200 pt-4">
+            <p className="text-sm text-slate-500">
+              {WIZARD_STEPS[wizardStep - 1].description}
+            </p>
+          </div>
+        </div>
       </div>
       {moduleBlockedMessage && (
         <Card className="mb-6 border-amber-200 bg-amber-50 p-4">
@@ -1355,8 +1468,9 @@ export function SimuladorImoveis() {
         </Card>
       )}
 
-      <form onSubmit={handleSimulate} className="space-y-6">
-        {/* Cliente da simulação (sempre primeiro) */}
+      {wizardStep === 1 && (
+        <div className="space-y-6">
+        {/* Cliente da simulação — etapa 1 */}
         <div ref={clientCardRef}>
         <Card className="p-5 border-slate-200">
           <h3 className="font-semibold text-slate-800 mb-3">Cliente da simulação</h3>
@@ -1469,7 +1583,12 @@ export function SimuladorImoveis() {
           onApplyToSimulation={async ({ propertyIds, draftRows }) => {
             setImoveisSelectedIds(new Set(propertyIds));
             setImoveisDraftSelecionados(draftRows);
-            await handleIniciarSimulacao({ propertyIds, draftRows });
+            setIsApplyingSimulacao(true);
+            try {
+              await handleIniciarSimulacao({ propertyIds, draftRows });
+            } finally {
+              setIsApplyingSimulacao(false);
+            }
           }}
           onDeletePersistedRows={async (propertyIds) => {
             await Promise.all(propertyIds.map((id) => propertyService.delete(id)));
@@ -1481,14 +1600,56 @@ export function SimuladorImoveis() {
             });
             success(propertyIds.length > 1 ? 'Linhas excluídas com sucesso.' : 'Linha excluída com sucesso.');
           }}
+          simulationLoadButtonPlacement="footer"
+          simulationLoadButtonLabel="Avançar"
+          simulationLoadButtonLoading={isApplyingSimulacao}
         />
+        <div className="flex flex-col items-center gap-2 border-t border-slate-200 pt-4">
+          <p className="text-sm text-slate-500 text-center max-w-lg">
+            Não vai usar a grade de imóveis? Avance para a planilha mensal vazia e preencha tudo manualmente.
+          </p>
+          <Button
+            type="button"
+            variant="tertiary"
+            onClick={() => {
+              setResult(null);
+              setWizardStep(2);
+              setTimeout(() => wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+            }}
+          >
+            Ir para parâmetros e planilha (sem carregar imóveis)
+          </Button>
+        </div>
+        </div>
+      )}
+
+      {wizardStep === 2 && (
+      <form onSubmit={handleSimulate} className="space-y-6">
+        <div ref={wizardStep2TopRef} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Parâmetros e planilha mensal</h2>
+            <p className="text-sm text-slate-600 mt-0.5">
+              Ajuste o ano, a reforma LC 214/2025 e os valores por mês antes de calcular.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setWizardStep(1);
+              setResult(null);
+            }}
+          >
+            ← Voltar aos imóveis
+          </Button>
+        </div>
         {coverageWarning && (
-          <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
             {coverageWarning}
           </p>
         )}
 
-        {/* Ano e ação principal */}
+        {/* Ano-base e edição de simulação salva */}
         <Card className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1502,29 +1663,16 @@ export function SimuladorImoveis() {
                 className="w-28 h-10 text-center font-semibold text-slate-800 rounded-lg border-slate-300"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={
-                  loading ||
-                  false
-                }
-                className="min-w-[200px]"
-              >
-                {loading ? 'Simulando...' : editingSimulationId ? 'Atualizar simulação' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
-              </Button>
-              {editingSimulationId && (
-                <>
-                  <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNew} disabled={loading}>
-                    Salvar como novo
-                  </Button>
-                  <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
-                    Cancelar edição
-                  </Button>
-                </>
-              )}
-            </div>
+            {editingSimulationId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNew} disabled={loading}>
+                  Salvar como novo
+                </Button>
+                <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
+                  Cancelar edição
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -2028,7 +2176,16 @@ export function SimuladorImoveis() {
                     {sectionRows.map((row) => (
                       <tr key={row.field} className="border-b border-slate-100 hover:bg-white/50 transition-colors">
                         <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
-                          {row.label}
+                          <span className="inline-flex items-center gap-1.5">
+                            {row.label}
+                            {row.tooltip && (
+                              <span
+                                title={row.tooltip}
+                                aria-label={row.tooltip}
+                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
+                              >ⓘ</span>
+                            )}
+                          </span>
                         </td>
                         <td className="py-1.5 px-2 min-w-[220px]">
                           <div className="flex items-center gap-1.5">
@@ -2042,7 +2199,11 @@ export function SimuladorImoveis() {
                               variant="secondary"
                               size="sm"
                               onClick={() => aplicarRateioAnual(row.field)}
-                              title="Dividir valor anual por 12 e preencher todos os meses desta linha"
+                              title={
+                                CAMPOS_ANUAIS.has(row.field)
+                                  ? 'Concentrar valor anual no mês de Janeiro (despesa anual única)'
+                                  : 'Dividir valor anual por 12 e preencher todos os meses desta linha'
+                              }
                               className="shrink-0 !py-1 !px-2 text-xs"
                             >
                               Distribuir
@@ -2172,7 +2333,16 @@ export function SimuladorImoveis() {
                         {sectionRows.map((row) => (
                           <tr key={row.field} className="border-b border-slate-100 hover:bg-white/50 transition-colors">
                             <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
-                              {row.label}
+                              <span className="inline-flex items-center gap-1.5">
+                                {row.label}
+                                {row.tooltip && (
+                                  <span
+                                    title={row.tooltip}
+                                    aria-label={row.tooltip}
+                                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
+                                  >ⓘ</span>
+                                )}
+                              </span>
                             </td>
                             <td className="py-1.5 px-2 min-w-[220px]">
                               <div className="flex items-center gap-1.5">
@@ -2186,7 +2356,11 @@ export function SimuladorImoveis() {
                                   variant="secondary"
                                   size="sm"
                                   onClick={() => aplicarRateioAnual(row.field)}
-                                  title="Dividir valor anual por 12 e preencher todos os meses desta linha"
+                                  title={
+                                    CAMPOS_ANUAIS.has(row.field)
+                                      ? 'Concentrar valor anual no mês de Janeiro (despesa anual única)'
+                                      : 'Dividir valor anual por 12 e preencher todos os meses desta linha'
+                                  }
                                   className="shrink-0 !py-1 !px-2 text-xs"
                                 >
                                   Distribuir
@@ -2215,20 +2389,87 @@ export function SimuladorImoveis() {
           </div>
         </details>
 
-        <div className="flex justify-end">
-          <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px]">
-            {loading ? 'Simulando...' : 'Simular PF vs PJ vs Reforma LC 214/2025'}
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2 border-t border-slate-100">
+          <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px] sm:ml-auto">
+            {loading
+              ? 'Calculando...'
+              : editingSimulationId
+                ? 'Próximo: atualizar resultado'
+                : 'Próximo: ver resultado da simulação'}
           </Button>
         </div>
       </form>
+      )}
 
-      {result && (
-        <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="report-print-wrapper mt-6">
-          <ReportPrintHeader
-            variant="printSheet"
-            reportTitle="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
-            metaLine={`Emissão ${reportEmissionDateStr}`}
-          />
+      {wizardStep === 3 && result && (
+        <>
+        <div className="mt-6 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand px-5 py-4 mb-4 shadow-md">
+            <div className="flex items-center gap-3 min-w-0">
+              <svg className="h-6 w-6 shrink-0 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm font-medium text-white">
+                Resultado calculado. Exporte em PDF para apresentar ao cliente ou volte para ajustar os parâmetros.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setWizardStep(2);
+                  setResult(null);
+                }}
+                className="!bg-white/15 !text-white !border-white/30 hover:!bg-white/25"
+              >
+                Voltar aos parâmetros
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOpenPrintPreview}
+                className="!bg-white !text-brand hover:!bg-white/90 inline-flex items-center gap-2 font-semibold shadow"
+                aria-label="Exportar resultado para PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Exportar para PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="report-print-wrapper mt-0">
+          {/*
+           * Layout de impressão baseado em <table>:
+           * - <thead> se repete nativamente em cada página do Chrome (sem position:fixed).
+           * - <tfoot> aparece no rodapé da última página.
+           * - Na tela, a tabela é um container transparente; apenas o resultado é visível.
+           */}
+          <table className="imoveis-print-layout w-full">
+            <thead>
+              <tr><td className="p-0">
+                <div className="imoveis-print-header hidden print:flex items-center gap-2 border-b border-slate-200 pb-1.5 mb-2">
+                  <img src="/logo-iatax.png" alt="" className="h-5 w-5 object-contain shrink-0" aria-hidden />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-slate-900 leading-tight">Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025</p>
+                    <p className="text-[8px] text-slate-500 leading-tight">Emissão {reportEmissionDateStr}</p>
+                  </div>
+                  <span className="text-[8px] text-slate-400 shrink-0">IATax Soluções Inteligentes</span>
+                </div>
+              </td></tr>
+            </thead>
+            <tfoot>
+              <tr><td className="p-0">
+                <div className="imoveis-print-footer hidden print:flex items-center justify-between pt-1.5 mt-2 border-t border-slate-200">
+                  <span className="text-[8px] text-slate-500">IATax Soluções Inteligentes</span>
+                  <span className="text-[8px] text-slate-500">{reportEmissionDateStr}</span>
+                </div>
+              </td></tr>
+            </tfoot>
+            <tbody>
+              <tr><td className="p-0 align-top">
           <ReportCoverSection
             variant="printSheet"
             title="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
@@ -2240,6 +2481,64 @@ export function SimuladorImoveis() {
             ]}
           />
           <div ref={resultSectionRef} id="simulador-imoveis-resultado-print" className="space-y-6 report-resultado-content print:pt-2">
+          {/* ── Parâmetros da simulação — visível no PDF e no preview ── */}
+          {(() => {
+            const rowsBySection = {
+              receita: ROWS.filter((r) => r.section === 'receita'),
+              despesa: ROWS.filter((r) => r.section === 'despesa'),
+              custo: ROWS.filter((r) => r.section === 'custo'),
+            };
+            const totalAnual = (field: keyof MesFields) =>
+              meses.reduce((s, m) => s + (Number(m[field]) || 0), 0);
+            const hasAny = (list: { field: keyof MesFields }[]) =>
+              list.some((r) => totalAnual(r.field) > 0);
+            const hasCustos = hasAny(rowsBySection.custo);
+            if (!hasAny([...rowsBySection.receita, ...rowsBySection.despesa, ...rowsBySection.custo])) return null;
+
+            const renderSection = (
+              title: string,
+              rows: typeof ROWS,
+              color: string,
+            ) => {
+              const visible = rows.filter((r) => totalAnual(r.field) > 0);
+              if (visible.length === 0) return null;
+              const total = visible.reduce((s, r) => s + totalAnual(r.field), 0);
+              return (
+                <div key={title}>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${color}`}>{title}</p>
+                  <table className="w-full text-xs border-collapse">
+                    <tbody>
+                      {visible.map((r) => (
+                        <tr key={r.field} className="border-b border-slate-100">
+                          <td className="py-0.5 pr-2 text-slate-600 w-[65%]">{r.label}</td>
+                          <td className="py-0.5 text-right font-mono text-slate-800">{formatMoney(totalAnual(r.field))}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-slate-300">
+                        <td className="py-0.5 pr-2 font-semibold text-slate-700">Total</td>
+                        <td className="py-0.5 text-right font-mono font-semibold text-slate-900">{formatMoney(total)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            };
+
+            return (
+              <section className="print-imoveis-params hidden print:block">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 mb-2">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">
+                    Parâmetros utilizados — Ano {ano}
+                  </h3>
+                  <div className={`grid gap-4 ${hasCustos ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    {renderSection('Receitas', rowsBySection.receita, 'text-emerald-700')}
+                    {renderSection('Despesas dedutíveis (PF)', rowsBySection.despesa, 'text-sky-700')}
+                    {hasCustos && renderSection('Custos operacionais', rowsBySection.custo, 'text-amber-700')}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
           {/* Cabeçalho do resultado: título + botão Exportar PDF */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div>
@@ -2268,9 +2567,9 @@ export function SimuladorImoveis() {
             </div>
             <Button
               type="button"
-              variant="secondary"
+              variant="primary"
               onClick={handleOpenPrintPreview}
-              className="print:hidden shrink-0 inline-flex items-center gap-2"
+              className="print:hidden shrink-0 inline-flex items-center gap-2 shadow-sm"
               aria-label="Exportar resultado para PDF"
               data-report-exclude="preview"
             >
@@ -3475,12 +3774,43 @@ export function SimuladorImoveis() {
         </Card>
       )}
 
+          {/* CTA final — Exportar PDF */}
+          <div
+            className="print:hidden mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl bg-brand px-5 py-5 shadow-md"
+            data-report-exclude="preview"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <svg className="h-6 w-6 shrink-0 text-white/80 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-white leading-snug">Pronto para entregar ao cliente?</p>
+                <p className="text-sm text-white/80 mt-0.5">Gere o PDF completo com capa, comparativo e embasamentos legais.</p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleOpenPrintPreview}
+              className="!bg-white !text-brand hover:!bg-white/90 inline-flex items-center gap-2 font-semibold shadow shrink-0"
+              aria-label="Exportar resultado para PDF"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exportar para PDF
+            </Button>
           </div>
-          <ReportPrintFooter variant="printSheet" />
+
+          </div>{/* fecha #simulador-imoveis-resultado-print */}
+              </td></tr>
+            </tbody>
+          </table>{/* fecha imoveis-print-layout */}
         </div>
+        </>
       )}
 
-      {/* Simulações salvas */}
+      {/* Simulações salvas (sempre acessível) */}
       <Card className="mt-6">
         <h2 className="text-xl font-semibold text-slate-800 mb-4">Simulações salvas</h2>
         {simulations.length === 0 ? (

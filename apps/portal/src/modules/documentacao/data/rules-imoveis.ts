@@ -38,7 +38,11 @@ export const rulesImoveis: RuleDocumentation[] = [
       },
       {
         nome: 'Despesas_Dedutiveis',
-        descricao: 'IPTU, condominio, taxa imobiliaria (quando pagas pelo locador)',
+        descricao:
+          'Despesas dedutiveis anuais: IPTU (valor total anual, inserido em Janeiro no simulador), ' +
+          'Seguro do imovel (premio anual, inserido em Janeiro no simulador), ' +
+          'Condominio — somente quando pago pelo locador/proprietario; se assumido pelo locatario, nao e dedutivel (art. 47, Lei n. 7.739/1989). ' +
+          'Tambem sao dedutiveis: juros de financiamento, manutencao e conservacao.',
         tipo: 'moeda',
       },
       {
@@ -83,8 +87,10 @@ export const rulesImoveis: RuleDocumentation[] = [
       'Tabela 2026: Ate R$ 2.428,80 = isento; Ate R$ 2.826,65 = 7,5%; Ate R$ 3.751,05 = 15%; Ate R$ 4.664,68 = 22,5%; Acima = 27,5%',
       'O IR e pago mensalmente via DARF codigo 0190.',
       'Na declaracao anual, o carne-leao pago e compensado.',
+      'IPTU e Seguro do imovel sao despesas anuais — no simulador, o valor total anual e inserido uma unica vez (concentrado em Janeiro). O total dedutivel ao longo do ano e o mesmo.',
+      'Condominio e dedutivel apenas quando pago pelo locador (proprietario). Se assumido pelo locatario, nao reduz a base de calculo do carne-leao.',
     ],
-    ultima_atualizacao: '2026-03-14',
+    ultima_atualizacao: '2026-04-07',
     tags: ['pf', 'carne-leao', 'aluguel'],
     vigencia: {
       inicio: '2024-05-01',

@@ -1,12 +1,21 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key?.trim()) return null;
+  return new Resend(key);
+}
 
 const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'IATax <noreply@iatax.com.br>';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5173';
 
 export const emailService = {
   async sendPasswordReset(to: string, token: string): Promise<void> {
+    const resend = getResend();
+    if (!resend) {
+      console.warn('[email] RESEND_API_KEY não configurada; e-mail de reset não enviado para', to);
+      return;
+    }
     const resetLink = `${APP_URL}/reset-password?token=${token}`;
 
     await resend.emails.send({
@@ -18,6 +27,11 @@ export const emailService = {
   },
 
   async sendAccessWelcome(to: string, name: string, login: string, tempPassword: string): Promise<void> {
+    const resend = getResend();
+    if (!resend) {
+      console.warn('[email] RESEND_API_KEY não configurada; e-mail de boas-vindas não enviado para', to);
+      return;
+    }
     const loginUrl = 'https://iataxsistemas.com.br/login';
 
     await resend.emails.send({

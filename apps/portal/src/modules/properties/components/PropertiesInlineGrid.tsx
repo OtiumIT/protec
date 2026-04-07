@@ -104,6 +104,12 @@ type Props = {
     draftRows: SimulationDraftRowInput[];
   }) => Promise<void>;
   onDeletePersistedRows: (propertyIds: string[]) => Promise<void>;
+  /** `toolbar`: botão junto aos demais. `footer`: CTA principal ao final da grade (fluxo assistido). */
+  simulationLoadButtonPlacement?: 'toolbar' | 'footer';
+  /** Rótulo do botão que envia os imóveis para a planilha do simulador (ex.: «Avançar»). */
+  simulationLoadButtonLabel?: string;
+  /** Quando true, desabilita o botão e exibe spinner de carregamento. */
+  simulationLoadButtonLoading?: boolean;
 };
 
 const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
@@ -114,9 +120,9 @@ const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean }> = [
   { id: 'matricula_imovel', label: 'Matrícula' },
   { id: 'inscricao_iptu', label: 'Inscrição IPTU' },
   { id: 'cartorio_registro', label: 'Cartório' },
-  { id: 'iptu_mensal_padrao', label: 'IPTU', isMoney: true },
+  { id: 'iptu_mensal_padrao', label: 'IPTU Anual', isMoney: true },
   { id: 'condominio_mensal_padrao', label: 'Condomínio', isMoney: true },
-  { id: 'seguro_mensal_padrao', label: 'Seguro', isMoney: true },
+  { id: 'seguro_mensal_padrao', label: 'Seguro Anual', isMoney: true },
   { id: 'camareira_mensal_padrao', label: 'Camareira', isMoney: true },
   { id: 'seguranca_mensal_padrao', label: 'Segurança', isMoney: true },
   { id: 'material_limpeza_mensal_padrao', label: 'Material limpeza', isMoney: true },
@@ -301,11 +307,14 @@ export function PropertiesInlineGrid({
   onSaveRows,
   onApplyToSimulation,
   onDeletePersistedRows,
+  simulationLoadButtonPlacement = 'toolbar',
+  simulationLoadButtonLabel = 'Carregar simulação',
+  simulationLoadButtonLoading = false,
 }: Props) {
   const [rows, setRows] = useState<GridRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [iptuInputMode, setIptuInputMode] = useState<'mensal' | 'anual'>('mensal');
-  const [seguroInputMode, setSeguroInputMode] = useState<'mensal' | 'anual'>('mensal');
+  const [iptuInputMode, setIptuInputMode] = useState<'mensal' | 'anual'>('anual');
+  const [seguroInputMode, setSeguroInputMode] = useState<'mensal' | 'anual'>('anual');
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(() => readColumnPrefs());
   const [showColumnsMenu, setShowColumnsMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -694,22 +703,24 @@ export function PropertiesInlineGrid({
               Cancelar edição
             </Button>
           )}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleClickCarregarSimulacao}
-            disabled={eligibleRowsCount === 0}
-            title={
-              selectedForSimulationCount === 0
-                ? 'Carrega todos os imóveis elegíveis na simulação'
-                : selectedForSimulationCount === totalEligibleForLoad
-                  ? 'Todos os elegíveis estão marcados — carrega direto'
-                  : 'Escolher entre imóveis selecionados ou todos os elegíveis'
-            }
-          >
-            Carregar simulação
-          </Button>
+          {simulationLoadButtonPlacement === 'toolbar' && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleClickCarregarSimulacao}
+              disabled={eligibleRowsCount === 0 || simulationLoadButtonLoading}
+              title={
+                selectedForSimulationCount === 0
+                  ? 'Carrega todos os imóveis elegíveis na simulação'
+                  : selectedForSimulationCount === totalEligibleForLoad
+                    ? 'Todos os elegíveis estão marcados — carrega direto'
+                    : 'Escolher entre imóveis selecionados ou todos os elegíveis'
+              }
+            >
+              {simulationLoadButtonLoading ? 'Carregando...' : simulationLoadButtonLabel}
+            </Button>
+          )}
           {selectedRowsWithData.length > 0 && (
             <Button type="button" variant="tertiary" size="sm" className="text-red-700" onClick={() => setShowDeleteModal(true)}>
               Deletar
@@ -1183,6 +1194,43 @@ export function PropertiesInlineGrid({
         </table>
       </div>
 
+      {simulationLoadButtonPlacement === 'footer' && (
+        <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-slate-200 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-slate-600">
+              Quando terminar de incluir e selecionar os imóveis, avance para preencher a planilha mensal e os parâmetros tributários.
+            </p>
+            {simulationLoadButtonLoading && (
+              <p className="text-xs text-brand font-medium animate-pulse">
+                Buscando dados dos imóveis selecionados...
+              </p>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            className="shrink-0 min-w-[10rem] inline-flex items-center justify-center gap-2"
+            onClick={handleClickCarregarSimulacao}
+            disabled={eligibleRowsCount === 0 || simulationLoadButtonLoading}
+            title={
+              selectedForSimulationCount === 0
+                ? 'Carrega todos os imóveis elegíveis na simulação'
+                : selectedForSimulationCount === totalEligibleForLoad
+                  ? 'Todos os elegíveis estão marcados — carrega direto'
+                  : 'Escolher entre imóveis selecionados ou todos os elegíveis'
+            }
+          >
+            {simulationLoadButtonLoading && (
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+            )}
+            {simulationLoadButtonLoading ? 'Carregando...' : simulationLoadButtonLabel}
+          </Button>
+        </div>
+      )}
+
       <Modal
         isOpen={showDeleteModal}
         onClose={() => {
@@ -1228,7 +1276,7 @@ export function PropertiesInlineGrid({
       <Modal
         isOpen={showLoadSimulationModal}
         onClose={() => setShowLoadSimulationModal(false)}
-        title="Enviar para o simulador"
+        title="Escopo dos imóveis na simulação"
         size="sm"
       >
         <div className="space-y-4">

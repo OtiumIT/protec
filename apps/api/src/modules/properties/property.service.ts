@@ -591,7 +591,13 @@ export class PropertyService {
         defaultInadimplencia += entry.defaults.inadimplencia_mensal_padrao ?? 0;
       }
       const rec = recTrad + recCurto;
-      const defaultDesp = defaultIptu + defaultCondominio + defaultSeguro;
+      // IPTU e Seguro são despesas anuais: o valor anual total (mensal × 12) é concentrado
+      // em Janeiro para refletir corretamente a natureza da despesa no simulador.
+      // Nos demais meses, ambos ficam como 0 (o total anual dedutível permanece idêntico).
+      const isJaneiro = m === 1;
+      const defaultIptuMes = isJaneiro ? defaultIptu * 12 : 0;
+      const defaultSeguroMes = isJaneiro ? defaultSeguro * 12 : 0;
+      const defaultDesp = defaultIptuMes + defaultCondominio + defaultSeguroMes;
       const defaultCusto =
         defaultCamareira +
         defaultSeguranca +
@@ -609,7 +615,7 @@ export class PropertyService {
       }
       const outrasDedutiveis = Math.max(
         0,
-        despFinal - (defaultIptu + defaultCondominio + defaultSeguro)
+        despFinal - (defaultIptuMes + defaultCondominio + defaultSeguroMes)
       );
       const outrosCustos = Math.max(
         0,
@@ -630,9 +636,9 @@ export class PropertyService {
         receita_aluguel_curto: Math.round(recCurto * 100) / 100,
         receita_garagem: 0,
         receita_outras: 0,
-        iptu: Math.round(defaultIptu * 100) / 100,
+        iptu: Math.round(defaultIptuMes * 100) / 100,
         condominio: Math.round(defaultCondominio * 100) / 100,
-        seguro_imovel: Math.round(defaultSeguro * 100) / 100,
+        seguro_imovel: Math.round(defaultSeguroMes * 100) / 100,
         juros_financiamento: 0,
         manutencao_conservacao: 0,
         outras_dedutiveis: Math.round(outrasDedutiveis * 100) / 100,

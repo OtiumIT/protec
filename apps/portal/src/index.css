@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -177,10 +177,13 @@
    * Forçar display nos filhos diretos (exceto summary) replica “tudo expandido”.
    * Vale para <details> nativos e para os controlados por React (open=…), pois o DOM mantém os nós.
    */
-  .report-print-wrapper details > *:not(summary) {
-    display: block !important;
-    visibility: visible !important;
+  .report-print-wrapper details {
     overflow: visible !important;
+  }
+  .report-print-wrapper details summary {
+    display: list-item !important;
+    visibility: visible !important;
+    cursor: default !important;
   }
 
   /* ── Tabelas (padrão para todos os relatórios) ── */
@@ -248,23 +251,115 @@
     display: none !important;
   }
 
-  /* ── SimuladorImoveis: cards grandes (exceto gráfico) podem quebrar entre páginas ── */
+  /* ── SimuladorImoveis: layout de tabela — thead repete em cada página, sem position:fixed ── */
   /*
-   * O seletor :not(:has(.print-imoveis-chart-trimestral)) exclui o card do gráfico,
-   * mantendo break-inside: avoid para não cortar o SVG do Recharts no meio.
-   * Os 4 cards de regime ficam dentro do div.grid e não são filhos diretos,
-   * portanto não são afetados por estas regras.
+   * Ao usar <table> com <thead> o Chrome repete o cabeçalho nativamente em cada página.
+   * Evita a instabilidade de position:fixed em print, que posicionava o header no meio do conteúdo.
    */
-  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)),
-  #simulador-imoveis-resultado-print > .rounded-2xl:not(:has(.print-imoveis-chart-trimestral)) {
+  @page imoveis-table {
+    size: A4;
+    margin: 1.2cm 0.8cm 1.2cm 0.8cm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #simulador-imoveis-print-wrapper {
+    page: imoveis-table;
+  }
+  /* Esconder as regras de position:fixed do relatório genérico para o wrapper do simulador */
+  #simulador-imoveis-print-wrapper .print-report-header,
+  #simulador-imoveis-print-wrapper .report-print-header,
+  #simulador-imoveis-print-wrapper .print-report-footer,
+  #simulador-imoveis-print-wrapper .report-print-footer {
+    display: none !important;
+  }
+  /* Tabela: comportamento de impressão */
+  .imoveis-print-layout {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+  }
+  .imoveis-print-layout thead {
+    display: table-header-group !important;
+  }
+  .imoveis-print-layout tfoot {
+    display: table-footer-group !important;
+  }
+  .imoveis-print-layout tbody {
+    display: table-row-group !important;
+  }
+  .imoveis-print-layout tr {
+    display: table-row !important;
+    page-break-inside: auto;
+  }
+  .imoveis-print-layout td {
+    display: table-cell !important;
+    padding: 0 !important;
+    vertical-align: top !important;
+    border: none !important;
+  }
+  /* Header e footer dentro da tabela */
+  .imoveis-print-header,
+  .imoveis-print-footer {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── SimuladorImoveis: cards e elementos internos podem quebrar entre páginas ── */
+  /*
+   * Liberamos break-inside para todos os elementos arredondados dentro do resultado
+   * (exceto o card do gráfico Recharts que precisa de break-inside: avoid para não
+   * cortar o SVG no meio).
+   */
+  #simulador-imoveis-resultado-print .rounded-md,
+  #simulador-imoveis-resultado-print .rounded-lg,
+  #simulador-imoveis-resultado-print .rounded-xl:not(:has(.print-imoveis-chart-trimestral)),
+  #simulador-imoveis-resultado-print .rounded-2xl:not(:has(.print-imoveis-chart-trimestral)) {
     break-inside: auto !important;
     page-break-inside: auto !important;
   }
-  /* Elementos internos (details, rounded-lg) dentro dos cards permitidos também quebram */
-  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) .rounded-lg,
-  #simulador-imoveis-resultado-print > .rounded-xl:not(:has(.print-imoveis-chart-trimestral)) details {
+  /* details (Ver cálculo): ocultar completamente no PDF */
+  #simulador-imoveis-resultado-print details {
+    display: none !important;
+  }
+  /* Cards do simulador: padding compacto em print para bordas ajustadas ao conteúdo */
+  #simulador-imoveis-resultado-print .bg-white.rounded-2xl,
+  #simulador-imoveis-resultado-print > .rounded-2xl {
+    padding: 0.6rem 0.8rem !important;
+    box-shadow: none !important;
+  }
+  /* Grid interno dos cenários pode quebrar entre páginas;
+   * align-items: start evita que cards se estiquem ao tamanho do vizinho,
+   * prevenindo espaço em branco dentro dos cards menores do par */
+  #simulador-imoveis-resultado-print .grid {
     break-inside: auto !important;
     page-break-inside: auto !important;
+    align-items: start !important;
+  }
+  #simulador-imoveis-resultado-print .grid > * {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  /* Gráfico Recharts: altura fixa para não quebrar o SVG nem gerar página em branco */
+  #simulador-imoveis-resultado-print .print-imoveis-chart-trimestral {
+    height: 280px !important;
+    overflow: visible !important;
+  }
+  /* Tabelas de resultados com overflow-x: removemos min-width abusivo em print */
+  #simulador-imoveis-resultado-print .overflow-x-auto {
+    overflow-x: visible !important;
+  }
+  #simulador-imoveis-resultado-print .overflow-x-auto table {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 0.65rem !important;
+  }
+  /* Seção de parâmetros: exibir em print */
+  #simulador-imoveis-resultado-print .print-imoveis-params {
+    display: block !important;
+    visibility: visible !important;
   }
 }
 
@@ -275,6 +370,11 @@
 /* Preview modal: capa deve ficar visível no preview mesmo sendo hidden na tela */
 .report-preview-inner .report-cover-section,
 .report-preview-content .report-cover-section {
+  display: block !important;
+}
+
+/* Preview modal: bloco de parâmetros do simulador de imóveis */
+.report-preview-content .print-imoveis-params {
   display: block !important;
 }
 
@@ -303,6 +403,27 @@
   text-align: left !important;
   width: 100% !important;
   justify-content: flex-start !important;
+}
+
+/* SimuladorImoveis: tabela de layout invisível na tela (transparente, sem borda/espaçamento) */
+.imoveis-print-layout,
+.imoveis-print-layout tbody tr,
+.imoveis-print-layout td {
+  border: none;
+  border-spacing: 0;
+  padding: 0;
+  background: transparent;
+}
+.imoveis-print-layout thead tr,
+.imoveis-print-layout thead td,
+.imoveis-print-layout tfoot tr,
+.imoveis-print-layout tfoot td {
+  /* No ecrã: altura zero para não gerar espaço residual (divs internos já têm 'hidden') */
+  height: 0;
+  padding: 0;
+  line-height: 0;
+  font-size: 0;
+  overflow: hidden;
 }
 
 /* Rating Validator: modo resumo vs completo (fora do print — preview) */
