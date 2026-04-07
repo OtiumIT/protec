@@ -232,12 +232,20 @@ export function PropertyFormModal({
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
               <p className="text-sm font-semibold text-slate-800">Custos padrão mensais</p>
-              {isFixa && recomendadosFixaVazios > 0 && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">Recomendação para locação fixa: preencher IPTU, condomínio e seguro mensal para melhorar a simulação.</div>}
+              {isFixa && recomendadosFixaVazios > 0 && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">Recomendação para locação fixa: preencher IPTU e seguro em valor anual, condomínio (mensal, se pago pelo locador) e demais custos para melhorar a simulação.</div>}
               {isFlexivel && recomendadosFlexVazios > 0 && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">Recomendação para Airbnb/short stay: preencher camareira, limpeza, lavanderia, check-in/out e taxas de pagamento.</div>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <MoneyInput label="IPTU mensal" value={formData.iptu_mensal_padrao} onChange={(value) => setFormData({ ...formData, iptu_mensal_padrao: value })} />
+                <MoneyInput
+                  label="IPTU anual"
+                  value={formData.iptu_mensal_padrao * 12}
+                  onChange={(value) => setFormData({ ...formData, iptu_mensal_padrao: value / 12 })}
+                />
                 <MoneyInput label="Condomínio mensal" value={formData.condominio_mensal_padrao} onChange={(value) => setFormData({ ...formData, condominio_mensal_padrao: value })} />
-                <MoneyInput label="Seguro mensal" value={formData.seguro_mensal_padrao} onChange={(value) => setFormData({ ...formData, seguro_mensal_padrao: value })} />
+                <MoneyInput
+                  label="Seguro do imóvel (anual)"
+                  value={formData.seguro_mensal_padrao * 12}
+                  onChange={(value) => setFormData({ ...formData, seguro_mensal_padrao: value / 12 })}
+                />
                 <MoneyInput label="Camareira mensal" value={formData.camareira_mensal_padrao} onChange={(value) => setFormData({ ...formData, camareira_mensal_padrao: value })} />
                 <MoneyInput label="Segurança mensal" value={formData.seguranca_mensal_padrao} onChange={(value) => setFormData({ ...formData, seguranca_mensal_padrao: value })} />
                 <MoneyInput label="Material de limpeza" value={formData.material_limpeza_mensal_padrao} onChange={(value) => setFormData({ ...formData, material_limpeza_mensal_padrao: value })} />

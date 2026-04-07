@@ -2977,7 +2977,9 @@ export function SimuladorImoveis() {
                       ? quantidadeImoveisResidenciais
                       : 0;
 
-                const recResAnual = receitaLocacaoResidencialAnual;
+                const recResAnual = receitaLocacaoResidencialAnual > 0
+                  ? receitaLocacaoResidencialAnual
+                  : (ref.receita_bruta_total ?? 0);
                 const recNaoResAnual = receitaLocacaoNaoResidencialAnual;
                 const recLongaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_tradicional ?? 0), 0);
                 const recCurtaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_curto ?? 0), 0);
@@ -2988,7 +2990,9 @@ export function SimuladorImoveis() {
                 const temSplit = redutorDiferenciado && (recResLonga > 0 || recResCurta > 0 || recNaoResAnual > 0);
 
                 const redutorAnual = round2(Math.max(0, nImoveisArt260) * mensalRedutorSocialEfetivo * 12);
-                const baseDeduzida = temRedutorSocial ? round2(Math.min(recResLonga, redutorAnual)) : 0;
+                const baseDeduzida = temRedutorSocial
+                  ? (refExt.redutor_social_base_deduzida_anual ?? round2(Math.min(recResLonga, redutorAnual)))
+                  : 0;
                 const baseResLonga = round2(recResLonga - baseDeduzida);
                 const ibsResLonga = round2(baseResLonga * aliqEfetivaLonga / 100);
                 const ibsResCurta = round2(recResCurta * aliqEfetivaShort / 100);

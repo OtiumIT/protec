@@ -279,20 +279,21 @@
     border-collapse: collapse !important;
     border-spacing: 0 !important;
   }
-  .imoveis-print-layout thead {
+  /* Apenas thead/tfoot da tabela de layout — não usar descendente, senão anula cabeçalhos de <table> internas ao resultado */
+  .imoveis-print-layout > thead {
     display: table-header-group !important;
   }
-  .imoveis-print-layout tfoot {
+  .imoveis-print-layout > tfoot {
     display: table-footer-group !important;
   }
-  .imoveis-print-layout tbody {
+  .imoveis-print-layout > tbody {
     display: table-row-group !important;
   }
-  .imoveis-print-layout tr {
+  .imoveis-print-layout > tbody > tr {
     display: table-row !important;
     page-break-inside: auto;
   }
-  .imoveis-print-layout td {
+  .imoveis-print-layout > tbody > tr > td {
     display: table-cell !important;
     padding: 0 !important;
     vertical-align: top !important;
@@ -405,19 +406,24 @@
   justify-content: flex-start !important;
 }
 
-/* SimuladorImoveis: tabela de layout invisível na tela (transparente, sem borda/espaçamento) */
-.imoveis-print-layout,
-.imoveis-print-layout tbody tr,
-.imoveis-print-layout td {
+/* SimuladorImoveis: tabela de layout invisível na tela — só filhos diretos do wrapper de impressão */
+.imoveis-print-layout {
+  border: none;
+  border-spacing: 0;
+  background: transparent;
+}
+.imoveis-print-layout > tbody > tr,
+.imoveis-print-layout > tbody > tr > td {
   border: none;
   border-spacing: 0;
   padding: 0;
   background: transparent;
 }
-.imoveis-print-layout thead tr,
-.imoveis-print-layout thead td,
-.imoveis-print-layout tfoot tr,
-.imoveis-print-layout tfoot td {
+/* Só o thead/tfoot da tabela de impressão — descendente quebrava cabeçalhos de planilhas dentro do resultado */
+.imoveis-print-layout > thead > tr,
+.imoveis-print-layout > thead > tr > td,
+.imoveis-print-layout > tfoot > tr,
+.imoveis-print-layout > tfoot > tr > td {
   /* No ecrã: altura zero para não gerar espaço residual (divs internos já têm 'hidden') */
   height: 0;
   padding: 0;

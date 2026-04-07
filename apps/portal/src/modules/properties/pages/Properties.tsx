@@ -505,7 +505,7 @@ export function Properties() {
             </div>
             {isFixa && recomendadosFixaVazios > 0 && (
               <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                Recomendação para locação fixa: preencher IPTU, condomínio e seguro mensal.
+                Recomendação para locação fixa: preencher IPTU e seguro em valor anual e condomínio (mensal, se pago pelo locador).
               </div>
             )}
             {isFlexivel && recomendadosFlexVazios > 0 && (

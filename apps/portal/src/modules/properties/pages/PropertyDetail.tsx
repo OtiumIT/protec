@@ -397,9 +397,17 @@ export function PropertyDetail() {
                 <p><span className="text-slate-500">Matrícula:</span> <strong>{(property as any).matricula_imovel || '-'}</strong></p>
                 <p><span className="text-slate-500">Inscrição IPTU:</span> <strong>{(property as any).inscricao_iptu || '-'}</strong></p>
                 <p><span className="text-slate-500">Cartório:</span> <strong>{(property as any).cartorio_registro || '-'}</strong></p>
-                <p><span className="text-slate-500">IPTU padrão:</span> <strong>{formatCurrency(Number((property as any).iptu_mensal_padrao || 0))}</strong></p>
-                <p><span className="text-slate-500">Condomínio padrão:</span> <strong>{formatCurrency(Number((property as any).condominio_mensal_padrao || 0))}</strong></p>
-                <p><span className="text-slate-500">Seguro padrão:</span> <strong>{formatCurrency(Number((property as any).seguro_mensal_padrao || 0))}</strong></p>
+                <p>
+                  <span className="text-slate-500">IPTU anual:</span>{' '}
+                  <strong>{formatCurrency(Number((property as any).iptu_mensal_padrao || 0) * 12)}</strong>
+                  <span className="text-slate-400 text-xs ml-1">(equiv. mensal {formatCurrency(Number((property as any).iptu_mensal_padrao || 0))})</span>
+                </p>
+                <p><span className="text-slate-500">Condomínio padrão (mensal):</span> <strong>{formatCurrency(Number((property as any).condominio_mensal_padrao || 0))}</strong></p>
+                <p>
+                  <span className="text-slate-500">Seguro do imóvel (anual):</span>{' '}
+                  <strong>{formatCurrency(Number((property as any).seguro_mensal_padrao || 0) * 12)}</strong>
+                  <span className="text-slate-400 text-xs ml-1">(equiv. mensal {formatCurrency(Number((property as any).seguro_mensal_padrao || 0))})</span>
+                </p>
               </div>
             </Card>
 
