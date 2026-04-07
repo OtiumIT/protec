@@ -90,7 +90,13 @@ export function EPSLanding() {
     <div className="min-h-screen font-sans text-slate-800 antialiased flex flex-col md:flex-row">
       {/* Lado esquerdo - branding */}
       <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-transparent" />
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: 'url(/eps-hero-bg.png)' }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-[#0B1120]/55" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 to-transparent" aria-hidden />
 
         {/* Foto do Pablo Arruda - posicionada absolutamente no lado direito, altura total */}
         <div className="absolute bottom-0 right-0 w-[48%] h-full hidden md:flex items-end justify-center pointer-events-none">
