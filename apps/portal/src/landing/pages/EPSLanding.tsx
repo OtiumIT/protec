@@ -442,7 +442,15 @@ export function EPSLanding() {
                 Teve algum problema?
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Fale com nosso suporte técnico: (xx) xxxxx-xxxx
+                Suporte Equipe do Prof. Pablo Arruda:{' '}
+                <a
+                  href="https://wa.me/5561998138714"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#25D366] font-medium hover:underline"
+                >
+                  (61) 99813-8714
+                </a>
               </p>
             </div>
           </div>
