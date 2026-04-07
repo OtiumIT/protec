@@ -23,6 +23,8 @@ export const RegisterSchema = z
       email: z.string().email('E-mail inválido'),
       password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
     }),
+    /** Origem do cadastro (landing page, campanha, etc.) */
+    source: z.string().max(50).optional(),
   })
   .superRefine((data, ctx) => {
     const cnpjDigits = (data.company.cnpj || '').replace(/\D/g, '');

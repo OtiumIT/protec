@@ -20,6 +20,7 @@ export interface RegisterData {
     email: string;
     password: string;
   };
+  source?: string;
 }
 
 export interface AuthResponse {

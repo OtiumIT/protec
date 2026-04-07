@@ -35,6 +35,7 @@ import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
 import { AccessList } from './modules/access-list/pages/AccessList';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
+import { EPSLanding } from './landing/pages/EPSLanding';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/EPS" element={<EPSLanding />} />
       <Route
         path="/dashboard"
         element={

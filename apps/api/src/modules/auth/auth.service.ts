@@ -4,6 +4,7 @@ import { UserRepository } from '../users/user.repository';
 import { SubscriptionRepository } from '../subscriptions/subscription.repository';
 import { PlanRepository } from '../plans/plan.repository';
 import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
+import { FeatureToggleRepository } from '../feature-toggles/feature-toggle.repository';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
@@ -33,6 +34,7 @@ export interface RegisterData {
     email: string;
     password: string;
   };
+  source?: string;
 }
 
 export interface LoginData {
@@ -93,6 +95,7 @@ export class AuthService {
       phone: data.company.phone || undefined,
       contact_email: emailNorm,
       contact_name: data.user.name,
+      source: data.source || undefined,
     });
 
     // Assinatura no plano Free para permitir uso e criação de usuários (7 dias de acesso)
@@ -101,8 +104,16 @@ export class AuthService {
       freePlanStartedAt: new Date(),
     });
 
-    // Ativa automaticamente os módulos padrão do plano para o novo tenant.
-    await this.featureToggleService.activatePlanModulesForTenant(company.id, freePlan.id);
+    // Ativação de módulos: landing pages parceiras recebem apenas módulos específicos
+    if (data.source === 'EPS') {
+      const featureToggleRepo = new FeatureToggleRepository();
+      const gestaoImoveisModule = await featureToggleRepo.findByKey('GESTAO_IMOVEIS');
+      if (gestaoImoveisModule) {
+        await featureToggleRepo.activateForTenant(company.id, gestaoImoveisModule.id);
+      }
+    } else {
+      await this.featureToggleService.activatePlanModulesForTenant(company.id, freePlan.id);
+    }
 
     // Hash da senha e criar usuário admin do tenant
     const passwordHash = await hashPassword(data.user.password);
