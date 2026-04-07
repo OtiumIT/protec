@@ -89,10 +89,19 @@ export function EPSLanding() {
   return (
     <div className="min-h-screen font-sans text-slate-800 antialiased flex flex-col md:flex-row">
       {/* Lado esquerdo - branding */}
-      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-16 lg:px-24 relative overflow-hidden">
+      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-transparent" />
 
-        <div className="relative z-10 max-w-lg">
+        {/* Foto do Pablo Arruda - posicionada absolutamente no lado direito, altura total */}
+        <div className="absolute bottom-0 right-0 w-[48%] h-full hidden md:flex items-end justify-center pointer-events-none">
+          <img
+            src="/pablo-arruda.png"
+            alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
+            className="h-full w-auto object-contain object-bottom"
+          />
+        </div>
+
+        <div className="relative z-10 md:max-w-[54%]">
           {/* Logos + badge */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-16">
             <div className="flex items-center gap-3">
@@ -165,14 +174,6 @@ export function EPSLanding() {
           </ul>
         </div>
 
-        {/* Foto do Pablo Arruda */}
-        <div className="relative z-10 mt-auto hidden md:flex justify-center">
-          <img
-            src="/pablo-arruda.png"
-            alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
-            className="max-h-[340px] object-contain drop-shadow-2xl"
-          />
-        </div>
       </div>
 
       {/* Lado direito - formulário */}
