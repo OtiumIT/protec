@@ -335,6 +335,9 @@ export function SimuladorImoveis() {
   /** 1 = imóveis; 2 = planilha e parâmetros; 3 = resultado. */
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [isApplyingSimulacao, setIsApplyingSimulacao] = useState(false);
+  /** Chave da última seleção de imóveis aplicada à etapa 2 (impede recarregar se a seleção não mudou). */
+  const [lastAppliedKey, setLastAppliedKey] = useState<string | null>(null);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   const transicaoIBSResult = calcularTransicaoIBS(aliquotaPlenaIBS, [2027, 2028, 2029, 2030, 2031, 2032, 2033]);
 
@@ -507,6 +510,45 @@ export function SimuladorImoveis() {
     setResult(null);
     setWizardStep(2);
     success('Demo carregada: cenário de referência IBS/CBS (2 res. curta, 1 res. longa, 2 não res.). Revise e clique em Próximo.');
+  }, [anoAtual, success]);
+
+  /** Limpa todo o estado da simulação voltando ao passo 1 com valores iniciais. */
+  const handleClearSimulation = useCallback(() => {
+    setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(anoAtual, i)));
+    setAno(anoAtual);
+    setResult(null);
+    setPerfilLocacao('residencial_comum');
+    setContratoAntes16012025(false);
+    setAliquotaPlenaIBS(19);
+    setAliquotaCBS(9);
+    setAnoReferenciaReforma(2033);
+    setQuantidadeImoveisResidenciais(1);
+    setQuantidadeImoveisResidenciaisLonga(1);
+    setQuantidadeImoveisComerciais(0);
+    setReceitaLocacaoResidencialAnual(0);
+    setReceitaLocacaoNaoResidencialAnual(0);
+    setModoReceitaAnual(false);
+    setAluguelAnualTradicional(0);
+    setAluguelAnualCurto(0);
+    setModoDespesaAnual(false);
+    setDespesaAnualTotal(0);
+    setModoCustoAnual(false);
+    setCustoAnualTotal(0);
+    setValoresAnuais({});
+    setCustosOperacionaisAberto(false);
+    setLc214AvancadoAberto(false);
+    setLc214ManualLim240('');
+    setLc214ManualLim288('');
+    setLc214ManualRedutorMensal('');
+    setShowLc214ContaExplicita(false);
+    setCoverageWarning(null);
+    setEditingSimulationId(null);
+    setLastAppliedKey(null);
+    setImoveisSelectedIds(new Set());
+    setImoveisDraftSelecionados([]);
+    setWizardStep(1);
+    setShowClearModal(false);
+    success('Simulação limpa. Configure os imóveis e avance para a planilha.');
   }, [anoAtual, success]);
 
   /** Nome do cliente para o relatório: cadastro vinculado (visualização / salvar / simulação) ou texto manual */
@@ -694,6 +736,11 @@ export function SimuladorImoveis() {
   }, [clientId, saveClientId]);
 
   useEffect(() => {
+    // Resetar dados da simulação ao trocar de cliente
+    setMeses(Array.from({ length: 12 }, (_, i) => emptyMes(anoAtual, i)));
+    setResult(null);
+    setWizardStep(1);
+    setLastAppliedKey(null);
     if (!clientId) {
       setImoveisList([]);
       setImoveisSelectedIds(new Set());
@@ -1468,8 +1515,7 @@ export function SimuladorImoveis() {
         </Card>
       )}
 
-      {wizardStep === 1 && (
-        <div className="space-y-6">
+      <div className={wizardStep !== 1 ? 'hidden' : 'space-y-6'}>
         {/* Cliente da simulação — etapa 1 */}
         <div ref={clientCardRef}>
         <Card className="p-5 border-slate-200">
@@ -1583,9 +1629,22 @@ export function SimuladorImoveis() {
           onApplyToSimulation={async ({ propertyIds, draftRows }) => {
             setImoveisSelectedIds(new Set(propertyIds));
             setImoveisDraftSelecionados(draftRows);
+            // Detectar se a seleção não mudou desde a última vez que os dados foram carregados.
+            // Se for a mesma, apenas navegar para o step 2 sem recarregar (preserva edições da planilha).
+            const newKey =
+              [...propertyIds].sort().join(',') + '||' + draftRows.map((r) => r.rowId).sort().join(',');
+            if (lastAppliedKey !== null && newKey === lastAppliedKey) {
+              setWizardStep(2);
+              setTimeout(
+                () => wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                50
+              );
+              return;
+            }
             setIsApplyingSimulacao(true);
             try {
               await handleIniciarSimulacao({ propertyIds, draftRows });
+              setLastAppliedKey(newKey);
             } finally {
               setIsApplyingSimulacao(false);
             }
@@ -1621,7 +1680,7 @@ export function SimuladorImoveis() {
           </Button>
         </div>
         </div>
-      )}
+      </div>
 
       {wizardStep === 2 && (
       <form onSubmit={handleSimulate} className="space-y-6">
@@ -1632,16 +1691,26 @@ export function SimuladorImoveis() {
               Ajuste o ano, a reforma LC 214/2025 e os valores por mês antes de calcular.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setWizardStep(1);
-              setResult(null);
-            }}
-          >
-            ← Voltar aos imóveis
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setWizardStep(1);
+                setResult(null);
+              }}
+            >
+              ← Voltar aos imóveis
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+              onClick={() => setShowClearModal(true)}
+            >
+              Limpar simulação
+            </Button>
+          </div>
         </div>
         {coverageWarning && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
@@ -4060,6 +4129,35 @@ export function SimuladorImoveis() {
         clients={clients}
         defaultClientId={clientId}
       />
+
+      <Modal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        title="Limpar simulação"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-slate-600">
+            Tem certeza que deseja limpar todos os dados da simulação? Os valores preenchidos na planilha serão perdidos e você voltará ao passo 1.
+          </p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setShowClearModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+              onClick={handleClearSimulation}
+            >
+              Sim, limpar tudo
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {deleteSimulationModal && (
         <Modal
