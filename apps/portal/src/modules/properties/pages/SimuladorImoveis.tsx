@@ -1679,7 +1679,6 @@ export function SimuladorImoveis() {
             Ir para parâmetros e planilha (sem carregar imóveis)
           </Button>
         </div>
-        </div>
       </div>
 
       {wizardStep === 2 && (
