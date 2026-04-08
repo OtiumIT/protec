@@ -87,9 +87,9 @@ export function EPSLanding() {
   };
 
   return (
-    <div className="relative font-sans text-slate-800 antialiased flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden">
+    <div className="relative font-sans text-slate-800 antialiased flex flex-col md:flex-row min-h-screen overflow-x-hidden">
       {/* Lado esquerdo — arte ancorada à esquerda; corta na borda direita do painel (overflow-hidden) */}
-      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen md:h-full">
+      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center md:justify-start px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
         <div
           className="absolute inset-0 bg-cover bg-left bg-no-repeat"
           style={{ backgroundImage: "url('/eps-hero-bg2.png')" }}
@@ -175,15 +175,15 @@ export function EPSLanding() {
         {/* Mobile: retrato abaixo do conteúdo */}
         <div className="relative z-10 mt-8 flex justify-center md:hidden">
           <img
-            src="/pablo-arruda2.png"
+            src="/pablo-arruda3.png"
             alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
             className="max-h-56 w-auto object-contain object-bottom drop-shadow-xl"
           />
         </div>
       </div>
 
-      {/* Lado direito — grid de fundo + Pablo atravessando a divisória + card acima */}
-      <div className="relative md:w-1/2 min-h-screen md:h-full flex items-center justify-center p-6 md:p-12 md:overflow-hidden">
+      {/* Lado direito — grid de fundo + card */}
+      <div className="relative md:w-1/2 min-h-screen flex items-center justify-center md:items-start md:justify-start px-8 py-12 md:px-12 lg:px-16">
         <div
           className="absolute inset-0 bg-slate-50"
           style={{
@@ -194,29 +194,14 @@ export function EPSLanding() {
           aria-hidden
         />
 
-        {/* Pablo: âncora no limite esquerdo da coluna clara (= meio da viewport); metade no azul, metade no claro */}
-        <div
-          className="pointer-events-none absolute bottom-0 left-0 z-[30] hidden h-[95%] w-[min(50vw,560px)] -translate-x-[64%] md:flex md:items-end md:justify-center"
-          aria-hidden
-        >
-          <img
-            src="/pablo-arruda2.png"
-            alt=""
-            className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
-          />
-        </div>
-
         <div className="relative z-20 w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full overflow-hidden border border-slate-100">
             <div className="p-8">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">
+            {/* Header — mesma altura visual do título principal à esquerda */}
+            <div className="text-center md:text-left mb-8">
+              <h2 className="text-2xl font-bold text-slate-800">
                 Crie sua conta em segundos
               </h2>
-              <p className="text-slate-500 text-sm">
-                Preencha os dados abaixo para configurar seu workspace.
-              </p>
             </div>
 
             {/* Alerta */}
@@ -485,6 +470,18 @@ export function EPSLanding() {
           </div>
         </div>
         </div>
+      </div>
+
+      {/* Pablo — absoluto ao rodapé da página (rola com o conteúdo), não preso à viewport */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-1/2 z-[30] hidden h-[min(85vh,760px)] w-[min(42vw,460px)] -translate-x-[calc(70%+80px)] md:flex md:items-end md:justify-center"
+        aria-hidden
+      >
+        <img
+          src="/pablo-arruda3.png"
+          alt=""
+          className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
+        />
       </div>
     </div>
   );
