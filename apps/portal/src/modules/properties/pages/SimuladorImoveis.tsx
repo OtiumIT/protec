@@ -885,22 +885,7 @@ export function SimuladorImoveis() {
       setReceitaLocacaoNaoResidencialAnual(recCom);
     }
 
-    const fixasSemBase = fixas.filter((p) =>
-      !(Number((p as any).iptu_mensal_padrao || 0) > 0) ||
-      !(Number((p as any).condominio_mensal_padrao || 0) > 0) ||
-      !(Number((p as any).seguro_mensal_padrao || 0) > 0)
-    ).length;
-    const flexSemBase = flexiveis.filter((p) =>
-      !(Number((p as any).camareira_mensal_padrao || 0) > 0) ||
-      !(Number((p as any).material_limpeza_mensal_padrao || 0) > 0) ||
-      !(Number((p as any).checkin_checkout_mensal_padrao || 0) > 0) ||
-      !(Number((p as any).taxas_pagamento_mensal_padrao || 0) > 0)
-    ).length;
-    if (fixasSemBase > 0 || flexSemBase > 0) {
-      setCoverageWarning(
-        `Cobertura de parâmetros recomendados incompleta: ${fixasSemBase} imóvel(is) de locação fixa e ${flexSemBase} de locação flexível sem base completa.`
-      );
-    } else if (draftRows.length > 0) {
+    if (draftRows.length > 0) {
       setCoverageWarning(
         `${draftRows.length} linha(s) não salva(s) com aluguel foi(ram) incluída(s) automaticamente na simulação.`
       );
