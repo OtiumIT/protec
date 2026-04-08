@@ -196,7 +196,7 @@ export function EPSLanding() {
 
         {/* Pablo: âncora no limite esquerdo da coluna clara (= meio da viewport); metade no azul, metade no claro */}
         <div
-          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[95%] w-[min(50vw,560px)] -translate-x-[64%] md:flex md:items-end md:justify-center"
+          className="pointer-events-none absolute bottom-0 left-0 z-[30] hidden h-[95%] w-[min(50vw,560px)] -translate-x-[64%] md:flex md:items-end md:justify-center"
           aria-hidden
         >
           <img
