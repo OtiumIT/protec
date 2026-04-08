@@ -87,9 +87,9 @@ export function EPSLanding() {
   };
 
   return (
-    <div className="relative min-h-screen font-sans text-slate-800 antialiased flex flex-col md:flex-row overflow-x-hidden">
+    <div className="relative font-sans text-slate-800 antialiased flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden">
       {/* Lado esquerdo — arte ancorada à esquerda; corta na borda direita do painel (overflow-hidden) */}
-      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
+      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen md:h-full">
         <div
           className="absolute inset-0 bg-cover bg-left bg-no-repeat"
           style={{ backgroundImage: "url('/eps-hero-bg2.png')" }}
@@ -183,7 +183,7 @@ export function EPSLanding() {
       </div>
 
       {/* Lado direito — grid de fundo + Pablo atravessando a divisória + card acima */}
-      <div className="relative md:w-1/2 min-h-screen flex items-center justify-center p-6 md:p-12">
+      <div className="relative md:w-1/2 min-h-screen md:h-full flex items-center justify-center p-6 md:p-12 md:overflow-hidden">
         <div
           className="absolute inset-0 bg-slate-50"
           style={{
@@ -196,7 +196,7 @@ export function EPSLanding() {
 
         {/* Pablo: âncora no limite esquerdo da coluna clara (= meio da viewport); metade no azul, metade no claro */}
         <div
-          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[min(100vh,960px)] w-[min(50vw,560px)] -translate-x-[64%] translate-y-[6%] md:flex md:items-end md:justify-center"
+          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[95%] w-[min(50vw,560px)] -translate-x-[64%] md:flex md:items-end md:justify-center"
           aria-hidden
         >
           <img
