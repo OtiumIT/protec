@@ -215,8 +215,8 @@ function formatMoneyTooltip(value: number): string {
 }
 
 function formatTipoLocacaoLabel(tipo: GridRow['tipo_locacao']): string {
-  if (tipo === 'fixa') return 'Locação de longa duração';
-  if (tipo === 'flexivel') return 'Locação curta duração/temporada';
+  if (tipo === 'fixa') return 'Longa duração';
+  if (tipo === 'flexivel') return 'Curta duração/temporada';
   return '-';
 }
 
@@ -764,7 +764,7 @@ export function PropertiesInlineGrid({
             editando imóvel já salvo
           </span>
           <span className="text-slate-500">
-            Tipo: <strong>Locação de longa duração</strong> | <strong>Locação curta duração/temporada</strong>
+            Tipo: <strong>Longa duração</strong> | <strong>Curta duração/temporada</strong>
           </span>
         </div>
         <div className="relative">
@@ -920,9 +920,9 @@ export function PropertiesInlineGrid({
                       className="py-2 px-2 min-w-[170px]"
                       title={
                         row.tipo_locacao === 'fixa'
-                          ? 'Locação de longa duração'
+                          ? 'Longa duração'
                           : row.tipo_locacao === 'flexivel'
-                            ? 'Locação curta duração/temporada'
+                            ? 'Curta duração/temporada'
                             : 'Selecione o tipo da locação'
                       }
                     >
@@ -933,15 +933,15 @@ export function PropertiesInlineGrid({
                           onChange={(e) => updateRow(row.rowId, { tipo_locacao: e.target.value as 'fixa' | 'flexivel' | '' })}
                           title={
                             row.tipo_locacao === 'fixa'
-                              ? 'Locação de longa duração'
+                              ? 'Longa duração'
                               : row.tipo_locacao === 'flexivel'
-                                ? 'Locação curta duração/temporada'
+                                ? 'Curta duração/temporada'
                                 : 'Selecione o tipo da locação'
                           }
                         >
                           <option value="">Selecione o tipo da locação</option>
-                          <option value="fixa">Locação de longa duração</option>
-                          <option value="flexivel">Locação curta duração/temporada</option>
+                          <option value="fixa">Longa duração</option>
+                          <option value="flexivel">Curta duração/temporada</option>
                         </select>
                       ) : (
                         <span className="block px-2 py-1 text-slate-800">{formatTipoLocacaoLabel(row.tipo_locacao)}</span>

@@ -1982,9 +1982,9 @@ export function SimuladorImoveis() {
                 onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
               >
-                <option value="residencial_comum">Locação de longa duração (Redutor da alíquota 70%)</option>
-                <option value="hospedagem_temporada">Locação de curta temporada (Redutor da alíquota 40%)</option>
-                <option value="ambos">Locação longa duração e curta temporada (ambos os redutores)</option>
+                <option value="residencial_comum">Longa duração (Redutor da alíquota 70%)</option>
+                <option value="hospedagem_temporada">Curta temporada (Redutor da alíquota 40%)</option>
+                <option value="ambos">Longa duração e curta temporada (ambos os redutores)</option>
               </select>
               <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
             </div>
