@@ -92,7 +92,7 @@ export function EPSLanding() {
       <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
         <div
           className="absolute inset-0 bg-cover bg-left bg-no-repeat"
-          style={{ backgroundImage: "url('/eps-hero-bg.png')" }}
+          style={{ backgroundImage: "url('/eps-hero-bg2.png')" }}
           aria-hidden
         />
         <div className="absolute inset-0 bg-[#0B1120]/50" aria-hidden />
@@ -196,7 +196,7 @@ export function EPSLanding() {
 
         {/* Pablo: âncora no limite esquerdo da coluna clara (= meio da viewport); metade no azul, metade no claro */}
         <div
-          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[min(92vh,880px)] w-[min(46vw,520px)] -translate-x-[42%] md:flex md:items-end md:justify-center"
+          className="pointer-events-none absolute bottom-0 left-0 z-[5] hidden h-[min(100vh,960px)] w-[min(50vw,560px)] -translate-x-[64%] translate-y-[6%] md:flex md:items-end md:justify-center"
           aria-hidden
         >
           <img
