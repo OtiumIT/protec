@@ -88,28 +88,38 @@ export function EPSLanding() {
 
   return (
     <div className="relative font-sans text-slate-800 antialiased flex flex-col md:flex-row min-h-screen overflow-x-hidden">
-      {/* Lado esquerdo — arte ancorada à esquerda; corta na borda direita do painel (overflow-hidden) */}
-      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center md:justify-start px-8 py-12 md:px-12 lg:px-16 relative overflow-hidden min-h-screen">
-        <div
-          className="absolute inset-0 bg-cover bg-left bg-no-repeat"
-          style={{ backgroundImage: "url('/eps-hero-bg2.png')" }}
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-[#0B1120]/50" aria-hidden />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0B1120]/65 via-[#0B1120]/25 to-transparent" aria-hidden />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/35 to-transparent" aria-hidden />
+      {/* Lado esquerdo — fundos com overflow-hidden; coluna em overflow-visible para o Pablo poder atravessar a junta sem cortar */}
+      <div className="md:w-1/2 bg-[#0B1120] text-white flex flex-col justify-center md:justify-start px-8 py-12 md:px-12 lg:px-16 relative min-h-screen">
+        <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden>
+          <div
+            className="absolute inset-0 bg-cover bg-left bg-no-repeat"
+            style={{ backgroundImage: "url('/eps-hero-bg2.png')" }}
+          />
+          <div className="absolute inset-0 bg-[#0B1120]/50" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1120]/65 via-[#0B1120]/25 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/35 to-transparent" />
+        </div>
 
-        <div className="relative z-10 md:max-w-[min(100%,28rem)] md:pr-4">
+        {/* Pablo acima de fundos/overlays (z-15); textos no bloco seguinte z-30 ficam por cima */}
+        <div
+          className="pointer-events-none absolute bottom-0 left-[50vw] z-[15] hidden h-[min(95vh,960px)] w-[min(50vw,560px)] -translate-x-[calc(70%+80px)] md:flex md:items-end md:justify-center"
+          aria-hidden
+        >
+          <img
+            src="/pablo-arruda3.png"
+            alt=""
+            className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
+          />
+        </div>
+
+        <div className="relative z-30 md:max-w-[min(100%,28rem)] md:pr-4">
           {/* Logos + badge */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-16">
-            <div className="flex items-center gap-3">
-              <img
-                src="/logo-iatax.png"
-                alt="IATax"
-                className="w-12 h-12 rounded-lg object-contain"
-              />
-              <span className="text-3xl font-bold tracking-tight">IATax</span>
-            </div>
+            <img
+              src="/logo-iatax.png"
+              alt="IATax"
+              className="h-24 w-24 shrink-0 rounded-xl object-contain"
+            />
 
             <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
               <svg
@@ -136,9 +146,10 @@ export function EPSLanding() {
 
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-            ATIVE SEU ACESSO{' '}
-            <br className="hidden md:block" />
-            EXCLUSIVO AO <span className="text-blue-400">IATax</span>
+            <span className="block">ATIVE SEU ACESSO</span>
+            <span className="mt-1 block">
+              EXCLUSIVO AO <span className="text-blue-400">IATax</span>
+            </span>
           </h1>
           <p className="text-lg text-slate-300 mb-10 leading-relaxed">
             O ambiente restrito aos alunos do curso Engenharia do Planejamento
@@ -146,13 +157,13 @@ export function EPSLanding() {
           </p>
 
           {/* Benefícios */}
-          <ul className="space-y-4 text-slate-200 mb-12">
+          <ul className="mb-12 space-y-4 text-white">
             {[
               'Automatize rotinas complexas de planejamento',
               'Escalar sua atuação no direito sucessório',
               'Tecnologia com segurança',
             ].map((text) => (
-              <li key={text} className="flex items-center gap-3">
+              <li key={text} className="flex items-center gap-3 font-medium">
                 <svg
                   className="w-6 h-6 text-emerald-400 flex-shrink-0"
                   fill="none"
@@ -172,8 +183,8 @@ export function EPSLanding() {
           </ul>
         </div>
 
-        {/* Mobile: retrato abaixo do conteúdo */}
-        <div className="relative z-10 mt-8 flex justify-center md:hidden">
+        {/* Mobile: retrato abaixo do conteúdo, z-15 para ficar acima do fundo e abaixo dos textos (z-30) */}
+        <div className="relative z-[15] mt-8 flex justify-center md:hidden">
           <img
             src="/pablo-arruda3.png"
             alt="Pablo Arruda - Engenharia do Planejamento Sucessório"
@@ -182,10 +193,10 @@ export function EPSLanding() {
         </div>
       </div>
 
-      {/* Lado direito — grid de fundo + card */}
-      <div className="relative md:w-1/2 min-h-screen flex items-center justify-center md:items-start md:justify-start px-8 py-12 md:px-12 lg:px-16">
+      {/* Lado direito — grid z-0; card z-30 acima do Pablo (z-15) na junta */}
+      <div className="relative z-10 md:w-1/2 min-h-screen flex items-center justify-center md:items-start md:justify-start px-8 py-12 md:px-12 lg:px-16">
         <div
-          className="absolute inset-0 bg-slate-50"
+          className="absolute inset-0 z-0 bg-slate-50"
           style={{
             backgroundSize: '40px 40px',
             backgroundImage:
@@ -194,7 +205,7 @@ export function EPSLanding() {
           aria-hidden
         />
 
-        <div className="relative z-20 w-full max-w-md">
+        <div className="relative z-30 w-full max-w-xl">
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full overflow-hidden border border-slate-100">
             <div className="p-8">
             {/* Header — mesma altura visual do título principal à esquerda */}
@@ -470,18 +481,6 @@ export function EPSLanding() {
           </div>
         </div>
         </div>
-      </div>
-
-      {/* Pablo — absoluto ao rodapé da página (rola com o conteúdo), não preso à viewport */}
-      <div
-        className="pointer-events-none absolute bottom-0 left-1/2 z-[30] hidden h-[min(85vh,760px)] w-[min(42vw,460px)] -translate-x-[calc(70%+80px)] md:flex md:items-end md:justify-center"
-        aria-hidden
-      >
-        <img
-          src="/pablo-arruda3.png"
-          alt=""
-          className="max-h-full w-auto object-contain object-bottom [filter:drop-shadow(0_28px_48px_rgba(0,0,0,0.4))]"
-        />
       </div>
     </div>
   );
