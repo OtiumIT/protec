@@ -8,7 +8,12 @@ import { clientService, type ClientWithCreatedAt } from '../../clients/services/
 import { userService } from '../../users/services/user.service';
 import { planService } from '../../plans/services/plan.service';
 import { companyService } from '../../companies/services/company.service';
-import { systemService, DatabaseStats, ModuleUsageSummary } from '../services/system.service';
+import {
+  systemService,
+  DatabaseStats,
+  ModuleUsageSummary,
+  GlobalClientThermometerSummary,
+} from '../services/system.service';
 
 const MODULE_LABELS: Record<string, string> = {
   'simulador-in-2306': 'Parcelamento IN 2306',
@@ -37,6 +42,12 @@ function formatClientCreatedAt(client: any): string {
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return 'Data indisponível';
   return date.toLocaleDateString('pt-BR');
+}
+
+function formatThermometerCreatedAt(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.length > 16 ? iso.slice(0, 16) : iso;
+  return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 const THERM_LABELS: Record<string, { label: string; short: string; className: string }> = {
@@ -75,8 +86,15 @@ export function Dashboard() {
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [usageSummary, setUsageSummary] = useState<ModuleUsageSummary | null>(null);
   const [superAdminCompanies, setSuperAdminCompanies] = useState<Array<{ id: string; name: string }>>([]);
-  const [thermometerCompanyId, setThermometerCompanyId] = useState('');
-  const [clientThermometer, setClientThermometer] = useState<ModuleUsageSummary['clientThermometer']>(null);
+  const [thermFilters, setThermFilters] = useState({
+    clientSearch: '',
+    companySearch: '',
+    companyId: '',
+    limit: 30,
+    days: 30,
+  });
+  const [thermFiltersDebounced, setThermFiltersDebounced] = useState(thermFilters);
+  const [globalThermometer, setGlobalThermometer] = useState<GlobalClientThermometerSummary | null>(null);
   const [thermometerLoading, setThermometerLoading] = useState(false);
 
   const isSuperAdmin = user?.role === 'super_admin';
@@ -86,21 +104,30 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!isSuperAdmin || !thermometerCompanyId) {
-      setClientThermometer(null);
+    const id = window.setTimeout(() => setThermFiltersDebounced(thermFilters), 400);
+    return () => clearTimeout(id);
+  }, [thermFilters]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setGlobalThermometer(null);
       return;
     }
     let cancelled = false;
     setThermometerLoading(true);
     systemService
-      .getModuleUsage(30, thermometerCompanyId)
-      .then((usage) => {
-        if (!cancelled) {
-          setClientThermometer(usage.clientThermometer);
-        }
+      .getGlobalClientThermometer({
+        days: thermFiltersDebounced.days,
+        limit: thermFiltersDebounced.limit,
+        clientSearch: thermFiltersDebounced.clientSearch || undefined,
+        companySearch: thermFiltersDebounced.companySearch || undefined,
+        companyId: thermFiltersDebounced.companyId || undefined,
+      })
+      .then((t) => {
+        if (!cancelled) setGlobalThermometer(t);
       })
       .catch(() => {
-        if (!cancelled) setClientThermometer(null);
+        if (!cancelled) setGlobalThermometer(null);
       })
       .finally(() => {
         if (!cancelled) setThermometerLoading(false);
@@ -108,7 +135,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isSuperAdmin, thermometerCompanyId]);
+  }, [isSuperAdmin, thermFiltersDebounced]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -339,59 +366,120 @@ export function Dashboard() {
 
         {isSuperAdmin && (
           <Card className="mb-8">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Termômetro dos clientes (por tenant)</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Termômetro dos clientes</h2>
             <p className="text-sm text-slate-500 mb-4">
-              Escolha o escritório para ver quente / morno / frio / sem uso com base em uso real no período (arquivos
-              fiscais, simulações, rating, processos judiciais).
+              Os <strong>cadastros mais recentes</strong> entre os escritórios consultados (ordenados por data de cadastro
+              do cliente), com engajamento nos últimos dias. Para muitos tenants, a API consulta só os escritórios mais
+              recentes (teto configurável no servidor: <code className="text-xs">GLOBAL_THERMOMETER_MAX_TENANTS</code>).
             </p>
-            <div className="mb-6">
-              <label htmlFor="dashboard-thermometer-tenant" className="block text-sm font-medium text-slate-700 mb-2">
-                Tenant (empresa)
-              </label>
-              <select
-                id="dashboard-thermometer-tenant"
-                className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
-                value={thermometerCompanyId}
-                onChange={(e) => setThermometerCompanyId(e.target.value)}
-              >
-                <option value="">Selecione um tenant…</option>
-                {superAdminCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label htmlFor="therm-client-search" className="block text-sm font-medium text-slate-700 mb-1">
+                  Nome do cliente
+                </label>
+                <input
+                  id="therm-client-search"
+                  type="search"
+                  placeholder="Filtrar por nome…"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  value={thermFilters.clientSearch}
+                  onChange={(e) => setThermFilters((p) => ({ ...p, clientSearch: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="therm-company-search" className="block text-sm font-medium text-slate-700 mb-1">
+                  Nome do escritório
+                </label>
+                <input
+                  id="therm-company-search"
+                  type="search"
+                  placeholder="Filtrar empresas…"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  value={thermFilters.companySearch}
+                  onChange={(e) => setThermFilters((p) => ({ ...p, companySearch: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="therm-company-id" className="block text-sm font-medium text-slate-700 mb-1">
+                  Só este escritório (opcional)
+                </label>
+                <select
+                  id="therm-company-id"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  value={thermFilters.companyId}
+                  onChange={(e) => setThermFilters((p) => ({ ...p, companyId: e.target.value }))}
+                >
+                  <option value="">Todos (respeitando teto de consulta)</option>
+                  {superAdminCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="therm-limit" className="block text-sm font-medium text-slate-700 mb-1">
+                  Quantidade (últimos cadastros)
+                </label>
+                <select
+                  id="therm-limit"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  value={thermFilters.limit}
+                  onChange={(e) => setThermFilters((p) => ({ ...p, limit: Number(e.target.value) }))}
+                >
+                  {[15, 30, 50, 100, 200].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="therm-days" className="block text-sm font-medium text-slate-700 mb-1">
+                  Janela de uso (dias)
+                </label>
+                <select
+                  id="therm-days"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  value={thermFilters.days}
+                  onChange={(e) => setThermFilters((p) => ({ ...p, days: Number(e.target.value) }))}
+                >
+                  {[7, 14, 30, 60, 90, 180, 365].map((n) => (
+                    <option key={n} value={n}>
+                      {n} dias
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {!thermometerCompanyId ? (
-              <p className="text-sm text-slate-500 py-4">Selecione um tenant para carregar o termômetro.</p>
-            ) : thermometerLoading ? (
+            {thermometerLoading ? (
               <p className="text-sm text-slate-500 py-4">Carregando termômetro…</p>
-            ) : !clientThermometer ? (
+            ) : !globalThermometer ? (
               <p className="text-sm text-amber-800 py-4 rounded-lg border border-amber-200 bg-amber-50 px-3">
-                Não foi possível carregar os dados deste tenant.
+                Não foi possível carregar o termômetro.
               </p>
             ) : (
               <>
-                <p className="text-sm text-slate-500 mb-4">
-                  Pontuação nos últimos {clientThermometer.periodDays} dias. A média considera só clientes com pelo menos
-                  um evento no período.
+                <p className="text-sm text-slate-500 mb-2">
+                  Janela de pontuação: últimos {globalThermometer.periodDays} dias · Escritórios consultados:{' '}
+                  {globalThermometer.tenantsScanned} · Clientes nesta lista: {globalThermometer.windowSize} (limite pedido:{' '}
+                  {globalThermometer.limit}).
                 </p>
                 <p className="text-sm text-slate-600 mb-4">
                   Média entre quem usou:{' '}
                   <span className="font-semibold text-slate-900">
-                    {clientThermometer.averageScoreAmongActive.toLocaleString('pt-BR', {
+                    {globalThermometer.averageScoreAmongActive.toLocaleString('pt-BR', {
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 2,
                     })}{' '}
                     eventos
                   </span>
-                  <span className="text-slate-400"> · </span>
-                  <span className="text-slate-600">{clientThermometer.totalClients} clientes cadastrados</span>
                 </p>
 
                 {(() => {
-                  const { counts } = clientThermometer;
+                  const { counts } = globalThermometer;
                   const total = Math.max(1, counts.hot + counts.warm + counts.cold + counts.none);
                   const segments = [
                     { key: 'hot', w: (counts.hot / total) * 100, color: 'bg-rose-500' },
@@ -438,21 +526,26 @@ export function Dashboard() {
                   );
                 })()}
 
-                <h3 className="text-sm font-semibold text-slate-700 mb-2">Amostra (maior pontuação)</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">Lista (mais recentes primeiro)</h3>
                 <div className="space-y-2">
-                  {clientThermometer.samples.length === 0 ? (
-                    <p className="text-sm text-slate-500">Nenhum cliente cadastrado neste tenant.</p>
+                  {globalThermometer.rows.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      Nenhum cliente encontrado com os filtros atuais (ou nenhum cadastro nos escritórios consultados).
+                    </p>
                   ) : (
-                    clientThermometer.samples.map((row) => {
+                    globalThermometer.rows.map((row) => {
                       const meta = THERM_LABELS[row.level] ?? THERM_LABELS.none;
                       return (
                         <div
-                          key={row.client_id}
+                          key={`${row.company_id}-${row.client_id}`}
                           className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2"
                         >
                           <div className="min-w-0">
                             <p className="font-medium text-slate-900 truncate">{row.name}</p>
-                            <p className="text-xs text-slate-500">{row.score} evento(s) no período</p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {row.company_name} · Cadastro {formatThermometerCreatedAt(row.created_at)} · {row.score}{' '}
+                              evento(s) no período
+                            </p>
                           </div>
                           <span
                             className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}

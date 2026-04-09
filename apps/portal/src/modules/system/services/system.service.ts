@@ -46,23 +46,39 @@ export interface ModuleUsageSummary {
     module_key: string;
     simulations: number;
   }>;
-  clientThermometer: {
-    periodDays: number;
-    averageScoreAmongActive: number;
-    totalClients: number;
-    counts: { hot: number; warm: number; cold: number; none: number };
-    samples: Array<{
-      client_id: string;
-      name: string;
-      score: number;
-      level: 'hot' | 'warm' | 'cold' | 'none';
-    }>;
-  } | null;
+}
+
+export type ClientEngagementLevel = 'hot' | 'warm' | 'cold' | 'none';
+
+export interface GlobalClientThermometerRow {
+  company_id: string;
+  company_name: string;
+  client_id: string;
+  name: string;
+  created_at: string;
+  score: number;
+  level: ClientEngagementLevel;
+}
+
+export interface GlobalClientThermometerSummary {
+  periodDays: number;
+  limit: number;
+  tenantsScanned: number;
+  windowSize: number;
+  averageScoreAmongActive: number;
+  counts: { hot: number; warm: number; cold: number; none: number };
+  rows: GlobalClientThermometerRow[];
 }
 
 interface ModuleUsageResponse {
   data: {
     usage: ModuleUsageSummary;
+  };
+}
+
+interface GlobalThermometerResponse {
+  data: {
+    thermometer: GlobalClientThermometerSummary;
   };
 }
 
@@ -89,5 +105,29 @@ export const systemService = {
       }
     );
     return response.data.usage;
+  },
+
+  async getGlobalClientThermometer(params: {
+    days?: number;
+    limit?: number;
+    clientSearch?: string;
+    companySearch?: string;
+    companyId?: string;
+  }): Promise<GlobalClientThermometerSummary> {
+    const token = localStorage.getItem('accessToken');
+    const q = new URLSearchParams();
+    if (params.days != null) q.set('days', String(params.days));
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.clientSearch) q.set('clientSearch', params.clientSearch);
+    if (params.companySearch) q.set('companySearch', params.companySearch);
+    if (params.companyId) q.set('companyId', params.companyId);
+    const response = await apiRequest<GlobalThermometerResponse>(
+      `/api/v1/system/global-client-thermometer?${q.toString()}`,
+      {
+        method: 'GET',
+        token: token || undefined,
+      }
+    );
+    return response.data.thermometer;
   },
 };

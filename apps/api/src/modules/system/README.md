@@ -130,19 +130,31 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `204` sempre (fire-and-forget)
 
 ### GET /system/module-usage
-- **Descrição**: Resumo de uso por módulo, usuários ativos, simulações por usuário e termômetro de engajamento por cliente (quando `companyId` informado)
+- **Descrição**: Resumo de uso por módulo, usuários ativos e simulações por usuário
 - **Autenticação**: Requerida (Bearer token)
 - **Permissão**: apenas `super_admin` (`403` para demais perfis)
 - **Query params**:
   - `days` (opcional, default 30, máximo 365)
-  - `companyId` (opcional): filtra métricas ao tenant; sem o parâmetro, visão global; termômetro só é calculado com `companyId`
+  - `companyId` (opcional): filtra métricas ao tenant; sem o parâmetro, visão global
 - **Resposta**:
   - `usage.totalEvents`
   - `usage.uniqueUsers`
   - `usage.totalSimulations`
   - `usage.modules[]`
   - `usage.topSimulationUsers[]`
-  - `usage.clientThermometer`: apenas **super_admin** com `companyId` na query; agrega por cliente no schema do tenant (arquivos fiscais, simulações IN 2306/imóveis, rating, processos judiciais) e classifica **quente / morno / frio / sem uso** vs. média entre clientes com uso; demais casos `null`
+
+### GET /system/global-client-thermometer
+- **Descrição**: Termômetro de engajamento dos **últimos N cadastros de cliente** (ordenados por `created_at` entre tenants), com pontuação de uso no período (arquivos fiscais, simulações IN 2306/imóveis, rating, processos judiciais)
+- **Autenticação**: Requerida (Bearer token)
+- **Permissão**: apenas `super_admin` (`403` para demais perfis)
+- **Query params**:
+  - `days` (opcional, default 30, máximo 365): janela de eventos para a pontuação
+  - `limit` (opcional, default 30, máximo 200): quantos clientes retornar após ordenar por cadastro (global)
+  - `clientSearch` (opcional): `ILIKE` no nome do cliente (por tenant, antes do merge)
+  - `companySearch` (opcional): `ILIKE` no nome da empresa (`public.companies`)
+  - `companyId` (opcional, UUID): restringe a um único tenant
+- **Performance**: consulta no máximo `GLOBAL_THERMOMETER_MAX_TENANTS` escritórios (default **100**, teto 250), os mais recentes em `companies.created_at`, para não varrer dezenas de milhares de schemas em uma única requisição
+- **Resposta**: `thermometer.rows[]` com `company_id`, `company_name`, `client_id`, `name`, `created_at`, `score`, `level` (`hot` | `warm` | `cold` | `none`), além de `counts`, `windowSize`, `tenantsScanned`, `averageScoreAmongActive`
 
 ## Fluxos Importantes
 

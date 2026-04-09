@@ -179,12 +179,65 @@ systemRoutes.get('/module-usage', async (c) => {
 
     const requestedDays = parseInt(c.req.query('days') || '30', 10);
     const companyId = c.req.query('companyId') || null;
-    const includeClientThermometer = !!companyId;
 
-    const usage = await systemService.getModuleUsageSummary(requestedDays, companyId, {
-      includeClientThermometer,
-    });
+    const usage = await systemService.getModuleUsageSummary(requestedDays, companyId);
     return c.json({ data: { usage } }, 200);
+  } catch (error) {
+    return errorHandler(error, c);
+  }
+});
+
+/**
+ * GET /system/global-client-thermometer
+ * Termômetro de engajamento dos últimos N cadastros de cliente (global), com filtros — apenas super_admin.
+ */
+systemRoutes.get('/global-client-thermometer', async (c) => {
+  try {
+    const currentUser = c.get('user');
+    if (currentUser?.role !== 'super_admin') {
+      return c.json(
+        {
+          error: {
+            message: 'Only super admin can access global client thermometer',
+            code: 'FORBIDDEN',
+          },
+        },
+        403
+      );
+    }
+
+    const days = parseInt(c.req.query('days') || '30', 10);
+    const limit = parseInt(c.req.query('limit') || '30', 10);
+    const clientSearch = c.req.query('clientSearch')?.trim() || null;
+    const companySearch = c.req.query('companySearch')?.trim() || null;
+    const companyIdRaw = c.req.query('companyId')?.trim() || '';
+
+    let companyId: string | null = null;
+    if (companyIdRaw) {
+      const parsed = z.string().uuid().safeParse(companyIdRaw);
+      if (!parsed.success) {
+        return c.json(
+          {
+            error: {
+              message: 'companyId must be a valid UUID',
+              code: 'VALIDATION_ERROR',
+            },
+          },
+          400
+        );
+      }
+      companyId = parsed.data;
+    }
+
+    const thermometer = await systemService.getGlobalClientThermometer({
+      days,
+      limit,
+      clientSearch,
+      companySearch,
+      companyId,
+    });
+
+    return c.json({ data: { thermometer } }, 200);
   } catch (error) {
     return errorHandler(error, c);
   }

@@ -53,35 +53,36 @@ export interface ModuleUsageSummary {
     module_key: string;
     simulations: number;
   }>;
-  /** Só preenchido para super_admin com `companyId` explícito (termômetro por tenant). */
-  clientThermometer: ClientThermometerSummary | null;
-}
-
-export interface GetModuleUsageSummaryOptions {
-  /** Se true e `companyId` definido, calcula engajamento por cliente no schema do tenant. */
-  includeClientThermometer?: boolean;
 }
 
 export type ClientEngagementLevel = 'hot' | 'warm' | 'cold' | 'none';
 
-export interface ClientThermometerSummary {
+export interface GlobalClientThermometerRow {
+  company_id: string;
+  company_name: string;
+  client_id: string;
+  name: string;
+  created_at: string;
+  score: number;
+  level: ClientEngagementLevel;
+}
+
+export interface GlobalClientThermometerSummary {
   periodDays: number;
-  /** Média de pontos só entre clientes com score > 0 no período. */
+  /** Limite efetivo da resposta (pedido, capped). */
+  limit: number;
+  /** Quantos escritórios foram consultados (teto configurável). */
+  tenantsScanned: number;
+  /** Clientes na janela após ordenar por cadastro (global). */
+  windowSize: number;
   averageScoreAmongActive: number;
-  totalClients: number;
   counts: {
     hot: number;
     warm: number;
     cold: number;
     none: number;
   };
-  /** Amostra para inspeção rápida (ordenada por score desc). */
-  samples: Array<{
-    client_id: string;
-    name: string;
-    score: number;
-    level: ClientEngagementLevel;
-  }>;
+  rows: GlobalClientThermometerRow[];
 }
 
 const REAL_USAGE_MODULES = [
@@ -125,12 +126,7 @@ export class SystemService {
     );
   }
 
-  async getModuleUsageSummary(
-    days = 30,
-    companyId: string | null = null,
-    options: GetModuleUsageSummaryOptions = {}
-  ): Promise<ModuleUsageSummary> {
-    const { includeClientThermometer = false } = options;
+  async getModuleUsageSummary(days = 30, companyId: string | null = null): Promise<ModuleUsageSummary> {
     const safeDays = Number.isFinite(days) ? Math.max(1, Math.min(365, Math.floor(days))) : 30;
 
     const aggregateResult = await query<{
@@ -257,11 +253,6 @@ export class SystemService {
       total_simulations: '0',
     };
 
-    const clientThermometer =
-      includeClientThermometer && companyId
-        ? await this.buildClientThermometer(companyId, safeDays)
-        : null;
-
     return {
       periodDays: safeDays,
       totalEvents: parseInt(totals.total_events || '0', 10),
@@ -284,22 +275,165 @@ export class SystemService {
         module_key: row.module_key,
         simulations: parseInt(row.simulations || '0', 10),
       })),
-      clientThermometer,
     };
   }
 
   /**
-   * Pontua cada cliente do tenant por uso real no período: uploads fiscais, simulações IN 2306,
-   * simulações de imóveis, validações de rating e processos judiciais (todos com client_id).
+   * Termômetro global (super_admin): últimos N cadastros de cliente (por `created_at`) entre tenants,
+   * com pontuação de uso no período. Evita varrer todos os tenants com teto de escritórios consultados.
    */
-  async buildClientThermometer(companyId: string, days: number): Promise<ClientThermometerSummary> {
-    const safeDays = Math.max(1, Math.min(365, Math.floor(days)));
+  async getGlobalClientThermometer(input: {
+    days?: number;
+    limit?: number;
+    clientSearch?: string | null;
+    companySearch?: string | null;
+    companyId?: string | null;
+  }): Promise<GlobalClientThermometerSummary> {
+    const rawDays = input.days ?? 30;
+    const rawLimit = input.limit ?? 30;
+    const safeDays = Number.isFinite(rawDays) ? Math.max(1, Math.min(365, Math.floor(rawDays))) : 30;
+    const safeLimit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(200, Math.floor(rawLimit))) : 30;
 
-    const rows = await runWithTenantClient(companyId, () =>
-      query<{ id: string; name: string; score: string }>(
+    const maxTenantsRaw = parseInt(process.env.GLOBAL_THERMOMETER_MAX_TENANTS || '100', 10);
+    const maxTenants = Number.isFinite(maxTenantsRaw)
+      ? Math.max(10, Math.min(250, maxTenantsRaw))
+      : 100;
+
+    const clientSearch =
+      typeof input.clientSearch === 'string' && input.clientSearch.trim().length > 0
+        ? input.clientSearch.trim()
+        : null;
+    const companySearch =
+      typeof input.companySearch === 'string' && input.companySearch.trim().length > 0
+        ? input.companySearch.trim()
+        : null;
+    const companyIdFilter =
+      typeof input.companyId === 'string' && input.companyId.trim().length > 0 ? input.companyId.trim() : null;
+
+    const companiesResult = await query<{ id: string; name: string }>(
+      `SELECT id, name
+       FROM public.companies
+       WHERE ($1::uuid IS NULL OR id = $1::uuid)
+         AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%')
+       ORDER BY created_at DESC
+       LIMIT $3`,
+      [companyIdFilter, companySearch, maxTenants]
+    );
+
+    const companies = companiesResult.rows;
+    type Cand = {
+      company_id: string;
+      company_name: string;
+      client_id: string;
+      name: string;
+      created_at: string;
+    };
+    const candidates: Cand[] = [];
+
+    for (const co of companies) {
+      try {
+        const recent = await runWithTenantClient(co.id, () =>
+          query<{ id: string; name: string; created_at: string }>(
+            `SELECT id, name, created_at::text
+             FROM clients
+             WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [clientSearch, safeLimit]
+          )
+        );
+        for (const r of recent.rows) {
+          candidates.push({
+            company_id: co.id,
+            company_name: co.name,
+            client_id: r.id,
+            name: r.name,
+            created_at: r.created_at,
+          });
+        }
+      } catch {
+        // Schema inexistente ou erro transitório: ignora o tenant
+      }
+    }
+
+    candidates.sort((a, b) => {
+      const tb = new Date(b.created_at).getTime();
+      const ta = new Date(a.created_at).getTime();
+      return tb - ta;
+    });
+
+    const seen = new Set<string>();
+    const picked: Cand[] = [];
+    for (const c of candidates) {
+      const key = `${c.company_id}:${c.client_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picked.push(c);
+      if (picked.length >= safeLimit) break;
+    }
+
+    const byCompany = new Map<string, Cand[]>();
+    for (const p of picked) {
+      if (!byCompany.has(p.company_id)) byCompany.set(p.company_id, []);
+      byCompany.get(p.company_id)!.push(p);
+    }
+
+    const scores = new Map<string, number>();
+    for (const [cid, group] of byCompany) {
+      const ids = group.map((g) => g.client_id);
+      const map = await this.fetchEngagementScoresForClientIds(cid, safeDays, ids);
+      for (const [clientId, score] of map) {
+        scores.set(`${cid}:${clientId}`, score);
+      }
+    }
+
+    const scoredRows = picked.map((p) => {
+      const score = scores.get(`${p.company_id}:${p.client_id}`) ?? 0;
+      return { ...p, score };
+    });
+
+    const withUsage = scoredRows.filter((r) => r.score > 0);
+    const clientsWithUsage = withUsage.length;
+    const sumScores = withUsage.reduce((acc, r) => acc + r.score, 0);
+    const averageScoreAmongActive =
+      clientsWithUsage > 0 ? Math.round((sumScores / clientsWithUsage) * 100) / 100 : 0;
+
+    const counts = { hot: 0, warm: 0, cold: 0, none: 0 };
+    const rows: GlobalClientThermometerRow[] = scoredRows.map((r) => {
+      const level = classifyClientEngagement(r.score, averageScoreAmongActive, clientsWithUsage);
+      counts[level] += 1;
+      return {
+        company_id: r.company_id,
+        company_name: r.company_name,
+        client_id: r.client_id,
+        name: r.name,
+        created_at: r.created_at,
+        score: r.score,
+        level,
+      };
+    });
+
+    return {
+      periodDays: safeDays,
+      limit: safeLimit,
+      tenantsScanned: companies.length,
+      windowSize: rows.length,
+      averageScoreAmongActive,
+      counts,
+      rows,
+    };
+  }
+
+  private async fetchEngagementScoresForClientIds(
+    companyId: string,
+    safeDays: number,
+    clientIds: string[]
+  ): Promise<Map<string, number>> {
+    if (clientIds.length === 0) return new Map();
+    return runWithTenantClient(companyId, async () => {
+      const rows = await query<{ id: string; score: string }>(
         `SELECT
            c.id,
-           c.name,
            (
              COALESCE(ff.n, 0) + COALESCE(ps.n, 0) + COALESCE(in2306.n, 0) + COALESCE(rv.n, 0) + COALESCE(jp.n, 0)
            )::text AS score
@@ -335,42 +469,16 @@ export class SystemService {
            FROM judicial_processes
            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
            GROUP BY client_id
-         ) jp ON jp.client_id = c.id`,
-        [safeDays]
-      )
-    );
-
-    const clients = rows.rows.map((row) => ({
-      client_id: row.id,
-      name: row.name,
-      score: parseInt(row.score || '0', 10),
-    }));
-
-    const withUsage = clients.filter((c) => c.score > 0);
-    const clientsWithUsage = withUsage.length;
-    const sumScores = withUsage.reduce((acc, c) => acc + c.score, 0);
-    const averageScoreAmongActive =
-      clientsWithUsage > 0 ? Math.round((sumScores / clientsWithUsage) * 100) / 100 : 0;
-
-    const counts = { hot: 0, warm: 0, cold: 0, none: 0 };
-    const enriched = clients.map((c) => {
-      const level = classifyClientEngagement(c.score, averageScoreAmongActive, clientsWithUsage);
-      counts[level] += 1;
-      return { ...c, level };
+         ) jp ON jp.client_id = c.id
+         WHERE c.id = ANY($2::uuid[])`,
+        [safeDays, clientIds]
+      );
+      const m = new Map<string, number>();
+      for (const row of rows.rows) {
+        m.set(row.id, parseInt(row.score || '0', 10));
+      }
+      return m;
     });
-
-    const samples = [...enriched]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-      .map(({ client_id, name, score, level }) => ({ client_id, name, score, level }));
-
-    return {
-      periodDays: safeDays,
-      averageScoreAmongActive,
-      totalClients: clients.length,
-      counts,
-      samples,
-    };
   }
 
   /**
