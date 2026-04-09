@@ -15,7 +15,145 @@ export interface DatabaseStats {
   diskUsagePercent?: number;
 }
 
+export interface CreateUsageLogInput {
+  companyId: string | null;
+  userId: string | null;
+  moduleKey: string;
+  featureKey: string;
+  action: string;
+  source?: 'frontend' | 'api';
+  routePath?: string | null;
+  method?: string | null;
+  statusCode?: number | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ModuleUsageSummary {
+  periodDays: number;
+  totalEvents: number;
+  uniqueUsers: number;
+  totalSimulations: number;
+  modules: Array<{
+    module_key: string;
+    total_events: number;
+    unique_users: number;
+    simulation_events: number;
+  }>;
+  topSimulationUsers: Array<{
+    user_id: string | null;
+    user_name: string;
+    module_key: string;
+    simulations: number;
+  }>;
+}
+
 export class SystemService {
+  async createUsageLog(input: CreateUsageLogInput): Promise<void> {
+    await query(
+      `INSERT INTO public.module_usage_logs
+         (company_id, user_id, module_key, feature_key, action, source, route_path, method, status_code, metadata)
+       VALUES
+         ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
+      [
+        input.companyId,
+        input.userId,
+        input.moduleKey,
+        input.featureKey,
+        input.action,
+        input.source ?? 'frontend',
+        input.routePath ?? null,
+        input.method ?? null,
+        input.statusCode ?? null,
+        JSON.stringify(input.metadata ?? {}),
+      ]
+    );
+  }
+
+  async getModuleUsageSummary(days = 30, companyId: string | null = null): Promise<ModuleUsageSummary> {
+    const safeDays = Number.isFinite(days) ? Math.max(1, Math.min(365, Math.floor(days))) : 30;
+
+    const aggregateResult = await query<{
+      total_events: string;
+      unique_users: string;
+      total_simulations: string;
+    }>(
+      `SELECT
+         COUNT(*)::text as total_events,
+         COUNT(DISTINCT user_id)::text as unique_users,
+         COUNT(*) FILTER (WHERE action = 'simulate')::text as total_simulations
+       FROM public.module_usage_logs
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
+      [safeDays, companyId]
+    );
+
+    const modulesResult = await query<{
+      module_key: string;
+      total_events: string;
+      unique_users: string;
+      simulation_events: string;
+    }>(
+      `SELECT
+         module_key,
+         COUNT(*)::text as total_events,
+         COUNT(DISTINCT user_id)::text as unique_users,
+         COUNT(*) FILTER (WHERE action = 'simulate')::text as simulation_events
+       FROM public.module_usage_logs
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND ($2::uuid IS NULL OR company_id = $2::uuid)
+       GROUP BY module_key
+       ORDER BY COUNT(*) DESC`,
+      [safeDays, companyId]
+    );
+
+    const topSimulationUsersResult = await query<{
+      user_id: string | null;
+      user_name: string | null;
+      module_key: string;
+      simulations: string;
+    }>(
+      `SELECT
+         l.user_id,
+         COALESCE(u.name, 'Usuário sem nome') as user_name,
+         l.module_key,
+         COUNT(*)::text as simulations
+       FROM public.module_usage_logs l
+       LEFT JOIN public.users u ON u.id = l.user_id
+       WHERE l.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND l.action = 'simulate'
+         AND ($2::uuid IS NULL OR l.company_id = $2::uuid)
+       GROUP BY l.user_id, u.name, l.module_key
+       ORDER BY COUNT(*) DESC
+       LIMIT 20`,
+      [safeDays, companyId]
+    );
+
+    const totals = aggregateResult.rows[0] ?? {
+      total_events: '0',
+      unique_users: '0',
+      total_simulations: '0',
+    };
+
+    return {
+      periodDays: safeDays,
+      totalEvents: parseInt(totals.total_events || '0', 10),
+      uniqueUsers: parseInt(totals.unique_users || '0', 10),
+      totalSimulations: parseInt(totals.total_simulations || '0', 10),
+      modules: modulesResult.rows.map((row) => ({
+        module_key: row.module_key,
+        total_events: parseInt(row.total_events || '0', 10),
+        unique_users: parseInt(row.unique_users || '0', 10),
+        simulation_events: parseInt(row.simulation_events || '0', 10),
+      })),
+      topSimulationUsers: topSimulationUsersResult.rows.map((row) => ({
+        user_id: row.user_id,
+        user_name: row.user_name || 'Usuário sem nome',
+        module_key: row.module_key,
+        simulations: parseInt(row.simulations || '0', 10),
+      })),
+    };
+  }
+
   /**
    * Obter estatísticas do banco de dados PostgreSQL
    */

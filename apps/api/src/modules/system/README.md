@@ -13,6 +13,20 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
 - **Erro**: Retorna `403 FORBIDDEN` se usuário não for super_admin
 - **Exceção**: Nenhuma
 
+### Regra 1.1: Logs de Uso (Auditoria Operacional)
+- **Quando aplicar**:
+  - `POST /system/usage-log` (eventos do frontend)
+  - middleware global da API (eventos automáticos de qualquer endpoint)
+- **Validação**:
+  - Usuário autenticado obrigatório
+  - `company_id` vem do JWT para usuários comuns
+  - `super_admin` pode enviar `company_id` explicitamente quando necessário
+- **Processo**:
+  1. Classificar módulo/funcionalidade (`module_key`, `feature_key`, `action`)
+  2. Persistir em `public.module_usage_logs`
+  3. Nunca falhar o fluxo principal por erro de auditoria
+- **Objetivo**: rastrear uso real de todas as funcionalidades (simulações, cliques, navegação e chamadas de API)
+
 ### Regra 2: Estatísticas do Banco de Dados
 - **Quando aplicar**: Endpoint `GET /system/stats`
 - **Validação**: 
@@ -49,6 +63,7 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `SystemService` (próprio do módulo)
 - **Tabelas do banco**: 
   - `companies` (para listar tenants)
+  - `module_usage_logs` (auditoria de uso por módulo/funcionalidade)
   - Consultas diretas ao PostgreSQL para estatísticas
 
 ## Endpoints
@@ -103,6 +118,32 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `200`: Sucesso
   - `401`: Não autenticado
   - `403`: Não é super_admin
+
+### POST /system/usage-log
+- **Descrição**: Persistir eventos de uso enviados pelo frontend (cliques e page views)
+- **Autenticação**: Requerida (Bearer token)
+- **Permissão**: Qualquer usuário autenticado
+- **Validações**:
+  - `module_key`, `feature_key` e `action` obrigatórios
+  - `company_id` respeita regra de tenant via JWT
+- **Resposta**:
+  - `204` sempre (fire-and-forget)
+
+### GET /system/module-usage
+- **Descrição**: Resumo de uso por módulo, usuários ativos e simulações por usuário
+- **Autenticação**: Requerida (Bearer token)
+- **Permissão**:
+  - `super_admin`: visão global ou filtrada por `companyId`
+  - admin comum: apenas seu tenant
+- **Query params**:
+  - `days` (opcional, default 30, máximo 365)
+  - `companyId` (opcional, apenas super_admin)
+- **Resposta**:
+  - `usage.totalEvents`
+  - `usage.uniqueUsers`
+  - `usage.totalSimulations`
+  - `usage.modules[]`
+  - `usage.topSimulationUsers[]`
 
 ## Fluxos Importantes
 

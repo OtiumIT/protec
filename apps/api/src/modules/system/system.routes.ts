@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { SystemService } from './system.service';
 import { errorHandler } from '../../shared/utils/error-handler';
@@ -6,6 +7,17 @@ import { query } from '../../db/client';
 
 const systemRoutes = new Hono();
 const systemService = new SystemService();
+
+const UsageLogSchema = z.object({
+  module_key: z.string().min(1).max(100),
+  feature_key: z.string().min(1).max(255),
+  action: z.string().min(1).max(100),
+  route_path: z.string().max(500).optional(),
+  method: z.string().max(10).optional(),
+  status_code: z.number().int().min(100).max(599).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  company_id: z.string().uuid().optional(),
+});
 
 // Todas as rotas de sistema requerem autenticação
 systemRoutes.use('/*', authMiddleware);
@@ -109,6 +121,62 @@ systemRoutes.post('/log-client-error', async (c) => {
     // Silencioso: não falhar a requisição
   }
   return c.body(null, 204);
+});
+
+/**
+ * POST /system/usage-log
+ * Persistência de logs de uso do frontend (cliques, navegação etc).
+ */
+systemRoutes.post('/usage-log', async (c) => {
+  try {
+    const currentUser = c.get('user');
+    const jwtPayload = c.get('jwt');
+    const parsedBody = UsageLogSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsedBody.success) {
+      return c.body(null, 204);
+    }
+
+    const body = parsedBody.data;
+    const isSuperAdmin = currentUser?.role === 'super_admin';
+    const companyId = isSuperAdmin ? body.company_id ?? jwtPayload?.companyId ?? null : jwtPayload?.companyId ?? null;
+
+    await systemService.createUsageLog({
+      companyId,
+      userId: currentUser?.id ?? null,
+      moduleKey: body.module_key,
+      featureKey: body.feature_key,
+      action: body.action,
+      source: 'frontend',
+      routePath: body.route_path ?? null,
+      method: body.method ?? null,
+      statusCode: body.status_code ?? null,
+      metadata: body.metadata ?? {},
+    });
+  } catch {
+    // Fire-and-forget: não bloquear frontend por falha de log
+  }
+  return c.body(null, 204);
+});
+
+/**
+ * GET /system/module-usage
+ * Resumo de uso por módulo e usuários que mais simulam.
+ */
+systemRoutes.get('/module-usage', async (c) => {
+  try {
+    const currentUser = c.get('user');
+    const jwtPayload = c.get('jwt');
+    const requestedDays = parseInt(c.req.query('days') || '30', 10);
+    const requestedCompanyId = c.req.query('companyId') || null;
+
+    const isSuperAdmin = currentUser?.role === 'super_admin';
+    const companyId = isSuperAdmin ? requestedCompanyId : (jwtPayload?.companyId ?? null);
+
+    const usage = await systemService.getModuleUsageSummary(requestedDays, companyId);
+    return c.json({ data: { usage } }, 200);
+  } catch (error) {
+    return errorHandler(error, c);
+  }
 });
 
 export { systemRoutes };

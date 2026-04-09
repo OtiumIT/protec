@@ -1,3 +1,5 @@
+import { getApiUrl } from './api';
+
 const GA_MEASUREMENT_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID || '').trim();
 const GTM_ID = (import.meta.env.VITE_GTM_ID || '').trim();
 
@@ -35,6 +37,51 @@ function pushDataLayer(eventName: string, params: Record<string, unknown>) {
   });
 }
 
+function getModuleFromPath(path: string): string {
+  const pathname = path.split('?')[0].split('#')[0] || '/';
+  if (pathname === '/') return 'landing';
+  if (pathname.startsWith('/simulador-in-2306')) return 'simulador-in-2306';
+  if (pathname.startsWith('/irpf-alta-renda')) return 'irpf-alta-renda';
+  if (pathname.startsWith('/rating-validator')) return 'rating-validator';
+  if (pathname.startsWith('/properties')) return 'properties';
+  if (pathname.startsWith('/fiscal-files')) return 'fiscal-files';
+  if (pathname.startsWith('/clients')) return 'clients';
+  if (pathname.startsWith('/dashboard')) return 'system';
+  return pathname.split('/').filter(Boolean)[0] || 'unknown';
+}
+
+async function sendUsageLog(payload: {
+  module_key: string;
+  feature_key: string;
+  action: string;
+  route_path?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  if (typeof window === 'undefined') return;
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) return;
+
+  const tenantId = localStorage.getItem('tenantId');
+  const baseUrl = getApiUrl().replace(/\/$/, '');
+  if (!baseUrl) return;
+
+  try {
+    await fetch(`${baseUrl}/api/v1/system/usage-log`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Não interromper UX por falha de observabilidade.
+  }
+}
+
 export function initAnalytics() {
   if (typeof window === 'undefined') return;
   if (!hasAnalyticsConfig()) return;
@@ -64,8 +111,6 @@ export function initAnalytics() {
 }
 
 export function trackPageView(path: string, title: string, context?: AnalyticsContext) {
-  if (!hasAnalyticsConfig()) return;
-
   const payload = {
     page_path: path,
     page_title: title,
@@ -74,10 +119,24 @@ export function trackPageView(path: string, title: string, context?: AnalyticsCo
     user_role: context?.userRole || undefined,
   };
 
-  pushDataLayer('page_view', payload);
+  if (hasAnalyticsConfig()) {
+    pushDataLayer('page_view', payload);
+    gtag('event', 'page_view', {
+      ...payload,
+    });
+  }
 
-  gtag('event', 'page_view', {
-    ...payload,
+  void sendUsageLog({
+    module_key: getModuleFromPath(path),
+    feature_key: 'page_view',
+    action: 'view',
+    route_path: path,
+    metadata: {
+      page_title: title,
+      user_id: context?.userId || undefined,
+      company_id: context?.companyId || undefined,
+      user_role: context?.userRole || undefined,
+    },
   });
 }
 
@@ -86,8 +145,6 @@ export function trackEvent(
   params: Record<string, unknown> = {},
   context?: AnalyticsContext,
 ) {
-  if (!hasAnalyticsConfig()) return;
-
   const payload = {
     ...params,
     user_id: context?.userId || undefined,
@@ -95,10 +152,20 @@ export function trackEvent(
     user_role: context?.userRole || undefined,
   };
 
-  pushDataLayer(eventName, payload);
+  if (hasAnalyticsConfig()) {
+    pushDataLayer(eventName, payload);
+    gtag('event', eventName, {
+      ...payload,
+    });
+  }
 
-  gtag('event', eventName, {
-    ...payload,
+  const routePath = typeof params.page_path === 'string' ? params.page_path : window.location.pathname;
+  void sendUsageLog({
+    module_key: getModuleFromPath(routePath),
+    feature_key: eventName,
+    action: eventName === 'ui_click' ? 'click' : eventName,
+    route_path: routePath,
+    metadata: payload,
   });
 }
 

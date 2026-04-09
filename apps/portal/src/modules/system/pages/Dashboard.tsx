@@ -7,7 +7,7 @@ import { clientService, type ClientWithCreatedAt } from '../../clients/services/
 import { userService } from '../../users/services/user.service';
 import { planService } from '../../plans/services/plan.service';
 import { companyService } from '../../companies/services/company.service';
-import { systemService, DatabaseStats } from '../services/system.service';
+import { systemService, DatabaseStats, ModuleUsageSummary } from '../services/system.service';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -20,6 +20,7 @@ export function Dashboard() {
   const [recentClients, setRecentClients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
+  const [usageSummary, setUsageSummary] = useState<ModuleUsageSummary | null>(null);
 
   // Verificar se usuário é super_admin (pode criar empresas)
   const isSuperAdmin = user?.role === 'super_admin';
@@ -38,12 +39,14 @@ export function Dashboard() {
           companyService.list(), // Lista todas as empresas/tenants
           planService.list(),
           systemService.getStats(),
+          systemService.getModuleUsage(30),
         ];
 
         const results = await Promise.all(loadPromises);
         const clients = results[0] || [];
         const plans = results[1] || [];
         const dbStatsData = results[2];
+        const moduleUsageData = results[3];
 
         console.log('Dashboard - Clients loaded:', clients);
         console.log('Dashboard - Plans loaded:', plans);
@@ -69,6 +72,10 @@ export function Dashboard() {
           setDbStats(dbStatsData);
         } else {
           console.warn('Database stats not loaded');
+        }
+
+        if (moduleUsageData) {
+          setUsageSummary(moduleUsageData);
         }
       } else {
         // Para admin normal, carregar dados do tenant
@@ -111,6 +118,9 @@ export function Dashboard() {
             .sort((a: ClientWithCreatedAt, b: ClientWithCreatedAt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 3)
         );
+
+        const tenantUsage = await systemService.getModuleUsage(30);
+        setUsageSummary(tenantUsage);
       }
       } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -196,6 +206,65 @@ export function Dashboard() {
             </div>
           </Card>
         </div>
+
+        {/* Database Stats - Apenas para super_admin */}
+        {usageSummary && (
+          <Card className="mb-8">
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Uso dos Módulos (últimos {usageSummary.periodDays} dias)</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              Eventos totais: <span className="font-semibold text-slate-700">{usageSummary.totalEvents}</span> ·
+              Usuários ativos: <span className="font-semibold text-slate-700">{usageSummary.uniqueUsers}</span> ·
+              Simulações: <span className="font-semibold text-slate-700">{usageSummary.totalSimulations}</span>
+            </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Uso por Módulo</h3>
+                <div className="space-y-2">
+                  {usageSummary.modules.slice(0, 8).map((mod) => (
+                    <div
+                      key={mod.module_key}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-900">{mod.module_key}</p>
+                        <p className="text-xs text-slate-500">{mod.unique_users} usuários</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-slate-900">{mod.total_events}</p>
+                        <p className="text-xs text-slate-500">{mod.simulation_events} simulações</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Quem mais simulou</h3>
+                <div className="space-y-2">
+                  {usageSummary.topSimulationUsers.length === 0 ? (
+                    <div className="text-sm text-slate-500 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                      Nenhuma simulação registrada no período.
+                    </div>
+                  ) : (
+                    usageSummary.topSimulationUsers.slice(0, 8).map((row, index) => (
+                      <div
+                        key={`${row.user_id || 'unknown'}-${row.module_key}-${index}`}
+                        className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50"
+                      >
+                        <div>
+                          <p className="font-medium text-slate-900">{row.user_name}</p>
+                          <p className="text-xs text-slate-500">{row.module_key}</p>
+                        </div>
+                        <p className="font-semibold text-slate-900">{row.simulations}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Database Stats - Apenas para super_admin */}
         {isSuperAdmin && (

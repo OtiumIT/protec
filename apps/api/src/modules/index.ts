@@ -20,9 +20,39 @@ import { accessListRoutes } from './access-list/access-list.routes';
 import { debugRoutes } from './debug/debug.routes';
 import { errorHandler } from '../shared/utils/error-handler';
 import { API_VERSION, API_UPDATED_AT } from '../version';
+import { verifyAccessToken } from '../shared/utils/jwt';
+import { query } from '../db/client';
 
 const app = new Hono();
 const API_DOCS_BASE = '/api/v1';
+
+function normalizeRoutePath(path: string): string {
+  return path
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi, ':id')
+    .replace(/\/\d+(?=\/|$)/g, '/:id');
+}
+
+function classifyUsage(method: string, path: string): { moduleKey: string; featureKey: string; action: string } | null {
+  if (!path.startsWith('/api/v1/')) return null;
+
+  const normalizedPath = normalizeRoutePath(path);
+  const relative = normalizedPath.replace('/api/v1/', '');
+  const [moduleKey, ...rest] = relative.split('/').filter(Boolean);
+  if (!moduleKey) return null;
+
+  const featureKey = rest.length > 0 ? rest.join('/') : 'root';
+  const lowerPath = normalizedPath.toLowerCase();
+
+  let action = 'access';
+  if (lowerPath.includes('/simulate')) action = 'simulate';
+  else if (lowerPath.includes('/upload')) action = 'upload';
+  else if (method === 'POST') action = 'create';
+  else if (method === 'PATCH' || method === 'PUT') action = 'update';
+  else if (method === 'DELETE') action = 'delete';
+  else if (method === 'GET') action = 'view';
+
+  return { moduleKey, featureKey, action };
+}
 
 const openApiSpec = {
   openapi: '3.0.3',
@@ -177,6 +207,63 @@ app.use('/*', cors({
   credentials: true,
   maxAge: 86400,
 }));
+
+// Auditoria de uso: registra qualquer chamada de API (autenticada ou pública relevante)
+app.use('/api/v1/*', async (c, next) => {
+  const startedAt = Date.now();
+  await next();
+
+  try {
+    const path = c.req.path;
+    if (
+      path === '/api/v1/system/usage-log' ||
+      path === '/api/v1/swagger.json' ||
+      path === '/api/v1/docs' ||
+      path === '/api/v1/version'
+    ) {
+      return;
+    }
+
+    const classification = classifyUsage(c.req.method, path);
+    if (!classification) return;
+
+    const authHeader = c.req.header('Authorization');
+    let userId: string | null = null;
+    let companyId: string | null = null;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const payload = verifyAccessToken(authHeader.substring(7));
+        userId = payload.userId ?? null;
+        companyId = payload.companyId ?? null;
+      } catch {
+        // Mantém log mesmo sem usuário válido para troubleshooting de uso
+      }
+    }
+
+    const latencyMs = Date.now() - startedAt;
+
+    await query(
+      `INSERT INTO public.module_usage_logs
+         (company_id, user_id, module_key, feature_key, action, method, route_path, status_code, source, metadata)
+       VALUES
+         ($1, $2, $3, $4, $5, $6, $7, $8, 'api', $9::jsonb)`,
+      [
+        companyId,
+        userId,
+        classification.moduleKey,
+        classification.featureKey,
+        classification.action,
+        c.req.method,
+        normalizeRoutePath(path),
+        c.res.status,
+        JSON.stringify({ latency_ms: latencyMs }),
+      ]
+    );
+  } catch {
+    // O log de uso nunca deve derrubar a API.
+  }
+});
 
 // Error handler global
 app.onError((error, c) => {
