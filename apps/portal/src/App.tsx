@@ -36,6 +36,7 @@ import { Glossario } from './modules/documentacao/pages/Glossario';
 import { AccessList } from './modules/access-list/pages/AccessList';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { EPSLanding } from './landing/pages/EPSLanding';
+import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -73,10 +74,68 @@ function ScrollToTop() {
   return null;
 }
 
+function AnalyticsTracker() {
+  const location = useLocation();
+  const { user, tenantId } = useAuth();
+
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    const fullPath = `${location.pathname}${location.search}${location.hash}`;
+
+    trackPageView(fullPath, document.title, {
+      userId: user?.id,
+      companyId: tenantId,
+      userRole: user?.role,
+    });
+  }, [location.hash, location.pathname, location.search, tenantId, user?.id, user?.role]);
+
+  useEffect(() => {
+    const onDocumentClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const clickable = target.closest('a,button,[role="button"],[data-analytics-event]');
+      if (!clickable) return;
+
+      const analyticsEvent = clickable.getAttribute('data-analytics-event') || 'ui_click';
+      const analyticsLabel =
+        clickable.getAttribute('data-analytics-label') ||
+        clickable.getAttribute('aria-label') ||
+        clickable.textContent?.trim() ||
+        undefined;
+
+      trackEvent(
+        analyticsEvent,
+        {
+          page_path: `${location.pathname}${location.search}${location.hash}`,
+          element_tag: clickable.tagName.toLowerCase(),
+          element_id: clickable.id || undefined,
+          element_label: analyticsLabel,
+          link_url: clickable instanceof HTMLAnchorElement ? clickable.href : undefined,
+        },
+        {
+          userId: user?.id,
+          companyId: tenantId,
+          userRole: user?.role,
+        },
+      );
+    };
+
+    document.addEventListener('click', onDocumentClick);
+    return () => document.removeEventListener('click', onDocumentClick);
+  }, [location.hash, location.pathname, location.search, tenantId, user?.id, user?.role]);
+
+  return null;
+}
+
 function AppRoutes() {
   return (
     <>
       <ScrollToTop />
+      <AnalyticsTracker />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />

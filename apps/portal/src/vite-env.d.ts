@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
+  readonly VITE_GA_MEASUREMENT_ID?: string;
+  readonly VITE_GTM_ID?: string;
 }
 
 interface ImportMeta {
