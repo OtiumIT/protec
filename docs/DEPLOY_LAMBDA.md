@@ -144,3 +144,11 @@ A API só devolve cabeçalhos CORS para origens listadas em **`/protec-api/CORS_
 
 3. Confirme com o endpoint de diagnóstico (após o deploy): `GET /api/v1/debug/cors?origin=https://iataxsistemas.com.br` — o campo `wouldAllow` deve ser `true`.
 
+### `MaxClientsInSessionMode: max clients reached` (Supabase)
+
+O **pooler do Supabase em modo Session** aceita poucas sessões simultâneas no total (várias Lambdas × várias conexões no `pg` Pool esgotam rápido).
+
+1. O template da API define **`DATABASE_POOL_MAX=1`** na Lambda e o código usa **1 conexão por instância** quando detecta ambiente Lambda (veja `apps/api/src/db/client.ts`).
+2. Se o `DATABASE_URL` no SSM apontar para o **Session pooler**, confira no painel Supabase se precisa **aumentar o pool size** do modo Session ou reduzir concorrência (reserved concurrency na Lambda).
+3. **Transaction mode** (porta 6543) aguenta mais conexões curtas, mas exige que a aplicação seja compatível com PgBouncer em modo transação (hoje o tenant usa `SET search_path` por conexão; mudar exige cuidado).
+

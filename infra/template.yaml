@@ -38,6 +38,8 @@ Resources:
       Environment:
         Variables:
           NODE_ENV: production
+          # Evita esgotar o pooler Supabase em modo Session (MaxClientsInSessionMode)
+          DATABASE_POOL_MAX: '1'
           DATABASE_URL: !Sub '{{resolve:ssm:/protec-api/DATABASE_URL}}'
           JWT_SECRET: !Sub '{{resolve:ssm:/protec-api/JWT_SECRET}}'
           REFRESH_TOKEN_SECRET: !Sub '{{resolve:ssm:/protec-api/REFRESH_TOKEN_SECRET}}'

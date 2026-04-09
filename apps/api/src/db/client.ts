@@ -44,9 +44,30 @@ const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, (ma
 
 // Ativar SSL para qualquer host remoto (não localhost)
 const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
+/**
+ * Tamanho do pool `pg`. Em Lambda + Supabase (pooler modo Session), cada instância não pode abrir
+ * várias sessões: o limite global do pooler é baixo e o erro
+ * "MaxClientsInSessionMode: max clients reached" aparece com facilidade.
+ * Override: DATABASE_POOL_MAX (1–20).
+ */
+function resolvePoolMax(): number {
+  const raw = process.env.DATABASE_POOL_MAX?.trim();
+  if (raw) {
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n)) return Math.max(1, Math.min(20, n));
+  }
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.AWS_EXECUTION_ENV?.includes('AWS_Lambda')) {
+    return 1;
+  }
+  return 5;
+}
+
+const poolMax = resolvePoolMax();
+
 const pool = new Pool({
   connectionString: cleanConnectionString,
-  max: 5,
+  max: poolMax,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 30000,
   ...(!isLocalhost && {
@@ -58,6 +79,15 @@ const pool = new Pool({
 pool.on('error', (err: any) => {
   console.error('❌ Erro inesperado no pool de conexões:', err.message);
   console.error('   Tipo:', err.constructor.name);
+  if (
+    typeof err.message === 'string' &&
+    err.message.includes('MaxClientsInSessionMode')
+  ) {
+    console.error('\n💡 Pooler Supabase (modo Session): limite de clientes atingido.');
+    console.error('   - A Lambda já usa pool pequeno por padrão (1 conexão por instância).');
+    console.error('   - No Supabase: aumente pool size do Session ou use Transaction pooler (porta 6543) se compatível.');
+    console.error('   - Opcional: defina DATABASE_POOL_MAX=1 no ambiente da função.');
+  }
   if (err.code === 'EHOSTUNREACH' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
     console.error('\n💡 Possíveis soluções:');
     console.error('   1. Verifique sua conexão com a internet');
