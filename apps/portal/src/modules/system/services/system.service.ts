@@ -76,12 +76,18 @@ export const systemService = {
     return response.data.stats;
   },
 
-  async getModuleUsage(days = 30): Promise<ModuleUsageSummary> {
+  async getModuleUsage(days = 30, companyId?: string | null): Promise<ModuleUsageSummary> {
     const token = localStorage.getItem('accessToken');
-    const response = await apiRequest<ModuleUsageResponse>(`/api/v1/system/module-usage?days=${days}`, {
-      method: 'GET',
-      token: token || undefined,
-    });
+    const params = new URLSearchParams();
+    params.set('days', String(days));
+    if (companyId) params.set('companyId', companyId);
+    const response = await apiRequest<ModuleUsageResponse>(
+      `/api/v1/system/module-usage?${params.toString()}`,
+      {
+        method: 'GET',
+        token: token || undefined,
+      }
+    );
     return response.data.usage;
   },
 };

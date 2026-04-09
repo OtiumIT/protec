@@ -74,12 +74,41 @@ export function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [usageSummary, setUsageSummary] = useState<ModuleUsageSummary | null>(null);
+  const [superAdminCompanies, setSuperAdminCompanies] = useState<Array<{ id: string; name: string }>>([]);
+  const [thermometerCompanyId, setThermometerCompanyId] = useState('');
+  const [clientThermometer, setClientThermometer] = useState<ModuleUsageSummary['clientThermometer']>(null);
+  const [thermometerLoading, setThermometerLoading] = useState(false);
 
   const isSuperAdmin = user?.role === 'super_admin';
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin || !thermometerCompanyId) {
+      setClientThermometer(null);
+      return;
+    }
+    let cancelled = false;
+    setThermometerLoading(true);
+    systemService
+      .getModuleUsage(30, thermometerCompanyId)
+      .then((usage) => {
+        if (!cancelled) {
+          setClientThermometer(usage.clientThermometer);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setClientThermometer(null);
+      })
+      .finally(() => {
+        if (!cancelled) setThermometerLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, thermometerCompanyId]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -111,14 +140,19 @@ export function Dashboard() {
             .slice(0, 3),
         );
 
+        setSuperAdminCompanies(
+          [...normalizedCompanies]
+            .map((c) => ({ id: c.id, name: c.name || 'Sem nome' }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+        );
+
         setDbStats(dbStatsData || null);
         setUsageSummary(moduleUsageData || null);
       } else {
-        const [clients, users, plans, tenantUsage] = await Promise.all([
+        const [clients, users, plans] = await Promise.all([
           clientService.list(),
           userService.list(),
           planService.list(),
-          systemService.getModuleUsage(30),
         ]);
 
         const normalizedClients = (clients as ClientWithCreatedAt[]).map((client) => ({
@@ -140,8 +174,6 @@ export function Dashboard() {
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
             .slice(0, 3),
         );
-
-        setUsageSummary(tenantUsage || null);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -198,7 +230,7 @@ export function Dashboard() {
           </Card>
         </div>
 
-        {usageSummary && (
+        {isSuperAdmin && usageSummary && (
           <Card className="mb-8">
             <h2 className="text-xl font-bold text-slate-900 mb-2">Uso real do sistema (últimos {usageSummary.periodDays} dias)</h2>
             <p className="text-sm text-slate-500 mb-6">
@@ -251,103 +283,7 @@ export function Dashboard() {
           </Card>
         )}
 
-        {usageSummary?.clientThermometer && (
-          <Card className="mb-8">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Termômetro dos clientes</h2>
-            <p className="text-sm text-slate-500 mb-4">
-              Pontuação no período: upload de arquivos fiscais, simulações (IN 2306, imóveis), validações de rating e
-              processos judiciais vinculados ao cliente. A média considera só clientes com pelo menos um evento no período.
-            </p>
-            <p className="text-sm text-slate-600 mb-4">
-              Média entre quem usou:{' '}
-              <span className="font-semibold text-slate-900">
-                {usageSummary.clientThermometer.averageScoreAmongActive.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                })}{' '}
-                eventos
-              </span>
-              <span className="text-slate-400"> · </span>
-              <span className="text-slate-600">
-                {usageSummary.clientThermometer.totalClients} clientes cadastrados
-              </span>
-            </p>
-
-            {(() => {
-              const { counts } = usageSummary.clientThermometer;
-              const total = Math.max(1, counts.hot + counts.warm + counts.cold + counts.none);
-              const segments = [
-                { key: 'hot', w: (counts.hot / total) * 100, color: 'bg-rose-500' },
-                { key: 'warm', w: (counts.warm / total) * 100, color: 'bg-amber-400' },
-                { key: 'cold', w: (counts.cold / total) * 100, color: 'bg-sky-500' },
-                { key: 'none', w: (counts.none / total) * 100, color: 'bg-slate-300' },
-              ];
-              return (
-                <div className="mb-6">
-                  <div className="flex h-4 w-full overflow-hidden rounded-full border border-slate-200" role="img" aria-label="Distribuição quente, morno, frio e sem uso">
-                    {segments.map((s) =>
-                      s.w > 0 ? (
-                        <div key={s.key} className={`${s.color} h-full`} style={{ width: `${s.w}%` }} title={s.key} />
-                      ) : null,
-                    )}
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-                      <p className="font-semibold text-rose-900">Quente</p>
-                      <p className="text-2xl font-bold text-rose-800">{counts.hot}</p>
-                      <p className="text-xs text-rose-700/80">Acima da média</p>
-                    </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="font-semibold text-amber-900">Morno</p>
-                      <p className="text-2xl font-bold text-amber-800">{counts.warm}</p>
-                      <p className="text-xs text-amber-800/80">Na média</p>
-                    </div>
-                    <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
-                      <p className="font-semibold text-sky-900">Frio</p>
-                      <p className="text-2xl font-bold text-sky-800">{counts.cold}</p>
-                      <p className="text-xs text-sky-800/80">Abaixo da média</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                      <p className="font-semibold text-slate-700">Sem uso</p>
-                      <p className="text-2xl font-bold text-slate-800">{counts.none}</p>
-                      <p className="text-xs text-slate-500">Zero eventos</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <h3 className="text-sm font-semibold text-slate-700 mb-2">Amostra (maior pontuação)</h3>
-            <div className="space-y-2">
-              {usageSummary.clientThermometer.samples.length === 0 ? (
-                <p className="text-sm text-slate-500">Nenhum cliente cadastrado.</p>
-              ) : (
-                usageSummary.clientThermometer.samples.map((row) => {
-                  const meta = THERM_LABELS[row.level] ?? THERM_LABELS.none;
-                  return (
-                    <div
-                      key={row.client_id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{row.name}</p>
-                        <p className="text-xs text-slate-500">{row.score} evento(s) no período</p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}
-                        title={meta.label}
-                      >
-                        {meta.short}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </Card>
-        )}
-
-        {usageSummary && (
+        {isSuperAdmin && usageSummary && (
           <Card className="mb-8">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Quem mais simulou</h3>
             <div className="space-y-2">
@@ -400,6 +336,139 @@ export function Dashboard() {
             </div>
           )}
         </Card>
+
+        {isSuperAdmin && (
+          <Card className="mb-8">
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Termômetro dos clientes (por tenant)</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Escolha o escritório para ver quente / morno / frio / sem uso com base em uso real no período (arquivos
+              fiscais, simulações, rating, processos judiciais).
+            </p>
+            <div className="mb-6">
+              <label htmlFor="dashboard-thermometer-tenant" className="block text-sm font-medium text-slate-700 mb-2">
+                Tenant (empresa)
+              </label>
+              <select
+                id="dashboard-thermometer-tenant"
+                className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                value={thermometerCompanyId}
+                onChange={(e) => setThermometerCompanyId(e.target.value)}
+              >
+                <option value="">Selecione um tenant…</option>
+                {superAdminCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {!thermometerCompanyId ? (
+              <p className="text-sm text-slate-500 py-4">Selecione um tenant para carregar o termômetro.</p>
+            ) : thermometerLoading ? (
+              <p className="text-sm text-slate-500 py-4">Carregando termômetro…</p>
+            ) : !clientThermometer ? (
+              <p className="text-sm text-amber-800 py-4 rounded-lg border border-amber-200 bg-amber-50 px-3">
+                Não foi possível carregar os dados deste tenant.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500 mb-4">
+                  Pontuação nos últimos {clientThermometer.periodDays} dias. A média considera só clientes com pelo menos
+                  um evento no período.
+                </p>
+                <p className="text-sm text-slate-600 mb-4">
+                  Média entre quem usou:{' '}
+                  <span className="font-semibold text-slate-900">
+                    {clientThermometer.averageScoreAmongActive.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    eventos
+                  </span>
+                  <span className="text-slate-400"> · </span>
+                  <span className="text-slate-600">{clientThermometer.totalClients} clientes cadastrados</span>
+                </p>
+
+                {(() => {
+                  const { counts } = clientThermometer;
+                  const total = Math.max(1, counts.hot + counts.warm + counts.cold + counts.none);
+                  const segments = [
+                    { key: 'hot', w: (counts.hot / total) * 100, color: 'bg-rose-500' },
+                    { key: 'warm', w: (counts.warm / total) * 100, color: 'bg-amber-400' },
+                    { key: 'cold', w: (counts.cold / total) * 100, color: 'bg-sky-500' },
+                    { key: 'none', w: (counts.none / total) * 100, color: 'bg-slate-300' },
+                  ];
+                  return (
+                    <div className="mb-6">
+                      <div
+                        className="flex h-4 w-full overflow-hidden rounded-full border border-slate-200"
+                        role="img"
+                        aria-label="Distribuição quente, morno, frio e sem uso"
+                      >
+                        {segments.map((s) =>
+                          s.w > 0 ? (
+                            <div key={s.key} className={`${s.color} h-full`} style={{ width: `${s.w}%` }} title={s.key} />
+                          ) : null,
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                          <p className="font-semibold text-rose-900">Quente</p>
+                          <p className="text-2xl font-bold text-rose-800">{counts.hot}</p>
+                          <p className="text-xs text-rose-700/80">Acima da média</p>
+                        </div>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                          <p className="font-semibold text-amber-900">Morno</p>
+                          <p className="text-2xl font-bold text-amber-800">{counts.warm}</p>
+                          <p className="text-xs text-amber-800/80">Na média</p>
+                        </div>
+                        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+                          <p className="font-semibold text-sky-900">Frio</p>
+                          <p className="text-2xl font-bold text-sky-800">{counts.cold}</p>
+                          <p className="text-xs text-sky-800/80">Abaixo da média</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="font-semibold text-slate-700">Sem uso</p>
+                          <p className="text-2xl font-bold text-slate-800">{counts.none}</p>
+                          <p className="text-xs text-slate-500">Zero eventos</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">Amostra (maior pontuação)</h3>
+                <div className="space-y-2">
+                  {clientThermometer.samples.length === 0 ? (
+                    <p className="text-sm text-slate-500">Nenhum cliente cadastrado neste tenant.</p>
+                  ) : (
+                    clientThermometer.samples.map((row) => {
+                      const meta = THERM_LABELS[row.level] ?? THERM_LABELS.none;
+                      return (
+                        <div
+                          key={row.client_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{row.name}</p>
+                            <p className="text-xs text-slate-500">{row.score} evento(s) no período</p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}
+                            title={meta.label}
+                          >
+                            {meta.short}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </Card>
+        )}
 
         {isSuperAdmin && (
           <Card className="mb-8">

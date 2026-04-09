@@ -160,19 +160,30 @@ systemRoutes.post('/usage-log', async (c) => {
 
 /**
  * GET /system/module-usage
- * Resumo de uso por módulo e usuários que mais simulam.
+ * Resumo de uso global ou por tenant, termômetro e ranking de simulações — apenas super_admin.
  */
 systemRoutes.get('/module-usage', async (c) => {
   try {
     const currentUser = c.get('user');
-    const jwtPayload = c.get('jwt');
+    if (currentUser?.role !== 'super_admin') {
+      return c.json(
+        {
+          error: {
+            message: 'Only super admin can access module usage summary',
+            code: 'FORBIDDEN',
+          },
+        },
+        403
+      );
+    }
+
     const requestedDays = parseInt(c.req.query('days') || '30', 10);
-    const requestedCompanyId = c.req.query('companyId') || null;
+    const companyId = c.req.query('companyId') || null;
+    const includeClientThermometer = !!companyId;
 
-    const isSuperAdmin = currentUser?.role === 'super_admin';
-    const companyId = isSuperAdmin ? requestedCompanyId : (jwtPayload?.companyId ?? null);
-
-    const usage = await systemService.getModuleUsageSummary(requestedDays, companyId);
+    const usage = await systemService.getModuleUsageSummary(requestedDays, companyId, {
+      includeClientThermometer,
+    });
     return c.json({ data: { usage } }, 200);
   } catch (error) {
     return errorHandler(error, c);

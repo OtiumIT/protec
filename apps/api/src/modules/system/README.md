@@ -130,21 +130,19 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `204` sempre (fire-and-forget)
 
 ### GET /system/module-usage
-- **Descrição**: Resumo de uso por módulo, usuários ativos, simulações por usuário e termômetro de engajamento por cliente (tenant)
+- **Descrição**: Resumo de uso por módulo, usuários ativos, simulações por usuário e termômetro de engajamento por cliente (quando `companyId` informado)
 - **Autenticação**: Requerida (Bearer token)
-- **Permissão**:
-  - `super_admin`: visão global ou filtrada por `companyId`
-  - admin comum: apenas seu tenant
+- **Permissão**: apenas `super_admin` (`403` para demais perfis)
 - **Query params**:
   - `days` (opcional, default 30, máximo 365)
-  - `companyId` (opcional, apenas super_admin)
+  - `companyId` (opcional): filtra métricas ao tenant; sem o parâmetro, visão global; termômetro só é calculado com `companyId`
 - **Resposta**:
   - `usage.totalEvents`
   - `usage.uniqueUsers`
   - `usage.totalSimulations`
   - `usage.modules[]`
   - `usage.topSimulationUsers[]`
-  - `usage.clientThermometer`: quando há `companyId` (admin do tenant ou super_admin com `companyId` na query), agrega por cliente no schema do tenant (arquivos fiscais, simulações IN 2306/imóveis, rating, processos judiciais) e classifica **quente / morno / frio / sem uso** vs. média entre clientes com uso; caso contrário `null`
+  - `usage.clientThermometer`: apenas **super_admin** com `companyId` na query; agrega por cliente no schema do tenant (arquivos fiscais, simulações IN 2306/imóveis, rating, processos judiciais) e classifica **quente / morno / frio / sem uso** vs. média entre clientes com uso; demais casos `null`
 
 ## Fluxos Importantes
 

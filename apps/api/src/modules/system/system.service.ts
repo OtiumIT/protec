@@ -53,8 +53,13 @@ export interface ModuleUsageSummary {
     module_key: string;
     simulations: number;
   }>;
-  /** Apenas quando há tenant (admin do escritório); super_admin global não tem clientes no schema. */
+  /** Só preenchido para super_admin com `companyId` explícito (termômetro por tenant). */
   clientThermometer: ClientThermometerSummary | null;
+}
+
+export interface GetModuleUsageSummaryOptions {
+  /** Se true e `companyId` definido, calcula engajamento por cliente no schema do tenant. */
+  includeClientThermometer?: boolean;
 }
 
 export type ClientEngagementLevel = 'hot' | 'warm' | 'cold' | 'none';
@@ -120,7 +125,12 @@ export class SystemService {
     );
   }
 
-  async getModuleUsageSummary(days = 30, companyId: string | null = null): Promise<ModuleUsageSummary> {
+  async getModuleUsageSummary(
+    days = 30,
+    companyId: string | null = null,
+    options: GetModuleUsageSummaryOptions = {}
+  ): Promise<ModuleUsageSummary> {
+    const { includeClientThermometer = false } = options;
     const safeDays = Number.isFinite(days) ? Math.max(1, Math.min(365, Math.floor(days))) : 30;
 
     const aggregateResult = await query<{
@@ -247,9 +257,10 @@ export class SystemService {
       total_simulations: '0',
     };
 
-    const clientThermometer = companyId
-      ? await this.buildClientThermometer(companyId, safeDays)
-      : null;
+    const clientThermometer =
+      includeClientThermometer && companyId
+        ? await this.buildClientThermometer(companyId, safeDays)
+        : null;
 
     return {
       periodDays: safeDays,
