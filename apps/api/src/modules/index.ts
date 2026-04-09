@@ -32,26 +32,43 @@ function normalizeRoutePath(path: string): string {
     .replace(/\/\d+(?=\/|$)/g, '/:id');
 }
 
+const BUSINESS_USAGE_RULES: Array<{
+  method: string;
+  pathRegex: RegExp;
+  moduleKey: string;
+  featureKey: string;
+  action: string;
+}> = [
+  { method: 'POST', pathRegex: /^\/api\/v1\/clients$/, moduleKey: 'clients', featureKey: 'create-client', action: 'create_client' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/fiscal-files\/upload$/, moduleKey: 'fiscal-files', featureKey: 'upload-fiscal-file', action: 'upload' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/simulador-in-2306\/simulate$/, moduleKey: 'simulador-in-2306', featureKey: 'simulate', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/simulador-in-2306\/simulate-tributario$/, moduleKey: 'simulador-in-2306', featureKey: 'simulate-tributario', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/irpf-alta-renda\/simulate$/, moduleKey: 'irpf-alta-renda', featureKey: 'simulate', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/irpf-alta-renda\/simulate-and-save$/, moduleKey: 'irpf-alta-renda', featureKey: 'simulate-and-save', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/rating-validator\/simulate$/, moduleKey: 'rating-validator', featureKey: 'simulate', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/rating-validator\/validate-by-competence$/, moduleKey: 'rating-validator', featureKey: 'validate-by-competence', action: 'validate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/rating-validator\/validate\/:id$/, moduleKey: 'rating-validator', featureKey: 'validate-by-file', action: 'validate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/properties\/simulate$/, moduleKey: 'properties', featureKey: 'simulate', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/properties\/simulate-and-save$/, moduleKey: 'properties', featureKey: 'simulate-and-save', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/properties\/simulate-standalone$/, moduleKey: 'properties', featureKey: 'simulate-standalone', action: 'simulate' },
+  { method: 'POST', pathRegex: /^\/api\/v1\/properties\/simulate-standalone-and-save$/, moduleKey: 'properties', featureKey: 'simulate-standalone-and-save', action: 'simulate' },
+];
+
 function classifyUsage(method: string, path: string): { moduleKey: string; featureKey: string; action: string } | null {
   if (!path.startsWith('/api/v1/')) return null;
 
   const normalizedPath = normalizeRoutePath(path);
-  const relative = normalizedPath.replace('/api/v1/', '');
-  const [moduleKey, ...rest] = relative.split('/').filter(Boolean);
-  if (!moduleKey) return null;
+  const matchedRule = BUSINESS_USAGE_RULES.find(
+    (rule) => rule.method === method && rule.pathRegex.test(normalizedPath)
+  );
 
-  const featureKey = rest.length > 0 ? rest.join('/') : 'root';
-  const lowerPath = normalizedPath.toLowerCase();
+  if (!matchedRule) return null;
 
-  let action = 'access';
-  if (lowerPath.includes('/simulate')) action = 'simulate';
-  else if (lowerPath.includes('/upload')) action = 'upload';
-  else if (method === 'POST') action = 'create';
-  else if (method === 'PATCH' || method === 'PUT') action = 'update';
-  else if (method === 'DELETE') action = 'delete';
-  else if (method === 'GET') action = 'view';
-
-  return { moduleKey, featureKey, action };
+  return {
+    moduleKey: matchedRule.moduleKey,
+    featureKey: matchedRule.featureKey,
+    action: matchedRule.action,
+  };
 }
 
 const openApiSpec = {

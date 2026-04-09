@@ -26,6 +26,14 @@ export interface ModuleUsageSummary {
   totalEvents: number;
   uniqueUsers: number;
   totalSimulations: number;
+  dailyClients: Array<{
+    date: string;
+    total: number;
+  }>;
+  moduleRealUsage: Array<{
+    module_key: string;
+    total_events: number;
+  }>;
   modules: Array<{
     module_key: string;
     total_events: number;
@@ -38,6 +46,18 @@ export interface ModuleUsageSummary {
     module_key: string;
     simulations: number;
   }>;
+  clientThermometer: {
+    periodDays: number;
+    averageScoreAmongActive: number;
+    totalClients: number;
+    counts: { hot: number; warm: number; cold: number; none: number };
+    samples: Array<{
+      client_id: string;
+      name: string;
+      score: number;
+      level: 'hot' | 'warm' | 'cold' | 'none';
+    }>;
+  } | null;
 }
 
 interface ModuleUsageResponse {

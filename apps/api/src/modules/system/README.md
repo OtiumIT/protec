@@ -130,7 +130,7 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `204` sempre (fire-and-forget)
 
 ### GET /system/module-usage
-- **Descrição**: Resumo de uso por módulo, usuários ativos e simulações por usuário
+- **Descrição**: Resumo de uso por módulo, usuários ativos, simulações por usuário e termômetro de engajamento por cliente (tenant)
 - **Autenticação**: Requerida (Bearer token)
 - **Permissão**:
   - `super_admin`: visão global ou filtrada por `companyId`
@@ -144,6 +144,7 @@ Gerencia operações administrativas do sistema, incluindo estatísticas do banc
   - `usage.totalSimulations`
   - `usage.modules[]`
   - `usage.topSimulationUsers[]`
+  - `usage.clientThermometer`: quando há `companyId` (admin do tenant ou super_admin com `companyId` na query), agrega por cliente no schema do tenant (arquivos fiscais, simulações IN 2306/imóveis, rating, processos judiciais) e classifica **quente / morno / frio / sem uso** vs. média entre clientes com uso; caso contrário `null`
 
 ## Fluxos Importantes
 

@@ -1,4 +1,4 @@
-import { query } from '../../db/client';
+import { query, runWithTenantClient } from '../../db/client';
 
 export interface DatabaseStats {
   databaseSize: string;
@@ -33,6 +33,14 @@ export interface ModuleUsageSummary {
   totalEvents: number;
   uniqueUsers: number;
   totalSimulations: number;
+  dailyClients: Array<{
+    date: string;
+    total: number;
+  }>;
+  moduleRealUsage: Array<{
+    module_key: string;
+    total_events: number;
+  }>;
   modules: Array<{
     module_key: string;
     total_events: number;
@@ -45,6 +53,49 @@ export interface ModuleUsageSummary {
     module_key: string;
     simulations: number;
   }>;
+  /** Apenas quando há tenant (admin do escritório); super_admin global não tem clientes no schema. */
+  clientThermometer: ClientThermometerSummary | null;
+}
+
+export type ClientEngagementLevel = 'hot' | 'warm' | 'cold' | 'none';
+
+export interface ClientThermometerSummary {
+  periodDays: number;
+  /** Média de pontos só entre clientes com score > 0 no período. */
+  averageScoreAmongActive: number;
+  totalClients: number;
+  counts: {
+    hot: number;
+    warm: number;
+    cold: number;
+    none: number;
+  };
+  /** Amostra para inspeção rápida (ordenada por score desc). */
+  samples: Array<{
+    client_id: string;
+    name: string;
+    score: number;
+    level: ClientEngagementLevel;
+  }>;
+}
+
+const REAL_USAGE_MODULES = [
+  'simulador-in-2306',
+  'irpf-alta-renda',
+  'rating-validator',
+  'properties',
+  'fiscal-files',
+  'clients',
+] as const;
+
+const REAL_USAGE_ACTIONS = ['simulate', 'validate', 'upload', 'create_client'] as const;
+
+function classifyClientEngagement(score: number, avgAmongActive: number, clientsWithUsage: number): ClientEngagementLevel {
+  if (score <= 0) return 'none';
+  if (clientsWithUsage <= 0) return 'warm';
+  if (score > avgAmongActive) return 'hot';
+  if (score < avgAmongActive) return 'cold';
+  return 'warm';
 }
 
 export class SystemService {
@@ -83,8 +134,11 @@ export class SystemService {
          COUNT(*) FILTER (WHERE action = 'simulate')::text as total_simulations
        FROM public.module_usage_logs
        WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
-         AND ($2::uuid IS NULL OR company_id = $2::uuid)`,
-      [safeDays, companyId]
+         AND source = 'api'
+         AND module_key = ANY($2::text[])
+         AND action = ANY($3::text[])
+         AND ($4::uuid IS NULL OR company_id = $4::uuid)`,
+      [safeDays, REAL_USAGE_MODULES, REAL_USAGE_ACTIONS, companyId]
     );
 
     const modulesResult = await query<{
@@ -100,10 +154,13 @@ export class SystemService {
          COUNT(*) FILTER (WHERE action = 'simulate')::text as simulation_events
        FROM public.module_usage_logs
        WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
-         AND ($2::uuid IS NULL OR company_id = $2::uuid)
+         AND source = 'api'
+         AND module_key = ANY($2::text[])
+         AND action = ANY($3::text[])
+         AND ($4::uuid IS NULL OR company_id = $4::uuid)
        GROUP BY module_key
        ORDER BY COUNT(*) DESC`,
-      [safeDays, companyId]
+      [safeDays, REAL_USAGE_MODULES, REAL_USAGE_ACTIONS, companyId]
     );
 
     const topSimulationUsersResult = await query<{
@@ -121,12 +178,68 @@ export class SystemService {
        LEFT JOIN public.users u ON u.id = l.user_id
        WHERE l.created_at >= NOW() - ($1::int * INTERVAL '1 day')
          AND l.action = 'simulate'
-         AND ($2::uuid IS NULL OR l.company_id = $2::uuid)
+         AND l.source = 'api'
+         AND l.module_key = ANY($2::text[])
+         AND ($3::uuid IS NULL OR l.company_id = $3::uuid)
        GROUP BY l.user_id, u.name, l.module_key
        ORDER BY COUNT(*) DESC
        LIMIT 20`,
-      [safeDays, companyId]
+      [safeDays, REAL_USAGE_MODULES, companyId]
     );
+
+    const moduleRealUsageResult = await query<{
+      module_key: string;
+      total_events: string;
+    }>(
+      `SELECT
+         module_key,
+         COUNT(*)::text as total_events
+       FROM public.module_usage_logs
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND source = 'api'
+         AND module_key = ANY($2::text[])
+         AND action = ANY($3::text[])
+         AND ($4::uuid IS NULL OR company_id = $4::uuid)
+       GROUP BY module_key
+       ORDER BY COUNT(*) DESC`,
+      [safeDays, REAL_USAGE_MODULES, REAL_USAGE_ACTIONS, companyId]
+    );
+
+    const rawDailyClients = companyId
+      ? await runWithTenantClient(companyId, () =>
+          query<{ day: string; total: string }>(
+            `SELECT
+               to_char(date_trunc('day', created_at), 'YYYY-MM-DD') as day,
+               COUNT(*)::text as total
+             FROM clients
+             WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+             GROUP BY date_trunc('day', created_at)
+             ORDER BY date_trunc('day', created_at)`,
+            [safeDays]
+          )
+        )
+      : await query<{ day: string; total: string }>(
+          `SELECT
+             to_char(date_trunc('day', created_at), 'YYYY-MM-DD') as day,
+             COUNT(*)::text as total
+           FROM public.companies
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           GROUP BY date_trunc('day', created_at)
+           ORDER BY date_trunc('day', created_at)`,
+          [safeDays]
+        );
+
+    const dailyMap = new Map<string, number>(
+      rawDailyClients.rows.map((row) => [row.day, parseInt(row.total || '0', 10)])
+    );
+    const dailyClients: Array<{ date: string; total: number }> = [];
+    const end = new Date();
+    for (let i = safeDays - 1; i >= 0; i -= 1) {
+      const date = new Date(end);
+      date.setDate(end.getDate() - i);
+      const key = date.toISOString().slice(0, 10);
+      dailyClients.push({ date: key, total: dailyMap.get(key) || 0 });
+    }
 
     const totals = aggregateResult.rows[0] ?? {
       total_events: '0',
@@ -134,11 +247,20 @@ export class SystemService {
       total_simulations: '0',
     };
 
+    const clientThermometer = companyId
+      ? await this.buildClientThermometer(companyId, safeDays)
+      : null;
+
     return {
       periodDays: safeDays,
       totalEvents: parseInt(totals.total_events || '0', 10),
       uniqueUsers: parseInt(totals.unique_users || '0', 10),
       totalSimulations: parseInt(totals.total_simulations || '0', 10),
+      dailyClients,
+      moduleRealUsage: moduleRealUsageResult.rows.map((row) => ({
+        module_key: row.module_key,
+        total_events: parseInt(row.total_events || '0', 10),
+      })),
       modules: modulesResult.rows.map((row) => ({
         module_key: row.module_key,
         total_events: parseInt(row.total_events || '0', 10),
@@ -151,6 +273,92 @@ export class SystemService {
         module_key: row.module_key,
         simulations: parseInt(row.simulations || '0', 10),
       })),
+      clientThermometer,
+    };
+  }
+
+  /**
+   * Pontua cada cliente do tenant por uso real no período: uploads fiscais, simulações IN 2306,
+   * simulações de imóveis, validações de rating e processos judiciais (todos com client_id).
+   */
+  async buildClientThermometer(companyId: string, days: number): Promise<ClientThermometerSummary> {
+    const safeDays = Math.max(1, Math.min(365, Math.floor(days)));
+
+    const rows = await runWithTenantClient(companyId, () =>
+      query<{ id: string; name: string; score: string }>(
+        `SELECT
+           c.id,
+           c.name,
+           (
+             COALESCE(ff.n, 0) + COALESCE(ps.n, 0) + COALESCE(in2306.n, 0) + COALESCE(rv.n, 0) + COALESCE(jp.n, 0)
+           )::text AS score
+         FROM clients c
+         LEFT JOIN (
+           SELECT client_id, COUNT(*)::int AS n
+           FROM fiscal_files
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           GROUP BY client_id
+         ) ff ON ff.client_id = c.id
+         LEFT JOIN (
+           SELECT client_id, COUNT(*)::int AS n
+           FROM property_simulations
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+             AND client_id IS NOT NULL
+           GROUP BY client_id
+         ) ps ON ps.client_id = c.id
+         LEFT JOIN (
+           SELECT client_id, COUNT(*)::int AS n
+           FROM in_2306_simulations
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+             AND client_id IS NOT NULL
+           GROUP BY client_id
+         ) in2306 ON in2306.client_id = c.id
+         LEFT JOIN (
+           SELECT client_id, COUNT(*)::int AS n
+           FROM rating_validations
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           GROUP BY client_id
+         ) rv ON rv.client_id = c.id
+         LEFT JOIN (
+           SELECT client_id, COUNT(*)::int AS n
+           FROM judicial_processes
+           WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           GROUP BY client_id
+         ) jp ON jp.client_id = c.id`,
+        [safeDays]
+      )
+    );
+
+    const clients = rows.rows.map((row) => ({
+      client_id: row.id,
+      name: row.name,
+      score: parseInt(row.score || '0', 10),
+    }));
+
+    const withUsage = clients.filter((c) => c.score > 0);
+    const clientsWithUsage = withUsage.length;
+    const sumScores = withUsage.reduce((acc, c) => acc + c.score, 0);
+    const averageScoreAmongActive =
+      clientsWithUsage > 0 ? Math.round((sumScores / clientsWithUsage) * 100) / 100 : 0;
+
+    const counts = { hot: 0, warm: 0, cold: 0, none: 0 };
+    const enriched = clients.map((c) => {
+      const level = classifyClientEngagement(c.score, averageScoreAmongActive, clientsWithUsage);
+      counts[level] += 1;
+      return { ...c, level };
+    });
+
+    const samples = [...enriched]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(({ client_id, name, score, level }) => ({ client_id, name, score, level }));
+
+    return {
+      periodDays: safeDays,
+      averageScoreAmongActive,
+      totalClients: clients.length,
+      counts,
+      samples,
     };
   }
 

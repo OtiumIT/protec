@@ -160,6 +160,9 @@ export function trackEvent(
   }
 
   const routePath = typeof params.page_path === 'string' ? params.page_path : window.location.pathname;
+  if (eventName === 'ui_click') {
+    return;
+  }
   void sendUsageLog({
     module_key: getModuleFromPath(routePath),
     feature_key: eventName,
