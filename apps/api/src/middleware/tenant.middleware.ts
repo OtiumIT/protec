@@ -43,7 +43,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const payload = verifyAccessToken(authHeader.substring(7));
-      roleFromJwt = payload?.role;
+      roleFromJwt = typeof payload?.role === 'string' ? payload.role.trim() : payload?.role;
       if (payload?.companyId) {
         companyIdFromJwt = payload.companyId;
       }
@@ -51,6 +51,9 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
       // Token inválido ou expirado — authMiddleware tratará depois
     }
   }
+
+  const isSuperAdminRole =
+    typeof roleFromJwt === 'string' && roleFromJwt.toLowerCase() === 'super_admin';
 
   // 5. Segurança anti-tenant-spoofing: em rotas autenticadas, JWT é a fonte de verdade
   if (companyIdFromJwt && companyId && companyId !== companyIdFromJwt) {
@@ -71,7 +74,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
 
   // 6. super_admin: pode operar sem tenant (rotas só public); com companyId, deve usar o schema do tenant
   //    (senão SELECT em properties/clients etc. cai em public e retorna "tabela não encontrada").
-  if (roleFromJwt === 'super_admin') {
+  if (isSuperAdminRole) {
     c.set('companyId', companyId || null);
     if (companyId) {
       const company = await query<{ id: string }>(

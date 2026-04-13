@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { ApiVersionBadge } from '../ApiVersionBadge';
+import { FeedbackFab } from '../feedback/FeedbackFab';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -83,6 +84,7 @@ export function Layout({ children }: LayoutProps) {
           <main className="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4">
             {children}
           </main>
+          <FeedbackFab />
           <div className="absolute bottom-2 right-4 pointer-events-none">
             <ApiVersionBadge />
           </div>

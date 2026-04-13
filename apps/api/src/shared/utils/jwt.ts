@@ -1,10 +1,38 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-// 24h: token de acesso válido por 1 dia; múltiplas sessões (mesmo usuário em vários dispositivos) são permitidas
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+// Padrões: access longo para menos churn; refresh longo define “ficar logado” até precisar logar de novo
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '48h';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '30d';
+
+/** Mesmo formato que `jwt.sign` em `expiresIn` (ex.: 30d, 24h, 3600 como segundos). */
+function expiresInToMs(expiresIn: string): number {
+  const s = expiresIn.trim();
+  if (/^\d+$/.test(s)) {
+    return parseInt(s, 10) * 1000;
+  }
+  const m = /^(\d+)(s|m|h|d|w|y)$/i.exec(s);
+  if (!m) {
+    throw new Error(`Invalid expiresIn format: ${expiresIn}`);
+  }
+  const n = parseInt(m[1], 10);
+  const unit = m[2].toLowerCase() as 's' | 'm' | 'h' | 'd' | 'w' | 'y';
+  const multSec: Record<'s' | 'm' | 'h' | 'd' | 'w' | 'y', number> = {
+    s: 1,
+    m: 60,
+    h: 3600,
+    d: 86400,
+    w: 604800,
+    y: 31536000,
+  };
+  return n * multSec[unit] * 1000;
+}
+
+/** Data de expiração do refresh no banco, alinhada ao JWT de refresh. */
+export function getRefreshTokenExpiresAt(): Date {
+  return new Date(Date.now() + expiresInToMs(REFRESH_TOKEN_EXPIRES_IN));
+}
 
 export interface JWTPayload {
   userId: string;

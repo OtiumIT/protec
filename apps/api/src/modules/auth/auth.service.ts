@@ -6,7 +6,13 @@ import { PlanRepository } from '../plans/plan.repository';
 import { FeatureToggleService } from '../feature-toggles/feature-toggle.service';
 import { FeatureToggleRepository } from '../feature-toggles/feature-toggle.repository';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from '../../shared/utils/jwt';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  getRefreshTokenExpiresAt,
+  JWTPayload,
+} from '../../shared/utils/jwt';
 import { logSensitiveOperation } from '../../shared/utils/logger';
 import { AppError } from '../../shared/utils/error-handler';
 import { emailService } from '../../shared/services/email.service';
@@ -128,11 +134,10 @@ export class AuthService {
       userId: user.id,
       companyId: company.id,
       email: user.email,
-      role: user.role,
+      role: typeof user.role === 'string' ? user.role.trim() : user.role,
     });
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    const expiresAt = getRefreshTokenExpiresAt();
     await this.authRepo.createRefreshToken(user.id, tokens.refresh, expiresAt);
 
     logSensitiveOperation('user_registered', user.id, company.id, { email: user.email });
@@ -185,12 +190,11 @@ export class AuthService {
       userId: user.id,
       companyId: user.tenant_id || null,
       email: user.email,
-      role: user.role,
+      role: typeof user.role === 'string' ? user.role.trim() : user.role,
     });
 
-    // Armazenar refresh token
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias
+    // Armazenar refresh token (mesmo prazo que REFRESH_TOKEN_EXPIRES_IN no JWT)
+    const expiresAt = getRefreshTokenExpiresAt();
     await this.authRepo.createRefreshToken(user.id, tokens.refresh, expiresAt);
 
     // Log da operação

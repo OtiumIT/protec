@@ -44,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (data: LoginData) => {
+    // Evita X-Tenant-ID antigo no storage durante o login e confusão de contexto (ex.: super_admin).
+    localStorage.removeItem('tenantId');
     const response = await authService.login(data);
     const { user, tokens } = response.data;
 

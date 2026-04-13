@@ -65,6 +65,10 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
   3. Buscar usuário no banco
   4. Adicionar ao context para uso nas rotas
 
+## Duração da sessão (env)
+- `JWT_EXPIRES_IN`: validade do access token (padrão `48h` se não definido).
+- `REFRESH_TOKEN_EXPIRES_IN`: validade do refresh token JWT e da coluna `expires_at` em `refresh_tokens` (padrão `30d`). Formato: `30d`, `48h`, `3600` (segundos), etc., alinhado ao `expiresIn` do `jsonwebtoken`.
+
 ## Dependências
 - **Módulos**: `companies` (criação de empresa no registro)
 - **Services compartilhados**: `jwt.ts`, `password.ts`, `email.service.ts` (Resend)

@@ -34,6 +34,7 @@ import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
 import { AccessList } from './modules/access-list/pages/AccessList';
+import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { EPSLanding } from './landing/pages/EPSLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
@@ -328,6 +329,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <AccessList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/feedback-admin"
+        element={
+          <PrivateRoute>
+            <FeedbackAdmin />
           </PrivateRoute>
         }
       />

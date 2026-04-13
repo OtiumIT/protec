@@ -20,19 +20,32 @@ function normalizeApiBaseUrl(url: string): string {
   return `https://${u.slice('http://'.length)}`;
 }
 
-/** Base URL da API. Em produção o Vite injeta VITE_API_URL no build (Cloudflare Pages, etc.) — não há fallback fixo para um domínio. */
+/**
+ * Endpoints do portal sempre começam com `/api/v1/...`.
+ * Se `VITE_API_URL` já incluir `/api/v1`, sem isso a URL vira `/api/v1/api/v1/...` e a API responde 404 "Route not found".
+ */
+function stripTrailingApiV1Base(url: string): string {
+  if (!url) return url;
+  return url
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/i, '')
+    .replace(/\/+$/, '');
+}
+
+/** Base URL da API (host apenas, sem `/api/v1`). Em produção o Vite injeta VITE_API_URL no build (Cloudflare Pages, etc.) — não há fallback fixo para um domínio. */
 export function getApiUrl(): string {
   const fromEnv = (import.meta.env?.VITE_API_URL as string | undefined)?.trim() ?? '';
   if (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) {
-    return DEV_API_URL;
+    return stripTrailingApiV1Base(DEV_API_URL);
   }
   if (fromEnv) {
-    return normalizeApiBaseUrl(fromEnv);
+    return stripTrailingApiV1Base(normalizeApiBaseUrl(fromEnv));
   }
   if (import.meta.env.PROD) {
     return '';
   }
-  return DEV_API_URL;
+  return stripTrailingApiV1Base(DEV_API_URL);
 }
 
 interface RequestOptions extends RequestInit {
@@ -42,6 +55,13 @@ interface RequestOptions extends RequestInit {
 
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
+
+/** Monta URL absoluta: path absoluto (`/api/v1/...`) substitui o path da base, evitando `/api/v1/api/v1/...` e barras duplicadas. */
+function resolveApiRequestUrl(baseUrl: string, path: string): string {
+  const base = baseUrl.trim().replace(/\/+$/, '');
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return new URL(p, `${base}/`).href;
+}
 
 /** Limpa sessão e redireciona para login apenas quando o refresh token é inválido/expirado (não em erro de rede). */
 function clearSessionAndRedirectToLogin(): void {
@@ -67,8 +87,7 @@ async function refreshAccessToken(): Promise<string | null> {
         return null;
       }
 
-      const baseUrl = getApiUrl().replace(/\/$/, '');
-      const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+      const response = await fetch(resolveApiRequestUrl(getApiUrl(), '/api/v1/auth/refresh'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,18 +150,27 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  if (tenantId && tenantId !== '') {
-    headers['X-Tenant-ID'] = tenantId;
-  }
-
-  const baseUrl = getApiUrl().replace(/\/$/, '');
+  const baseUrl = getApiUrl().trim();
   if (!baseUrl || typeof baseUrl !== 'string') {
     throw new Error(
       'API base URL is not configured. No build-time VITE_API_URL — set it in Cloudflare Pages (Production) and redeploy.',
     );
   }
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${baseUrl}${path}`;
+
+  // Rotas de auth não devem enviar tenant (evita sessão anterior atrapalhar login de super_admin).
+  const isAuthPublicPath =
+    path.includes('/api/v1/auth/login') ||
+    path.includes('/api/v1/auth/register') ||
+    path.includes('/api/v1/auth/forgot-password') ||
+    path.includes('/api/v1/auth/reset-password');
+  if (!isAuthPublicPath && tenantId && tenantId !== '') {
+    headers['X-Tenant-ID'] = tenantId;
+  }
+  if (isAuthPublicPath) {
+    delete headers['X-Tenant-ID'];
+  }
+  const url = resolveApiRequestUrl(baseUrl, path);
   
   if (!url || typeof url !== 'string') {
     throw new Error(`Invalid URL constructed: ${url}`);
@@ -162,8 +190,8 @@ export async function apiRequest<T>(
     throw fetchError;
   }
 
-  // Se receber 401 e tiver refresh token, tentar fazer refresh (sem deslogar em erro de rede)
-  if (response.status === 401 && !options.token && localStorage.getItem('refreshToken')) {
+  // 401: tentar refresh sempre que houver refresh token (mesmo com `token` explício em options — vem do localStorage e pode estar expirado).
+  if (response.status === 401 && localStorage.getItem('refreshToken')) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;

@@ -1,4 +1,6 @@
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { cors } from 'hono/cors';
 import { authRoutes } from './auth/auth.routes';
 import { userRoutes } from './users/user.routes';
@@ -17,7 +19,10 @@ import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.rou
 import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
 import { propertyRoutes } from './properties/property.routes';
 import { accessListRoutes } from './access-list/access-list.routes';
+import { feedbackRoutes } from './feedback/feedback.routes';
+import { FeedbackService } from './feedback/feedback.service';
 import { debugRoutes } from './debug/debug.routes';
+import { authMiddleware } from '../middleware/auth.middleware';
 import { errorHandler } from '../shared/utils/error-handler';
 import { API_VERSION, API_UPDATED_AT } from '../version';
 import { verifyAccessToken } from '../shared/utils/jwt';
@@ -306,6 +311,27 @@ app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
 app.route('/api/v1/properties', propertyRoutes);
 app.route('/api/v1/access-list', accessListRoutes);
+
+/** Thread de feedback no router raiz (evita 404 se o merge do sub-app não expuser GET /thread/:id). */
+const feedbackThreadParamSchema = z.object({ id: z.string().uuid() });
+const feedbackThreadService = new FeedbackService();
+app.get(
+  '/api/v1/feedback/thread/:id',
+  authMiddleware,
+  zValidator('param', feedbackThreadParamSchema),
+  async (c) => {
+    try {
+      const user = c.get('user');
+      const { id } = c.req.valid('param');
+      const data = await feedbackThreadService.getThread(user, id);
+      return c.json({ data });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+app.route('/api/v1/feedback', feedbackRoutes);
 app.route('/api/v1/debug', debugRoutes);
 
 app.get('/api/v1/swagger.json', (c) => c.json(openApiSpec));

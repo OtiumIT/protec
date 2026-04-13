@@ -10,6 +10,7 @@ import {
   faBookOpen,
   faClipboardList,
   faLock,
+  faCommentDots,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
@@ -117,6 +118,11 @@ const superAdminMenuItems: MenuItem[] = [
     name: 'Lista de Acesso',
     path: '/access-list',
     icon: <FontAwesomeIcon icon={faClipboardList} className="w-5 h-5" />,
+  },
+  {
+    name: 'Feedbacks',
+    path: '/feedback-admin',
+    icon: <FontAwesomeIcon icon={faCommentDots} className="w-5 h-5" />,
   },
   {
     name: 'Documentação',
@@ -486,10 +492,13 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       const modules = get('/modules');
       const editais = get('/editais');
       const accessList = get('/access-list');
+      const feedbacks = get('/feedback-admin');
       const documentacao = get('/documentacao');
       const gestaoUsuarios = get(undefined, 'Gestão de Usuários');
 
-      const adminItems: MenuItem[] = [tenants, plans, modules, editais, accessList, documentacao].filter(Boolean) as MenuItem[];
+      const adminItems: MenuItem[] = [tenants, plans, modules, editais, accessList, feedbacks, documentacao].filter(
+        Boolean
+      ) as MenuItem[];
       if (gestaoUsuarios) {
         adminItems.push(gestaoUsuarios);
       }

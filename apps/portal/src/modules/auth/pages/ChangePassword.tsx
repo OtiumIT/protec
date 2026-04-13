@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import apiRequest from '../../../shared/services/api';
+import { FeedbackFab } from '../../../shared/components/feedback/FeedbackFab';
 
 export function ChangePassword() {
   const { logout } = useAuth();
@@ -50,6 +51,7 @@ export function ChangePassword() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -126,5 +128,7 @@ export function ChangePassword() {
         </div>
       </div>
     </div>
+    <FeedbackFab />
+    </>
   );
 }
