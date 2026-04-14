@@ -37,6 +37,7 @@ import type {
   IndicesLc214,
   FiscalIndicesIpcaSeriesResponse,
 } from '@shared/core';
+import { SIMULATION_KIND_LOCACAO_PF_PJ } from '@shared/core';
 import { calcularTransicaoIBS, type TransicaoIBSResult } from '@shared/core';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -706,7 +707,7 @@ export function SimuladorImoveis() {
     (async () => {
       const [clientsResult, simResult] = await Promise.allSettled([
         clientService.list(),
-        propertyService.listSimulations({ page: 1, limit: 20 }),
+        propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ }),
       ]);
       if (!cancelled) {
         setClients(clientsResult.status === 'fulfilled' && Array.isArray(clientsResult.value) ? clientsResult.value : []);
@@ -1098,7 +1099,7 @@ export function SimuladorImoveis() {
         setEditingSimulationId(null);
         setWizardStep(3);
         success('Simulação atualizada.');
-        const simRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+        const simRes = await propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ });
         setSimulations(simRes.simulations);
       } catch (err) {
         showError(err instanceof Error ? err.message : 'Erro ao atualizar');
@@ -1317,7 +1318,7 @@ export function SimuladorImoveis() {
       setEditingSimulationId(null);
       setWizardStep(3);
       success('Nova simulação criada com sucesso!');
-      const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+      const listRes = await propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ });
       setSimulations(listRes.simulations);
       resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
@@ -1352,7 +1353,7 @@ export function SimuladorImoveis() {
       } as Parameters<typeof propertyService.simulateStandaloneAndSave>[0]);
       setResult(res);
       success('Simulação salva no histórico.');
-      const listRes = await propertyService.listSimulations({ page: 1, limit: 20 });
+      const listRes = await propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ });
       setSimulations(listRes.simulations);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao salvar simulação');

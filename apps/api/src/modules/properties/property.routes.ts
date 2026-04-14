@@ -22,6 +22,8 @@ import {
   ListPropertiesQuerySchema,
   ListTransactionsQuerySchema,
   ListPropertySimulationsQuerySchema,
+  SaveGanhoCapitalSimulationInputSchema,
+  UpdateGanhoCapitalSimulationInputSchema,
   PropertyIdParamSchema,
   PropertySimulationIdParamSchema,
   TransactionIdParamSchema,
@@ -228,10 +230,27 @@ propertyRoutes.get(
       const { simulations, total } = await propertyService.listSimulations({
         client_id: query.client_id,
         ano: query.ano,
+        simulation_kind: query.simulation_kind,
         page: query.page,
         limit: query.limit,
       });
       return c.json({ data: { simulations, total, page: query.page, limit: query.limit } });
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** POST /properties/simulations/ganho-capital — persistir simulação Ganho de Capital (cálculo no cliente) */
+propertyRoutes.post(
+  '/simulations/ganho-capital',
+  zValidator('json', SaveGanhoCapitalSimulationInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { simulation } = await propertyService.createGanhoCapitalSimulation(input, userId);
+      return c.json({ data: { simulation } }, 201);
     } catch (err) {
       return errorHandler(err, c);
     }
@@ -253,7 +272,24 @@ propertyRoutes.get(
   }
 );
 
-/** PATCH /properties/simulations/:id - Atualizar simulação */
+/** PATCH /properties/simulations/:id/ganho-capital — atualizar simulação Ganho de Capital */
+propertyRoutes.patch(
+  '/simulations/:id/ganho-capital',
+  zValidator('param', PropertySimulationIdParamSchema),
+  zValidator('json', UpdateGanhoCapitalSimulationInputSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const input = c.req.valid('json');
+      const { simulation } = await propertyService.updateGanhoCapitalSimulation(id, input);
+      return c.json({ data: { simulation } }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** PATCH /properties/simulations/:id - Atualizar simulação (locação PF×PJ) */
 propertyRoutes.patch(
   '/simulations/:id',
   zValidator('param', PropertySimulationIdParamSchema),

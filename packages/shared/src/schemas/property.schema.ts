@@ -496,9 +496,90 @@ export const PropertySimulationIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+/** Tipo de simulação persistida em `property_simulations` */
+export const SimulationKindSchema = z.enum(['locacao_pf_pj', 'ganho_capital_imovel']);
+export type SimulationKind = z.infer<typeof SimulationKindSchema>;
+
+export const SIMULATION_KIND_LOCACAO_PF_PJ = 'locacao_pf_pj' as const;
+export const SIMULATION_KIND_GANHO_CAPITAL_IMOVEL = 'ganho_capital_imovel' as const;
+
+/** Simulador Ganho de Capital (imóvel) — snapshot de entrada (client-side) */
+export const GanhoCapitalTabIdSchema = z.enum([
+  'simulador',
+  'ibs_cbs',
+  'tabelas',
+  'comparativo',
+  'metodologia',
+]);
+export type GanhoCapitalTabId = z.infer<typeof GanhoCapitalTabIdSchema>;
+export const GanhoCapitalTipoImovelSchema = z.enum([
+  'imovel_construido',
+  'lote_residencial',
+  'imovel_rural',
+]);
+export const GanhoCapitalNaturezaPJSchema = z.enum(['ativo', 'mercadoria']);
+export const GanhoCapitalRedutorTipoSchema = z.enum(['referencia', 'corrigido']);
+
+const gcNum = z.number().finite();
+
+export const GanhoCapitalSimuladorInputSchema = z.object({
+  snapshot_version: z.literal(1),
+  activeTab: GanhoCapitalTabIdSchema,
+  venda: gcNum,
+  custo: gcNum,
+  despesas: gcNum,
+  dtAq: z.string().min(1),
+  dtAl: z.string().min(1),
+  tipoImovel: GanhoCapitalTipoImovelSchema,
+  naturezaPJ: GanhoCapitalNaturezaPJSchema,
+  custoPJ: gcNum,
+  incluirPisCofins: z.boolean(),
+  ibsAno: z.number().int(),
+  imovelAte2026: z.boolean(),
+  redutorTipo: GanhoCapitalRedutorTipoSchema,
+  valorRefIBS: gcNum,
+  correcaoManualPct: gcNum.nullable(),
+  qtdeImoveis: z.number().int().nonnegative(),
+  receitaAnualPF: gcNum,
+});
+
+/** Totais persistidos para auditoria / exibição (opcionais extras via passthrough) */
+export const GanhoCapitalSimuladorResultSchema = z
+  .object({
+    gcBruto: gcNum,
+    gcTrib: gcNum.optional(),
+    irpfTotal: gcNum,
+    pjMercTotal: gcNum,
+    pjAtivoTotal: gcNum,
+    ibsCbsTotalDev: gcNum.optional(),
+  })
+  .passthrough();
+
+export const SaveGanhoCapitalSimulationInputSchema = z.object({
+  client_id: z.string().uuid(),
+  title: z.string().max(255).optional(),
+  ano: z.number().int().min(2020).max(2035),
+  input: GanhoCapitalSimuladorInputSchema,
+  result: GanhoCapitalSimuladorResultSchema,
+});
+
+export const UpdateGanhoCapitalSimulationInputSchema = z.object({
+  client_id: z.string().uuid().optional(),
+  title: z.string().max(255).optional().nullable(),
+  ano: z.number().int().min(2020).max(2035),
+  input: GanhoCapitalSimuladorInputSchema,
+  result: GanhoCapitalSimuladorResultSchema,
+});
+
+export type GanhoCapitalSimuladorInput = z.infer<typeof GanhoCapitalSimuladorInputSchema>;
+export type GanhoCapitalSimuladorResult = z.infer<typeof GanhoCapitalSimuladorResultSchema>;
+export type SaveGanhoCapitalSimulationInput = z.infer<typeof SaveGanhoCapitalSimulationInputSchema>;
+export type UpdateGanhoCapitalSimulationInput = z.infer<typeof UpdateGanhoCapitalSimulationInputSchema>;
+
 export const ListPropertySimulationsQuerySchema = z.object({
   client_id: z.string().uuid().optional(),
   ano: z.coerce.number().int().min(2020).max(2035).optional(),
+  simulation_kind: SimulationKindSchema.optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
@@ -519,6 +600,7 @@ export type SimulateStandaloneAndSaveInput = z.infer<typeof SimulateStandaloneAn
 export type SimulatePropertyTaxInput = z.infer<typeof SimulatePropertyTaxInputSchema>;
 export type SimulatePropertyTaxAndSaveInput = z.infer<typeof SimulatePropertyTaxAndSaveInputSchema>;
 export type UpdatePropertySimulationInput = z.infer<typeof UpdatePropertySimulationInputSchema>;
+export type ListPropertySimulationsQuery = z.infer<typeof ListPropertySimulationsQuerySchema>;
 export type FiscalIndicesIpcaSeriesQuery = z.infer<typeof FiscalIndicesIpcaSeriesQuerySchema>;
 export type IpcaSerieMes = z.infer<typeof IpcaSerieMesSchema>;
 export type FiscalIndicesIpcaSeriesResponse = z.infer<typeof FiscalIndicesIpcaSeriesResponseSchema>;
@@ -527,6 +609,7 @@ export interface PropertySimulation {
   id: string;
   client_id: string | null;
   ano: number;
+  simulation_kind: SimulationKind;
   input_data: Record<string, unknown>;
   result_data: Record<string, unknown>;
   title: string | null;

@@ -6,6 +6,9 @@ import type {
   SimulateStandaloneInput,
   IndicesLc214,
   FiscalIndicesIpcaSeriesResponse,
+  SaveGanhoCapitalSimulationInput,
+  UpdateGanhoCapitalSimulationInput,
+  SimulationKind,
 } from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
@@ -491,6 +494,7 @@ export const propertyService = {
   async listSimulations(options: {
     client_id?: string;
     ano?: number;
+    simulation_kind?: SimulationKind;
     page?: number;
     limit?: number;
   } = {}): Promise<{ simulations: PropertySimulation[]; total: number; page: number; limit: number }> {
@@ -498,6 +502,7 @@ export const propertyService = {
     const params = new URLSearchParams();
     if (options.client_id) params.append('client_id', options.client_id);
     if (options.ano != null) params.append('ano', String(options.ano));
+    if (options.simulation_kind) params.append('simulation_kind', options.simulation_kind);
     if (options.page) params.append('page', String(options.page));
     if (options.limit) params.append('limit', String(options.limit));
     const response = await apiRequest<{
@@ -538,6 +543,37 @@ export const propertyService = {
       token,
       tenantId,
     });
+  },
+
+  async saveGanhoCapitalSimulation(
+    params: SaveGanhoCapitalSimulationInput
+  ): Promise<{ simulation: PropertySimulation }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { simulation: PropertySimulation };
+    }>('/api/v1/properties/simulations/ganho-capital', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      token,
+      tenantId,
+    });
+    return response.data;
+  },
+
+  async updateGanhoCapitalSimulation(
+    id: string,
+    params: UpdateGanhoCapitalSimulationInput
+  ): Promise<{ simulation: PropertySimulation }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { simulation: PropertySimulation };
+    }>(`/api/v1/properties/simulations/${encodeURIComponent(id)}/ganho-capital`, {
+      method: 'PATCH',
+      body: JSON.stringify(params),
+      token,
+      tenantId,
+    });
+    return response.data;
   },
 
   async simulateStandalone(params: Partial<SimulateStandaloneInput> & { ano: number; meses: SimulateStandaloneInput['meses'] }): Promise<PropertyTaxSimulationResponse> {

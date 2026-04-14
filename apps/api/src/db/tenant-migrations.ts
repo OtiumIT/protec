@@ -26,6 +26,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '050_properties_defaults.sql',
   '051_properties_rent_and_nature.sql',
   '052_property_transactions_fiscal_credit.sql',
+  '053_property_simulations_simulation_kind.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {

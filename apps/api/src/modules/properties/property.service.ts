@@ -28,6 +28,15 @@ import type {
   UpsertMonthlyTotalsInput,
   EmbasamentoLegal,
   SimulateStandaloneMesInput,
+  SaveGanhoCapitalSimulationInput,
+  UpdateGanhoCapitalSimulationInput,
+  SimulationKind,
+} from '@shared/core';
+import {
+  SaveGanhoCapitalSimulationInputSchema,
+  UpdateGanhoCapitalSimulationInputSchema,
+  SIMULATION_KIND_LOCACAO_PF_PJ,
+  SIMULATION_KIND_GANHO_CAPITAL_IMOVEL,
 } from '@shared/core';
 
 /** Embasamentos legais por cenário (fonte oficial para resultado tributário) */
@@ -1397,6 +1406,7 @@ export class PropertyService {
     const simulation = await this.simulationRepo.create({
       client_id: input.client_id,
       ano: input.ano,
+      simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ,
       input_data: input as unknown as Record<string, unknown>,
       result_data: result as unknown as Record<string, unknown>,
       title: input.title ?? null,
@@ -1426,6 +1436,7 @@ export class PropertyService {
     const simulation = await this.simulationRepo.create({
       client_id: input.client_id!,
       ano: input.ano,
+      simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ,
       input_data: input as unknown as Record<string, unknown>,
       result_data: result as unknown as Record<string, unknown>,
       title: input.title ?? null,
@@ -1434,9 +1445,71 @@ export class PropertyService {
     return { simulation, result };
   }
 
+  /** Persistir simulação Ganho de Capital (cálculo exclusivamente no cliente) */
+  async createGanhoCapitalSimulation(
+    input: SaveGanhoCapitalSimulationInput,
+    userId?: string
+  ): Promise<{ simulation: PropertySimulation }> {
+    const parsed = SaveGanhoCapitalSimulationInputSchema.parse(input);
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    if (this.clientRepo) {
+      const client = await this.clientRepo.findById(parsed.client_id);
+      if (!client) {
+        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+    const simulation = await this.simulationRepo.create({
+      client_id: parsed.client_id,
+      ano: parsed.ano,
+      simulation_kind: SIMULATION_KIND_GANHO_CAPITAL_IMOVEL,
+      input_data: parsed.input as unknown as Record<string, unknown>,
+      result_data: parsed.result as unknown as Record<string, unknown>,
+      title: parsed.title ?? null,
+      created_by: userId ?? null,
+    });
+    return { simulation };
+  }
+
+  async updateGanhoCapitalSimulation(
+    id: string,
+    input: UpdateGanhoCapitalSimulationInput
+  ): Promise<{ simulation: PropertySimulation }> {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    const existing = await this.getSimulationById(id);
+    if (existing.simulation_kind !== SIMULATION_KIND_GANHO_CAPITAL_IMOVEL) {
+      throw new AppError(
+        'Esta simulação não é do tipo ganho de capital',
+        'WRONG_SIMULATION_KIND',
+        400
+      );
+    }
+    const parsed = UpdateGanhoCapitalSimulationInputSchema.parse(input);
+    const clientId = parsed.client_id ?? existing.client_id;
+    if (clientId && this.clientRepo) {
+      const client = await this.clientRepo.findById(clientId);
+      if (!client) {
+        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+    const simulation = await this.simulationRepo.update(id, {
+      ano: parsed.ano,
+      client_id: clientId,
+      simulation_kind: SIMULATION_KIND_GANHO_CAPITAL_IMOVEL,
+      input_data: parsed.input as unknown as Record<string, unknown>,
+      result_data: parsed.result as unknown as Record<string, unknown>,
+      title: parsed.title !== undefined ? parsed.title : existing.title,
+    });
+    return { simulation };
+  }
+
   async listSimulations(options: {
     client_id?: string;
     ano?: number;
+    simulation_kind?: SimulationKind;
     page?: number;
     limit?: number;
   }) {
@@ -1464,10 +1537,18 @@ export class PropertyService {
     if (!this.simulationRepo) {
       throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
     }
-    await this.getSimulationById(id);
+    const existing = await this.getSimulationById(id);
+    if (existing.simulation_kind === SIMULATION_KIND_GANHO_CAPITAL_IMOVEL) {
+      throw new AppError(
+        'Use PATCH /properties/simulations/:id/ganho-capital para atualizar esta simulação',
+        'WRONG_SIMULATION_KIND',
+        400
+      );
+    }
     const result = await this.simulateStandalone(input);
     const simulation = await this.simulationRepo.update(id, {
       ano: input.ano,
+      simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ,
       input_data: input as unknown as Record<string, unknown>,
       result_data: result as unknown as Record<string, unknown>,
     });

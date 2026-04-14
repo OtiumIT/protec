@@ -6,6 +6,12 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ## Regras de Negócio
 
+### Regra 0: Simulações por tipo (`simulation_kind`)
+
+- **Valores**: `locacao_pf_pj` (Simulador PF×PJ locação, resultado calculado na API) e `ganho_capital_imovel` (ganho de capital na venda, resultado calculado no cliente e persistido como JSON validado).
+- **Listagem**: Filtrar por `simulation_kind` para não misturar históricos entre ferramentas.
+- **Atualização**: `PATCH /simulations/:id` só para locação; ganho de capital usa `PATCH /simulations/:id/ganho-capital`.
+
 ### Regra 1: Isolamento Multitenant
 
 - **Quando aplicar**: Todas as operações
@@ -224,8 +230,20 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### GET /properties/simulations
 
-- Lista simulações salvas. Query: `client_id?`, `ano?`, `page`, `limit`
+- Lista simulações salvas. Query: `client_id?`, `ano?`, `simulation_kind?` (`locacao_pf_pj` | `ganho_capital_imovel`), `page`, `limit`
+- Cada registro inclui `simulation_kind` (coluna em `property_simulations`).
 - Resposta: `{ data: { simulations, total, page, limit } }`
+
+### POST /properties/simulations/ganho-capital
+
+- Persiste simulação **Ganho de capital (imóvel)** calculada no portal (sem `simulateStandalone` no servidor).
+- Body: `SaveGanhoCapitalSimulationInputSchema` (`client_id`, `title?`, `ano`, `input`, `result`)
+- Resposta: `{ data: { simulation } }`
+
+### PATCH /properties/simulations/:id/ganho-capital
+
+- Atualiza apenas simulações com `simulation_kind = ganho_capital_imovel`. Body: `UpdateGanhoCapitalSimulationInputSchema`
+- Resposta: `{ data: { simulation } }`
 
 ### GET /properties/simulations/:id
 
@@ -233,7 +251,7 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### PATCH /properties/simulations/:id
 
-- Atualiza simulação (re-simula com os dados enviados). Body: `SimulateStandaloneInputSchema`
+- Atualiza simulação de **locação** (re-simula com os dados enviados). Body: `SimulateStandaloneInputSchema`. Recusa se `simulation_kind` for `ganho_capital_imovel` (usar PATCH ganho-capital).
 
 ### DELETE /properties/simulations/:id
 
