@@ -29,6 +29,7 @@ import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/Ra
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
 import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
+import SimuladorGanhoCapitalImovel from './modules/properties/pages/SimuladorGanhoCapitalImovel';
 import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
@@ -288,6 +289,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SimuladorImoveis />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/properties/simulador-ganho-capital"
+        element={
+          <PrivateRoute>
+            <SimuladorGanhoCapitalImovel />
           </PrivateRoute>
         }
       />
