@@ -122,6 +122,93 @@ function calcIRPF(gc: number): { f1: number; f2: number; f3: number; f4: number;
   return { f1, f2, f3, f4, total: f1 + f2 + f3 + f4 };
 }
 
+/** Lei 8.023/1990 — atividade rural (benfeitorias deduzidas): tabela progressiva anual (referência HTML) */
+const FAIXAS_IRPF_ANUAL = [
+  { limite: 27_110.4, aliq: 0, ded: 0 },
+  { limite: 33_943.8, aliq: 0.075, ded: 2_033.28 },
+  { limite: 45_012.6, aliq: 0.15, ded: 4_584.28 },
+  { limite: 55_976.16, aliq: 0.225, ded: 7_958.8 },
+  { limite: Infinity, aliq: 0.275, ded: 10_749.55 },
+] as const;
+
+function calcIRPFProgressivo(baseAnual: number): number {
+  for (const f of FAIXAS_IRPF_ANUAL) {
+    if (baseAnual <= f.limite) return Math.max(0, baseAnual * f.aliq - f.ded);
+  }
+  return 0;
+}
+
+function calcAtivRural(receitaBenf: number) {
+  const base = receitaBenf * 0.2;
+  const irpf = calcIRPFProgressivo(base);
+  return { receita: receitaBenf, base, irpf };
+}
+
+function calcRuralPF(params: {
+  vtn_aq: number;
+  vtn_al: number;
+  venda_benf: number;
+  custo_benf: number;
+  benf_deduzidas: 'sim' | 'nao';
+  dtAq: Date;
+  dtAl: Date;
+}) {
+  const { vtn_aq, vtn_al, venda_benf, custo_benf, benf_deduzidas, dtAq, dtAl } = params;
+  const anoAq = dtAq.getFullYear();
+  const gc_terra_trib = Math.max(0, vtn_al - vtn_aq);
+  const irpf_terra = calcIRPF(gc_terra_trib);
+
+  let irpf_benf = 0;
+  let base_benf = 0;
+  let benf_label = '';
+
+  if (benf_deduzidas === 'sim') {
+    const ar = calcAtivRural(venda_benf);
+    base_benf = ar.base;
+    irpf_benf = ar.irpf;
+    const aliqEf = venda_benf > 0 ? (irpf_benf / venda_benf) * 100 : 0;
+    benf_label =
+      'Receita atividade rural (Lei nº 8.023/1990) — base 20% de ' +
+      fmtBRL(venda_benf) +
+      ' = ' +
+      fmtBRL(ar.base) +
+      (irpf_benf === 0 ? ' — isento' : ' → IRPF ' + fmtBRL(irpf_benf) + ' (' + aliqEf.toFixed(2) + '% s/ receita)');
+  } else {
+    const red18 = getReducaoArt18(anoAq);
+    const fr1 = calcFR1(dtAq);
+    const fr2 = calcFR2(dtAl);
+    const gc_benf_bruto = Math.max(0, venda_benf - custo_benf);
+    const gc_benf_trib = gc_benf_bruto * (1 - red18 / 100) * fr1 * fr2;
+    const ir_benf = calcIRPF(gc_benf_trib);
+    base_benf = gc_benf_trib;
+    irpf_benf = ir_benf.total;
+    benf_label = 'Ganho de capital — regras gerais (art. 18 e FR1/FR2 aplicáveis)';
+  }
+
+  const irpf_total = irpf_terra.total + irpf_benf;
+
+  return {
+    gc_terra_trib,
+    irpf_terra_total: irpf_terra.total,
+    base_benf,
+    irpf_benf,
+    benf_label,
+    irpf_total,
+  };
+}
+
+function calcRuralPJ(vtn_aq: number, vtn_al: number, venda_benf: number, custo_benf_pj: number) {
+  const gc_terra = Math.max(0, vtn_al - vtn_aq);
+  const gc_benf = Math.max(0, venda_benf - custo_benf_pj);
+  const ganho = gc_terra + gc_benf;
+  if (ganho <= 0)
+    return { gc_terra, gc_benf, ganho: 0, irpj: 0, csll: 0, total: 0, adicional: 0 };
+  const adicional = Math.max(0, ganho - 60_000) * 0.1;
+  const irpj = ganho * 0.15 + adicional;
+  const csll = ganho * 0.09;
+  return { gc_terra, gc_benf, ganho, irpj, csll, total: irpj + csll, adicional };
+}
+
 function calcPJMercadoria(receita: number) {
   const baseirpj = receita * 0.08;
   const basecsll = receita * 0.12;
@@ -406,6 +493,15 @@ export default function SimuladorGanhoCapitalImovel() {
   const [qtdeImoveis, setQtdeImoveis] = useState(0);
   const [receitaAnualPF, setReceitaAnualPF] = useState(0);
 
+  // Painel imóvel rural (VTN / benfeitorias) — alinhado ao HTML de referência
+  const [ruralDtAq, setRuralDtAq] = useState('');
+  const [ruralVtnAq, setRuralVtnAq] = useState(0);
+  const [ruralVtnAl, setRuralVtnAl] = useState(0);
+  const [ruralVendaBenf, setRuralVendaBenf] = useState(0);
+  const [ruralCustoBenf, setRuralCustoBenf] = useState(0);
+  const [ruralBenfDeduzidas, setRuralBenfDeduzidas] = useState<'sim' | 'nao'>('nao');
+  const [ruralCustoBenfPJ, setRuralCustoBenfPJ] = useState(0);
+
   // Fetch IPCA ao montar
   useEffect(() => {
     let cancelled = false;
@@ -480,6 +576,41 @@ export default function SimuladorGanhoCapitalImovel() {
     return { merc, ativo, selected: effective };
   }, [venda, custoPJ, naturezaPJ, incluirPisCofins]);
 
+  // ===== CÁLCULO IMÓVEL RURAL (VTN + benfeitorias) =====
+  const resultRural = useMemo(() => {
+    if (tipoImovel !== 'imovel_rural') return null;
+    if (!dtAl || !ruralDtAq) return null;
+    const dtAqRural = new Date(ruralDtAq + 'T12:00:00');
+    const dtAlDate = new Date(dtAl + 'T12:00:00');
+    if (isNaN(dtAqRural.getTime()) || isNaN(dtAlDate.getTime())) return null;
+    if (dtAqRural.getFullYear() < 1997) {
+      return { kind: 'pre97' as const };
+    }
+    const pf = calcRuralPF({
+      vtn_aq: ruralVtnAq,
+      vtn_al: ruralVtnAl,
+      venda_benf: ruralVendaBenf,
+      custo_benf: ruralCustoBenf,
+      benf_deduzidas: ruralBenfDeduzidas,
+      dtAq: dtAqRural,
+      dtAl: dtAlDate,
+    });
+    const pj = calcRuralPJ(ruralVtnAq, ruralVtnAl, ruralVendaBenf, ruralCustoBenfPJ);
+    const vendaRef = ruralVtnAl + ruralVendaBenf;
+    const dif = pf.irpf_total - pj.total;
+    return { kind: 'ok' as const, pf, pj, vendaRef, dif };
+  }, [
+    tipoImovel,
+    dtAl,
+    ruralDtAq,
+    ruralVtnAq,
+    ruralVtnAl,
+    ruralVendaBenf,
+    ruralCustoBenf,
+    ruralBenfDeduzidas,
+    ruralCustoBenfPJ,
+  ]);
+
   // ===== CÁLCULO IBS/CBS =====
   const ibsResult = useMemo(() => {
     const trans = IBS_TRANSICAO[ibsAno] ?? IBS_TRANSICAO[2033]!;
@@ -514,7 +645,7 @@ export default function SimuladorGanhoCapitalImovel() {
 
     if (tipoImovel === 'imovel_construido') {
       redutorSocial = Math.min(redutorSocialCor, baseAposAj);
-      redutorSocialLabel = `Imóvel residencial construído — ${fmtBRL(redutorSocialCor)} (nominal ${fmtBRL(redutorSocialNominal)} + IPCA ${fmtPct((fatorRedutoresLc214 - 1) * 100)} desde jan/2025)`;
+      redutorSocialLabel = `Imóvel em geral (residencial novo) — ${fmtBRL(redutorSocialCor)} (nominal ${fmtBRL(redutorSocialNominal)} + IPCA ${fmtPct((fatorRedutoresLc214 - 1) * 100)} desde jan/2025)`;
     } else if (tipoImovel === 'lote_residencial') {
       redutorSocial = Math.min(redutorSocialCor, baseAposAj);
       redutorSocialLabel = `Lote residencial — ${fmtBRL(redutorSocialCor)} (nominal ${fmtBRL(redutorSocialNominal)} + IPCA ${fmtPct((fatorRedutoresLc214 - 1) * 100)} desde jan/2025)`;
@@ -606,6 +737,13 @@ export default function SimuladorGanhoCapitalImovel() {
       correcaoManualPct,
       qtdeImoveis,
       receitaAnualPF,
+      ruralDtAq: ruralDtAq || undefined,
+      ruralVtnAq,
+      ruralVtnAl,
+      ruralVendaBenf,
+      ruralCustoBenf,
+      ruralBenfDeduzidas,
+      ruralCustoBenfPJ,
     });
     GanhoCapitalSimuladorInputSchema.parse(input);
     const result = buildGanhoCapitalResultSnapshot({
@@ -633,6 +771,13 @@ export default function SimuladorGanhoCapitalImovel() {
     correcaoManualPct,
     qtdeImoveis,
     receitaAnualPF,
+    ruralDtAq,
+    ruralVtnAq,
+    ruralVtnAl,
+    ruralVendaBenf,
+    ruralCustoBenf,
+    ruralBenfDeduzidas,
+    ruralCustoBenfPJ,
     resultPF,
     resultPJ.merc.total,
     resultPJ.ativo.total,
@@ -687,8 +832,17 @@ export default function SimuladorGanhoCapitalImovel() {
     despesas,
     dtAq,
     dtAl,
+    tipoImovel,
     resultPF,
     resultPJ,
+    resultRural,
+    ruralDtAq,
+    ruralVtnAq,
+    ruralVtnAl,
+    ruralVendaBenf,
+    ruralCustoBenf,
+    ruralBenfDeduzidas,
+    ruralCustoBenfPJ,
     effectiveClientName,
     reportEmissionDateStr,
   ]);
@@ -806,6 +960,13 @@ export default function SimuladorGanhoCapitalImovel() {
       setCorrecaoManualPct(inp.correcaoManualPct);
       setQtdeImoveis(inp.qtdeImoveis);
       setReceitaAnualPF(inp.receitaAnualPF);
+      setRuralDtAq(inp.ruralDtAq ?? '');
+      setRuralVtnAq(inp.ruralVtnAq ?? 0);
+      setRuralVtnAl(inp.ruralVtnAl ?? 0);
+      setRuralVendaBenf(inp.ruralVendaBenf ?? 0);
+      setRuralCustoBenf(inp.ruralCustoBenf ?? 0);
+      setRuralBenfDeduzidas(inp.ruralBenfDeduzidas ?? 'nao');
+      setRuralCustoBenfPJ(inp.ruralCustoBenfPJ ?? 0);
       setSaveClientId(sim.client_id ?? '');
       setSaveTitle(sim.title ?? '');
       setEditingSimulationId(id);
@@ -856,6 +1017,13 @@ export default function SimuladorGanhoCapitalImovel() {
     setCorrecaoManualPct(null);
     setQtdeImoveis(0);
     setReceitaAnualPF(0);
+    setRuralDtAq('');
+    setRuralVtnAq(0);
+    setRuralVtnAl(0);
+    setRuralVendaBenf(0);
+    setRuralCustoBenf(0);
+    setRuralBenfDeduzidas('nao');
+    setRuralCustoBenfPJ(0);
     success('Campos restaurados ao padrão.');
   };
 
@@ -889,32 +1057,201 @@ export default function SimuladorGanhoCapitalImovel() {
             <DateField label="Data de aquisição" value={dtAq} onChange={setDtAq} />
             <DateField label="Data de alienação" value={dtAl} onChange={setDtAl} />
             <SelectField
-              label="Tipo do imóvel"
+              label="Tipo do bem"
               value={tipoImovel}
               onChange={v => setTipoImovel(v as TipoImovel)}
             >
-              <option value="imovel_construido">Imóvel residencial construído</option>
+              <option value="imovel_construido">Imóvel em geral</option>
               <option value="lote_residencial">Lote residencial</option>
-              <option value="imovel_rural">Imóvel rural (VTN — ver nota)</option>
+              <option value="imovel_rural">Imóvel rural</option>
             </SelectField>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <SelectField label="Natureza do imóvel na PJ" value={naturezaPJ} onChange={v => setNaturezaPJ(v as NaturezaPJ)}>
-              <option value="ativo">Ativo imobilizado</option>
+              <option value="ativo">Ativo imobilizado (venda de bem do ativo)</option>
               <option value="mercadoria">Mercadoria / Estoque (atividade imobiliária)</option>
             </SelectField>
-            <MoneyField label="Custo contábil PJ" value={custoPJ} onChange={setCustoPJ} />
+            <MoneyField label="Custo de aquisição PJ (valor contábil)" value={custoPJ} onChange={setCustoPJ} />
             <SelectField label="Tributos PJ a considerar" value={incluirPisCofins ? 'sim' : 'nao'} onChange={v => setIncluirPisCofins(v === 'sim')}>
               <option value="sim">IRPJ + CSLL + PIS + COFINS</option>
               <option value="nao">Somente IRPJ + CSLL</option>
             </SelectField>
           </div>
-          {tipoImovel === 'imovel_rural' && (
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
-              <strong>Imóvel rural:</strong> O ganho de capital de terra nua adquirida após 01/01/1997 é calculado pela diferença entre os VTNs (art. 19 da Lei nº 9.393/1996). Os redutores art. 18 e FR1/FR2 não se aplicam à terra nua. O simulador exibe os resultados pelo regime geral — para imóvel rural completo, consulte a calculadora específica.
-            </div>
-          )}
         </div>
+
+        {tipoImovel === 'imovel_rural' && (
+          <div className={`${sectionCardClass} border-l-4 border-l-emerald-600`}>
+            <h3 className="text-base font-semibold text-emerald-800 mb-3">
+              Imóvel rural — art. 19 da Lei nº 9.393/1996 + IN SRF nº 84/2001
+            </h3>
+            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+              <strong>Imóvel adquirido após 01/01/1997:</strong> o ganho de capital da terra nua corresponde à diferença entre o VTN do ano de alienação e o VTN do ano de aquisição (art. 19 da Lei nº 9.393/1996).{' '}
+              <strong>Imóvel adquirido até 31/12/1996:</strong> aplicam-se as regras gerais do ganho de capital (use os resultados do simulador principal acima).
+            </p>
+
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+              Terra nua — Ganho de Capital pelo VTN (art. 19 da Lei nº 9.393/1996)
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <DateField label="Data de aquisição do imóvel rural" value={ruralDtAq} onChange={setRuralDtAq} />
+              <MoneyField
+                label="VTN no ano de aquisição"
+                value={ruralVtnAq}
+                onChange={setRuralVtnAq}
+                placeholder="VTN declarado no ITR do ano de aquisição"
+              />
+              <MoneyField
+                label="VTN no ano de alienação"
+                value={ruralVtnAl}
+                onChange={setRuralVtnAl}
+                placeholder="VTN declarado no ITR do ano de alienação"
+              />
+            </div>
+
+            {resultRural?.kind === 'pre97' && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-950">
+                <strong className="text-amber-900">Atenção — data de aquisição anterior a 01/01/1997</strong>
+                <p className="mt-2 leading-relaxed">
+                  Para imóveis rurais adquiridos até <strong>31/12/1996</strong>, o ganho de capital <strong>não é calculado pela diferença entre os VTNs</strong>. Utilize o simulador principal (valor de alienação, custo e despesas) com os redutores do art. 18 e FR1/FR2.
+                </p>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 mb-4">
+              GC terra nua = VTN alienação − VTN aquisição. Os redutores do art. 18 e os fatores FR1/FR2{' '}
+              <strong>não se aplicam</strong> à terra nua tributada pelo VTN.
+            </p>
+
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+              Benfeitorias — art. 19, §2° da IN SRF nº 84/2001
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <MoneyField label="Valor de alienação das benfeitorias" value={ruralVendaBenf} onChange={setRuralVendaBenf} />
+              <MoneyField
+                label="Custo de aquisição/construção das benfeitorias"
+                value={ruralCustoBenf}
+                onChange={setRuralCustoBenf}
+                placeholder="Apenas se NÃO foram deduzidas"
+              />
+              <SelectField
+                label="Benfeitorias foram deduzidas como custo/despesa da atividade rural?"
+                value={ruralBenfDeduzidas}
+                onChange={v => setRuralBenfDeduzidas(v as 'sim' | 'nao')}
+              >
+                <option value="nao">Não — tributar como ganho de capital</option>
+                <option value="sim">Sim — tributar como receita da atividade rural (Lei nº 8.023/1990)</option>
+              </SelectField>
+            </div>
+
+            {resultRural?.kind === 'ok' && (
+              <>
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mt-4 mb-2">
+                  Resultado — tributação do imóvel rural (PF)
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <Metric
+                    label="GC terra nua bruto (VTN_al − VTN_aq)"
+                    value={
+                      ruralVtnAq > 0 && ruralVtnAl > 0
+                        ? `${fmtBRL(resultRural.pf.gc_terra_trib)} (VTN_al ${fmtBRL(ruralVtnAl)} − VTN_aq ${fmtBRL(ruralVtnAq)})`
+                        : 'Preencha os VTNs'
+                    }
+                    color="blue"
+                  />
+                  <Metric
+                    label="GC terra nua tributável"
+                    value={fmtBRL(resultRural.pf.gc_terra_trib)}
+                    color="blue"
+                  />
+                  <Metric label="IRPF s/ GC terra nua" value={fmtBRL(resultRural.pf.irpf_terra_total)} color="red" />
+                  <Metric
+                    label="Tratamento das benfeitorias"
+                    value={ruralVendaBenf > 0 ? 'Ver texto abaixo' : 'Sem benfeitorias informadas'}
+                  />
+                </div>
+                {ruralVendaBenf > 0 && (
+                  <p className="text-xs text-slate-600 mb-3 bg-slate-50 rounded-lg p-2 border border-slate-100">
+                    {resultRural.pf.benf_label}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <Metric
+                    label="Base tributável benfeitorias"
+                    value={
+                      ruralVendaBenf > 0
+                        ? `${fmtBRL(resultRural.pf.base_benf)}${ruralBenfDeduzidas === 'sim' ? ' (20% da receita bruta)' : ' (GC tributável)'}`
+                        : '—'
+                    }
+                  />
+                  <Metric
+                    label="IRPF s/ benfeitorias"
+                    value={ruralVendaBenf > 0 ? fmtBRL(resultRural.pf.irpf_benf) : '—'}
+                    color="red"
+                  />
+                  <Metric label="IRPF total (terra + benfeitorias)" value={fmtBRL(resultRural.pf.irpf_total)} color="red" />
+                  <Metric
+                    label="Carga total PF s/ referência"
+                    value={
+                      resultRural.vendaRef > 0
+                        ? fmtPct((resultRural.pf.irpf_total / resultRural.vendaRef) * 100) + ' s/ (VTN_al + venda benf.)'
+                        : '—'
+                    }
+                  />
+                </div>
+
+                <p className="text-xs text-slate-600 mb-3">
+                  PJ LP — ativo imobilizado: atualização pelo VTN para a terra nua; benfeitorias conforme custo contábil.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <MoneyField
+                    label="Custo contábil das benfeitorias na PJ"
+                    value={ruralCustoBenfPJ}
+                    onChange={setRuralCustoBenfPJ}
+                    placeholder="Custo registrado das benfeitorias na PJ"
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Metric label="Ganho de capital PJ terra nua" value={fmtBRL(resultRural.pj.gc_terra)} />
+                  <Metric label="IRPJ + adicional" value={fmtBRL(resultRural.pj.irpj)} color="red" />
+                  <Metric label="CSLL" value={fmtBRL(resultRural.pj.csll)} color="red" />
+                  <Metric label="Total tributos PJ rural" value={fmtBRL(resultRural.pj.total)} color="red" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                  <Metric label="GC benfeitorias PJ (venda − custo PJ)" value={ruralVendaBenf > 0 ? fmtBRL(resultRural.pj.gc_benf) : '—'} />
+                  <Metric label="Ganho de capital PJ total" value={fmtBRL(resultRural.pj.ganho)} color="blue" />
+                  <Metric
+                    label="Carga PJ s/ referência"
+                    value={
+                      resultRural.vendaRef > 0
+                        ? fmtPct((resultRural.pj.total / resultRural.vendaRef) * 100) + ' s/ (VTN_al + venda benf.)'
+                        : '—'
+                    }
+                  />
+                  <Metric
+                    label="Diferença PF × PJ (rural)"
+                    value={fmtBRL(Math.abs(resultRural.dif))}
+                    color={resultRural.dif > 0 ? 'green' : 'red'}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Metric
+                    label="Regime mais vantajoso (rural)"
+                    value={
+                      resultRural.dif === 0
+                        ? 'Equivalente'
+                        : resultRural.dif > 0 && resultRural.pf.irpf_total > 0
+                          ? `PJ LP — economia de ${fmtPct((Math.abs(resultRural.dif) / resultRural.pf.irpf_total) * 100)}`
+                          : resultRural.dif < 0 && resultRural.pj.total > 0
+                            ? `PF — economia de ${fmtPct((Math.abs(resultRural.dif) / resultRural.pj.total) * 100)}`
+                            : '—'
+                    }
+                    color={resultRural.dif > 0 ? 'blue' : 'green'}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Correção monetária IPCA — informativo */}
         {ipcaDesdeAquisicao && (
@@ -931,13 +1268,17 @@ export default function SimuladorGanhoCapitalImovel() {
         {/* Resultado PF */}
         <div className={sectionCardClass}>
           <h3 className="text-base font-semibold text-slate-800 mb-4">Resultado — Pessoa Física (IRPF sobre ganho de capital)</h3>
-          {!r || gcBruto <= 0 ? (
+          {!r ? (
             <div className="text-sm text-slate-500 italic">
-              {!r
-                ? 'Preencha as datas de aquisição e alienação e os valores da operação.'
-                : gcBruto < 0
-                  ? `Ganho bruto negativo (${fmtBRL(gcBruto)}) — sem tributação de ganho de capital.`
-                  : 'Ganho bruto zero — sem tributação de ganho de capital (informe valor de alienação acima de custos e despesas dedutíveis).'}
+              Preencha as datas de aquisição e alienação e os valores da operação.
+            </div>
+          ) : gcBruto < 0 && tipoImovel !== 'imovel_rural' ? (
+            <div className="text-sm text-slate-500 italic">
+              {`Ganho bruto negativo (${fmtBRL(gcBruto)}) — sem tributação de ganho de capital.`}
+            </div>
+          ) : gcBruto === 0 && tipoImovel !== 'imovel_rural' ? (
+            <div className="text-sm text-slate-500 italic">
+              Ganho bruto zero — sem tributação de ganho de capital (informe valor de alienação acima de custos e despesas dedutíveis).
             </div>
           ) : (
             <>
@@ -988,7 +1329,7 @@ export default function SimuladorGanhoCapitalImovel() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Metric label="Carga s/ valor de venda" value={venda > 0 ? fmtPct((pj.selected.total / venda) * 100) : '—'} />
             <Metric label="Líquido PJ pós-tributos" value={fmtBRL(venda - pj.selected.total - custoPJ)} color="green" />
-            {r && r.gcBruto > 0 && (
+            {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
               <>
                 <Metric
                   label="Diferença PJ vs PF"
@@ -1010,7 +1351,7 @@ export default function SimuladorGanhoCapitalImovel() {
         </div>
 
         {/* Memória de cálculo */}
-        {r && r.gcBruto > 0 && (
+        {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
           <div className={sectionCardClass}>
             <h3 className="text-base font-semibold text-slate-800 mb-4">Memória de cálculo</h3>
             <div className="overflow-x-auto">
@@ -1037,7 +1378,13 @@ export default function SimuladorGanhoCapitalImovel() {
                     ['PIS (0,65%)', '—', incluirPisCofins ? fmtBRL(pj.merc.pis) : 'Não incluído', 'Não incide'],
                     ['COFINS (3%)', '—', incluirPisCofins ? fmtBRL(pj.merc.cofins) : 'Não incluído', 'Não incide'],
                     ['TOTAL tributos', fmtBRL(r.ir.total), fmtBRL(pj.merc.total), fmtBRL(pj.ativo.total)],
-                    ['Carga s/ venda', fmtPct((r.ir.total / venda) * 100), fmtPct((pj.merc.total / venda) * 100), fmtPct((pj.ativo.total / venda) * 100)],
+                    ['Carga s/ venda', fmtPct(venda > 0 ? (r.ir.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.merc.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.ativo.total / venda) * 100 : 0)],
+                    [
+                      'Carga s/ ganho bruto',
+                      r.gcBruto > 0 ? fmtPct((r.ir.total / r.gcBruto) * 100) : '—',
+                      r.gcBruto > 0 ? fmtPct((pj.merc.total / r.gcBruto) * 100) : '—',
+                      r.gcBruto > 0 ? fmtPct((pj.ativo.total / r.gcBruto) * 100) : '—',
+                    ],
                   ].map(([item, pf, pjA, pjM], i) => (
                     <tr key={i} className={i % 2 === 0 ? '' : 'bg-slate-50/90'}>
                       <td className="py-2 px-3 font-medium text-slate-700">{item}</td>
@@ -1065,6 +1412,18 @@ export default function SimuladorGanhoCapitalImovel() {
 
     const pfAntes = irpfTotal;
     const pfDepois = irpfTotal + ib.totalDev;
+    const deltaPfReforma = pfDepois - pfAntes;
+    const deltaPjReforma = pjDepois.total - pjAntes.total;
+    const gcTrib = resultPF?.gcTrib;
+    const baseRowPf = gcTrib != null ? fmtBRL(gcTrib) : '—';
+    const baseRowPjAntes =
+      naturezaPJ === 'mercadoria'
+        ? `Presunção 8%: ${fmtBRL(pjAntes.baseirpj)}`
+        : `Ganho: ${fmtBRL(resultPJ.ativo.ganho)}`;
+    const baseRowPjDepois =
+      naturezaPJ === 'mercadoria'
+        ? `Presunção 8%: ${fmtBRL(pjDepois.baseirpj)}`
+        : `Ganho: ${fmtBRL(ib.pjAtivoReforma.ganho)}`;
 
     const cenarios = [
       { label: 'PF — antes da reforma', v: pfAntes },
@@ -1195,7 +1554,7 @@ export default function SimuladorGanhoCapitalImovel() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <div className="bg-slate-50 rounded-lg p-3">
-              <div className="text-xs text-slate-500 mb-1 font-medium">Imóvel residencial construído</div>
+              <div className="text-xs text-slate-500 mb-1 font-medium">Imóvel em geral (residencial novo — R$ 100k)</div>
               <div className="text-base font-semibold text-brand">{fmtBRL(redutorImóvelNovoCor)}</div>
               <div className="text-xs text-slate-400 mt-1">Nominal: {fmtBRL(REDUTOR_IMOVEL_NOVO_NOMINAL)}</div>
             </div>
@@ -1212,7 +1571,7 @@ export default function SimuladorGanhoCapitalImovel() {
                   : '—'}
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                {tipoImovel === 'imovel_rural' ? 'Não aplicável para imóvel rural' : `Tipo: ${tipoImovel === 'imovel_construido' ? 'imóvel construído' : 'lote residencial'}`}
+                {tipoImovel === 'imovel_rural' ? 'Não aplicável para imóvel rural' : `Tipo: ${tipoImovel === 'imovel_construido' ? 'imóvel em geral' : 'lote residencial'}`}
               </div>
             </div>
           </div>
@@ -1225,7 +1584,7 @@ export default function SimuladorGanhoCapitalImovel() {
             <Metric label="Valor de alienação" value={fmtBRL(venda)} />
             <Metric label="Redutor de ajuste" value={fmtBRL(ib.redutorAj)} color="green" />
             <Metric
-              label={`Redutor social (${tipoImovel === 'imovel_construido' ? 'imóvel novo' : tipoImovel === 'lote_residencial' ? 'lote resid.' : 'N/A'})`}
+              label={`Redutor social (${tipoImovel === 'imovel_construido' ? 'imóvel em geral' : tipoImovel === 'lote_residencial' ? 'lote resid.' : 'N/A'})`}
               value={tipoImovel !== 'imovel_rural' ? fmtBRL(ib.redutorSocial) : '—'}
               color="green"
             />
@@ -1280,7 +1639,14 @@ export default function SimuladorGanhoCapitalImovel() {
               <tbody className="divide-y divide-slate-100">
                 {[
                   ['Valor de alienação', fmtBRL(venda), fmtBRL(venda), fmtBRL(venda), fmtBRL(venda)],
-                  ['IRPF / IRPJ', fmtBRL(irpfTotal), fmtBRL(irpfTotal), fmtBRL(pjAntes.irpj), fmtBRL(pjDepois.irpj)],
+                  [
+                    'IRPF / IRPJ (base de cálculo)',
+                    `GC tributável: ${baseRowPf}`,
+                    `GC tributável: ${baseRowPf}`,
+                    baseRowPjAntes,
+                    baseRowPjDepois,
+                  ],
+                  ['IRPF / IRPJ + adicional', fmtBRL(irpfTotal), fmtBRL(irpfTotal), fmtBRL(pjAntes.irpj), fmtBRL(pjDepois.irpj)],
                   ['CSLL', '—', '—', fmtBRL(pjAntes.csll), fmtBRL(pjDepois.csll)],
                   ['PIS (0,65%)', '—', 'extinto', fmtBRL(pjAntes.pis), 'extinto'],
                   ['COFINS (3%)', '—', 'extinto', fmtBRL(pjAntes.cofins), 'extinto'],
@@ -1293,6 +1659,21 @@ export default function SimuladorGanhoCapitalImovel() {
                     venda > 0 ? fmtPct((pfDepois / venda) * 100) : '—',
                     venda > 0 ? fmtPct((pjAntes.total / venda) * 100) : '—',
                     venda > 0 ? fmtPct((pjDepois.total / venda) * 100) : '—',
+                  ],
+                  [
+                    'Variação reforma (Δ vs antes)',
+                    '—',
+                    deltaPfReforma > 0
+                      ? `+${fmtBRL(deltaPfReforma)}`
+                      : deltaPfReforma < 0
+                        ? fmtBRL(deltaPfReforma)
+                        : 'sem alteração',
+                    '—',
+                    deltaPjReforma > 0
+                      ? `+${fmtBRL(deltaPjReforma)}`
+                      : deltaPjReforma < 0
+                        ? fmtBRL(deltaPjReforma)
+                        : 'sem alteração',
                   ],
                 ].map(([item, ...cols], i) => (
                   <tr key={i} className={i % 2 === 0 ? '' : 'bg-slate-50/90'}>
@@ -1323,6 +1704,9 @@ export default function SimuladorGanhoCapitalImovel() {
             <p><strong>(2) Valor de referência:</strong> Aguardando regulamentação da RFB. Usar zero enquanto não divulgado.</p>
             <p><strong>(3) Redutores sociais:</strong> R$ 100.000 (imóvel residencial construído) e R$ 30.000 (lote residencial), corrigidos mensalmente pelo IPCA desde 16/01/2025 (art. 259 LC 214/2025).</p>
             <p><strong>(4) Contribuinte PF:</strong> Critérios: mais de 3 imóveis E receita &gt; R$ 240k (corrigido), OU receita &gt; R$ 288k (corrigido), independente do número de imóveis.</p>
+            <p>
+              <strong>(5) PIS/COFINS:</strong> Com a implantação do IBS/CBS, o PIS e a COFINS serão extintos. O comparativo acima já considera essa substituição na coluna “após reforma”.
+            </p>
           </div>
         </div>
       </div>
@@ -1407,6 +1791,7 @@ export default function SimuladorGanhoCapitalImovel() {
 
   function renderComparativo() {
     const pj = resultPJ;
+    const faixasGc = [100_000, 500_000, 1_000_000, 3_000_000, 5_000_000, 10_000_000, 15_000_000, 35_000_000];
     return (
       <div className="space-y-4">
         <div className={sectionCardClass}>
@@ -1427,8 +1812,11 @@ export default function SimuladorGanhoCapitalImovel() {
                   ['CSLL', 'Não incide', '9% sobre presunção (12%)', '9% sobre 100% do ganho'],
                   ['PIS', 'Não incide', '0,65% sobre receita', 'Não incide (ganho de capital)'],
                   ['COFINS', 'Não incide', '3% sobre receita', 'Não incide (ganho de capital)'],
+                  ['Carga total estimada s/ receita', 'Variável (ver simulador)', '~6,73% a ~7,23%', '~34% s/ ganho de capital'],
                   ['Reduções / Benefícios', 'Art. 18 L. 7.713 + FR1/FR2 L. 11.196', 'Nenhuma redução de base', 'Nenhuma redução de base'],
                   ['Isenções aplicáveis', 'Imóvel único < R$440k; reaplicação 180d; GC < R$20k/mês', 'Não se aplicam', 'Não se aplicam'],
+                  ['Momento do recolhimento', 'DARF até último dia útil do mês seguinte', 'Trimestral', 'Trimestral'],
+                  ['Risco fiscal principal', 'Glosa do custo; não comprovação de benfeitorias', 'Habitualidade; planejamento abusivo', 'Reclassificação como estoque'],
                 ].map(([item, pf_, pjM, pjA], i) => (
                   <tr key={i} className={i % 2 === 0 ? '' : 'bg-slate-50/90'}>
                     <td className="py-2 px-3 font-medium text-slate-700">{item}</td>
@@ -1443,6 +1831,43 @@ export default function SimuladorGanhoCapitalImovel() {
                   <td className="py-2 px-3 font-bold text-rose-600">{fmtBRL(pj.merc.total)}</td>
                   <td className="py-2 px-3 font-bold text-rose-600">{fmtBRL(pj.ativo.total)}</td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={sectionCardClass}>
+          <h3 className="text-base font-semibold text-slate-800 mb-4">Carga tributária típica por faixa de ganho — PF (sem reduções)</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            IRPF sobre ganho tributável isolado; PJ mercadoria com receita = 120% do ganho (ilustrativo, alinhado à planilha de referência).
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Ganho tributável (R$)</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">IRPF total (R$)</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Alíquota efetiva PF</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Regime mais favorável vs PJ mercadoria</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {faixasGc.map((gc) => {
+                  const ir = calcIRPF(gc);
+                  const aliqPf = gc > 0 ? (ir.total / gc) * 100 : 0;
+                  const receitaMerc = gc * 1.2;
+                  const pjMerc = calcPJMercadoria(receitaMerc);
+                  const pjCarga = receitaMerc > 0 ? (pjMerc.total / receitaMerc) * 100 : 0;
+                  const melhor = aliqPf <= pjCarga ? 'PF' : 'PJ (mercadoria)';
+                  return (
+                    <tr key={gc} className="bg-slate-50/90">
+                      <td className="py-2 px-3 text-slate-700">{fmtBRL(gc)}</td>
+                      <td className="py-2 px-3 text-slate-600">{fmtBRL(ir.total)}</td>
+                      <td className="py-2 px-3"><Badge color="green">{fmtPct(aliqPf)}</Badge></td>
+                      <td className="py-2 px-3 text-slate-600">{melhor}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1482,14 +1907,20 @@ export default function SimuladorGanhoCapitalImovel() {
           <FormulaBox>{`Ganho PJ = Valor venda − Custo contábil\nBase IRPJ = Ganho PJ (100%)\nAdicional = max(0, Ganho − 60.000) × 10%\nIRPJ = Ganho × 15% + Adicional\nCSLL = Ganho × 9%\nPIS/COFINS: não incidem sobre ganho de capital`}</FormulaBox>
 
           <SectionTitle>9. IBS e CBS — LC nº 214/2025 (Reforma Tributária)</SectionTitle>
-          <FormulaBox>{`Alíquotas plenas: CBS 9% + IBS 19% = 28%\nRedução de 50%: alíquotas efetivas CBS 4,5% + IBS 9,5% = 14%\n\nReductor de ajuste (art. 35 LC 214/2025):\n  Imóvel adquirido até 31/12/2026:\n    Redutor = max(custo_corrigido_IPCA, valor_de_referência_RFB)\n  Imóvel adquirido após 31/12/2026:\n    Redutor = custo original\n\nReductor social (art. 259 LC 214/2025) — corrigido pelo IPCA desde jan/2025:\n  Imóvel residencial construído: R$ 100.000,00 × fator_IPCA\n  Lote residencial:              R$ 30.000,00 × fator_IPCA\n  Aplicado após o redutor de ajuste, limitado à base remanescente\n\nBase IBS/CBS = max(0, Venda − Redutor_ajuste − Redutor_social)\nCBS = Base × alíquota_CBS_efetiva_ano\nIBS = Base × alíquota_IBS_efetiva_ano`}</FormulaBox>
+          <FormulaBox>{`Alíquotas plenas: CBS 9% + IBS 19% = 28%\nRedução de 50%: alíquotas efetivas CBS 4,5% + IBS 9,5% = 14%\n\nRedutor de ajuste (art. 35 LC 214/2025):\n  Imóvel adquirido até 31/12/2026:\n    Redutor = max(custo_corrigido_IPCA, valor_de_referência_RFB)\n  Imóvel adquirido após 31/12/2026:\n    Redutor = custo original\n\nRedutor social (art. 259 LC 214/2025) — corrigido pelo IPCA desde jan/2025:\n  Imóvel em geral (residencial novo): R$ 100.000,00 × fator_IPCA\n  Lote residencial:              R$ 30.000,00 × fator_IPCA\n  Aplicado após o redutor de ajuste, limitado à base remanescente\n\nBase IBS/CBS = max(0, Venda − Redutor_ajuste − Redutor_social)\nCBS = Base × alíquota_CBS_efetiva_ano\nIBS = Base × alíquota_IBS_efetiva_ano`}</FormulaBox>
 
-          <SectionTitle>10. Contribuinte PF — IBS/CBS (LC 214/2025)</SectionTitle>
+          <SectionTitle>10. Imóvel rural — Lei nº 9.393/1996 + IN SRF nº 84/2001 + Lei nº 8.023/1990</SectionTitle>
+          <FormulaBox>{`Aplicável a imóveis rurais adquiridos após 01/01/1997 (terra nua pelo VTN).\nTERRA NUA: GC_terra = VTN_ano_alienação − VTN_ano_aquisição — sem art. 18 nem FR1/FR2.\nIRPF_terra = tabela progressiva L. 13.259/2016 sobre GC_terra.\n\nBenfeitorias (IN 84/2001 §2°): se deduzidas na atividade rural → receita Lei 8.023/1990 (base 20% × tabela anual);\nse não deduzidas → GC com art. 18 e FR1/FR2.\n\nPJ LP: GC_terra mesmo critério; GC_benf = venda_benf − custo contábil_benf; IRPJ/CSLL sobre soma dos ganhos.`}</FormulaBox>
+
+          <SectionTitle>11. Contribuinte PF — IBS/CBS (LC 214/2025)</SectionTitle>
           <FormulaBox>{`Limites nominais (corrigidos mensalmente pelo IPCA desde jan/2025):\n  Limite 240k: R$ 240.000 × fator_IPCA\n  Limite 288k: R$ 288.000 × fator_IPCA\n\nContribuinte se:\n  (a) receita > limite_288k (independente do nº de imóveis), OU\n  (b) nº imóveis > 3 E receita > limite_240k\n\nSe não contribuinte: IBS/CBS = 0 sobre a venda (PF)`}</FormulaBox>
 
-          <div className="mt-4 text-xs text-slate-500 space-y-1">
-            <p><strong>Base legal:</strong> Lei nº 7.713/1988 art. 18 | Lei nº 11.196/2005 art. 40 | Lei nº 13.259/2016 | RIR/2018 arts. 591–592 | LC nº 214/2025 arts. 35 e 259</p>
+          <div className="mt-4 text-xs text-slate-500 space-y-2">
+            <p><strong>Base legal:</strong> Lei nº 7.713/1988 art. 18 | Lei nº 11.196/2005 art. 40 | Lei nº 13.259/2016 | RIR/2018 arts. 591–592 | LC nº 214/2025 arts. 35 e 259 | Lei nº 9.393/1996 art. 19</p>
             <p><strong>Correção monetária:</strong> IPCA — Série BCB SGS 433 (variação mensal %)</p>
+            <p>
+              <strong>Notas (PJ e reduções):</strong> o adicional de IRPJ de 10% incide sobre a parcela do lucro presumido ou do ganho de capital que exceder R$ 60.000 no trimestre (venda integral no trimestre). Na venda de ativo imobilizado, PIS/COFINS não incidem sobre o ganho de capital (art. 3º da Lei nº 9.718/1998). Para aquisições até 1988, art. 18 e FR1/FR2 não são cumulativos — aplica-se o mais favorável ao contribuinte, conforme orientação da RFB.
+            </p>
           </div>
         </div>
       </div>

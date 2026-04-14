@@ -541,6 +541,14 @@ export const GanhoCapitalSimuladorInputSchema = z.object({
   correcaoManualPct: gcNum.nullable(),
   qtdeImoveis: z.number().int().nonnegative(),
   receitaAnualPF: gcNum,
+  /** Painel imóvel rural (VTN / benfeitorias) — opcional para snapshots antigos */
+  ruralDtAq: z.string().optional(),
+  ruralVtnAq: gcNum.optional(),
+  ruralVtnAl: gcNum.optional(),
+  ruralVendaBenf: gcNum.optional(),
+  ruralCustoBenf: gcNum.optional(),
+  ruralBenfDeduzidas: z.enum(['sim', 'nao']).optional(),
+  ruralCustoBenfPJ: gcNum.optional(),
 });
 
 /** Totais persistidos para auditoria / exibição (opcionais extras via passthrough) */
