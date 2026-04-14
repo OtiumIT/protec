@@ -1937,56 +1937,6 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         )}
 
-        <Card className="mb-6 p-4 sm:p-5" data-report-exclude="preview">
-          <h2 className="text-lg font-semibold text-slate-800 mb-3">Cliente e histórico</h2>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="min-w-[200px]">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
-              <select
-                className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
-                value={saveClientId}
-                onChange={(e) => setSaveClientId(e.target.value)}
-                disabled={isLoadingClients}
-              >
-                <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Selecione um cliente'}</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="min-w-[180px]">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
-              <Input
-                placeholder="Ex.: Venda apartamento 2025"
-                value={saveTitle}
-                onChange={(e) => setSaveTitle(e.target.value)}
-                className="h-10"
-              />
-            </div>
-            <Button type="button" variant="primary" disabled={saving} onClick={() => void handleSaveSimulation()}>
-              {editingSimulationId ? 'Atualizar' : 'Salvar'}
-            </Button>
-            <Button type="button" variant="secondary" disabled={saving} onClick={() => void handleSaveAsNew()}>
-              Salvar como nova
-            </Button>
-            {editingSimulationId ? (
-              <Button type="button" variant="tertiary" disabled={saving} onClick={() => setEditingSimulationId(null)}>
-                Cancelar edição
-              </Button>
-            ) : null}
-            <Button type="button" variant="tertiary" disabled={saving} onClick={handleClearSimulation}>
-              Limpar campos
-            </Button>
-          </div>
-          {editingSimulationId ? (
-            <p className="text-xs text-slate-500 mt-2">
-              Editando simulação salva. Use Atualizar para gravar ou Salvar como nova para duplicar.
-            </p>
-          ) : null}
-        </Card>
-
         {/* Cabeçalho */}
         <div className="mb-6 pb-4 border-b border-slate-200" data-report-exclude="preview">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -2129,6 +2079,62 @@ export default function SimuladorGanhoCapitalImovel() {
             </Button>
           </div>
         )}
+
+        <Card
+          className="mt-6 p-5 border border-slate-200 bg-slate-50/50 print:hidden"
+          data-report-exclude="preview"
+        >
+          <h3 className="text-base font-semibold text-slate-800 mb-1">Salvar simulação no histórico</h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Associe um cliente e grave a simulação para consultar depois na lista abaixo.
+          </p>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+              <select
+                className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                value={saveClientId}
+                onChange={(e) => setSaveClientId(e.target.value)}
+                disabled={isLoadingClients}
+              >
+                <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Selecione um cliente'}</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[180px]">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+              <Input
+                placeholder="Ex.: Venda apartamento 2025"
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <Button type="button" variant="primary" disabled={saving} onClick={() => void handleSaveSimulation()}>
+              {editingSimulationId ? 'Atualizar' : 'Salvar'}
+            </Button>
+            <Button type="button" variant="secondary" disabled={saving} onClick={() => void handleSaveAsNew()}>
+              Salvar como nova
+            </Button>
+            {editingSimulationId ? (
+              <Button type="button" variant="tertiary" disabled={saving} onClick={() => setEditingSimulationId(null)}>
+                Cancelar edição
+              </Button>
+            ) : null}
+            <Button type="button" variant="tertiary" disabled={saving} onClick={handleClearSimulation}>
+              Limpar campos
+            </Button>
+          </div>
+          {editingSimulationId ? (
+            <p className="text-xs text-slate-500 mt-3">
+              Editando simulação salva. Use Atualizar para gravar ou Salvar como nova para duplicar.
+            </p>
+          ) : null}
+        </Card>
 
         <Card className="mt-6" data-report-exclude="preview">
           <h2 className="text-xl font-semibold text-slate-800 mb-4">Simulações salvas</h2>
