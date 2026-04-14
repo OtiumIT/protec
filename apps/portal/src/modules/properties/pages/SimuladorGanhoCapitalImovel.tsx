@@ -5,6 +5,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService } from '../services/property.service';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
@@ -300,6 +301,27 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
   );
 }
 
+/** Campo monetário (máscara pt-BR, mesmo padrão do módulo de imóveis) */
+function MoneyField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      <MoneyInput value={value} onChange={onChange} className="!py-2 !text-sm border-slate-200 rounded-md" placeholder={placeholder} />
+    </div>
+  );
+}
+
+/** Inteiros e percentuais (sem máscara de moeda) */
 function NumberField({ label, value, onChange, placeholder, step, min }: { label: string; value: number; onChange: (v: number) => void; placeholder?: string; step?: number; min?: number }) {
   return (
     <div>
@@ -859,9 +881,9 @@ export default function SimuladorGanhoCapitalImovel() {
         <div className={sectionCardClass}>
           <h3 className="text-base font-semibold text-slate-800 mb-4">Dados da operação</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-            <NumberField label="Valor de alienação (R$)" value={venda} onChange={setVenda} />
-            <NumberField label="Custo de aquisição (R$)" value={custo} onChange={setCusto} />
-            <NumberField label="Despesas dedutíveis (R$)" value={despesas} onChange={setDespesas} />
+            <MoneyField label="Valor de alienação" value={venda} onChange={setVenda} />
+            <MoneyField label="Custo de aquisição" value={custo} onChange={setCusto} />
+            <MoneyField label="Despesas dedutíveis" value={despesas} onChange={setDespesas} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <DateField label="Data de aquisição" value={dtAq} onChange={setDtAq} />
@@ -881,7 +903,7 @@ export default function SimuladorGanhoCapitalImovel() {
               <option value="ativo">Ativo imobilizado</option>
               <option value="mercadoria">Mercadoria / Estoque (atividade imobiliária)</option>
             </SelectField>
-            <NumberField label="Custo contábil PJ (R$)" value={custoPJ} onChange={setCustoPJ} />
+            <MoneyField label="Custo contábil PJ" value={custoPJ} onChange={setCustoPJ} />
             <SelectField label="Tributos PJ a considerar" value={incluirPisCofins ? 'sim' : 'nao'} onChange={v => setIncluirPisCofins(v === 'sim')}>
               <option value="sim">IRPJ + CSLL + PIS + COFINS</option>
               <option value="nao">Somente IRPJ + CSLL</option>
@@ -934,7 +956,10 @@ export default function SimuladorGanhoCapitalImovel() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Metric label="Total IRPF" value={fmtBRL(r.ir.total)} color="red" />
                 <Metric label="Alíquota efetiva s/ ganho bruto" value={fmtPct(r.gcBruto > 0 ? (r.ir.total / r.gcBruto) * 100 : 0)} color="red" />
-                <Metric label="Carga s/ valor de venda" value={fmtPct((r.ir.total / venda) * 100)} />
+                <Metric
+                  label="Carga s/ valor de venda"
+                  value={venda > 0 ? fmtPct((r.ir.total / venda) * 100) : '—'}
+                />
                 <Metric label="Líquido PF pós-IR" value={fmtBRL(venda - r.ir.total - custo - despesas)} color="green" />
               </div>
             </>
@@ -1077,7 +1102,12 @@ export default function SimuladorGanhoCapitalImovel() {
                 <option value="corrigido">Custo de aquisição corrigido pelo IPCA</option>
               </SelectField>
               {redutorTipo === 'referencia' && (
-                <NumberField label="Valor de referência do imóvel (RFB) (R$)" value={valorRefIBS} onChange={setValorRefIBS} placeholder="Aguardando divulgação RFB" />
+                <MoneyField
+                  label="Valor de referência do imóvel (RFB)"
+                  value={valorRefIBS}
+                  onChange={setValorRefIBS}
+                  placeholder="Aguardando divulgação RFB"
+                />
               )}
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">
@@ -1113,7 +1143,12 @@ export default function SimuladorGanhoCapitalImovel() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <NumberField label="Quantidade total de imóveis (PF)" value={qtdeImoveis} onChange={setQtdeImoveis} min={0} />
-            <NumberField label="Receita anual total de locação (R$)" value={receitaAnualPF} onChange={setReceitaAnualPF} placeholder="Receita bruta anual (aluguel + outras)" />
+            <MoneyField
+              label="Receita anual total de locação"
+              value={receitaAnualPF}
+              onChange={setReceitaAnualPF}
+              placeholder="Receita bruta anual (aluguel + outras)"
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <Metric label="Limite 240k (corrigido IPCA)" value={fmtBRL(limite240kCor)} color="blue" />
