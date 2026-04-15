@@ -405,24 +405,6 @@ function MoneyField({
   );
 }
 
-/** Inteiros e percentuais (sem máscara de moeda) */
-function NumberField({ label, value, onChange, placeholder, step, min }: { label: string; value: number; onChange: (v: number) => void; placeholder?: string; step?: number; min?: number }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <input
-        type="number"
-        value={Number.isFinite(value) ? value : ''}
-        min={min ?? 0}
-        step={step ?? 1}
-        placeholder={placeholder}
-        onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        className={fieldClass}
-      />
-    </div>
-  );
-}
-
 function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
@@ -732,6 +714,9 @@ export default function SimuladorGanhoCapitalImovel() {
       redutorTipo,
       valorRefIBS,
       correcaoManualPct,
+      // Campos legados mantidos por retrocompatibilidade do schema/snapshot.
+      qtdeImoveis: 0,
+      receitaAnualPF: 0,
       vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
       vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
       ruralDtAq: ruralDtAq || undefined,
