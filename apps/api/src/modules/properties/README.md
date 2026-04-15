@@ -12,6 +12,14 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - **Listagem**: Filtrar por `simulation_kind` para não misturar históricos entre ferramentas.
 - **Atualização**: `PATCH /simulations/:id` só para locação; ganho de capital usa `PATCH /simulations/:id/ganho-capital`.
 
+### Regra 0.1: Ganho de capital (venda) — contribuinte PF IBS/CBS
+
+- Para **venda/cessão de direitos de imóveis** no simulador `ganho_capital_imovel`, o enquadramento de PF contribuinte IBS/CBS segue o art. 251 da LC 214/2025 (e não a régua de locação por receita 240k/288k).
+- Hipóteses consideradas na ferramenta:
+  - ano-calendário anterior com operação envolvendo mais de 3 imóveis distintos, ou mais de 1 imóvel construído pelo próprio alienante nos 5 anos anteriores;
+  - ano-calendário atual com operação que exceda os limites das hipóteses do ano anterior.
+- Se não houver enquadramento nas hipóteses acima, a simulação PF de venda não aplica IBS/CBS sobre a alienação.
+
 ### Regra 1: Isolamento Multitenant
 
 - **Quando aplicar**: Todas as operações

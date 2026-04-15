@@ -39,10 +39,10 @@ const ART18_TABELA: [number, number][] = [
   [1984, 30], [1985, 25], [1986, 20], [1987, 15], [1988, 5],
 ];
 
-const IBS_TRANSICAO: Record<number, { cbs: number; ibs: number; obs: string; teste?: boolean }> = {
+const IBS_TRANSICAO: Record<number, { cbs: number; ibs: number; obs: string; teste?: boolean; ibsEfetivaPct?: number }> = {
   2026: { cbs: 0, ibs: 0, obs: 'Alíquota teste 1% — sem impacto real para PF', teste: true },
-  2027: { cbs: 1, ibs: 0, obs: 'CBS plena; IBS ainda não vigente' },
-  2028: { cbs: 1, ibs: 0, obs: 'CBS plena; IBS ainda não vigente' },
+  2027: { cbs: 1, ibs: 0, ibsEfetivaPct: 0.05, obs: 'CBS plena (4,5%) + IBS efetivo 0,05% (0,1% com redutor de 50%)' },
+  2028: { cbs: 1, ibs: 0, ibsEfetivaPct: 0.05, obs: 'CBS plena (4,5%) + IBS efetivo 0,05% (0,1% com redutor de 50%)' },
   2029: { cbs: 1, ibs: 0.10, obs: 'CBS plena + IBS 10% da plena' },
   2030: { cbs: 1, ibs: 0.20, obs: 'CBS plena + IBS 20% da plena' },
   2031: { cbs: 1, ibs: 0.30, obs: 'CBS plena + IBS 30% da plena' },
@@ -58,9 +58,8 @@ const IBS_PLENA_PCT = 9.5;
 const REDUTOR_IMOVEL_NOVO_NOMINAL = 100_000;
 const REDUTOR_LOTE_NOMINAL = 30_000;
 
-// Limites PF contribuinte IBS/CBS (nominais — LC 214/2025)
-const LIMITE_240K_NOMINAL = 240_000;
-const LIMITE_288K_NOMINAL = 288_000;
+// Limite para acréscimo de 10% na presunção (IN 2.306/2026)
+const LIMITE_RECEITA_ACRESCIMO_PRESUNCAO = 5_000_000;
 
 type TabId = GanhoCapitalTabId;
 type TipoImovel = 'imovel_construido' | 'lote_residencial' | 'imovel_rural';
@@ -210,14 +209,17 @@ function calcRuralPJ(vtn_aq: number, vtn_al: number, venda_benf: number, custo_b
 }
 
 function calcPJMercadoria(receita: number) {
-  const baseirpj = receita * 0.08;
-  const basecsll = receita * 0.12;
+  const aplicarAcrescimoPresuncao = receita > LIMITE_RECEITA_ACRESCIMO_PRESUNCAO;
+  const presuncaoIrpj = aplicarAcrescimoPresuncao ? 0.088 : 0.08;
+  const presuncaoCsll = aplicarAcrescimoPresuncao ? 0.132 : 0.12;
+  const baseirpj = receita * presuncaoIrpj;
+  const basecsll = receita * presuncaoCsll;
   const adicional = Math.max(0, baseirpj - 60_000) * 0.1;
   const irpj = baseirpj * 0.15 + adicional;
   const csll = basecsll * 0.09;
   const pis = receita * 0.0065;
   const cofins = receita * 0.03;
-  return { irpj, csll, pis, cofins, total: irpj + csll + pis + cofins, baseirpj, basecsll, adicional };
+  return { irpj, csll, pis, cofins, total: irpj + csll + pis + cofins, baseirpj, basecsll, adicional, aplicarAcrescimoPresuncao };
 }
 
 function calcPJAtivo(receita: number, custoPJ: number) {
@@ -292,31 +294,26 @@ function calcFatorIpcaDesde(
   };
 }
 
-// Verifica se PF é contribuinte IBS/CBS (locação / vendas acima dos limites)
+// Verifica se PF é contribuinte IBS/CBS na venda (LC 214/2025, art. 251)
 function verificarContribuintePF(
-  qtdeImoveis: number,
-  receitaAnual: number,
-  lim240k: number,
-  lim288k: number
+  vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior: boolean,
+  vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior: boolean
 ): { contribuinte: boolean; motivo: string } {
-  if (receitaAnual > lim288k) {
+  if (vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior) {
     return {
       contribuinte: true,
-      motivo: `Receita anual (${fmtBRL(receitaAnual)}) supera o limite absoluto corrigido de ${fmtBRL(lim288k)} — contribuinte independente do número de imóveis`,
+      motivo: 'No ano-calendário atual houve alienação/cessão que excede os limites legais do ano anterior (art. 251, §2º, I).',
     };
   }
-  if (qtdeImoveis > 3 && receitaAnual > lim240k) {
+  if (vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior) {
     return {
       contribuinte: true,
-      motivo: `Mais de 3 imóveis e receita (${fmtBRL(receitaAnual)}) acima do limite corrigido de ${fmtBRL(lim240k)} — contribuinte`,
+      motivo: 'No ano-calendário anterior houve alienação/cessão de mais de 3 imóveis, ou alienação de mais de 1 imóvel construído pelo próprio alienante nos 5 anos anteriores (art. 251, §1º, II e III).',
     };
   }
   return {
     contribuinte: false,
-    motivo:
-      qtdeImoveis > 3
-        ? `Mais de 3 imóveis, mas receita (${fmtBRL(receitaAnual)}) abaixo do limite de ${fmtBRL(lim240k)} — não contribuinte`
-        : `Até 3 imóveis — não contribuinte (IBS/CBS não incide sobre a venda nesta condição)`,
+    motivo: 'Não se enquadra nas hipóteses legais de contribuinte PF para venda de imóveis (art. 251, §1º, II e III, e §2º, I).',
   };
 }
 
@@ -489,9 +486,9 @@ export default function SimuladorGanhoCapitalImovel() {
   const [valorRefIBS, setValorRefIBS] = useState(0);
   const [correcaoManualPct, setCorrecaoManualPct] = useState<number | null>(null); // null = usar IPCA automático
 
-  // Inputs — Contribuinte PF
-  const [qtdeImoveis, setQtdeImoveis] = useState(0);
-  const [receitaAnualPF, setReceitaAnualPF] = useState(0);
+  // Inputs — Contribuinte PF (venda)
+  const [vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior, setVendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior] = useState(false);
+  const [vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior, setVendeuNoAnoAtualExcedendoLimitesDoAnoAnterior] = useState(false);
 
   // Painel imóvel rural (VTN / benfeitorias) — alinhado ao HTML de referência
   const [ruralDtAq, setRuralDtAq] = useState('');
@@ -535,10 +532,6 @@ export default function SimuladorGanhoCapitalImovel() {
   // Redutores corrigidos
   const redutorImóvelNovoCor = Math.round(REDUTOR_IMOVEL_NOVO_NOMINAL * fatorRedutoresLc214 * 100) / 100;
   const redutorLoteCor = Math.round(REDUTOR_LOTE_NOMINAL * fatorRedutoresLc214 * 100) / 100;
-
-  // Limites contribuinte PF corrigidos pelo IPCA
-  const limite240kCor = Math.round(LIMITE_240K_NOMINAL * fatorRedutoresLc214 * 100) / 100;
-  const limite288kCor = Math.round(LIMITE_288K_NOMINAL * fatorRedutoresLc214 * 100) / 100;
 
   // % de correção a usar no redutor de ajuste IBS/CBS
   const correcaoPctEfetiva = useMemo(() => {
@@ -615,7 +608,7 @@ export default function SimuladorGanhoCapitalImovel() {
   const ibsResult = useMemo(() => {
     const trans = IBS_TRANSICAO[ibsAno] ?? IBS_TRANSICAO[2033]!;
     const cbsAno = trans.teste ? 0 : CBS_PLENA_PCT * trans.cbs;
-    const ibsAno_ = trans.teste ? 0 : IBS_PLENA_PCT * trans.ibs;
+    const ibsAno_ = trans.teste ? 0 : (trans.ibsEfetivaPct ?? (IBS_PLENA_PCT * trans.ibs));
     const totalAno = cbsAno + ibsAno_;
 
     // Redutor de ajuste
@@ -654,14 +647,17 @@ export default function SimuladorGanhoCapitalImovel() {
     const baseIBSCBS = Math.max(0, baseAposAj - redutorSocial);
 
     // Verificar contribuinte PF
-    const contribuinteCheck = verificarContribuintePF(qtdeImoveis, receitaAnualPF, limite240kCor, limite288kCor);
+    const contribuinteCheck = verificarContribuintePF(
+      vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
+      vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior
+    );
     const cbsDev = contribuinteCheck.contribuinte ? baseIBSCBS * cbsAno / 100 : 0;
     const ibsDev = contribuinteCheck.contribuinte ? baseIBSCBS * ibsAno_ / 100 : 0;
     const totalDev = cbsDev + ibsDev;
 
     // PJ reforma
     const cbsPJ = CBS_PLENA_PCT * trans.cbs;
-    const ibsPJ = IBS_PLENA_PCT * trans.ibs;
+    const ibsPJ = trans.ibsEfetivaPct ?? (IBS_PLENA_PCT * trans.ibs);
     const pjMercReforma = calcPJMercadoriaReforma(venda, cbsPJ, ibsPJ);
     const pjAtivoReforma = calcPJAtivoReforma(venda, custoPJ, cbsPJ, ibsPJ);
     const pjReformaSelected = naturezaPJ === 'mercadoria' ? pjMercReforma : pjAtivoReforma;
@@ -678,7 +674,8 @@ export default function SimuladorGanhoCapitalImovel() {
   }, [
     ibsAno, imovelAte2026, redutorTipo, valorRefIBS, correcaoPctEfetiva,
     venda, custo, custoPJ, tipoImovel, naturezaPJ,
-    qtdeImoveis, receitaAnualPF, limite240kCor, limite288kCor,
+    vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
+    vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
     redutorImóvelNovoCor, redutorLoteCor, fatorRedutoresLc214,
   ]);
 
@@ -735,8 +732,8 @@ export default function SimuladorGanhoCapitalImovel() {
       redutorTipo,
       valorRefIBS,
       correcaoManualPct,
-      qtdeImoveis,
-      receitaAnualPF,
+      vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
+      vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
       ruralDtAq: ruralDtAq || undefined,
       ruralVtnAq,
       ruralVtnAl,
@@ -769,8 +766,8 @@ export default function SimuladorGanhoCapitalImovel() {
     redutorTipo,
     valorRefIBS,
     correcaoManualPct,
-    qtdeImoveis,
-    receitaAnualPF,
+    vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
+    vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
     ruralDtAq,
     ruralVtnAq,
     ruralVtnAl,
@@ -958,8 +955,8 @@ export default function SimuladorGanhoCapitalImovel() {
       setRedutorTipo(inp.redutorTipo);
       setValorRefIBS(inp.valorRefIBS);
       setCorrecaoManualPct(inp.correcaoManualPct);
-      setQtdeImoveis(inp.qtdeImoveis);
-      setReceitaAnualPF(inp.receitaAnualPF);
+      setVendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior(inp.vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior ?? false);
+      setVendeuNoAnoAtualExcedendoLimitesDoAnoAnterior(inp.vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior ?? false);
       setRuralDtAq(inp.ruralDtAq ?? '');
       setRuralVtnAq(inp.ruralVtnAq ?? 0);
       setRuralVtnAl(inp.ruralVtnAl ?? 0);
@@ -1015,8 +1012,8 @@ export default function SimuladorGanhoCapitalImovel() {
     setRedutorTipo('corrigido');
     setValorRefIBS(0);
     setCorrecaoManualPct(null);
-    setQtdeImoveis(0);
-    setReceitaAnualPF(0);
+    setVendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior(false);
+    setVendeuNoAnoAtualExcedendoLimitesDoAnoAnterior(false);
     setRuralDtAq('');
     setRuralVtnAq(0);
     setRuralVtnAl(0);
@@ -1440,8 +1437,8 @@ export default function SimuladorGanhoCapitalImovel() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <SelectField label="Ano da alienação (transição)" value={String(ibsAno)} onChange={v => setIbsAno(Number(v))}>
               <option value="2026">2026 — alíquota teste 1% (sem impacto real PF)</option>
-              <option value="2027">2027 — CBS plena 4,5%; IBS = 0%</option>
-              <option value="2028">2028 — CBS plena 4,5%; IBS = 0%</option>
+              <option value="2027">2027 — CBS 4,5% + IBS 0,05% (0,1% c/ redutor 50%)</option>
+              <option value="2028">2028 — CBS 4,5% + IBS 0,05% (0,1% c/ redutor 50%)</option>
               <option value="2029">2029 — CBS 4,5% + IBS 0,95%</option>
               <option value="2030">2030 — CBS 4,5% + IBS 1,9%</option>
               <option value="2031">2031 — CBS 4,5% + IBS 2,85%</option>
@@ -1497,21 +1494,26 @@ export default function SimuladorGanhoCapitalImovel() {
         {/* Seção: Contribuinte PF IBS/CBS */}
         <div className={sectionCardClass}>
           <h3 className="text-base font-semibold text-slate-800 mb-1">Situação da PF como contribuinte IBS/CBS (LC nº 214/2025)</h3>
-          <p className="text-xs text-slate-500 mb-4">
-            Informe o total de imóveis e a receita anual de locação/outras fontes para verificar se a PF é contribuinte. Se não for, IBS/CBS não incide sobre a venda.
-          </p>
+          <p className="text-xs text-slate-500 mb-4">Responda as hipóteses legais da LC 214/2025 para verificar se a PF é contribuinte de IBS/CBS na venda de imóveis.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <NumberField label="Quantidade total de imóveis (PF)" value={qtdeImoveis} onChange={setQtdeImoveis} min={0} />
-            <MoneyField
-              label="Receita anual total de locação"
-              value={receitaAnualPF}
-              onChange={setReceitaAnualPF}
-              placeholder="Receita bruta anual (aluguel + outras)"
-            />
+            <SelectField
+              label="Vendeu/cedeu direitos de mais de 3 imóveis, ou construiu mais de 1 imóvel nos 5 anos anteriores à data da alienação no ano-calendário anterior?"
+              value={vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior ? 'sim' : 'nao'}
+              onChange={v => setVendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior(v === 'sim')}
+            >
+              <option value="nao">Não</option>
+              <option value="sim">Sim</option>
+            </SelectField>
+            <SelectField
+              label="Vendeu/cedeu direitos no presente ano-calendário que exceda os limites previstos na pergunta anterior?"
+              value={vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior ? 'sim' : 'nao'}
+              onChange={v => setVendeuNoAnoAtualExcedendoLimitesDoAnoAnterior(v === 'sim')}
+            >
+              <option value="nao">Não</option>
+              <option value="sim">Sim</option>
+            </SelectField>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-            <Metric label="Limite 240k (corrigido IPCA)" value={fmtBRL(limite240kCor)} color="blue" />
-            <Metric label="Limite 288k (corrigido IPCA)" value={fmtBRL(limite288kCor)} color="blue" />
+          <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 mb-3">
             <div className={`rounded-lg p-3 ${ibsResult.contribuinteCheck.contribuinte ? 'bg-rose-50 border border-rose-200' : 'bg-emerald-50 border border-emerald-200'}`}>
               <div className="text-xs font-medium text-slate-500 mb-1">Resultado</div>
               <Badge color={ibsResult.contribuinteCheck.contribuinte ? 'red' : 'green'}>
@@ -1700,10 +1702,10 @@ export default function SimuladorGanhoCapitalImovel() {
         <div className={`${sectionCardClass} border-l-4 border-l-amber-500`}>
           <h3 className="text-base font-semibold text-amber-800 mb-2">Atenção — vigência e aspectos em aberto</h3>
           <div className="text-xs text-slate-600 space-y-2">
-            <p><strong>(1) Cronograma:</strong> 2026 = alíquota teste (sem impacto real). 2027–2028 = CBS plena (4,5%); IBS não vigente. 2029+ = IBS gradual. 2033+ = pleno (CBS 4,5% + IBS 9,5% = 14%).</p>
+            <p><strong>(1) Cronograma:</strong> 2026 = alíquota teste (sem impacto real). 2027–2028 = CBS plena (4,5%) + IBS efetivo 0,05% (0,1% com redutor de 50%). 2029+ = IBS gradual. 2033+ = pleno (CBS 4,5% + IBS 9,5% = 14%).</p>
             <p><strong>(2) Valor de referência:</strong> Aguardando regulamentação da RFB. Usar zero enquanto não divulgado.</p>
             <p><strong>(3) Redutores sociais:</strong> R$ 100.000 (imóvel residencial construído) e R$ 30.000 (lote residencial), corrigidos mensalmente pelo IPCA desde 16/01/2025 (art. 259 LC 214/2025).</p>
-            <p><strong>(4) Contribuinte PF:</strong> Critérios: mais de 3 imóveis E receita &gt; R$ 240k (corrigido), OU receita &gt; R$ 288k (corrigido), independente do número de imóveis.</p>
+            <p><strong>(4) Contribuinte PF na venda:</strong> aplicar hipóteses do art. 251, §1º, II e III, e §2º, I (LC 214/2025).</p>
             <p>
               <strong>(5) PIS/COFINS:</strong> Com a implantação do IBS/CBS, o PIS e a COFINS serão extintos. O comparativo acima já considera essa substituição na coluna “após reforma”.
             </p>
@@ -1901,7 +1903,7 @@ export default function SimuladorGanhoCapitalImovel() {
           <FormulaBox>{`Faixa 1: min(GC_trib, 5.000.000) × 15%\nFaixa 2: max(0, min(GC_trib − 5.000.000, 5.000.000)) × 17,5%\nFaixa 3: max(0, min(GC_trib − 10.000.000, 20.000.000)) × 20%\nFaixa 4: max(0, GC_trib − 30.000.000) × 22,5%`}</FormulaBox>
 
           <SectionTitle>7. PJ Lucro Presumido — mercadoria (atividade imobiliária)</SectionTitle>
-          <FormulaBox>{`Base IRPJ = Receita × 8%\nBase CSLL = Receita × 12%\nAdicional = max(0, Base_IRPJ − 60.000) × 10%\nIRPJ = Base_IRPJ × 15% + Adicional\nCSLL = Base_CSLL × 9%\nPIS = Receita × 0,65%\nCOFINS = Receita × 3%`}</FormulaBox>
+          <FormulaBox>{`Base IRPJ = Receita × 8% (ou 8,8% quando receita > R$ 5.000.000 no período da operação)\nBase CSLL = Receita × 12% (ou 13,2% quando receita > R$ 5.000.000 no período da operação)\nAdicional = max(0, Base_IRPJ − 60.000) × 10%\nIRPJ = Base_IRPJ × 15% + Adicional\nCSLL = Base_CSLL × 9%\nPIS = Receita × 0,65%\nCOFINS = Receita × 3%`}</FormulaBox>
 
           <SectionTitle>8. PJ Lucro Presumido — ativo imobilizado</SectionTitle>
           <FormulaBox>{`Ganho PJ = Valor venda − Custo contábil\nBase IRPJ = Ganho PJ (100%)\nAdicional = max(0, Ganho − 60.000) × 10%\nIRPJ = Ganho × 15% + Adicional\nCSLL = Ganho × 9%\nPIS/COFINS: não incidem sobre ganho de capital`}</FormulaBox>
@@ -1913,13 +1915,13 @@ export default function SimuladorGanhoCapitalImovel() {
           <FormulaBox>{`Aplicável a imóveis rurais adquiridos após 01/01/1997 (terra nua pelo VTN).\nTERRA NUA: GC_terra = VTN_ano_alienação − VTN_ano_aquisição — sem art. 18 nem FR1/FR2.\nIRPF_terra = tabela progressiva L. 13.259/2016 sobre GC_terra.\n\nBenfeitorias (IN 84/2001 §2°): se deduzidas na atividade rural → receita Lei 8.023/1990 (base 20% × tabela anual);\nse não deduzidas → GC com art. 18 e FR1/FR2.\n\nPJ LP: GC_terra mesmo critério; GC_benf = venda_benf − custo contábil_benf; IRPJ/CSLL sobre soma dos ganhos.`}</FormulaBox>
 
           <SectionTitle>11. Contribuinte PF — IBS/CBS (LC 214/2025)</SectionTitle>
-          <FormulaBox>{`Limites nominais (corrigidos mensalmente pelo IPCA desde jan/2025):\n  Limite 240k: R$ 240.000 × fator_IPCA\n  Limite 288k: R$ 288.000 × fator_IPCA\n\nContribuinte se:\n  (a) receita > limite_288k (independente do nº de imóveis), OU\n  (b) nº imóveis > 3 E receita > limite_240k\n\nSe não contribuinte: IBS/CBS = 0 sobre a venda (PF)`}</FormulaBox>
+          <FormulaBox>{`Hipóteses de contribuinte PF na venda (LC 214/2025, art. 251):\n  (a) No ano-calendário anterior: alienação/cessão de direitos com objeto em mais de 3 imóveis distintos; OU\n  (b) No ano-calendário anterior: alienação/cessão de mais de 1 imóvel construído pelo próprio alienante nos 5 anos anteriores; OU\n  (c) No ano-calendário atual: alienação/cessão que exceda os limites das hipóteses anteriores.\n\nSe não enquadrar nas hipóteses acima: IBS/CBS = 0 sobre a venda (PF).`}</FormulaBox>
 
           <div className="mt-4 text-xs text-slate-500 space-y-2">
-            <p><strong>Base legal:</strong> Lei nº 7.713/1988 art. 18 | Lei nº 11.196/2005 art. 40 | Lei nº 13.259/2016 | RIR/2018 arts. 591–592 | LC nº 214/2025 arts. 35 e 259 | Lei nº 9.393/1996 art. 19</p>
+            <p><strong>Base legal:</strong> Lei nº 7.713/1988 art. 18 | Lei nº 11.196/2005 art. 40 | Lei nº 13.259/2016 | RIR/2018 arts. 591–592 | LC nº 214/2025 arts. 35, 251 e 259 | Lei nº 9.393/1996 art. 19</p>
             <p><strong>Correção monetária:</strong> IPCA — Série BCB SGS 433 (variação mensal %)</p>
             <p>
-              <strong>Notas (PJ e reduções):</strong> o adicional de IRPJ de 10% incide sobre a parcela do lucro presumido ou do ganho de capital que exceder R$ 60.000 no trimestre (venda integral no trimestre). Na venda de ativo imobilizado, PIS/COFINS não incidem sobre o ganho de capital (art. 3º da Lei nº 9.718/1998). Para aquisições até 1988, art. 18 e FR1/FR2 não são cumulativos — aplica-se o mais favorável ao contribuinte, conforme orientação da RFB.
+              <strong>Notas (PJ e reduções):</strong> no cenário de mercadoria, quando a receita da operação supera R$ 5.000.000, a ferramenta aplica acréscimo de 10% sobre os percentuais de presunção (8%→8,8% e 12%→13,2%). Além disso, o adicional de IRPJ de 10% incide sobre a parcela do lucro presumido ou do ganho de capital que exceder R$ 60.000 no trimestre (venda integral no trimestre). Na venda de ativo imobilizado, PIS/COFINS não incidem sobre o ganho de capital (art. 3º da Lei nº 9.718/1998). Para aquisições até 1988, art. 18 e FR1/FR2 não são cumulativos — aplica-se o mais favorável ao contribuinte, conforme orientação da RFB.
             </p>
           </div>
         </div>

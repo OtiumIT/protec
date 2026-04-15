@@ -539,8 +539,14 @@ export const GanhoCapitalSimuladorInputSchema = z.object({
   redutorTipo: GanhoCapitalRedutorTipoSchema,
   valorRefIBS: gcNum,
   correcaoManualPct: gcNum.nullable(),
-  qtdeImoveis: z.number().int().nonnegative(),
-  receitaAnualPF: gcNum,
+  /** @deprecated Campo legado da lógica antiga de locação no simulador de venda. */
+  qtdeImoveis: z.number().int().nonnegative().optional().default(0),
+  /** @deprecated Campo legado da lógica antiga de locação no simulador de venda. */
+  receitaAnualPF: gcNum.optional().default(0),
+  /** Hipótese do art. 251, §1º, II e III (LC 214/2025) para venda/cessão. */
+  vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior: z.boolean().optional().default(false),
+  /** Hipótese do art. 251, §2º, I (LC 214/2025) para venda/cessão no ano atual. */
+  vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior: z.boolean().optional().default(false),
   /** Painel imóvel rural (VTN / benfeitorias) — opcional para snapshots antigos */
   ruralDtAq: z.string().optional(),
   ruralVtnAq: gcNum.optional(),

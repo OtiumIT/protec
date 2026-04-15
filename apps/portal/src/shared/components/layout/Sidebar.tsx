@@ -286,7 +286,7 @@ const adminMenuItems: MenuItem[] = [
     ),
     children: [
       {
-        name: 'Simulador PF vs PJ vs Reforma',
+        name: 'Locação - Simulador PF vs PJ vs Reforma',
         path: '/properties/simulador',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,7 +295,7 @@ const adminMenuItems: MenuItem[] = [
         ),
       },
       {
-        name: 'Simulador Ganho de Capital',
+        name: 'Venda - Simulador Ganho de Capital',
         path: '/properties/simulador-ganho-capital',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
