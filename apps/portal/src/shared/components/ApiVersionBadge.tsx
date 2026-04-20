@@ -4,9 +4,23 @@ import { getApiUrl } from '../services/api';
 interface VersionResponse {
   version?: string;
   updatedAt?: string;
+  updated_at?: string;
 }
 
-/** Badge discreto com versão da API. Não exibe nada se a requisição falhar. */
+function formatBuildDate(iso: string | undefined | null): string | null {
+  if (!iso || typeof iso !== 'string') return null;
+  const t = iso.trim();
+  if (!t) return null;
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/** Badge com versão da API (uso interno; exibir só para super_admin no Layout). */
 export function ApiVersionBadge() {
   const [info, setInfo] = useState<VersionResponse | null>(null);
 
@@ -15,20 +29,18 @@ export function ApiVersionBadge() {
     fetch(`${baseUrl}/api/v1/version`, { method: 'GET' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: VersionResponse | null) => {
-        if (data?.version) setInfo(data);
+        if (!data?.version) return;
+        setInfo({
+          version: data.version,
+          updatedAt: data.updatedAt ?? data.updated_at,
+        });
       })
       .catch(() => {});
   }, []);
 
   if (!info?.version) return null;
 
-  const dateStr = info.updatedAt
-    ? new Date(info.updatedAt).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-    : null;
+  const dateStr = formatBuildDate(info.updatedAt);
 
   return (
     <span
@@ -36,7 +48,7 @@ export function ApiVersionBadge() {
       title={dateStr ? `Atualizado em ${dateStr}` : 'Versão da API'}
     >
       API v{info.version}
-      {dateStr && ` · ${dateStr}`}
+      {dateStr ? ` · ${dateStr}` : ''}
     </span>
   );
 }

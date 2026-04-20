@@ -111,39 +111,39 @@ const CUSTOS_OPERACIONAIS_INFO =
 const SECTION_CONFIG: Record<SectionKey, { title: string; subtitle: string; icon: React.ReactNode; bg: string; border: string; headerBg: string }> = {
   receita: {
     title: 'Receitas',
-    subtitle: 'Valores mensais que entram (aluguéis, diárias, etc.)',
+    subtitle: 'Valores mensais auferidos (aluguéis e diárias)',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="w-5 h-5 text-[#0c326f]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     ),
-    bg: 'bg-emerald-50/60',
-    border: 'border-emerald-200',
-    headerBg: 'bg-emerald-100/80 border-emerald-200',
+    bg: 'bg-white',
+    border: 'border-slate-200',
+    headerBg: 'bg-slate-50 border-slate-200 border-b',
   },
   despesa: {
     title: 'Despesas dedutíveis (PF)',
-    subtitle: 'Lei nº 7.739/1989 — reduzem a base de cálculo do IR',
+    subtitle: 'Conforme Lei nº 7.739/1989',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="w-5 h-5 text-[#0c326f]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
-    bg: 'bg-sky-50/60',
-    border: 'border-sky-200',
-    headerBg: 'bg-sky-100/80 border-sky-200',
+    bg: 'bg-white',
+    border: 'border-slate-200',
+    headerBg: 'bg-slate-50 border-slate-200 border-b',
   },
   custo: {
     title: 'Custos operacionais',
-    subtitle: 'Reforma IBS/CBS — geram créditos na atividade',
+    subtitle: 'Créditos IBS/CBS (Reforma LC 214)',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="w-5 h-5 text-[#0c326f]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
       </svg>
     ),
-    bg: 'bg-amber-50/60',
-    border: 'border-amber-200',
-    headerBg: 'bg-amber-100/80 border-amber-200',
+    bg: 'bg-white',
+    border: 'border-slate-200',
+    headerBg: 'bg-slate-50 border-slate-200 border-b',
   },
 };
 
@@ -319,7 +319,6 @@ export function SimuladorImoveis() {
   const quantidadeImoveisTotal =
     (quantidadeImoveisResidenciais || 0) + (quantidadeImoveisComerciais || 0) || 1;
   const [valoresAnuais, setValoresAnuais] = useState<Partial<Record<keyof MesFields, number>>>({});
-  const monthlyGridRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showLoadedHighlight, setShowLoadedHighlight] = useState(false);
   /** Secção «Custos operacionais»: recolhível; abre ao carregar imóvel/simulação se já houver valores */
@@ -1422,77 +1421,74 @@ export function SimuladorImoveis() {
   return (
     <Layout>
       <ToastContainer />
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025
-        </h1>
-
-        {/* Stepper */}
-        <div className="mt-6">
-          <div className="flex items-center" role="list" aria-label="Etapas do simulador">
+      <div className="mb-8 border-b border-slate-200 bg-white -mx-6 px-6 py-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-black text-[#0c326f] uppercase tracking-tighter">
+              Simulador Imobiliário
+            </h1>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+              PF vs PJ vs Reforma LC 214/2025
+            </p>
+          </div>
+          
+          {/* Institutional Stepper */}
+          <div className="flex items-center gap-2" role="list" aria-label="Progresso da simulação">
             {WIZARD_STEPS.map((s, i) => {
               const isCompleted = wizardStep > s.step;
               const isActive = wizardStep === s.step;
+              
               return (
-                <div
-                  key={s.step}
-                  role="listitem"
-                  className={`flex items-center ${i < WIZARD_STEPS.length - 1 ? 'flex-1' : ''}`}
-                >
-                  <div className="flex flex-col items-center">
-                    {isCompleted ? (
-                      <button
-                        type="button"
-                        aria-label={`Voltar para a etapa ${s.step}: ${s.label}`}
-                        onClick={() => {
+                <div key={s.step} className="flex items-center">
+                  <div className="flex flex-col items-center relative group">
+                    <button
+                      type="button"
+                      disabled={!isCompleted && !isActive}
+                      onClick={() => {
+                        if (isCompleted) {
                           setWizardStep(s.step);
-                          if (s.step === 3) setResult(null);
-                        }}
-                        className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
-                        title={`Voltar para "${s.label}"`}
-                      >
-                        ✓
-                      </button>
-                    ) : (
-                      <div
-                        aria-current={isActive ? 'step' : undefined}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 select-none ${
-                          isActive
-                            ? 'bg-brand text-white ring-4 ring-brand/20'
-                            : 'bg-slate-200 text-slate-500'
-                        }`}
-                      >
-                        {s.step}
-                      </div>
-                    )}
-                    <span
-                      className={`mt-2 text-xs text-center max-w-[90px] leading-tight font-medium transition-colors duration-300 ${
-                        isActive
-                          ? 'text-brand'
-                          : isCompleted
-                            ? 'text-emerald-700 cursor-pointer'
-                            : 'text-slate-400'
-                      }`}
+                          if (s.step < 3) setResult(null);
+                        }
+                      }}
+                      className={`
+                        w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300
+                        ${isActive 
+                          ? 'bg-[#0c326f] text-white ring-4 ring-[#0c326f]/20 scale-110' 
+                          : isCompleted 
+                            ? 'bg-[#1351b4] text-white hover:bg-[#0c326f] cursor-pointer' 
+                            : 'bg-slate-200 text-slate-500 cursor-not-allowed'}
+                      `}
                     >
+                      {isCompleted ? (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : s.step}
+                    </button>
+                    <span className={`
+                      absolute -bottom-6 whitespace-nowrap text-[10px] font-bold uppercase tracking-tighter transition-colors duration-300
+                      ${isActive ? 'text-[#0c326f]' : isCompleted ? 'text-[#1351b4]' : 'text-slate-400'}
+                    `}>
                       {s.label}
                     </span>
                   </div>
                   {i < WIZARD_STEPS.length - 1 && (
-                    <div
-                      className={`h-1 flex-1 mx-3 mb-5 rounded transition-all duration-500 ${
-                        isCompleted ? 'bg-emerald-400' : 'bg-slate-200'
-                      }`}
-                    />
+                    <div className={`h-0.5 w-12 sm:w-20 mx-2 rounded transition-all duration-500 ${isCompleted ? 'bg-[#1351b4]' : 'bg-slate-200'}`} />
                   )}
                 </div>
               );
             })}
           </div>
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <p className="text-sm text-slate-500">
-              {WIZARD_STEPS[wizardStep - 1].description}
-            </p>
+        </div>
+        
+        {/* Step Description Banner */}
+        <div className="mt-10 bg-slate-50 border border-slate-200 rounded-md px-4 py-3 flex items-center gap-3">
+          <div className="bg-[#0c326f] text-white text-[10px] font-black px-2 py-0.5 rounded uppercase">
+            Passo {wizardStep}
           </div>
+          <p className="text-sm font-medium text-slate-700">
+            {WIZARD_STEPS[wizardStep - 1].description}
+          </p>
         </div>
       </div>
       {moduleBlockedMessage && (
@@ -1504,33 +1500,46 @@ export function SimuladorImoveis() {
       <div className={wizardStep !== 1 ? 'hidden' : 'space-y-6'}>
         {/* Cliente da simulação — etapa 1 */}
         <div ref={clientCardRef}>
-        <Card className="p-5 border-slate-200">
-          <h3 className="font-semibold text-slate-800 mb-3">Cliente da simulação</h3>
-          <div className="flex gap-2 items-center">
-            <div className="flex-1 max-w-xs">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Para qual cliente é esta simulação? *</label>
+        <Card className="card-gov card-gov-accent px-6 py-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-[#0c326f]">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0c326f]">
+              Identificação do Cliente
+            </h3>
+          </div>
+          
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[300px] max-w-md">
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1 ml-1">
+                Selecione o titular para simulação *
+              </label>
               <select
-                className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700"
+                className="w-full bg-white border border-slate-300 rounded px-4 py-2.5 text-sm text-slate-700 focus:ring-2 focus:ring-[#1351b4]/20 focus:border-[#1351b4] outline-none transition-all shadow-sm"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 disabled={isLoadingClients}
               >
-                <option value="">{isLoadingClients ? 'Carregando clientes...' : 'Selecione um cliente'}</option>
+                <option value="">{isLoadingClients ? 'Carregando base de clientes...' : 'Escolha um cliente cadastrado'}</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
-            <div className="pt-6">
-              <Button
-                type="button"
-                variant="tertiary"
-                size="sm"
-                onClick={() => setShowClientModal(true)}
-              >
-                + Cadastrar cliente
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="!border-[#1351b4] !text-[#1351b4] hover:!bg-[#1351b4]/5 font-bold text-xs uppercase"
+              onClick={() => setShowClientModal(true)}
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Novo Cliente
+            </Button>
           </div>
         </Card>
         </div>
@@ -1669,17 +1678,25 @@ export function SimuladorImoveis() {
 
       {wizardStep === 2 && (
       <form onSubmit={handleSimulate} className="space-y-6">
-        <div ref={wizardStep2TopRef} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Parâmetros e planilha mensal</h2>
-            <p className="text-sm text-slate-600 mt-0.5">
-              Ajuste o ano, a reforma LC 214/2025 e os valores por mês antes de calcular.
-            </p>
+        <div ref={wizardStep2TopRef} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-5 mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded bg-[#0c326f] flex items-center justify-center text-white shadow-md">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-tighter text-[#0c326f]">Parâmetros e Planilha Mensal</h2>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                Configuração tributária e fluxo de caixa de 12 meses
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="secondary"
+              className="!border-[#1351b4] !text-[#1351b4] hover:!bg-[#1351b4]/5 font-bold text-xs uppercase"
               onClick={() => {
                 setWizardStep(1);
                 setResult(null);
@@ -1690,7 +1707,7 @@ export function SimuladorImoveis() {
             <Button
               type="button"
               variant="secondary"
-              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+              className="!border-red-500 !text-red-600 hover:!bg-red-50 font-bold text-xs uppercase"
               onClick={() => setShowClearModal(true)}
             >
               Limpar simulação
@@ -1703,27 +1720,31 @@ export function SimuladorImoveis() {
           </p>
         )}
 
-        {/* Ano-base e edição de simulação salva */}
-        <Card className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-slate-700">Ano da simulação</label>
-              <Input
-                type="number"
-                min={2023}
-                max={2030}
-                value={ano}
-                onChange={(e) => updateAno(Number(e.target.value))}
-                className="w-28 h-10 text-center font-semibold text-slate-800 rounded-lg border-slate-300"
-              />
+        <Card className="card-gov card-gov-accent px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black uppercase text-slate-500 mb-1 ml-1">Ano-Base da Simulação</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={2023}
+                    max={2030}
+                    value={ano}
+                    onChange={(e) => updateAno(Number(e.target.value))}
+                    className="w-32 !py-2.5 text-center font-black text-lg text-[#0c326f] rounded border-slate-300 shadow-sm focus:border-[#1351b4] focus:ring-[#1351b4]/20"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Calendário</span>
+                </div>
+              </div>
             </div>
             {editingSimulationId && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={handleSaveAsNew} disabled={loading}>
-                  Salvar como novo
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" variant="secondary" className="!border-[#1351b4] !text-[#1351b4] font-bold text-xs uppercase" size="sm" onClick={handleSaveAsNew} disabled={loading}>
+                  Salvar como Novo
                 </Button>
-                <Button type="button" variant="tertiary" size="sm" onClick={handleCancelEdit} disabled={loading}>
-                  Cancelar edição
+                <Button type="button" variant="tertiary" className="font-bold text-xs uppercase text-slate-500" size="sm" onClick={handleCancelEdit} disabled={loading}>
+                  Cancelar Edição
                 </Button>
               </div>
             )}
@@ -1731,78 +1752,96 @@ export function SimuladorImoveis() {
         </Card>
 
         {/* Opções da Reforma LC 214/2025 */}
-        <Card className="p-5 border-amber-200/80 bg-amber-50/30">
-          <h3 className="font-semibold text-slate-800 mb-3">Opções da Reforma LC 214/2025 (IBS/CBS)</h3>
+        <Card className="card-gov border-l-4 border-amber-400 px-6 py-6 bg-white shadow-md relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 -mr-16 -mt-16 bg-amber-50 rounded-full opacity-50" />
+          
+          <div className="flex items-center gap-2 mb-5 relative z-10">
+            <div className="w-8 h-8 rounded bg-amber-100 flex items-center justify-center text-amber-700 shadow-sm">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0c326f]">Opções da Reforma LC 214/2025 (IBS/CBS)</h3>
+          </div>
+
           {ipcaPreview && (
             <div
-              className="mb-4 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-700"
+              className="mb-6 rounded-lg border-2 border-amber-100 bg-amber-50/30 px-5 py-4 relative z-10"
               role="region"
               aria-label="Parâmetros LC 214 indexados pelo IPCA"
             >
-              <p className="font-medium text-slate-800 mb-1">
-                IPCA / LC 214 — ano-calendário {ano} (referência do cálculo: {formatMonthRefPtBr(ipcaPreview.mes_referencia_fim)})
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">IPCA mensal mais recente</p>
-                  <p className="text-base font-semibold text-slate-900">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[11px] font-black uppercase text-[#0c326f] tracking-tight">
+                  IPCA / LC 214 — Ano-calendário {ano}
+                </p>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Ref: {formatMonthRefPtBr(ipcaPreview.mes_referencia_fim)}</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                <div className="rounded border border-white bg-white/60 p-3 shadow-sm">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">IPCA Mensal Recente</p>
+                  <p className="text-xl font-black text-[#0c326f]">
                     {ipcaSerieMaisRecente ? formatPercentPtBr(ipcaSerieMaisRecente.variacao_mensal_pct, 2) : '—'}
                   </p>
-                  <p className="text-[11px] text-slate-500">
-                    {ipcaSerieMaisRecente
-                      ? formatMonthRefPtBr(ipcaSerieMaisRecente.mes_referencia)
-                      : 'Carregue a tabela'}
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">
+                    {ipcaSerieMaisRecente ? formatMonthRefPtBr(ipcaSerieMaisRecente.mes_referencia) : 'Sem dados'}
                   </p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Fator de correção LC 214 (x)</p>
+
+                <div className="rounded border border-white bg-white/60 p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Fator de Correção (x)</p>
                     <button
                       type="button"
                       onClick={() => setShowLc214ContaExplicita((v) => !v)}
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-600 hover:bg-slate-100"
-                      title={showLc214ContaExplicita ? 'Ocultar conta explícita' : 'Mostrar conta explícita'}
-                      aria-label={showLc214ContaExplicita ? 'Ocultar conta explícita' : 'Mostrar conta explícita'}
-                    >
-                      i
-                    </button>
+                      className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-slate-200 text-slate-600 text-[8px] font-black hover:bg-slate-300"
+                    >i</button>
                   </div>
-                  <p className="text-base font-semibold text-slate-900">
+                  <p className="text-xl font-black text-[#0c326f]">
                     {formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}
                   </p>
-                  <p className="text-[11px] text-slate-500">
-                    Equivale a {formatPercentPtBr((ipcaPreview.fator_acumulado_desde_publicacao - 1) * 100, 4)}
+                  <p className="text-[10px] font-bold text-emerald-600 mt-1 uppercase">
+                    Variação: +{formatPercentPtBr((ipcaPreview.fator_acumulado_desde_publicacao - 1) * 100, 4)}
+                  </p>
+                </div>
+
+                <div className="rounded border border-white bg-white/60 p-3 shadow-sm">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">Redutor Social Efetivo</p>
+                  <p className="text-xl font-black text-[#1351b4]">
+                    {formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">
+                    {lc214ManualRedutorMensal.trim() ? 'Informado Manualmente' : 'Correção IPCA Automática'}
                   </p>
                 </div>
               </div>
+
               {showLc214ContaExplicita && lc214MesesAplicados.length > 0 && (
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Conta explícita do fator LC 214</p>
-                  <p className="text-xs text-slate-700 mt-1 break-words">
-                    Meses aplicados: {lc214MesesLista}
-                  </p>
-                  <p className="text-xs text-slate-700 mt-1 break-words">
-                    {lc214ContaExplicita} = <strong>{formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}</strong>
-                  </p>
+                <div className="mt-4 rounded border border-amber-200 bg-amber-50/50 p-3 relative">
+                  <p className="text-[9px] font-black uppercase text-amber-800 tracking-widest mb-1.5">Memória de Cálculo - Fator Acumulado</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-600 leading-relaxed italic">
+                      Meses considerados: {lc214MesesLista}
+                    </p>
+                    <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+                      {lc214ContaExplicita} = <span className="text-[#0c326f]">{formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}</span>
+                    </p>
+                  </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Redutor social mensal efetivo</p>
-                  <p className="text-base font-semibold text-slate-900">{formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}</p>
-                  <p className="text-[11px] text-slate-500">
-                    {lc214ManualRedutorMensal.trim()
-                      ? 'Entrada manual informada'
-                      : `Calculado automaticamente: R$ 600,00 × ${formatFactorPtBr(ipcaPreview.fator_acumulado_desde_publicacao, 6)}`}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Tetos PF (LC 214)</p>
-                  <p className="text-base font-semibold text-slate-900">
-                    {formatMoney(ipcaPreview.limite_receita_pf_contribuinte)} / {formatMoney(ipcaPreview.limite_receita_pf_absoluto)}
-                  </p>
-                  <p className="text-[11px] text-slate-500">Contribuinte / absoluto</p>
-                </div>
+
+              <div className="mt-4 p-3 rounded border border-white shadow-sm bg-white/40">
+                 <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-2">Limites de Isenção PF (Art. 288 / 240)</p>
+                 <div className="flex items-center gap-8">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Individual</span>
+                      <span className="text-sm font-black text-slate-700">{formatMoney(ipcaPreview.limite_receita_pf_contribuinte)}</span>
+                    </div>
+                    <div className="w-px h-6 bg-slate-200" />
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Grupo / Absoluto</span>
+                      <span className="text-sm font-black text-slate-700">{formatMoney(ipcaPreview.limite_receita_pf_absoluto)}</span>
+                    </div>
+                 </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                 <span className="font-medium">Atualização automática:</span>
@@ -1846,133 +1885,119 @@ export function SimuladorImoveis() {
               ) : null}
             </div>
           )}
-          <div className="flex flex-col gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={contratoAntes16012025}
-                onChange={(e) => setContratoAntes16012025(e.target.checked)}
-                className="rounded border-slate-300 text-brand focus:ring-brand"
-              />
-              <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
-            </label>
-            <div className={`grid grid-cols-1 ${perfilLocacao === 'ambos' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
-              {perfilLocacao === 'ambos' ? (
-                <>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-slate-700">Residenciais longa duração</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={quantidadeImoveisResidenciaisLonga}
-                      onChange={(e) => {
-                        const v = Math.max(0, parseInt(e.target.value, 10) || 0);
-                        setQuantidadeImoveisResidenciaisLonga(v);
-                        setQuantidadeImoveisResidenciais(v + Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga));
-                      }}
-                      className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
-                    />
-                    <span className="text-xs text-slate-500">
-                      Com redutor social Art. 260 LC 214/2025 (
-                      {ipcaPreview
-                        ? `${formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel (nominal R$ 600,00 corrigido IPCA)`
-                        : 'R$ 600,00/mês por imóvel, corrigido IPCA após carregar parâmetros'}
-                      ). Só locação residencial {'>'}90 dias gera redutor social.
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-slate-700">Residenciais curta temporada</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga)}
-                      onChange={(e) => {
-                        const curta = Math.max(0, parseInt(e.target.value, 10) || 0);
-                        setQuantidadeImoveisResidenciais(quantidadeImoveisResidenciaisLonga + curta);
-                      }}
-                      className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
-                    />
-                    <span className="text-xs text-slate-500">
-                      Sem redutor social — equiparada a hotelaria (Arts. 253/278 LC 214/2025). Redutor de alíquota 40% (Art. 281).
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-slate-700">Imóveis residenciais {perfilLocacao === 'residencial_comum' ? '(com redutor social)' : '(sem redutor social)'}</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={quantidadeImoveisResidenciais}
-                    onChange={(e) => {
-                      const v = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      setQuantidadeImoveisResidenciais(v);
-                      if (perfilLocacao === 'residencial_comum') setQuantidadeImoveisResidenciaisLonga(v);
-                    }}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
-                  />
-                  <span className="text-xs text-slate-500">
-                    {perfilLocacao === 'residencial_comum'
-                      ? `Redutor social Art. 260 LC 214/2025 (${
-                          ipcaPreview
-                            ? `${formatMoney(ipcaPreview.redutor_social_mensal_efetivo)}/mês por imóvel (nominal R$ 600,00 × IPCA)`
-                            : 'R$ 600,00/mês por imóvel corrigido IPCA'
-                        }) — locação residencial de longa duração.`
-                      : 'Equiparada a hotelaria (Arts. 253/278 LC 214/2025) — sem redutor social, redutor de alíquota 40% (Art. 281).'}
-                  </span>
-                </div>
-              )}
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-700">Imóveis comerciais (sem redutor social)</label>
+          <div className="flex flex-col gap-6 relative z-10">
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <label className="flex items-center gap-2 cursor-pointer mb-4">
                 <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={quantidadeImoveisComerciais}
-                  onChange={(e) =>
-                    setQuantidadeImoveisComerciais(
-                      Math.max(0, parseInt(e.target.value, 10) || 0)
-                    )
-                  }
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-28"
+                  type="checkbox"
+                  checked={contratoAntes16012025}
+                  onChange={(e) => setContratoAntes16012025(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#1351b4] focus:ring-[#1351b4]/20 transition-all"
                 />
-                <span className="text-xs text-slate-500">
-                  Entra na contagem total de imóveis (residenciais + comerciais) para verificar se a PF se torna contribuinte de IBS/CBS (limite de 3 imóveis).
-                </span>
+                <span className="text-xs font-black uppercase text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487)</span>
+              </label>
+
+              <div className={`grid grid-cols-1 ${perfilLocacao === 'ambos' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
+                {perfilLocacao === 'ambos' ? (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black uppercase text-slate-500">Residenciais Longa Duração</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={quantidadeImoveisResidenciaisLonga}
+                          onChange={(e) => {
+                            const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setQuantidadeImoveisResidenciaisLonga(v);
+                            setQuantidadeImoveisResidenciais(v + Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga));
+                          }}
+                          className="w-24 !py-2 font-bold text-center border-slate-300"
+                        />
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Com Redutor Social</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black uppercase text-slate-500">Residenciais Curta Temporada</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={Math.max(0, quantidadeImoveisResidenciais - quantidadeImoveisResidenciaisLonga)}
+                          onChange={(e) => {
+                            const curta = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setQuantidadeImoveisResidenciais(quantidadeImoveisResidenciaisLonga + curta);
+                          }}
+                          className="w-24 !py-2 font-bold text-center border-slate-300"
+                        />
+                        <span className="text-[10px] font-bold text-amber-600 uppercase">Art. 253 / 278</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Imóveis Residenciais</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={quantidadeImoveisResidenciais}
+                        onChange={(e) => {
+                          const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                          setQuantidadeImoveisResidenciais(v);
+                          if (perfilLocacao === 'residencial_comum') setQuantidadeImoveisResidenciaisLonga(v);
+                        }}
+                        className="w-24 !py-2 font-bold text-center border-slate-300"
+                      />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">
+                        {perfilLocacao === 'residencial_comum' ? 'Regime Comum' : 'Hospedagem'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-500">Imóveis Comerciais / Outros</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={quantidadeImoveisComerciais}
+                      onChange={(e) => setQuantidadeImoveisComerciais(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-24 !py-2 font-bold text-center border-slate-300"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Sem Redutor</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Ano de referência do cenário Reforma</label>
-              <select
-                value={anoReferenciaReforma}
-                onChange={(e) => setAnoReferenciaReforma(Number(e.target.value))}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white w-40"
-              >
-                <option value={2027}>2027/2028</option>
-                <option value={2028}>2028</option>
-                <option value={2029}>2029</option>
-                <option value={2030}>2030</option>
-                <option value={2031}>2031</option>
-                <option value={2032}>2032</option>
-                <option value={2033}>2033 (reforma integral)</option>
-              </select>
-              <span className="text-xs text-slate-500">Ano usado para o card principal da Reforma. Default 2033 para alinhar com a projeção.</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Perfil de locação</label>
-              <select
-                value={perfilLocacao}
-                onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white min-w-[280px]"
-              >
-                <option value="residencial_comum">Longa duração (Redutor da alíquota 70%)</option>
-                <option value="hospedagem_temporada">Curta temporada (Redutor da alíquota 40%)</option>
-                <option value="ambos">Longa duração e curta temporada (ambos os redutores)</option>
-              </select>
-              <span className="text-xs text-slate-500">Escolha conforme a natureza da sua locação. Em 2027/2028 incide CBS e IBS (0,1%) - A partir de 2029 incide CBS plena e IBS progressiva até 2032.</span>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Perfil de Locação Predominante</label>
+                <select
+                  value={perfilLocacao}
+                  onChange={(e) => setPerfilLocacao(e.target.value as PerfilLocacaoReforma)}
+                  className="w-full bg-white border border-slate-300 rounded px-4 py-2.5 text-sm font-bold text-[#0c326f] focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4] outline-none shadow-sm transition-all"
+                >
+                  <option value="residencial_comum">Residencial Longa Duração (Redutor 70%)</option>
+                  <option value="hospedagem_temporada">Curta Temporada / Hospedagem (Redutor 40%)</option>
+                  <option value="ambos">Misto (Longa Duração e Temporada)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Referência do Cenário Reforma</label>
+                <select
+                  value={anoReferenciaReforma}
+                  onChange={(e) => setAnoReferenciaReforma(Number(e.target.value))}
+                  className="w-full bg-white border border-slate-300 rounded px-4 py-2.5 text-sm font-bold text-[#0c326f] focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4] outline-none shadow-sm transition-all"
+                >
+                  <option value={2027}>Bienal 2027 / 2028</option>
+                  <option value={2029}>Cenário 2029</option>
+                  <option value={2031}>Cenário 2031</option>
+                  <option value={2033}>Projeção 2033 (Regime Pleno)</option>
+                </select>
+              </div>
             </div>
             <div className="border-t border-amber-200 pt-3">
               <button
@@ -2054,57 +2079,60 @@ export function SimuladorImoveis() {
         </Card>
 
         {/* Transição Reforma Tributária (2027-2033) */}
-        <Card className="p-5 border-violet-200/80 bg-violet-50/20">
-          <h3 className="font-semibold text-slate-800 mb-2">Transição Reforma Tributária - Incidência de CBS + IBS</h3>
-          <p className="text-xs text-amber-800 bg-amber-100/80 rounded px-3 py-2 mb-2">
-            Valores estimados; alíquotas sujeitas a regulamentação (previsão fim de 2026).
-          </p>
-          <p className="text-xs text-slate-600 mb-4">
-            2027/2028: CBS + IBS de 0,1% fixo · A partir de 2029 até 2032: IBS progressivo + CBS · A partir de 2033: reforma tributária em vigor de forma plena
-          </p>
-          <div className="flex flex-wrap items-end gap-4 mb-4">
-            <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700">Alíquota IBS (%)</label>
-              <input
+        <Card className="card-gov border-l-4 border-violet-400 px-6 py-6 bg-white shadow-md">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded bg-violet-100 flex items-center justify-center text-violet-700 shadow-sm">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0c326f]">Transição Reforma Tributária - IBS + CBS</h3>
+          </div>
+
+          <div className="p-4 rounded border border-violet-100 bg-violet-50/30 mb-6 font-bold text-[#4c1d95] text-xs uppercase tracking-tight">
+            Valores estimados conforme EC 132/2023. Alíquotas sujeitas a regulamentação definitiva.
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Alíquota IBS Referência (%)</label>
+              <Input
                 type="number"
-                min={0}
-                max={100}
                 step={0.1}
                 value={aliquotaPlenaIBS}
                 onChange={(e) => setAliquotaPlenaIBS(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
-                className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                className="!py-2.5 font-bold text-[#0c326f] border-slate-300"
               />
             </div>
-            <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700">Alíquota CBS (%)</label>
-              <input
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Alíquota CBS Referência (%)</label>
+              <Input
                 type="number"
-                min={0}
-                max={100}
                 step={0.1}
                 value={aliquotaCBS}
                 onChange={(e) => setAliquotaCBS(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
-                className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                className="!py-2.5 font-bold text-[#0c326f] border-slate-300"
               />
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+
+          <div className="overflow-x-auto border border-slate-200 rounded shadow-sm">
+            <table className="table-gov !text-[11px]">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 font-semibold">Ano</th>
-                  <th className="text-right py-2 px-3 font-semibold">IBS (% alíquota)</th>
-                  <th className="text-right py-2 px-3 font-semibold">ICMS/ISS residual</th>
-                  <th className="text-right py-2 px-3 font-semibold">IBS efetivo</th>
+                <tr>
+                  <th className="px-4">Ano-Calendário</th>
+                  <th className="text-right px-4">IBS (% alíquota)</th>
+                  <th className="text-right px-4">ICMS/ISS Residual</th>
+                  <th className="text-right px-4">Alíquota Efetiva IBS</th>
                 </tr>
               </thead>
               <tbody>
                 {transicaoIBSResult.map((r: TransicaoIBSResult) => (
-                  <tr key={r.ano} className="border-b border-slate-100">
-                    <td className="py-2 px-3">{r.ano}</td>
-                    <td className="text-right py-2 px-3">{r.ibsFixo ? 'fixo' : `${r.ibsPct}%`}</td>
-                    <td className="text-right py-2 px-3">{r.ibsFixo ? '—' : `${r.icmsIssPct}%`}</td>
-                    <td className="text-right py-2 px-3 font-medium">{r.aliquotaEfetivaIBS.toFixed(2)}%</td>
+                  <tr key={r.ano}>
+                    <td className="px-4 font-bold text-[#0c326f]">{r.ano}</td>
+                    <td className="text-right px-4">{r.ibsFixo ? 'Fixo 0,05%' : `${r.ibsPct.toFixed(2)}%`}</td>
+                    <td className="text-right px-4">{r.ibsFixo ? 'Precedente' : `${r.icmsIssPct.toFixed(2)}%`}</td>
+                    <td className="text-right px-4 font-black text-[#1351b4]">{r.aliquotaEfetivaIBS.toFixed(2)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -2113,79 +2141,98 @@ export function SimuladorImoveis() {
         </Card>
 
         {/* Preenchimento rápido – Rateio anual */}
-        <Card className="p-5 border-slate-200 bg-slate-50/50">
-          <h3 className="font-semibold text-slate-800 mb-2">Preenchimento rápido – Valores anuais</h3>
-          <p className="text-xs text-slate-600 mb-4 bg-sky-50 border border-sky-200 rounded px-3 py-2">
-            A <strong>grid de meses</strong> (aluguel tradicional + curto prazo) é a base para PF, PJ e Reforma. O botão &quot;Aplicar rateio&quot; distribui os totais anuais nos 12 meses. Se você preencher apenas os totais no topo (receita residencial/não residencial) sem aplicar rateio na grid, o cálculo usará os valores já presentes nos meses — mantenha a grid atualizada. Quando há misto residencial + comercial, informe também os campos de receita anual residencial e não residencial acima para o redutor social e a segregação correta na Reforma.
-          </p>
-
-          {/* Bloco Receitas */}
-          <div className="mb-4 pb-4 border-b border-slate-200 last:border-b-0 last:mb-0 last:pb-0">
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input
-                type="checkbox"
-                checked={modoReceitaAnual}
-                onChange={(e) => setModoReceitaAnual(e.target.checked)}
-                className="rounded border-slate-300 text-brand focus:ring-brand"
-              />
-              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Receitas</span>
-            </label>
-            {modoReceitaAnual && (
-              <div className="flex flex-wrap items-end gap-4 mt-2">
-                <div className="flex flex-col gap-1 min-w-[180px]">
-                  <label className="text-xs font-medium text-slate-600">Aluguel tradicional anual</label>
-                  <MoneyInput
-                    value={aluguelAnualTradicional}
-                    onChange={setAluguelAnualTradicional}
-                    className="!py-1.5 text-sm"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 min-w-[180px]">
-                  <label className="text-xs font-medium text-slate-600">Aluguel curto prazo anual</label>
-                  <MoneyInput
-                    value={aluguelAnualCurto}
-                    onChange={setAluguelAnualCurto}
-                    className="!py-1.5 text-sm"
-                  />
-                </div>
-                <Button type="button" variant="secondary" size="sm" onClick={aplicarAluguelAnual}>
-                  Aplicar rateio
-                </Button>
-              </div>
-            )}
+        <Card className="card-gov card-gov-accent px-6 py-6 border-slate-200 bg-slate-50/50">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded bg-[#0c326f] flex items-center justify-center text-white shadow-sm">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0c326f]">Preenchimento Rápido – Valores Anuais</h3>
           </div>
 
-          {/* Bloco Despesas dedutíveis */}
-          <div className="mb-4 pb-4 border-b border-slate-200 last:border-b-0 last:mb-0 last:pb-0">
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input
-                type="checkbox"
-                checked={modoDespesaAnual}
-                onChange={(e) => setModoDespesaAnual(e.target.checked)}
-                className="rounded border-slate-300 text-brand focus:ring-brand"
-              />
-              <span className="text-sm font-medium text-slate-700">Valor Anual / Distribuição Igualitária – Despesas dedutíveis</span>
-            </label>
-            {modoDespesaAnual && (
-              <div className="flex flex-wrap items-end gap-4 mt-2">
-                <div className="flex flex-col gap-1 min-w-[180px]">
-                  <label className="text-xs font-medium text-slate-600">Valor total anual</label>
-                  <MoneyInput
-                    value={despesaAnualTotal}
-                    onChange={setDespesaAnualTotal}
-                    className="!py-1.5 text-sm"
-                  />
+          <div className="p-4 rounded border border-blue-100 bg-blue-50/30 mb-6 text-xs text-[#0c326f] leading-relaxed relative">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1351b4] rounded-l" />
+            A <strong>Grade de Meses</strong> é a base para todos os cenários. Use o "Aplicar Rateio" para distribuir totais anuais nos 12 meses de forma automática.
+          </div>
+
+          <div className="space-y-6">
+            {/* Bloco Receitas */}
+            <div className="p-4 rounded-lg bg-white border border-slate-200 shadow-sm transition-all hover:border-[#1351b4]/30">
+              <label className="flex items-center gap-3 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={modoReceitaAnual}
+                  onChange={(e) => setModoReceitaAnual(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#1351b4] focus:ring-[#1351b4]/20"
+                />
+                <span className="text-xs font-black uppercase text-slate-700 tracking-tight">Distribuição Igualitária – Receitas de Aluguéis</span>
+              </label>
+              {modoReceitaAnual && (
+                <div className="flex flex-wrap items-end gap-6 mt-2 ml-7">
+                  <div className="flex flex-col gap-1.5 min-w-[200px]">
+                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Tradicional Anual (Longa)</label>
+                    <MoneyInput
+                      value={aluguelAnualTradicional}
+                      onChange={setAluguelAnualTradicional}
+                      className="!py-2 font-bold text-[#0c326f] border-slate-300"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 min-w-[200px]">
+                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Curto Prazo Anual (Temporada)</label>
+                    <MoneyInput
+                      value={aluguelAnualCurto}
+                      onChange={setAluguelAnualCurto}
+                      className="!py-2 font-bold text-[#0c326f] border-slate-300"
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="primary" 
+                    className="!bg-[#1351b4] hover:!bg-[#0c326f] font-black text-[10px] uppercase tracking-widest h-10 px-6 shadow-sm transform active:scale-95 transition-all"
+                    onClick={aplicarAluguelAnual}
+                  >
+                    Aplicar Rateio
+                  </Button>
                 </div>
-                <Button type="button" variant="secondary" size="sm" onClick={aplicarDespesaAnual}>
-                  Aplicar rateio
-                </Button>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Bloco Despesas dedutíveis */}
+            <div className="p-4 rounded-lg bg-white border border-slate-200 shadow-sm transition-all hover:border-[#1351b4]/30">
+              <label className="flex items-center gap-3 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={modoDespesaAnual}
+                  onChange={(e) => setModoDespesaAnual(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#1351b4] focus:ring-[#1351b4]/20"
+                />
+                <span className="text-xs font-black uppercase text-slate-700 tracking-tight">Distribuição Igualitária – Despesas Dedutíveis</span>
+              </label>
+              {modoDespesaAnual && (
+                <div className="flex flex-wrap items-end gap-6 mt-2 ml-7">
+                  <div className="flex flex-col gap-1.5 min-w-[200px]">
+                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Total Despesas Anuais</label>
+                    <MoneyInput
+                      value={despesaAnualTotal}
+                      onChange={setDespesaAnualTotal}
+                      className="!py-2 font-bold text-[#0c326f] border-slate-300"
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="primary" 
+                    className="!bg-[#1351b4] hover:!bg-[#0c326f] font-black text-[10px] uppercase tracking-widest h-10 px-6 shadow-sm transform active:scale-95 transition-all"
+                    onClick={aplicarDespesaAnual}
+                  >
+                    Aplicar Rateio
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </Card>
 
-        {/* Seções por categoria: receitas e despesas dedutíveis */}
-        <div ref={monthlyGridRef} />
         {(['receita', 'despesa'] as SectionKey[]).map((sectionKey) => {
           const config = SECTION_CONFIG[sectionKey];
           const sectionRows = ROWS.filter((r) => r.section === sectionKey);
@@ -2193,84 +2240,77 @@ export function SimuladorImoveis() {
           return (
             <Card
               key={sectionKey}
-              className={`overflow-hidden border-2 transition-all duration-300 ${
-                showLoadedHighlight ? 'ring-2 ring-brand/40 shadow-lg' : ''
+              className={`card-gov overflow-hidden border-2 transition-all duration-300 shadow-md ${
+                showLoadedHighlight ? 'ring-2 ring-[#1351b4]/40 shadow-xl scale-[1.002]' : ''
               } ${config.border} ${config.bg}`}
             >
-              <div className={`flex items-center gap-3 px-5 py-4 border-b ${config.headerBg}`}>
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-sm">
+              <div className={`flex items-center gap-4 px-6 py-5 border-b shadow-sm ${config.headerBg}`}>
+                <div className="flex h-12 w-12 items-center justify-center rounded bg-white text-[#0c326f] shadow-md border border-slate-100">
                   {config.icon}
-                </span>
+                </div>
                 <div>
-                  <h3 className="font-semibold text-slate-800">{config.title}</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">{config.subtitle}</p>
+                  <h3 className="text-sm font-black uppercase tracking-tight text-[#0c326f]">{config.title}</h3>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{config.subtitle}</p>
                 </div>
               </div>
               <div
-                className="-mx-2 overflow-x-auto px-2 py-3"
+                className="overflow-x-auto px-4 py-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent"
                 onKeyDownCapture={spreadsheetTableNavCapture}
               >
-                <table className="w-full text-sm min-w-[2600px]">
+                <table className="table-gov w-full min-w-[2800px]">
                   <thead>
-                    <tr className="border-b border-slate-200/80">
-                      <th className="sticky left-0 z-10 min-w-[260px] py-2.5 px-3 text-left font-medium text-slate-600 bg-slate-50/80">
-                        Item
+                    <tr className="bg-[#0c326f]">
+                      <th className="sticky left-0 z-20 min-w-[300px] py-4 px-4 text-left font-black uppercase text-[10px] text-white bg-[#0c326f] tracking-widest border-r border-[#1351b4]/30 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.3)]">
+                        Descrição do Item
                       </th>
-                      <th className="min-w-[220px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
-                        Anual
+                      <th className="min-w-[240px] py-4 px-4 text-center font-black uppercase text-[10px] text-white tracking-widest bg-[#0c326f]/90">
+                        Total Ano
                       </th>
                       {MESES.map((nome, i) => (
-                        <th key={i} className="min-w-[180px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                        <th key={i} className="min-w-[200px] py-4 px-4 text-center font-black uppercase text-[10px] text-white tracking-widest opacity-90 border-l border-white/10 italic">
                           {nome}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {sectionRows.map((row) => (
-                      <tr key={row.field} className="border-b border-slate-100 hover:bg-white/50 transition-colors">
-                        <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
-                          <span className="inline-flex items-center gap-1.5">
-                            {row.label}
-                            {row.tooltip && (
-                              <span
-                                title={row.tooltip}
-                                aria-label={row.tooltip}
-                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
-                              >ⓘ</span>
-                            )}
-                          </span>
+                  <tbody className="bg-white">
+                    {sectionRows.map((row, idx) => (
+                      <tr key={row.field} className={`group transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                        <td className={`sticky left-0 z-10 py-3 px-4 bg-inherit border-r border-slate-100 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[#eef2f6]`}>
+                          <div className="flex items-center gap-2">
+                             <span className="text-[11px] font-black text-[#0c326f] uppercase tracking-tight leading-tight">{row.label}</span>
+                             {row.tooltip && (
+                               <span
+                                 title={row.tooltip}
+                                 className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 text-[8px] font-black cursor-help hover:bg-blue-100 hover:text-blue-600 transition-all"
+                               >?</span>
+                             )}
+                          </div>
                         </td>
-                        <td className="py-1.5 px-2 min-w-[220px]">
-                          <div className="flex items-center gap-1.5">
+                        <td className="py-2.5 px-3 min-w-[240px] bg-inherit">
+                          <div className="flex items-center gap-2">
                             <MoneyInput
                               value={valoresAnuais[row.field] ?? 0}
                               onChange={(v) => setValoresAnuais((prev) => ({ ...prev, [row.field]: v }))}
-                              className="!py-1.5 text-sm min-w-[11rem] flex-1"
+                              className="!py-2 font-black text-[#0c326f] !bg-white/80 border-slate-200 focus:border-[#1351b4] text-xs flex-1"
                             />
-                            <Button
+                            <button
                               type="button"
-                              variant="secondary"
-                              size="sm"
                               onClick={() => aplicarRateioAnual(row.field)}
-                              title={
-                                CAMPOS_ANUAIS.has(row.field)
-                                  ? 'Concentrar valor anual no mês de Janeiro (despesa anual única)'
-                                  : 'Dividir valor anual por 12 e preencher todos os meses desta linha'
-                              }
-                              className="shrink-0 !py-1 !px-2 text-xs"
+                              className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-[#1351b4] hover:text-white transition-all shadow-sm"
+                              title="Distribuir valor nos meses"
                             >
-                              Distribuir
-                            </Button>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                            </button>
                           </div>
                         </td>
                         {meses.map((m, i) => (
-                          <td key={i} className="py-1.5 px-2 min-w-[180px]">
+                          <td key={i} className={`py-2.5 px-3 min-w-[200px] bg-inherit border-l border-slate-100/50`}>
                             <MoneyInput
                               value={(m[row.field] as number) ?? 0}
                               onChange={(v) => updateMes(i, row.field, v)}
-                              className={`!py-1.5 text-sm min-w-[11rem] transition-colors duration-300 ${
-                                showLoadedHighlight ? 'bg-amber-50/60 border-amber-300' : ''
+                              className={`!py-2 font-bold text-slate-700 !bg-white focus:border-[#1351b4] focus:ring-[#1351b4]/10 text-xs transition-all ${
+                                showLoadedHighlight ? 'animate-pulse bg-amber-50 border-amber-300' : ''
                               }`}
                             />
                           </td>
@@ -2284,151 +2324,117 @@ export function SimuladorImoveis() {
           );
         })}
 
-        {/* Custos operacionais: opcional, recolhível; créditos IBS/CBS na Reforma */}
+        {/* Custos operacionais: opcional, recolhível; */}
         <details
           open={custosOperacionaisAberto}
           onToggle={(e) => setCustosOperacionaisAberto(e.currentTarget.open)}
-          className="rounded-xl border-2 border-amber-200 bg-amber-50/60 overflow-hidden transition-all duration-300"
+          className="rounded-xl border-2 border-amber-200 bg-white overflow-hidden transition-all duration-300 shadow-sm"
         >
-          <summary className="cursor-pointer list-none px-4 py-3 bg-amber-100/80 border-b border-amber-200 flex flex-wrap items-start gap-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-slate-500 select-none mt-0.5" aria-hidden>
-              {custosOperacionaisAberto ? '▼' : '▶'}
+          <summary className="cursor-pointer list-none px-6 py-4 bg-amber-50/50 border-b border-amber-100 flex items-center gap-4 group">
+            <span className="text-amber-400 group-hover:text-amber-600 transition-colors" aria-hidden>
+              {custosOperacionaisAberto ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+              )}
             </span>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white text-amber-600 shadow-sm border border-amber-100">
               {SECTION_CONFIG.custo.icon}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-slate-800">{SECTION_CONFIG.custo.title}</h3>
-                <span className="text-xs font-normal text-slate-500">(opcional)</span>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-300/80 bg-white text-slate-600 hover:bg-amber-50 hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/40"
-                  aria-label="Por que preencher custos operacionais"
-                  title={CUSTOS_OPERACIONAIS_INFO}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5 pr-2">{SECTION_CONFIG.custo.subtitle}</p>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xs font-black uppercase tracking-tight text-[#0c326f]">{SECTION_CONFIG.custo.title} <span className="ml-2 font-bold text-slate-400 normal-case">(Opcional)</span></h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{SECTION_CONFIG.custo.subtitle}</p>
             </div>
           </summary>
-          <div className="space-y-4 p-4 bg-amber-50/40">
-            <Card className="p-4 border-amber-200/80 bg-white/90">
-              <p className="text-xs text-slate-600 mb-3">{CUSTOS_OPERACIONAIS_INFO}</p>
-              <label className="flex items-center gap-2 cursor-pointer mb-2">
+          
+          <div className="p-6 space-y-6">
+            <div className="p-4 rounded border border-amber-100 bg-amber-50/20 text-xs text-amber-900 leading-relaxed italic">
+              {CUSTOS_OPERACIONAIS_INFO}
+            </div>
+
+            <div className="p-5 rounded-lg border-2 border-slate-100 bg-slate-50/30">
+              <label className="flex items-center gap-3 cursor-pointer mb-4">
                 <input
                   type="checkbox"
                   checked={modoCustoAnual}
                   onChange={(e) => setModoCustoAnual(e.target.checked)}
-                  className="rounded border-slate-300 text-brand focus:ring-brand"
+                  className="w-4 h-4 rounded border-slate-300 text-[#1351b4] focus:ring-[#1351b4]/20"
                 />
-                <span className="text-sm font-medium text-slate-700">Valor anual / distribuição igualitária — Créditos IBS/CBS</span>
+                <span className="text-xs font-black uppercase text-slate-700 tracking-tight tracking-tight">Distribuição Igualitária – Créditos IBS/CBS</span>
               </label>
               {modoCustoAnual && (
-                <div className="flex flex-wrap items-end gap-4 mt-2">
-                  <div className="flex flex-col gap-1 min-w-[180px]">
-                    <label className="text-xs font-medium text-slate-600">Valor total anual</label>
+                <div className="flex flex-wrap items-end gap-6 mt-2 ml-7">
+                  <div className="flex flex-col gap-1.5 min-w-[200px]">
+                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Total Créditos Anuais</label>
                     <MoneyInput
                       value={custoAnualTotal}
                       onChange={setCustoAnualTotal}
-                      className="!py-1.5 text-sm"
+                      className="!py-2 font-bold text-[#0c326f] border-slate-300"
                     />
                   </div>
-                  <Button type="button" variant="secondary" size="sm" onClick={aplicarCustoAnual}>
-                    Aplicar rateio
+                  <Button 
+                    type="button" 
+                    variant="primary" 
+                    className="!bg-[#1351b4] hover:!bg-[#0c326f] font-black text-[10px] uppercase tracking-widest h-10 px-6"
+                    onClick={aplicarCustoAnual}
+                  >
+                    Aplicar Rateio
                   </Button>
                 </div>
               )}
-            </Card>
+            </div>
+
             {(() => {
               const sectionKey: SectionKey = 'custo';
-              const config = SECTION_CONFIG[sectionKey];
               const sectionRows = ROWS.filter((r) => r.section === sectionKey);
               return (
-                <Card
-                  className={`overflow-hidden border-2 transition-all duration-300 ${
-                    showLoadedHighlight ? 'ring-2 ring-brand/40 shadow-lg' : ''
-                  } ${config.border} ${config.bg}`}
-                >
-                  <div
-                    className="-mx-2 overflow-x-auto px-2 py-3"
-                    onKeyDownCapture={spreadsheetTableNavCapture}
-                  >
-                    <table className="w-full text-sm min-w-[2600px]">
+                <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto" onKeyDownCapture={spreadsheetTableNavCapture}>
+                    <table className="table-gov w-full min-w-[2800px]">
                       <thead>
-                        <tr className="border-b border-slate-200/80">
-                          <th className="sticky left-0 z-10 min-w-[260px] py-2.5 px-3 text-left font-medium text-slate-600 bg-slate-50/80">
-                            Item
+                        <tr className="bg-[#0c326f]">
+                          <th className="sticky left-0 z-20 min-w-[300px] py-4 px-4 text-left font-black uppercase text-[10px] text-white bg-[#0c326f] tracking-widest border-r border-[#1351b4]/30 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.3)]">
+                            Descrição do Item
                           </th>
-                          <th className="min-w-[220px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
-                            Anual
+                          <th className="min-w-[240px] py-4 px-4 text-center font-black uppercase text-[10px] text-white tracking-widest bg-[#0c326f]/90">
+                            Total Ano
                           </th>
                           {MESES.map((nome, i) => (
-                            <th key={i} className="min-w-[180px] py-2 px-2 text-center font-medium text-slate-600 text-xs">
+                            <th key={i} className="min-w-[200px] py-4 px-4 text-center font-black uppercase text-[10px] text-white tracking-widest opacity-90 border-l border-white/10 italic">
                               {nome}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody>
-                        {sectionRows.map((row) => (
-                          <tr key={row.field} className="border-b border-slate-100 hover:bg-white/50 transition-colors">
-                            <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
-                              <span className="inline-flex items-center gap-1.5">
-                                {row.label}
-                                {row.tooltip && (
-                                  <span
-                                    title={row.tooltip}
-                                    aria-label={row.tooltip}
-                                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
-                                  >ⓘ</span>
-                                )}
-                              </span>
+                      <tbody className="bg-white">
+                        {sectionRows.map((row, idx) => (
+                          <tr key={row.field} className={`group transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                            <td className="sticky left-0 z-10 py-3 px-4 bg-inherit border-r border-slate-100 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] group-hover:bg-[#eef2f6]">
+                              <span className="text-[11px] font-black text-[#0c326f] uppercase tracking-tight">{row.label}</span>
                             </td>
-                            <td className="py-1.5 px-2 min-w-[220px]">
-                              <div className="flex items-center gap-1.5">
+                            <td className="py-2.5 px-3 min-w-[240px] bg-inherit">
+                              <div className="flex items-center gap-2">
                                 <MoneyInput
                                   value={valoresAnuais[row.field] ?? 0}
                                   onChange={(v) => setValoresAnuais((prev) => ({ ...prev, [row.field]: v }))}
-                                  className="!py-1.5 text-sm min-w-[11rem] flex-1"
+                                  className="!py-2 font-black text-[#0c326f] !bg-white/80 border-slate-200 text-xs flex-1"
                                 />
-                                <Button
+                                <button
                                   type="button"
-                                  variant="secondary"
-                                  size="sm"
                                   onClick={() => aplicarRateioAnual(row.field)}
-                                  title={
-                                    CAMPOS_ANUAIS.has(row.field)
-                                      ? 'Concentrar valor anual no mês de Janeiro (despesa anual única)'
-                                      : 'Dividir valor anual por 12 e preencher todos os meses desta linha'
-                                  }
-                                  className="shrink-0 !py-1 !px-2 text-xs"
+                                  className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-[#1351b4] hover:text-white transition-all shadow-sm"
+                                  title="Distribuir valor nos meses"
                                 >
-                                  Distribuir
-                                </Button>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                </button>
                               </div>
                             </td>
                             {meses.map((m, i) => (
-                              <td key={i} className="py-1.5 px-2 min-w-[180px]">
+                              <td key={i} className="py-2.5 px-3 min-w-[200px] bg-inherit border-l border-slate-100/50">
                                 <MoneyInput
                                   value={(m[row.field] as number) ?? 0}
                                   onChange={(v) => updateMes(i, row.field, v)}
-                                  className={`!py-1.5 text-sm min-w-[11rem] transition-colors duration-300 ${
-                                    showLoadedHighlight ? 'bg-amber-50/60 border-amber-300' : ''
-                                  }`}
+                                  className="!py-2 font-bold text-slate-700 !bg-white border-slate-200 text-xs"
                                 />
                               </td>
                             ))}
@@ -2437,19 +2443,35 @@ export function SimuladorImoveis() {
                       </tbody>
                     </table>
                   </div>
-                </Card>
+                </div>
               );
             })()}
           </div>
         </details>
 
-        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2 border-t border-slate-100">
-          <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px] sm:ml-auto">
-            {loading
-              ? 'Calculando...'
-              : editingSimulationId
-                ? 'Próximo: atualizar resultado'
-                : 'Próximo: ver resultado da simulação'}
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-6 border-t font-black uppercase text-xs tracking-widest border-[#eef2f6]">
+          <Button 
+            type="submit" 
+            variant="primary" 
+            disabled={loading} 
+            className="!bg-[#1351b4] hover:!bg-[#0c326f] shadow-lg font-black text-sm uppercase tracking-widest px-12 py-7 h-auto transition-all transform active:scale-95 group"
+          >
+            {loading ? (
+              <span className="flex items-center gap-3">
+                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Processando...
+              </span>
+            ) : (
+              <span className="flex items-center gap-3">
+                {editingSimulationId ? 'Atualizar Resultados' : 'Calcular Simulação Completa'}
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </span>
+            )}
           </Button>
         </div>
       </form>
@@ -2457,42 +2479,50 @@ export function SimuladorImoveis() {
 
       {wizardStep === 3 && result && (
         <>
-        <div className="mt-6 print:hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand px-5 py-4 mb-4 shadow-md">
-            <div className="flex items-center gap-3 min-w-0">
-              <svg className="h-6 w-6 shrink-0 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm font-medium text-white">
-                Resultado calculado. Exporte em PDF para apresentar ao cliente ou volte para ajustar os parâmetros.
-              </p>
+        <div className="mt-8 print:hidden">
+          <Card className="card-gov border-2 border-[#1351b4] bg-white px-6 py-5 mb-6 shadow-xl relative overflow-hidden">
+            <div className="absolute right-0 top-0 bottom-0 w-24 bg-[#eef2f6] -mr-8 -skew-x-12 opacity-50" />
+            
+            <div className="flex flex-wrap items-center justify-between gap-6 relative z-10">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 rounded bg-[#0c326f] flex items-center justify-center text-white shadow-md">
+                   <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h2 className="text-sm font-black uppercase text-[#0c326f] tracking-tighter">Simulação Concluída com Sucesso</h2>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                    Os resultados comparativos para o ano {ano} estão disponíveis abaixo.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3 shrink-0">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setWizardStep(2);
+                    setResult(null);
+                  }}
+                  className="!border-[#1351b4] !text-[#1351b4] hover:!bg-[#1351b4]/5 font-black text-xs uppercase"
+                >
+                  ← Ajustar Parâmetros
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleOpenPrintPreview}
+                  className="!bg-[#1351b4] hover:!bg-[#0c326f] shadow-lg font-black text-xs uppercase tracking-widest inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Exportar PDF
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setWizardStep(2);
-                  setResult(null);
-                }}
-                className="!bg-white/15 !text-white !border-white/30 hover:!bg-white/25"
-              >
-                Voltar aos parâmetros
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleOpenPrintPreview}
-                className="!bg-white !text-brand hover:!bg-white/90 inline-flex items-center gap-2 font-semibold shadow"
-                aria-label="Exportar resultado para PDF"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Exportar para PDF
-              </Button>
-            </div>
-          </div>
+          </Card>
         </div>
         <div id="simulador-imoveis-print-wrapper" ref={printWrapperRef} className="report-print-wrapper mt-0">
           {/*
@@ -2634,17 +2664,25 @@ export function SimuladorImoveis() {
             </Button>
           </div>
 
-          {/* Salvar simulação no histórico (botão após resultado) */}
-          <Card className="p-5 border border-slate-200 bg-slate-50/50 print:hidden" data-report-exclude="preview">
-            <h3 className="text-base font-semibold text-slate-800 mb-3">Salvar simulação no histórico</h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Salve esta simulação para consultar depois no Histórico.
-            </p>
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="min-w-[200px]">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+          {/* Salvar simulação no histórico */}
+          <Card className="card-gov card-gov-accent p-6 border-slate-200 bg-slate-50/50 print:hidden" data-report-exclude="preview">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded bg-[#0c326f] flex items-center justify-center text-white shadow-sm">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-[#0c326f]">Registrar Simulação no Histórico</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-0.5">Armazene os dados para consultas futuras e comparativos.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-6">
+              <div className="flex-1 min-w-[240px]">
+                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1.5 ml-1">Vincular ao Cliente *</label>
                 <select
-                  className="h-10 w-full min-w-[200px] border border-slate-300 rounded-md px-3 text-sm text-slate-700 bg-white"
+                  className="w-full bg-white border border-slate-300 rounded px-4 py-2.5 text-sm font-bold text-[#0c326f] focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4] outline-none shadow-sm transition-all"
                   value={saveClientId}
                   onChange={(e) => setSaveClientId(e.target.value)}
                   disabled={isLoadingClients}
@@ -2655,13 +2693,13 @@ export function SimuladorImoveis() {
                   ))}
                 </select>
               </div>
-              <div className="min-w-[180px]">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Título (opcional)</label>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1.5 ml-1">Título de Referência</label>
                 <Input
-                  placeholder="Ex: Simulação 2025"
+                  placeholder="Ex: Simulação IRPF 2025"
                   value={saveTitle}
                   onChange={(e) => setSaveTitle(e.target.value)}
-                  className="h-10"
+                  className="!py-2.5 font-bold text-[#0c326f] border-slate-300"
                 />
               </div>
               <Button
@@ -2669,521 +2707,205 @@ export function SimuladorImoveis() {
                 variant="secondary"
                 onClick={handleSaveToHistory}
                 disabled={loading || !saveClientId}
+                className="!bg-[#1351b4] hover:!bg-[#0c326f] !text-white font-black text-[10px] uppercase tracking-widest h-[42px] px-8 shadow-sm transition-all transform active:scale-95"
               >
-                {loading ? 'Salvando...' : 'Salvar'}
+                {loading ? 'Processando...' : 'Salvar Registro'}
               </Button>
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Pessoa Física (Carnê-Leão)</h3>
-            <p className="text-2xl font-bold text-brand">
-              {formatMoney(result.cenarios.pf.imposto_total)}
-            </p>
-            <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
-            </p>
-            <details className="mt-3">
-              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                Ver cálculo
-              </summary>
-              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
-                <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Base × Alíquota progressiva</p>
-                <p>Receita bruta: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.receita_bruta_total)}</span></p>
-                <p>− Despesas dedutíveis: <span className="text-slate-800">{formatMoney(result.cenarios.pf.despesas_dedutiveis_total)}</span></p>
-                <p className="border-t border-slate-200 pt-1">= Base de cálculo: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.base_calculo_total)}</span></p>
-                <p className="text-slate-500 text-[10px] mt-1">Tabela progressiva mensal aplicada (0% a 27,5%)</p>
-                <p className="border-t border-slate-200 pt-1 mt-1">= IR anual: <span className="text-brand font-bold">{formatMoney(result.cenarios.pf.imposto_total)}</span></p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* PERSONA FÍSICA CARD */}
+            <Card className="card-gov border-l-4 border-[#1351b4] px-6 py-6 bg-white shadow-md">
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="w-8 h-8 rounded bg-blue-50 flex items-center justify-center text-[#1351b4]">
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                 </div>
+                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Pessoa Física <span className="text-slate-400 font-bold ml-1">(Carnê-Leão)</span></h3>
               </div>
-            </details>
-          </Card>
-          <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Pessoa Jurídica (Lucro Presumido)</h3>
-            <p className="text-2xl font-bold text-slate-800">
-              {formatMoney(result.cenarios.pj.imposto_total)}
-            </p>
-            <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva: {result.cenarios.pj.aliquota_efetiva.toFixed(2)}%
-            </p>
-            {(() => {
-              const pres16 = (result.memoria_calculo as { aplicar_presuncao_16_servicos?: boolean } | undefined)?.aplicar_presuncao_16_servicos;
-              if (pres16 === undefined) return null;
-              return (
-                <p className="text-xs text-slate-500 mt-1">
-                  {pres16
-                    ? 'Presunção 16% – Receita anual ≤ R$ 120k (Lei 9.249/95, Art. 15, § 7º – IN RFB 1700/2017, art. 33, § 7º)'
-                    : 'Presunção 32% (locação de imóveis – Lei 9.249/95, Art. 15 – IN RFB 1700/2017, art. 33, § 7º)'}
-                </p>
-              );
-            })()}
-            {(result.cenarios.pj.irpj_adicional ?? 0) > 0 && (
-              <p className="text-xs text-slate-600 mt-1">
-                Adicional IRPJ (10% sobre parcela que excedeu R$ 60 mil/trimestre – Lei 9.249/95): {formatMoney(result.cenarios.pj.irpj_adicional ?? 0)}
-              </p>
-            )}
-            {(result.cenarios.pj.irpj_postergado ?? 0) > 0 && (
-              <>
-                <p className="text-xs text-amber-700 mt-1 font-medium">
-                  Diferença postergada (Lei 9.249/95, Art. 15, § 8º): {formatMoney(result.cenarios.pj.irpj_postergado ?? 0)}. Receita ultrapassou R$ 120 mil no ano-calendário; a diferença de IRPJ (16% → 32%) dos trimestres anteriores foi apurada no trimestre do excesso.
-                </p>
-                {result.cenarios.pj.trimestres && result.cenarios.pj.trimestres.length > 0 && (
-                  <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <p className="text-xs font-semibold text-amber-800 mb-2">Receita Acumulada no Ano-Calendário</p>
-                    <div className="flex items-center justify-between gap-1">
-                      {(() => {
-                        let receitaAcumulada = 0;
-                        return result.cenarios.pj.trimestres.map((t, i) => {
-                          receitaAcumulada += t.receita;
-                          const presuncao = t.presuncao_irpj_pct ?? 32;
-                          const ultrapassou = presuncao === 32 && (result.cenarios.pj.trimestres?.[i - 1]?.presuncao_irpj_pct ?? 16) === 16;
-                          const temPostergado = (t.irpj_postergado ?? 0) > 0;
-                          return (
-                            <div key={t.trimestre} className="flex-1 text-center">
-                              <div className={`text-[10px] font-mono ${presuncao === 16 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                {formatMoney(receitaAcumulada)}
-                              </div>
-                              <div className="flex items-center justify-center mt-1">
-                                {i > 0 && (
-                                  <div className={`h-0.5 flex-1 ${ultrapassou ? 'bg-red-400' : presuncao === 16 ? 'bg-emerald-300' : 'bg-amber-300'}`} />
-                                )}
-                                <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
-                                  ultrapassou ? 'bg-red-500 text-white' : presuncao === 16 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
-                                }`}>
-                                  {presuncao === 16 ? '16' : '32'}
-                                </div>
-                                {i < (result.cenarios.pj.trimestres?.length ?? 0) - 1 && (
-                                  <div className={`h-0.5 flex-1 ${presuncao === 16 ? 'bg-emerald-300' : 'bg-amber-300'}`} />
-                                )}
-                              </div>
-                              <div className="text-[10px] text-slate-500 mt-0.5">{t.trimestre}º Tri</div>
-                              {temPostergado && (
-                                <div className="text-[9px] text-red-600 font-medium mt-0.5">
-                                  +{formatMoney(t.irpj_postergado ?? 0)}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                    <div className="flex items-center gap-4 mt-3 pt-2 border-t border-amber-200 text-[10px]">
-                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> 16% (≤ R$ 120k)</div>
-                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 32% (&gt; R$ 120k)</div>
-                      <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-red-500" /> Ultrapassou</div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {(() => {
-              const mc = result.memoria_calculo as { cenario_32_fixo_imposto?: number; aplicar_presuncao_16_servicos?: boolean } | undefined;
-              const cenario32 = mc?.cenario_32_fixo_imposto;
-              const usou16 = mc?.aplicar_presuncao_16_servicos;
-              if (cenario32 !== undefined && usou16) {
-                const economia = cenario32 - result.cenarios.pj.imposto_total;
-                const economiaPct = cenario32 > 0 ? (economia / cenario32) * 100 : 0;
-                return (
-                  <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
-                    <p className="text-xs text-emerald-800 font-medium flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Economia com presunção 16%: {formatMoney(economia)} ({economiaPct.toFixed(2)}%)
-                    </p>
-                    <p className="text-[10px] text-emerald-700 mt-0.5">
-                      Se usasse 32% (locação): {formatMoney(cenario32)} | Com 16% (serviços): {formatMoney(result.cenarios.pj.imposto_total)}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <details className="mt-3">
-              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                Ver cálculo
-              </summary>
-              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
-                <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Lucro Presumido (Lei 9.249/95)</p>
-                {(() => {
-                  const pj = result.cenarios.pj;
-                  const presuncao = pj.trimestres?.[0]?.presuncao_irpj_pct ?? 32;
-                  return (
-                    <>
-                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Base de cálculo IRPJ</p>
-                      <p>Receita bruta: <span className="text-slate-800">{formatMoney(pj.receita_bruta_total)}</span></p>
-                      <p>× Presunção {presuncao}%: <span className="text-slate-800 font-semibold">{formatMoney(pj.base_presumida_irpj)}</span> <span className="text-slate-400">(base IRPJ)</span></p>
-                      
-                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: IRPJ (15%)</p>
-                      <p>{formatMoney(pj.base_presumida_irpj)} × 15% = <span className="text-slate-800 font-semibold">{formatMoney(pj.irpj)}</span></p>
-                      {(pj.irpj_adicional ?? 0) > 0 && (
-                        <p>+ Adicional 10% (excedente R$ 60k/tri): <span className="text-amber-700 font-semibold">{formatMoney(pj.irpj_adicional ?? 0)}</span></p>
-                      )}
-                      {(pj.irpj_postergado ?? 0) > 0 && (
-                        <p>+ Diferença § 8º (16%→32%): <span className="text-amber-700 font-semibold">{formatMoney(pj.irpj_postergado ?? 0)}</span></p>
-                      )}
-                      
-                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: CSLL (9%)</p>
-                      <p>{formatMoney(pj.base_presumida_csll)} × 9% = <span className="text-slate-800 font-semibold">{formatMoney(pj.csll)}</span></p>
-                      
-                      <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: PIS/COFINS (cumulativo)</p>
-                      <p>{formatMoney(pj.receita_bruta_total)} × 0,65% = PIS <span className="text-slate-800">{formatMoney(pj.pis)}</span></p>
-                      <p>{formatMoney(pj.receita_bruta_total)} × 3% = COFINS <span className="text-slate-800">{formatMoney(pj.cofins)}</span></p>
-                      
-                      <p className="border-t border-slate-200 pt-2 mt-2 font-sans">
-                        <span className="text-slate-500">Total =</span> IRPJ + CSLL + PIS + COFINS = <span className="text-slate-800 font-bold">{formatMoney(pj.imposto_total)}</span>
-                      </p>
-                    </>
-                  );
-                })()}
+              <div className="flex flex-col gap-0.5">
+                <span className="text-4xl font-black text-[#1351b4] tracking-tight">{formatMoney(result.cenarios.pf.imposto_total)}</span>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="px-2 py-0.5 rounded bg-blue-50 text-[10px] font-black text-[#1351b4] uppercase">Efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%</span>
+                </div>
               </div>
-            </details>
-            {result.cenarios.pj.trimestres && result.cenarios.pj.trimestres.length > 0 && (
-              <details className="mt-2">
-                <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
-                  Detalhamento por trimestre
+              
+              <details className="mt-6 border-t border-slate-100 pt-4 group">
+                <summary className="text-[10px] font-black uppercase text-slate-400 cursor-pointer hover:text-[#1351b4] flex items-center gap-2 transition-colors list-none">
+                  <svg className="w-3 h-3 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                  Detalhamento do Cálculo
                 </summary>
-                <div className="mt-2 overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="py-1 px-1 text-left">Trim</th>
-                        <th className="py-1 px-1 text-right">Receita</th>
-                        <th className="py-1 px-1 text-right">B.Cálc. IRPJ</th>
-                        <th className="py-1 px-1 text-center">Pres.</th>
-                        <th className="py-1 px-1 text-right">IRPJ</th>
-                        <th className="py-1 px-1 text-right">CSLL</th>
-                        <th className="py-1 px-1 text-right">PIS</th>
-                        <th className="py-1 px-1 text-right">COFINS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.cenarios.pj.trimestres.map((t) => (
-                        <tr key={t.trimestre} className="border-b border-slate-100">
-                          <td className="py-1 px-1">{t.trimestre}º</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.receita)}</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.base_irpj)}</td>
-                          <td className="py-1 px-1 text-center">{t.presuncao_irpj_pct ?? 32}%</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.irpj + (t.irpj_adicional ?? 0) + (t.irpj_postergado ?? 0))}</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.csll)}</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.pis)}</td>
-                          <td className="py-1 px-1 text-right">{formatMoney(t.cofins)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase text-slate-500">Receita Bruta Total</span>
+                      <span className="text-xs font-bold text-[#0c326f]">{formatMoney(result.cenarios.pf.receita_bruta_total)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-rose-600">
+                      <span className="text-[10px] font-black uppercase opacity-70">Despesas Dedutíveis (−)</span>
+                      <span className="text-xs font-bold">{formatMoney(result.cenarios.pf.despesas_dedutiveis_total)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[#1351b4]">
+                      <span className="text-[10px] font-black uppercase">Base de Cálculo Final</span>
+                      <span className="text-sm font-black tracking-tight">{formatMoney(result.cenarios.pf.base_calculo_total)}</span>
+                    </div>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed mt-2 text-center bg-white py-1 rounded shadow-sm">Tabela RFB aplicada mensalmente (12 meses)</p>
+                  </div>
                 </div>
               </details>
-            )}
-          </Card>
-          <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Física (IR + IBS/CBS)</h3>
-            {(() => {
-              const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
-              const irHoje = result.cenarios.pf.imposto_total;
-              const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
-              
-              // Verificar se PF é contribuinte de IBS/CBS
-              const LIMITE_RECEITA = 240_000;
-              const LIMITE_RECEITA_ABSOLUTO = 288_000;
-              const LIMITE_IMOVEIS = 3;
-              const ehContribuinteIbsCbs = receita > LIMITE_RECEITA_ABSOLUTO || 
-                (quantidadeImoveisTotal > LIMITE_IMOVEIS && receita > LIMITE_RECEITA);
-              
-              if (!ehContribuinteIbsCbs) {
-                return (
-                  <>
-                    <p className="text-2xl font-bold text-emerald-700">
-                      {formatMoney(irHoje)}
-                    </p>
-                    <p className="text-sm text-slate-600 mt-1">
-                      Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
-                    </p>
-                    <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200">
-                      <p className="text-sm text-emerald-800 font-medium">
-                        Não contribuinte de IBS/CBS
-                      </p>
-                      <p className="text-xs text-emerald-700 mt-1">
-                        {quantidadeImoveisTotal <= LIMITE_IMOVEIS
-                          ? `Com ${quantidadeImoveisTotal} imóvel(is) e receita de ${formatMoney(receita)}, a PF não atinge os critérios para ser contribuinte de IBS/CBS.`
-                          : `Receita de ${formatMoney(receita)} está abaixo de R$ 240.000.`}
-                      </p>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                      A PF continua pagando apenas o IR (Carnê-Leão) sobre a renda de locação.
-                    </p>
-                  </>
-                );
-              }
-              
-              const ibsCbs = refPf?.ibs_cbs_liquido ?? 0;
-              const totalPF2027 = irHoje + ibsCbs;
-              const aliquotaTotal = receita > 0 ? (totalPF2027 / receita) * 100 : 0;
-              return (
-                <>
-                  <p className="text-2xl font-bold text-slate-800">
-                    {formatMoney(totalPF2027)}
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Alíquota total: {aliquotaTotal.toFixed(2)}%
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    IR (Carnê-Leão, mesmo de hoje): {formatMoney(irHoje)} + IBS/CBS: {formatMoney(ibsCbs)} = total acima.
-                  </p>
-                  {irHoje === 0 && (
-                    <p className="text-xs text-amber-700 mt-0.5">
-                      Nesta simulação o IR da PF é zero (base de cálculo zero ou deduções altas), por isso o total da PF coincide com o valor só de IBS/CBS.
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Em 2027 a PF continua pagando o mesmo IR de hoje sobre a renda; soma-se o IBS/CBS sobre a atividade.
-                  </p>
-                  <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
-                    Contribuinte de IBS/CBS: {receita > LIMITE_RECEITA_ABSOLUTO 
-                      ? `Receita > R$ 288.000 (independente do número de imóveis)`
-                      : `Mais de ${LIMITE_IMOVEIS} imóveis (${quantidadeImoveisTotal}) e receita > R$ 240.000`}
-                  </p>
-                </>
-              );
-            })()}
-          </Card>
-          <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
-            <p className="text-2xl font-bold text-slate-800">
-              {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
-            </p>
-            <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(2) ?? '0'}%
-              {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
-                <span className="text-slate-500"> (com redutor 70% longa duração e 40% curta temporada)</span>
-              ) : (
-                ((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct != null && (
-                  <span className="text-slate-500"> (com redutor {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.redutor_locacao_aplicado_pct ?? 70}% para locação)</span>
-                )
-              )}
-            </p>
-            {(() => {
-              const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-              const irpj = (ref as { irpj?: number })?.irpj;
-              const csll = (ref as { csll?: number })?.csll;
-              const ibsCbs = ref?.ibs_cbs_liquido ?? 0;
-              if (irpj != null && csll != null) {
-                return (
-                  <p className="text-xs text-slate-500 mt-1">
-                    IBS/CBS: {formatMoney(ibsCbs)} + IRPJ: {formatMoney(irpj)} + CSLL: {formatMoney(csll)} = Total acima.
-                  </p>
-                );
-              }
-              return (
-                <p className="text-xs text-slate-500 mt-1">
-                  Total = IBS/CBS (substitui PIS/COFINS) + IRPJ + CSLL sobre o lucro presumido.
-                </p>
-              );
-            })()}
-            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
-              <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
-            )}
-            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
-              <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
-            )}
-            <details className="mt-3">
-              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                Ver cálculo IBS/CBS
-              </summary>
+            </Card>
+
+            {/* PERSONA JURÍDICA CARD */}
+            <Card className="card-gov border-l-4 border-slate-400 px-6 py-6 bg-white shadow-md">
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="w-8 h-8 rounded bg-slate-50 flex items-center justify-center text-slate-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                 </div>
+                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Pessoa Jurídica <span className="text-slate-400 font-bold ml-1">(Lucro Presumido)</span></h3>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-4xl font-black text-slate-800 tracking-tight">{formatMoney(result.cenarios.pj.imposto_total)}</span>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-black text-slate-600 uppercase">Efetiva: {result.cenarios.pj.aliquota_efetiva.toFixed(2)}%</span>
+                </div>
+              </div>
+
               {(() => {
-                const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-                if (!ref) return null;
-                const refExt = ref as {
-                  aliquota_nominal_ibs_cbs?: number;
-                  redutor_locacao_aplicado_pct?: number;
-                  ibs_cbs_sobre_receita?: number;
-                  custos_operacionais_total?: number;
-                  irpj?: number;
-                  csll?: number;
-                  redutor_diferenciado_short?: boolean;
-                  redutor_long_pct?: number;
-                  redutor_short_pct?: number;
-                  ibs_cbs_antes_redutor_social?: number;
-                  redutor_social_base_deduzida_anual?: number;
-                  redutor_social_aplicado?: number;
-                };
-                const aliqNominal = refExt.aliquota_nominal_ibs_cbs ?? 26.5;
-                const debito = refExt.ibs_cbs_sobre_receita ?? 0;
-                const creditos = ref.creditos_ibs_cbs ?? 0;
-                const custos = refExt.custos_operacionais_total ?? 0;
-                const liquido = ref.ibs_cbs_liquido ?? 0;
-                const temRedutorSocial = refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0;
-                const irpj = refExt.irpj ?? 0;
-                const csll = refExt.csll ?? 0;
-                const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
-                const pctRedutorLonga = refExt.redutor_long_pct ?? refExt.redutor_locacao_aplicado_pct ?? 70;
-                const pctRedutorShort = refExt.redutor_short_pct ?? 40;
-                const aliqEfetivaLonga = round2(aliqNominal * (1 - pctRedutorLonga / 100));
-                const aliqEfetivaShort = round2(aliqNominal * (1 - pctRedutorShort / 100));
-
-                const idxLc214 = result.indices_lc214;
-                const mensalRedutorSocialEfetivo = idxLc214?.redutor_social_mensal_efetivo ?? 600;
-                const nImoveisArt260 =
-                  quantidadeImoveisResidenciaisLonga > 0
-                    ? quantidadeImoveisResidenciaisLonga
-                    : perfilLocacao !== 'hospedagem_temporada'
-                      ? quantidadeImoveisResidenciais
-                      : 0;
-
-                const recResAnual = receitaLocacaoResidencialAnual > 0
-                  ? receitaLocacaoResidencialAnual
-                  : (ref.receita_bruta_total ?? 0);
-                const recNaoResAnual = receitaLocacaoNaoResidencialAnual;
-                const recLongaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_tradicional ?? 0), 0);
-                const recCurtaMeses = meses.reduce((s, m) => s + (m.receita_aluguel_curto ?? 0), 0);
-                const totalLongShort = recLongaMeses + recCurtaMeses;
-                const partLong = totalLongShort > 0 ? recLongaMeses / totalLongShort : 1;
-                const recResLonga = round2(recResAnual * partLong);
-                const recResCurta = round2(recResAnual * (1 - partLong));
-                const temSplit = redutorDiferenciado && (recResLonga > 0 || recResCurta > 0 || recNaoResAnual > 0);
-
-                const redutorAnual = round2(Math.max(0, nImoveisArt260) * mensalRedutorSocialEfetivo * 12);
-                const baseDeduzida = temRedutorSocial
-                  ? (refExt.redutor_social_base_deduzida_anual ?? round2(Math.min(recResLonga, redutorAnual)))
-                  : 0;
-                const baseResLonga = round2(recResLonga - baseDeduzida);
-                const ibsResLonga = round2(baseResLonga * aliqEfetivaLonga / 100);
-                const ibsResCurta = round2(recResCurta * aliqEfetivaShort / 100);
-                const ibsNaoRes = round2(recNaoResAnual * aliqEfetivaLonga / 100);
-                const ibsTotalTipos = round2(ibsResLonga + ibsResCurta + ibsNaoRes);
-
-                const temPassoIrpjCsll = irpj > 0 || csll > 0;
-
+                const pj = result.cenarios.pj;
+                const mc = result.memoria_calculo as { cenario_32_fixo_imposto?: number; aplicar_presuncao_16_servicos?: boolean } | undefined;
+                const pres16 = mc?.aplicar_presuncao_16_servicos;
+                const cenario32 = mc?.cenario_32_fixo_imposto;
                 return (
-                  <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
-                    <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Composição da alíquota IBS/CBS (LC 214/2025)</p>
-                    
-                    <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Passo 1: Alíquota efetiva (redutor da alíquota)</p>
-                    <p>Alíquota nominal: <span className="text-slate-800">{aliqNominal.toFixed(2)}%</span></p>
-                    {redutorDiferenciado ? (
-                      <>
-                        <p className="font-sans text-slate-600">Longa duração: {aliqNominal.toFixed(2)}% × (100% − {pctRedutorLonga}%) = <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span> (Art. 261)</p>
-                        <p className="font-sans text-slate-600">Curta temporada: {aliqNominal.toFixed(2)}% × (100% − {pctRedutorShort}%) = <span className="text-slate-800 font-semibold">{aliqEfetivaShort.toFixed(2)}%</span> (Art. 281)</p>
-                        <p className="font-sans text-slate-600">Não residencial: mesma da longa duração = <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span></p>
-                      </>
-                    ) : (
-                      <>
-                        <p>× (100% − {refExt.redutor_locacao_aplicado_pct ?? 70}% redutor) = <span className="text-slate-800">{(100 - (refExt.redutor_locacao_aplicado_pct ?? 70))}%</span></p>
-                        <p className="border-t border-slate-200 pt-1">= Alíquota efetiva: <span className="text-slate-800 font-semibold">{aliqEfetivaLonga.toFixed(2)}%</span></p>
-                      </>
+                  <div className="mt-4 space-y-2">
+                    <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 text-[9px] font-bold text-slate-500 uppercase leading-snug">
+                      {pres16
+                        ? '✓ Presunção Reduzida 16% (Art. 15 Lei 9.249/95)'
+                        : '✓ Presunção Padrão 32% (Locação)'}
+                    </div>
+                    {cenario32 !== undefined && pres16 && (
+                       <div className="p-2 bg-emerald-50 rounded border border-emerald-200 text-[9px] font-bold text-emerald-700 uppercase flex items-center gap-1.5">
+                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                         Economia Gerada: {formatMoney(cenario32 - pj.imposto_total)}
+                       </div>
                     )}
-
-                    {temSplit ? (
-                      <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-3">Passo 2: IBS/CBS por tipo de imóvel</p>
-                        <div className="mt-1 font-sans space-y-2">
-                          {recResLonga > 0 && (
-                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-xs font-semibold text-slate-700">Residencial longa</span>
-                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResLonga)}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
-                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResLonga)}</span></div>
-                                <div><span className="text-slate-400">Redutor</span> <span className="text-emerald-700 font-medium">{baseDeduzida > 0 ? `−${formatMoney(baseDeduzida)}` : '—'}</span></div>
-                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(baseResLonga)}</span></div>
-                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaLonga.toFixed(2)}%</span></div>
-                              </div>
-                            </div>
-                          )}
-                          {recResCurta > 0 && (
-                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-xs font-semibold text-slate-700">Residencial curta</span>
-                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsResCurta)}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
-                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recResCurta)}</span></div>
-                                <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
-                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recResCurta)}</span></div>
-                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaShort.toFixed(2)}%</span></div>
-                              </div>
-                            </div>
-                          )}
-                          {recNaoResAnual > 0 && (
-                            <div className="rounded border border-slate-200 bg-white px-3 py-2">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-xs font-semibold text-slate-700">Não residencial</span>
-                                <span className="text-xs font-bold text-slate-800">{formatMoney(ibsNaoRes)}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1.5 text-[11px]">
-                                <div><span className="text-slate-400">Receita</span> <span className="text-slate-700 font-medium">{formatMoney(recNaoResAnual)}</span></div>
-                                <div><span className="text-slate-400">Redutor</span> <span className="text-slate-400">—</span></div>
-                                <div><span className="text-slate-400">Base</span> <span className="text-slate-800 font-semibold">{formatMoney(recNaoResAnual)}</span></div>
-                                <div><span className="text-slate-400">Alíq.</span> <span className="text-slate-700">{aliqEfetivaLonga.toFixed(2)}%</span></div>
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex items-baseline justify-between border-t border-slate-300 pt-1.5">
-                            <span className="text-xs font-semibold text-slate-800">Total IBS/CBS</span>
-                            <span className="text-xs font-bold text-slate-800">{formatMoney(ibsTotalTipos)}</span>
-                          </div>
-                        </div>
-
-                        {baseDeduzida > 0 && (
-                          <p className="font-sans text-[11px] text-slate-500 mt-1.5">
-                            Redutor social Art. 260: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 meses = {formatMoney(redutorAnual)}
-                            {baseDeduzida < redutorAnual ? ' (limitado à receita de longa duração)' : ''}
-                          </p>
-                        )}
-
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-3">Passo 3: Créditos sobre custos operacionais</p>
-                        <p>{formatMoney(custos)} = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
-
-                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">
-                          = IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span>
-                        </p>
-                      </>
-                    ) : temRedutorSocial ? (
-                      <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: Base de cálculo (redutor social Art. 260)</p>
-                        <p>Receita anual: <span className="text-slate-800">{formatMoney(ref.receita_bruta_total ?? 0)}</span></p>
-                        <p>(−) Redutor social: {nImoveisArt260} imóvel(is) × {formatMoney(mensalRedutorSocialEfetivo)}/mês × 12 = <span className="text-emerald-700">−{formatMoney(baseDeduzida)}</span></p>
-                        <p className="border-t border-slate-200 pt-1">= Base líquida: <span className="text-slate-800 font-semibold">{formatMoney(round2((ref.receita_bruta_total ?? 0) - baseDeduzida))}</span></p>
-
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: IBS/CBS sobre base líquida</p>
-                        <p>{formatMoney(round2((ref.receita_bruta_total ?? 0) - baseDeduzida))} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800 font-semibold">{formatMoney(debito)}</span></p>
-
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 4: Créditos sobre custos operacionais</p>
-                        <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
-
-                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">= IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span></p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 2: IBS/CBS sobre receita</p>
-                        <p>{formatMoney(ref.receita_bruta_total ?? 0)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-slate-800">{formatMoney(debito)}</span></p>
-
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">Passo 3: Créditos sobre custos operacionais</p>
-                        <p>{formatMoney(custos)} × {aliqEfetivaLonga.toFixed(2)}% = <span className="text-emerald-700">{creditos > 0 ? `−${formatMoney(creditos)}` : formatMoney(creditos)}</span></p>
-
-                        <p className="border-t border-slate-200 pt-1 mt-1 font-semibold">= IBS/CBS líquido: <span className="text-slate-800">{formatMoney(liquido)}</span></p>
-                      </>
-                    )}
-                    
-                    {temPassoIrpjCsll && (
-                      <>
-                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide mt-2">IRPJ + CSLL (lucro presumido)</p>
-                        <p>IRPJ: <span className="text-slate-800">{formatMoney(irpj)}</span> + CSLL: <span className="text-slate-800">{formatMoney(csll)}</span></p>
-                      </>
-                    )}
-                    
-                    <p className="border-t border-slate-200 pt-2 mt-2 font-sans">
-                      <span className="text-slate-500">Total =</span> IBS/CBS + IRPJ + CSLL = <span className="text-slate-800 font-bold">{formatMoney(ref.imposto_total ?? 0)}</span>
-                    </p>
                   </div>
                 );
               })()}
-            </details>
-          </Card>
-          </div>
 
+              <details className="mt-4 border-t border-slate-100 pt-4 group">
+                <summary className="text-[10px] font-black uppercase text-slate-400 cursor-pointer hover:text-slate-700 flex items-center gap-2 transition-colors list-none">
+                  <svg className="w-3 h-3 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                  Detalhamento do Cálculo
+                </summary>
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span className="text-[10px] font-black uppercase">IRPJ + CSLL (Federais)</span>
+                      <span className="text-xs font-bold text-slate-700">
+                        {formatMoney(
+                          result.cenarios.pj.irpj +
+                            result.cenarios.pj.csll +
+                            (result.cenarios.pj.irpj_adicional ?? 0) +
+                            (result.cenarios.pj.irpj_postergado ?? 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span className="text-[10px] font-black uppercase opacity-70">PIS + COFINS Cumulativo</span>
+                      <span className="text-xs font-bold">{formatMoney(result.cenarios.pj.pis + result.cenarios.pj.cofins)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-slate-800">
+                      <span className="text-[10px] font-black uppercase">Imposto Total Simulado</span>
+                      <span className="text-sm font-black">{formatMoney(result.cenarios.pj.imposto_total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </Card>
+
+            {/* REFORMA PF CARD */}
+            <Card className="card-gov border-l-4 border-violet-400 px-6 py-6 bg-white shadow-md">
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="w-8 h-8 rounded bg-violet-50 flex items-center justify-center text-violet-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                 </div>
+                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Reforma LC 214/2025 <span className="text-violet-400 font-bold ml-1">(Pessoa Física)</span></h3>
+              </div>
+              {(() => {
+                const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
+                const irHoje = result.cenarios.pf.imposto_total;
+                const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
+                
+                const LIMITE_RECEITA_ABSOLUTO = 288_000;
+                const LIMITE_IMOVEIS = 3;
+                const ehContribuinteIbsCbs = receita > LIMITE_RECEITA_ABSOLUTO || (quantidadeImoveisTotal > LIMITE_IMOVEIS && receita > 240000);
+                
+                if (!ehContribuinteIbsCbs) {
+                  return (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-4xl font-black text-emerald-600 tracking-tight">{formatMoney(irHoje)}</span>
+                      <div className="p-3 mt-4 rounded-lg bg-emerald-50 border border-emerald-100 text-[10px] font-black text-emerald-800 uppercase leading-snug">
+                         Atividade Isenta de IBS/CBS – Fora do critério de faturamento.
+                      </div>
+                    </div>
+                  );
+                }
+                
+                const ibsCbs = refPf?.ibs_cbs_liquido ?? 0;
+                const totalPF2027 = irHoje + ibsCbs;
+                return (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-4xl font-black text-[#6d28d9] tracking-tight">{formatMoney(totalPF2027)}</span>
+                    <div className="flex items-center gap-2 mt-2">
+                       <span className="px-2 py-0.5 rounded bg-violet-50 text-[10px] font-black text-violet-700 uppercase">Impacto IBS/CBS: {formatMoney(ibsCbs)}</span>
+                    </div>
+                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="space-y-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                        <div className="flex justify-between">
+                          <span>IR (Carnê-Leão Atual)</span>
+                          <span>{formatMoney(irHoje)}</span>
+                        </div>
+                        <div className="flex justify-between text-violet-600">
+                          <span>Novo IBS + CBS Mensal</span>
+                          <span>{formatMoney(ibsCbs)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+
+            {/* REFORMA PJ CARD */}
+            <Card className="card-gov border-l-4 border-violet-600 px-6 py-6 bg-[#0c326f] shadow-md">
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center text-white">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                 </div>
+                 <h3 className="text-xs font-black uppercase tracking-widest text-white/60">Reforma LC 214/2025 <span className="text-violet-300 font-bold ml-1">(Pessoa Jurídica)</span></h3>
+              </div>
+              <div className="flex flex-col gap-0.5 text-white">
+                <span className="text-4xl font-black tracking-tight">
+                  {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
+                </span>
+                <div className="flex items-center gap-2 mt-2 font-black uppercase">
+                  <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] text-white/90 tracking-widest">
+                    Efetiva Total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(2) ?? '0'}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-black text-white/50 uppercase tracking-tight">
+                   <span>Sistema 2027/2033</span>
+                   <span className="text-violet-300 font-bold">IBS + CBS + IRPJ + CSLL</span>
+                </div>
+                <p className="text-[10px] font-bold text-white/90 uppercase leading-snug">
+                   Cálculo contempla transição gradual e créditos permitidos pela LC 214.
+                </p>
+              </div>
+            </Card>
+          </div>
           {/* Card de Projeção Ano a Ano (2027-2033) - Reforma PJ */}
           <Card className="mt-6 p-4 border-violet-200/50 bg-violet-50/10">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
@@ -3316,105 +3038,116 @@ export function SimuladorImoveis() {
           const melhorTotal = valores.reduce((a, b) => a.value < b.value ? a : b);
 
           return (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="py-2 px-3 text-left font-medium text-slate-600">Métrica</th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600">
-                      <div className="flex items-center justify-end gap-1">
+            <>
+              <table className="table-gov w-full">
+                <thead className="bg-[#0c326f] text-white">
+                  <tr>
+                    <th className="py-3 px-4 text-left font-black uppercase tracking-widest text-[10px]">Métrica / Cenário</th>
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[10px]">
+                      <div className="flex items-center justify-end gap-1.5">
                         PF (Carnê-Leão)
-                        {melhorAtual === 'PF' && <span className="text-emerald-600 text-xs">✓</span>}
+                        {melhorAtual === 'PF' && <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[8px]">✓</span>}
                       </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600">
-                      <div className="flex items-center justify-end gap-1">
-                        PJ (L. Presumido)
-                        {melhorAtual === 'PJ' && <span className="text-emerald-600 text-xs">✓</span>}
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[10px]">
+                      <div className="flex items-center justify-end gap-1.5">
+                        PJ (Presumido)
+                        {melhorAtual === 'PJ' && <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[8px]">✓</span>}
                       </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
-                      Reforma LC 214/2025 PF
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[10px]" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                      Reforma PF
                     </th>
-                    <th className="py-2 px-3 text-right font-medium text-slate-600">
-                      <div className="flex items-center justify-end gap-1">
-                        Reforma LC 214/2025 PJ
-                        {melhorTotal.label === 'Ref. PJ' && <span className="text-amber-500 text-xs">★</span>}
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[10px]">
+                      <div className="flex items-center justify-end gap-1.5">
+                        Reforma PJ
+                        {melhorTotal.label === 'Ref. PJ' && <span className="bg-amber-500 text-white px-1.5 py-0.5 rounded text-[8px]">★</span>}
                       </div>
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2 px-3 text-slate-700">Imposto total</td>
-                    <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PF' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                <tbody className="divide-y divide-slate-100">
+                  <tr className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase">Imposto Total</td>
+                    <td className={`py-3 px-4 text-right font-black ${melhorAtual === 'PF' ? 'text-[#1351b4]' : 'text-slate-800'}`}>
                       {formatMoney(pf.imposto_total)}
                     </td>
-                    <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PJ' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                    <td className={`py-3 px-4 text-right font-black ${melhorAtual === 'PJ' ? 'text-[#1351b4]' : 'text-slate-800'}`}>
                       {formatMoney(pj.imposto_total)}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-800" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                    <td className="py-3 px-4 text-right text-slate-800 font-bold" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs ? formatMoney(totalRefPf) : '—'}
                     </td>
-                    <td className={`py-2 px-3 text-right font-semibold ${melhorTotal.label === 'Ref. PJ' ? 'text-amber-600' : 'text-slate-800'}`}>
+                    <td className={`py-3 px-4 text-right font-black ${melhorTotal.label === 'Ref. PJ' ? 'text-amber-600' : 'text-slate-800'}`}>
                       {formatMoney(refPj?.imposto_total ?? 0)}
                     </td>
                   </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2 px-3 text-slate-700">Alíquota efetiva</td>
-                    <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(2)}%</td>
-                    <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(2)}%</td>
-                    <td className="py-2 px-3 text-right text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                  <tr className="hover:bg-slate-50 transition-colors bg-slate-50/30">
+                    <td className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase">Alíquota Efetiva</td>
+                    <td className="py-3 px-4 text-right text-slate-600 font-bold">{pf.aliquota_efetiva_anual.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right text-slate-600 font-bold">{pj.aliquota_efetiva.toFixed(2)}%</td>
+                    <td className="py-3 px-4 text-right text-slate-600 font-bold" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs
                         ? (pf.receita_bruta_total > 0 ? (totalRefPf / pf.receita_bruta_total) * 100 : 0).toFixed(2) + '%'
                         : '—'}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-600">{refPj?.aliquota_efetiva?.toFixed(2) ?? '0'}%</td>
+                    <td className="py-3 px-4 text-right text-slate-600 font-bold">{refPj?.aliquota_efetiva?.toFixed(2) ?? '0'}%</td>
                   </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2 px-3 text-slate-700">Receita bruta</td>
-                    <td className="py-2 px-3 text-right text-slate-600" colSpan={4}>
+                  <tr className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase">Receita Bruta (Ano)</td>
+                    <td className="py-3 px-4 text-right text-slate-800 font-black tracking-tight" colSpan={4}>
                       {formatMoney(pf.receita_bruta_total)}
                     </td>
                   </tr>
-                  <tr>
-                    <td className="py-2 px-3 text-slate-700">Diferença vs. melhor atual</td>
-                    <td className="py-2 px-3 text-right text-slate-500">
-                      {melhorAtual === 'PF' ? '—' : `+${formatMoney(pf.imposto_total - pj.imposto_total)}`}
+                  <tr className="bg-blue-50/30">
+                    <td className="py-3 px-4 text-[11px] font-black text-[#0c326f] uppercase">vs. Melhor Atual (Economia)</td>
+                    <td className="py-3 px-4 text-right text-slate-400 font-bold italic text-[10px]">
+                      {melhorAtual === 'PF' ? 'REFERÊNCIA' : `+${formatMoney(pf.imposto_total - pj.imposto_total)}`}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-500">
-                      {melhorAtual === 'PJ' ? '—' : `+${formatMoney(pj.imposto_total - pf.imposto_total)}`}
+                    <td className="py-3 px-4 text-right text-slate-400 font-bold italic text-[10px]">
+                      {melhorAtual === 'PJ' ? 'REFERÊNCIA' : `+${formatMoney(pj.imposto_total - pf.imposto_total)}`}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-500" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
+                    <td className="py-3 px-4 text-right text-rose-500 font-bold" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs
                         ? `+${formatMoney(totalRefPf - Math.min(pf.imposto_total, pj.imposto_total))}`
                         : '—'}
                     </td>
-                    <td className="py-2 px-3 text-right text-slate-500">
+                    <td className="py-3 px-4 text-right font-black">
                       {(refPj?.imposto_total ?? 0) <= Math.min(pf.imposto_total, pj.imposto_total)
-                        ? `−${formatMoney(Math.min(pf.imposto_total, pj.imposto_total) - (refPj?.imposto_total ?? 0))}`
-                        : `+${formatMoney((refPj?.imposto_total ?? 0) - Math.min(pf.imposto_total, pj.imposto_total))}`
+                        ? <span className="text-emerald-600">−{formatMoney(Math.min(pf.imposto_total, pj.imposto_total) - (refPj?.imposto_total ?? 0))}</span>
+                        : <span className="text-rose-500">+{formatMoney((refPj?.imposto_total ?? 0) - Math.min(pf.imposto_total, pj.imposto_total))}</span>
                       }
                     </td>
                   </tr>
                 </tbody>
               </table>
-              <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-                <div className="flex items-center gap-1"><span className="text-emerald-600">✓</span> Melhor atual (sem reforma)</div>
-                <div className="flex items-center gap-1"><span className="text-amber-500">★</span> Melhor absoluto</div>
-                {!ehContribuinteIbsCbs && (
-                  <div className="flex items-center gap-1" title="PF não atinge os critérios de contribuinte de IBS/CBS (LC 214/2025)">Reforma PF: — = não se aplica</div>
-                )}
+              <div className="flex items-center gap-6 mt-4 px-4 py-3 bg-slate-50 border border-slate-100 rounded-lg">
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase">
+                  <span className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center text-white text-[8px]">✓</span> 
+                  Melhor Atual
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase">
+                  <span className="w-4 h-4 rounded bg-amber-500 flex items-center justify-center text-white text-[8px]">★</span> 
+                  Melhor Absoluto
+                </div>
               </div>
-            </div>
+            </>
           );
         })()}
       </Card>
 
       {result?.cenarios?.pf?.trimestres && result?.cenarios?.pj?.trimestres && (
-        <Card className="mt-6 p-4">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Comparativo trimestral – Imposto por regime</h3>
-          <div className="h-72 w-full min-w-0 print-imoveis-chart-trimestral">
+        <Card className="card-gov mt-6 p-6 bg-white shadow-md">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-[#1351b4]">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-[#0c326f]">Comparativo Trimestral</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Carga Tributária Efetiva por Regime</p>
+            </div>
+          </div>
+          <div className="h-80 w-full min-w-0 print-imoveis-chart-trimestral">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={result.cenarios.pf.trimestres.map((t, i) => {
@@ -3428,90 +3161,44 @@ export function SimuladorImoveis() {
                     PF: Math.round(t.imposto * 100) / 100,
                     PJ: Math.round(pjImposto * 100) / 100,
                     pfReceita: t.receita,
-                    pfBase: t.base_calculo,
                     pjReceita: pjTri?.receita ?? 0,
-                    pjIrpj: (pjTri?.irpj ?? 0) + (pjTri?.irpj_adicional ?? 0) + (pjTri?.irpj_postergado ?? 0),
-                    pjCsll: pjTri?.csll ?? 0,
-                    pjPis: pjTri?.pis ?? 0,
-                    pjCofins: pjTri?.cofins ?? 0,
-                    pjPresuncao: pjTri?.presuncao_irpj_pct ?? 32,
                   };
                 })}
-                margin={{ top: 8, right: 12, left: 8, bottom: 52 }}
+                margin={{ top: 10, right: 10, left: -20, bottom: 20 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="trimestre" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="trimestre" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
                   content={({ active, payload, label }) => {
-                    if (!active || !payload || payload.length === 0) return null;
-                    const data = payload[0]?.payload as {
-                      PF: number;
-                      PJ: number;
-                      pfReceita: number;
-                      pfBase: number;
-                      pjReceita: number;
-                      pjIrpj: number;
-                      pjCsll: number;
-                      pjPis: number;
-                      pjCofins: number;
-                      pjPresuncao: number;
-                    };
-                    if (!data) return null;
+                    if (!active || !payload) return null;
                     return (
-                      <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs max-w-xs">
-                        <p className="font-semibold text-slate-800 mb-2 border-b border-slate-200 pb-1">{label}</p>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="font-medium text-brand flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-brand" />
-                              PF (Carnê-Leão): {formatMoney(data.PF)}
-                            </p>
-                            <p className="text-slate-500 text-[10px] ml-3">
-                              Receita: {formatMoney(data.pfReceita)} → Base: {formatMoney(data.pfBase)}
-                            </p>
+                      <div className="bg-white border border-slate-200 rounded-lg shadow-xl p-4 text-xs min-w-[200px]">
+                        <p className="font-black text-[#0c326f] uppercase tracking-wider mb-3 border-b border-slate-100 pb-2">{label}</p>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-sm bg-[#1351b4]" />
+                              <span className="font-bold text-slate-600">Pessoa Física:</span>
+                            </div>
+                            <span className="font-black text-[#1351b4]">{formatMoney(payload[0].value as number)}</span>
                           </div>
-                          <div>
-                            <p className="font-medium text-slate-700 flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-slate-600" />
-                              PJ (L. Presumido): {formatMoney(data.PJ)}
-                            </p>
-                            <p className="text-slate-500 text-[10px] ml-3">
-                              Presunção: {data.pjPresuncao}% | IRPJ: {formatMoney(data.pjIrpj)}
-                            </p>
-                            <p className="text-slate-500 text-[10px] ml-3">
-                              CSLL: {formatMoney(data.pjCsll)} | PIS: {formatMoney(data.pjPis)} | COFINS: {formatMoney(data.pjCofins)}
-                            </p>
-                          </div>
-                          <div className="border-t border-slate-200 pt-1 mt-1">
-                            <p className={`text-[10px] font-medium ${data.PF < data.PJ ? 'text-emerald-600' : 'text-slate-600'}`}>
-                              {data.PF < data.PJ
-                                ? `PF mais vantajosa (−${formatMoney(data.PJ - data.PF)})`
-                                : data.PF > data.PJ
-                                  ? `PJ mais vantajosa (−${formatMoney(data.PF - data.PJ)})`
-                                  : 'Empate'}
-                            </p>
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-sm bg-[#64748b]" />
+                              <span className="font-bold text-slate-600">Pessoa Jurídica:</span>
+                            </div>
+                            <span className="font-black text-slate-800">{formatMoney(payload[1].value as number)}</span>
                           </div>
                         </div>
                       </div>
                     );
                   }}
                 />
-                <Legend
-                  align="left"
-                  verticalAlign="bottom"
-                  layout="horizontal"
-                  wrapperStyle={{
-                    width: '100%',
-                    maxWidth: '100%',
-                    paddingLeft: 0,
-                    left: 0,
-                    fontSize: 11,
-                    lineHeight: 1.35,
-                  }}
-                />
-                <Bar dataKey="PF" name="PF — Carnê-Leão (IR)" fill="var(--color-brand, #0ea5e9)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="PJ" name="PJ (IRPJ+CSLL+PIS+COFINS)" fill="#475569" radius={[4, 4, 0, 0]} />
+                <Legend iconType="rect" iconSize={12} wrapperStyle={{ paddingTop: 20, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: '#64748b' }} />
+                <Bar dataKey="PF" name="Carga PF (IR)" fill="#1351b4" radius={[4, 4, 0, 0]} barSize={24} />
+                <Bar dataKey="PJ" name="Carga PJ (LP)" fill="#64748b" radius={[4, 4, 0, 0]} barSize={24} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -3711,74 +3398,90 @@ export function SimuladorImoveis() {
       )}
 
       {result && result.fluxo_caixa?.length > 0 && (() => {
-        const fc = result.fluxo_caixa[0]!;
-        const impostoPF = result.cenarios.pf.imposto_total;
-        const impostoPJ = result.cenarios.pj.imposto_total;
-        const pjVence = impostoPJ < impostoPF;
-        const economiaReais = Math.abs(impostoPF - impostoPJ);
-        const economiaPct = impostoPF > 0 ? (economiaReais / impostoPF) * 100 : 0;
-        const reformaPj = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-        const pres16 = (result.memoria_calculo as { aplicar_presuncao_16_servicos?: boolean })?.aplicar_presuncao_16_servicos;
-        const acoes: string[] = [];
-        if (pjVence && economiaReais > 0) {
-          acoes.push(`Recomendação: considerar estruturação em PJ para esta atividade — economia estimada de ${formatMoney(economiaReais)} (${economiaPct.toFixed(0)}% sobre a carga em PF).`);
-        } else if (!pjVence && economiaReais > 0) {
-          acoes.push(`Manter como Pessoa Física é mais vantajoso neste nível de receita — você pagaria ${formatMoney(economiaReais)} a mais em impostos se optasse por PJ.`);
-        }
-        if (result.break_even) {
-          acoes.push(`A partir de aproximadamente ${formatMoney(result.break_even.valor_mensal_break_even)}/mês de receita, PJ tende a ficar mais vantajosa que PF (break-even).`);
-        }
-        if (reformaPj?.aliquota_efetiva != null) {
-          acoes.push(`Reforma LC 214/2025: IBS/CBS + IRPJ + CSLL (holding total ${reformaPj.aliquota_efetiva.toFixed(2)}%). Planeje revisão na vigência da reforma.`);
-        }
-        acoes.push('Holding em 2027: além do imposto, faz sentido por planejamento sucessório (ITCMD progressivo), proteção patrimonial e tributação na venda (menor que ganho de capital na PF).');
-        acoes.push('Contratos de locação firmados até 16/01/2025 podem optar por alíquota de transição 3,65% até o fim do contrato ou 31/12/2028.');
-        if ((fc.receita_total ?? 0) >= 240_000) {
-          acoes.push('Receita anual ≥ R$ 240 mil: verifique se a PF não ultrapassa o limite para tributação pelo IBS/CBS (reforma).');
-        }
-        if (pres16 === true) {
-          acoes.push(`Elegibilidade 16% (prestação de serviços): cenário considera presunção reduzida de IRPJ/CSLL enquanto receita acumulada respeitar os limites legais.`);
-        }
-        if (acoes.length === 0) {
-          acoes.push('Revise este cenário com seu contador antes de qualquer decisão de estruturação.');
-        }
+        const pfTotal = result.cenarios.pf.imposto_total ?? 0;
+        const pjTotal = result.cenarios.pj.imposto_total ?? 0;
+        const pjVence = pjTotal < pfTotal;
+        const economiaReais = Math.max(0, Math.abs(pfTotal - pjTotal));
+        const baseComparacao = Math.max(pfTotal, pjTotal);
+        const economiaPct = baseComparacao > 0 ? (economiaReais / baseComparacao) * 100 : 0;
+        const fc = result.fluxo_caixa[0] ?? { lucro_liquido_pf: 0, lucro_liquido_pj: 0 };
+        const acoes = pjVence
+          ? [
+              'Avaliar constituição de PJ para formalizar a operação com eficiência tributária.',
+              'Validar custos acessórios da migração (contabilidade, taxas e obrigações acessórias).',
+              'Projetar fluxo de caixa trimestral para capturar o ganho fiscal estimado.',
+              'Revisar regime periodicamente para manter aderência ao perfil de receita.',
+            ]
+          : [
+              'Manter operação em PF no cenário atual, preservando a menor carga fiscal.',
+              'Monitorar a evolução da receita e quantidade de imóveis para reavaliar a migração.',
+              'Atualizar custos dedutíveis e premissas operacionais a cada novo ciclo de simulação.',
+              'Planejar revisão do enquadramento quando houver mudança relevante de faturamento.',
+            ];
         return (
-          <Card className="mt-6 p-5 bg-slate-50 border-brand/20">
-            <h3 className="text-lg font-semibold text-slate-800 mb-3">Resumo estratégico</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Melhor regime para este cenário</p>
-                <p className="text-xl font-bold text-brand mt-0.5">
-                  {pjVence ? 'Pessoa Jurídica (Lucro Presumido)' : 'Pessoa Física (Carnê-Leão)'}
-                </p>
-                {economiaReais > 0 && (
-                  <p className="text-sm text-slate-600 mt-1">
-                    {pjVence
-                      ? `Economia de ${formatMoney(economiaReais)} (${economiaPct.toFixed(0)}% a menos de impostos em relação a PF).`
-                      : `Diferença de ${formatMoney(economiaReais)} a menos de impostos em relação a PJ.`}
-                  </p>
-                )}
+          <Card className="card-gov mt-6 bg-[#0c326f] text-white overflow-hidden shadow-xl">
+            <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <div>
+                   <h3 className="text-sm font-black uppercase tracking-widest text-white/60">Resumo Estratégico</h3>
+                   <p className="text-xl font-black text-white tracking-tight">{pjVence ? 'Migração Recomendada para PJ' : 'Manter Operação na PF'}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-600">Lucro líquido (o que sobra no bolso)</p>
-                <p className="text-sm text-slate-700 mt-1">
-                  Como PF: <strong>{formatMoney(fc.lucro_liquido_pf)}</strong> no ano
-                </p>
-                <p className="text-sm text-slate-700 mt-0.5">
-                  Como PJ: <strong>{formatMoney(fc.lucro_liquido_pj)}</strong> no ano
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Após receitas, despesas, custos e impostos.
-                </p>
+              <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${pjVence ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'}`}>
+                 {pjVence ? 'Melhor Eficiência Fiscal' : 'Regime Sugerido'}
               </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">Plano de ação</p>
-              <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-700">
-                {acoes.map((texto, i) => (
-                  <li key={i}>{texto}</li>
-                ))}
-              </ul>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10">
+              <div className="bg-[#0c326f] p-6">
+                <p className="text-[10px] font-black uppercase text-white/50 tracking-widest mb-4">Análise de Impacto</p>
+                <div className="space-y-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">Diferença de Carga (Anual)</span>
+                    <span className="text-3xl font-black text-white tracking-tight">
+                       {economiaReais > 0 ? formatMoney(economiaReais) : formatMoney(0)}
+                    </span>
+                    <p className="text-[10px] font-bold text-white/60 uppercase mt-1">
+                       {economiaReais > 0 
+                         ? (pjVence 
+                             ? `PJ gera ${formatMoney(economiaReais)} de economia adicional.` 
+                             : `PF economiza ${formatMoney(economiaReais)} frente ao lucro presumido.`)
+                         : 'Carga tributária equivalente em ambos regimes.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-black uppercase">ROI Estimado: {economiaPct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-[#0c326f] p-6 border-l border-white/10">
+                <p className="text-[10px] font-black uppercase text-white/50 tracking-widest mb-4">Lucro Líquido Anual (Estimado)</p>
+                <div className="space-y-3">
+                   <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+                      <span className="text-xs font-bold text-white/70 uppercase">Cenário PF</span>
+                      <span className="text-sm font-black text-white">{formatMoney(fc.lucro_liquido_pf)}</span>
+                   </div>
+                   <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+                      <span className="text-xs font-bold text-white/70 uppercase">Cenário PJ</span>
+                      <span className="text-sm font-black text-white">{formatMoney(fc.lucro_liquido_pj)}</span>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 text-slate-800">
+               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Plano de Ação e Observações Fiscais</p>
+               <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {acoes.map((texto, i) => (
+                    <li key={i} className="flex gap-3 text-xs leading-relaxed">
+                       <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#1351b4] shrink-0" />
+                       <span className="font-bold text-slate-600 uppercase text-[9px] tracking-tight">{texto}</span>
+                    </li>
+                 ))}
+               </ul>
             </div>
           </Card>
         );
@@ -3797,32 +3500,61 @@ export function SimuladorImoveis() {
       )}
 
       {result?.analise_custos && (
-        <Card className="mt-4 p-4 bg-slate-50">
-          <h3 className="text-base font-semibold text-slate-800 mb-2">Análise de custos e créditos</h3>
-          <p className="text-sm text-slate-600">
-            Créditos IBS/CBS: potencial {formatMoney(result.analise_custos.creditos_ibs_cbs.total_potencial)} | aproveitado {formatMoney(result.analise_custos.creditos_ibs_cbs.total_aproveitado)} | não aproveitado {formatMoney(result.analise_custos.creditos_ibs_cbs.nao_aproveitado)}
-          </p>
-          <p className="text-sm text-slate-600 mt-1">
-            Margem operacional: antes dos tributos {result.analise_custos.indicadores.margem_operacional_antes_tributos.toFixed(2)}% | após tributos (PJ) {result.analise_custos.indicadores.margem_operacional_apos_tributos_pj.toFixed(2)}%
-          </p>
+        <Card className="card-gov mt-6 p-6 bg-white shadow-md">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Análise de Custos e Créditos</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Potencial de Recuperação IBS/CBS</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Créditos IBS/CBS</p>
+               <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-600 uppercase">Total Potencial:</span>
+                  <span className="font-black text-[#1351b4]">{formatMoney(result.analise_custos.creditos_ibs_cbs.total_potencial)}</span>
+               </div>
+               <div className="flex justify-between items-center text-xs mt-1 text-slate-400">
+                   <span className="font-bold uppercase">Não Aproveitável:</span>
+                   <span>{formatMoney(result.analise_custos.creditos_ibs_cbs.nao_aproveitado)}</span>
+               </div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Indicadores de Eficiência</p>
+               <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-600 uppercase">Margem Operacional:</span>
+                  <span className="font-black text-slate-800">{result.analise_custos.indicadores.margem_operacional_apos_tributos_pj.toFixed(2)}%</span>
+               </div>
+               <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">
+                  Cenário PJ após tributação simulada
+               </div>
+            </div>
+          </div>
+
           {result.analise_custos.categorias.length > 0 && (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-600">
-                    <th className="py-1 pr-2">Categoria</th>
-                    <th className="py-1 pr-2">Valor</th>
-                    <th className="py-1 pr-2">Participação</th>
-                    <th className="py-1 pr-2">Crédito potencial</th>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="table-gov w-full text-sm">
+                <thead className="bg-[#0c326f] text-white">
+                  <tr>
+                    <th className="py-3 px-4 text-left font-black uppercase tracking-widest text-[9px]">Categoria de Despesa</th>
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[9px]">Valor Anual</th>
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[9px]">Part. (%)</th>
+                    <th className="py-3 px-4 text-right font-black uppercase tracking-widest text-[9px]">Créditos LC 214</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {result.analise_custos.categorias.slice(0, 8).map((c) => (
-                    <tr key={c.categoria} className="border-t border-slate-200">
-                      <td className="py-1 pr-2">{c.categoria}</td>
-                      <td className="py-1 pr-2">{formatMoney(c.valor)}</td>
-                      <td className="py-1 pr-2">{c.participacao_percentual.toFixed(2)}%</td>
-                      <td className="py-1 pr-2">{formatMoney(c.credito_potencial)}</td>
+                    <tr key={c.categoria} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2 px-4 text-[11px] font-bold text-slate-600 uppercase">{c.categoria}</td>
+                      <td className="py-2 px-4 text-right font-bold text-slate-800">{formatMoney(c.valor)}</td>
+                      <td className="py-2 px-4 text-right text-slate-500 font-medium">{c.participacao_percentual.toFixed(1)}%</td>
+                      <td className={`py-2 px-4 text-right font-black ${c.credito_potencial > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                        {c.credito_potencial > 0 ? formatMoney(c.credito_potencial) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -3834,29 +3566,32 @@ export function SimuladorImoveis() {
 
           {/* CTA final — Exportar PDF */}
           <div
-            className="print:hidden mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl bg-brand px-5 py-5 shadow-md"
+            className="print:hidden mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 rounded-2xl bg-[#0c326f] px-8 py-8 shadow-2xl relative overflow-hidden"
             data-report-exclude="preview"
           >
-            <div className="flex items-start gap-3 min-w-0">
-              <svg className="h-6 w-6 shrink-0 text-white/80 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <div>
-                <p className="text-sm font-semibold text-white leading-snug">Pronto para entregar ao cliente?</p>
-                <p className="text-sm text-white/80 mt-0.5">Gere o PDF completo com capa, comparativo e embasamentos legais.</p>
+            {/* Background design elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#1351b4]/20 rounded-full -ml-10 -mb-10 blur-2xl pointer-events-none" />
+            
+            <div className="flex items-start gap-4 z-10">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
+                <svg className="w-7 h-7 text-[#5cc6ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-black text-white leading-tight uppercase tracking-wide">Pronto para Entregar ao Cliente?</p>
+                <p className="text-sm text-white/60 mt-1 font-medium leading-relaxed max-w-md">Gere agora o relatório oficial em PDF com capa institucional, comparativo de cenários e embasamentos legais da LC 214/2025.</p>
               </div>
             </div>
             <Button
               type="button"
               variant="primary"
               onClick={handleOpenPrintPreview}
-              className="!bg-white !text-brand hover:!bg-white/90 inline-flex items-center gap-2 font-semibold shadow shrink-0"
+              className="z-10 !h-14 !px-8 !bg-white !text-[#0c326f] hover:!bg-blue-50 hover:!scale-105 active:!scale-95 transition-all !rounded-xl !font-black !uppercase !tracking-widest !text-xs shadow-xl shrink-0 border-none"
               aria-label="Exportar resultado para PDF"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Exportar para PDF
+              Exportar Relatório PDF
             </Button>
           </div>
 
@@ -3979,18 +3714,18 @@ export function SimuladorImoveis() {
           return (
             <div className="space-y-4 max-h-[70vh] overflow-y-auto">
               <p className="text-sm text-slate-600">Ano {viewingSimulation.ano}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="p-4">
-                  <h4 className="text-sm font-bold text-slate-600 mb-2">Pessoa Física</h4>
-                  <p className="text-lg font-semibold">{pf ? formatMoney(pf.imposto_total) : '-'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <Card className="p-5" accent>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Pessoa Física</h4>
+                  <p className="text-2xl font-black text-[#0c326f] tracking-tighter">{pf ? formatMoney(pf.imposto_total) : '-'}</p>
                 </Card>
-                <Card className="p-4">
-                  <h4 className="text-sm font-bold text-slate-600 mb-2">Pessoa Jurídica</h4>
-                  <p className="text-lg font-semibold">{pj ? formatMoney(pj.imposto_total) : '-'}</p>
+                <Card className="p-5" accent>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Pessoa Jurídica</h4>
+                  <p className="text-2xl font-black text-[#0c326f] tracking-tighter">{pj ? formatMoney(pj.imposto_total) : '-'}</p>
                 </Card>
-                <Card className="p-4">
-                  <h4 className="text-sm font-bold text-slate-600 mb-2">Reforma LC 214/2025</h4>
-                  <p className="text-lg font-semibold">{ref ? formatMoney(ref.imposto_total ?? 0) : '-'}</p>
+                <Card className="p-5" accent>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reforma LC 214/2025</h4>
+                  <p className="text-2xl font-black text-[#1351b4] tracking-tighter">{ref ? formatMoney(ref.imposto_total ?? 0) : '-'}</p>
                 </Card>
               </div>
             </div>
@@ -4043,7 +3778,7 @@ export function SimuladorImoveis() {
           )}
           <div
             className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
-            style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+            style={{ width: '210mm', maxWidth: '100%', maxHeight: '45vh', overflowY: 'auto' }}
           >
             <div className="report-preview-inner p-4">
               <ReportPrintHeader

@@ -376,22 +376,20 @@ export function Users() {
       <ToastContainer />
       <div className="h-full flex flex-col">
         {/* Header com busca integrada */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Clientes</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                {isSuperAdmin ? 'Gerencie usuários de todos os tenants' : 'Gerencie os usuários do seu tenant'}
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Base de Usuários</h1>
+              <p className="text-slate-500 text-sm font-medium mt-1">
+                {isSuperAdmin ? 'Gestão centralizada de credenciais e permissões em todos os tenants' : 'Gerenciamento de acessos autorizados para seu escritório'}
               </p>
             </div>
-            <Button 
-              variant="secondary" 
+            <Button
               onClick={() => handleOpenModal()}
               disabled={isSuperAdmin && !selectedTenantId}
-              className="w-full sm:w-auto"
             >
-              <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
               Novo Usuário
             </Button>
@@ -409,55 +407,48 @@ export function Users() {
           )}
 
           {/* Barra de busca e filtros */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex-1 relative">
-              <svg 
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+          <div className="flex flex-col lg:flex-row gap-4 items-center mb-6">
+            <div className="flex-1 w-full relative">
               <Input
-                placeholder="Buscar por nome ou email..."
+                placeholder="Buscar por nome ou credencial de e-mail..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="!py-3"
               />
             </div>
-            <select
-              className="bg-white border border-slate-200 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="">Todos os roles</option>
-              <option value="admin">Admin</option>
-              <option value="user">Usuário</option>
-            </select>
-            <select
-              className="bg-white border border-slate-200 rounded-md px-4 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Todos os status</option>
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-            </select>
-            {(searchTerm || roleFilter || statusFilter) && (
-              <Button
-                variant="tertiary"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm('');
-                  setRoleFilter('');
-                  setStatusFilter('');
-                }}
-                className="whitespace-nowrap"
+            <div className="w-full lg:w-48">
+              <select
+                className="w-full bg-white border border-[#d2dae2] rounded-md px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4]/20"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
               >
-                Limpar filtros
-              </Button>
-            )}
+                <option value="">Níveis Reais</option>
+                <option value="admin">Administrador</option>
+                <option value="user">Usuário Comum</option>
+              </select>
+            </div>
+            <div className="w-full lg:w-48">
+              <select
+                className="w-full bg-white border border-[#d2dae2] rounded-md px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4]/20"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">Status Acesso</option>
+                <option value="active">Autorizado</option>
+                <option value="inactive">Bloqueado</option>
+              </select>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSearchTerm('');
+                setRoleFilter('');
+                setStatusFilter('');
+              }}
+            >
+              Limpar
+            </Button>
+          </div>
             {/* Estatísticas rápidas */}
             <div className="flex items-center gap-4 text-sm flex-wrap">
               <div className="flex items-center gap-2">
@@ -478,7 +469,6 @@ export function Users() {
               </div>
             </div>
           </div>
-        </div>
 
         {/* Tabela de Usuários */}
         <Card className="flex-1 overflow-hidden flex flex-col p-0">
@@ -523,111 +513,93 @@ export function Users() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+            <div className="overflow-x-auto -mx-6">
+              <table className="table-gov border-t border-slate-100">
+                <thead>
                   <tr>
-                    <th className="text-left py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Usuário
-                    </th>
+                    <th className="pl-6">Usuário Registrado</th>
                     {isSuperAdmin && (
-                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Tenant
-                      </th>
+                      <th>Entidade Associada</th>
                     )}
-                    <th className="text-left py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="text-left py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="text-left py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Cadastrado em
-                    </th>
-                    <th className="text-right py-4 px-6 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Ações
-                    </th>
+                    <th>Perfil</th>
+                    <th>Status</th>
+                    <th>Ativo desde</th>
+                    <th className="text-right pr-6">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {filteredUsers.map((user) => (
                     <tr 
                       key={user.id} 
-                      className="hover:bg-slate-50 transition-colors group"
+                      className="group transition-colors"
                     >
-                      <td className="py-4 px-6">
+                      <td className="py-5 pl-6">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-brand font-semibold text-sm">
+                          <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center mr-3 flex-shrink-0 group-hover:border-[#1351b4] group-hover:bg-blue-50 transition-colors">
+                            <span className="text-[#0c326f] font-black text-sm">
                               {user.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-slate-900 truncate">{user.name}</p>
-                            <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                            <p className="font-bold text-slate-800 tracking-tight group-hover:text-[#1351b4] transition-colors">{user.name}</p>
+                            <p className="text-xs text-slate-400 font-medium">{user.email}</p>
                           </div>
                         </div>
                       </td>
                       {isSuperAdmin && (
-                        <td className="py-4 px-6 text-sm text-slate-600">
-                          {user.company_name || '-'}
+                        <td>
+                          <span className="text-xs font-bold text-slate-600">{user.company_name || 'Global System'}</span>
                         </td>
                       )}
-                      <td className="py-4 px-6">
+                      <td>
                         {getRoleBadge(user.role)}
                       </td>
-                      <td className="py-4 px-6">
-                        <Badge variant={user.status === 'active' ? 'success' : 'default'} className="w-fit">
-                          {user.status === 'active' ? 'Ativo' : 'Inativo'}
+                      <td>
+                        <Badge variant={user.status === 'active' ? 'success' : 'default'}>
+                          {user.status === 'active' ? 'Ativo' : 'Bloqueado'}
                         </Badge>
                       </td>
-                      <td className="py-4 px-6 text-sm text-slate-600">
-                        {new Date(user.createdAt).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
+                      <td>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                        </span>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td className="pr-6">
+                        <div className="flex items-center justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
                           <Button
-                            variant="primary"
+                            variant="secondary"
                             size="sm"
                             onClick={() => handleOpenModal(user)}
-                            className="min-w-[80px]"
+                            className="text-[#1351b4] hover:bg-blue-50 border-transparent !p-2"
                           >
-                            <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            Editar
                           </Button>
                           <Button
-                            variant={user.status === 'active' ? 'tertiary' : 'secondary'}
+                            variant="secondary"
                             size="sm"
                             onClick={() => handleToggleStatus(user)}
-                            className="min-w-[80px]"
-                            title={user.status === 'active' ? 'Desativar usuário' : 'Ativar usuário'}
+                            className={`!p-2 border-transparent ${user.status === 'active' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                           >
-                            <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               {user.status === 'active' ? (
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                               ) : (
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               )}
                             </svg>
-                            {user.status === 'active' ? 'Desativar' : 'Ativar'}
                           </Button>
                           {user.id !== currentUser?.id && (
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => handleDelete(user.id)}
-                              className="min-w-[80px] bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+                              className="text-rose-600 hover:bg-rose-50 border-transparent !p-2"
                             >
-                              <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
-                              Excluir
                             </Button>
                           )}
                         </div>

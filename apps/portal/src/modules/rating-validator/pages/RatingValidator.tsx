@@ -1251,16 +1251,22 @@ export function RatingValidator() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-4">
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Dica:</strong> Preencha os valores que você encontra facilmente na contabilidade.
-                O sistema calculará automaticamente o total do Ativo Circulante.
+          <>
+            <div className="mb-6 p-5 bg-indigo-50/50 rounded-lg border-l-4 border-indigo-500 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 opacity-10">
+                <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 11-2 0 1 1 0 012 0zM8 16v-1a1 1 0 112 0v1a1 1 0 11-2 0zM13.586 18.586a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414l.707.707z" />
+                </svg>
+              </div>
+              <p className="text-sm text-indigo-900 font-bold uppercase tracking-tight mb-1">Dica Institucional</p>
+              <p className="text-sm text-indigo-800 leading-relaxed">
+                Preencha os valores que você encontra facilmente na contabilidade.
+                O sistema calculará automaticamente o total do Ativo Circulante conforme os critérios da <strong>Portaria PGFN 6.757/22</strong>.
               </p>
             </div>
             
             {/* Toggle para modo total */}
-            <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="mb-6 p-4 bg-white rounded-lg border border-slate-200 border-dashed hover:border-blue-400 transition-colors">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -1269,20 +1275,19 @@ export function RatingValidator() {
                   onChange={(e) => {
                     setUseTotalMode({ ...useTotalMode, ativo_circulante: e.target.checked });
                     if (!e.target.checked) {
-                      // Limpar total quando desativar modo total
                       setFormData({ ...formData, ativo_circulante_total: undefined });
                     }
                   }}
-                  className="w-4 h-4"
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                 />
-                <label htmlFor="use_total_ativo_circulante" className="text-sm font-medium text-slate-700 cursor-pointer">
-                  Digitar Total Ativo Circulante diretamente (se já possuir o valor calculado)
+                <label htmlFor="use_total_ativo_circulante" className="text-sm font-bold text-slate-700 cursor-pointer">
+                  Modo Simplificado: Digitar apenas o Total do Ativo Circulante
                 </label>
               </div>
             </div>
 
             {useTotalMode.ativo_circulante ? (
-              <div>
+              <div className="bg-slate-50/50 p-6 rounded-lg border border-slate-100">
                 <MoneyInput
                   label="Total Ativo Circulante"
                   value={formData.ativo_circulante_total || 0}
@@ -1292,20 +1297,16 @@ export function RatingValidator() {
                       ativo_circulante_total: value || undefined,
                     })
                   }
-                  className="text-lg"
+                  className="text-xl font-black text-[#1351b4]"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Digite o valor total do Ativo Circulante conforme sua contabilidade
-                </p>
+                <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">Valor total conforme DRE / Balanço</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50/30 rounded-xl border border-slate-100">
                 {Object.entries(formData.ativo_circulante).map(([key, value]) => (
                   <div key={key}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {key
-                        .replace(/_/g, ' ')
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      {key.replace(/_/g, ' ')}
                     </label>
                     <MoneyInput
                       value={value || 0}
@@ -1316,15 +1317,17 @@ export function RatingValidator() {
               </div>
             )}
             
-            <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-slate-700">Total Ativo Circulante:</span>
-                <span className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(calculatedTotals.ativo_circulante_total)}
-                </span>
+            <div className="mt-8 p-6 bg-[#f8fafc] rounded-lg border border-[#e2e8f0] flex justify-between items-center relative overflow-hidden">
+              <div className="absolute left-0 top-0 h-full w-1.5 bg-[#1351b4]"></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Somatório Atualizado</p>
+                <div className="text-sm font-bold text-slate-700">Total Ativo Circulante</div>
+              </div>
+              <div className="text-3xl font-black text-[#0c326f] tracking-tighter">
+                {formatCurrency(calculatedTotals.ativo_circulante_total)}
               </div>
             </div>
-          </div>
+          </>
         );
 
       case 2:
@@ -1927,46 +1930,54 @@ export function RatingValidator() {
               )}
             </Card>
 
-            {/* Progress Steps */}
-            <Card>
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  {STEPS.map((step, index) => (
-                    <div key={step.number} className="flex items-center flex-1">
-                      <div className="flex flex-col items-center flex-1">
-                        <button
-                          type="button"
-                          onClick={() => setCurrentStep(step.number)}
-                          aria-label={`Ir para etapa ${step.number}: ${step.title}`}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
-                            currentStep === step.number
-                              ? 'bg-blue-600 text-white'
-                              : currentStep > step.number
-                              ? 'bg-brand text-white'
-                              : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                          }`}
-                        >
-                          {currentStep > step.number ? '✓' : step.number}
-                        </button>
-                        <div className="mt-2 text-xs text-center max-w-[100px]">
-                          <div className="font-medium">{step.title}</div>
-                        </div>
+            {/* Progress Steps — Redesigned Institutional Stepper */}
+            <div className="bg-[#f8fafc] border-b border-[#e2e8f0] p-1 shadow-inner rounded-t-lg">
+              <div className="flex items-stretch divide-x divide-slate-200">
+                {STEPS.map((step) => {
+                  const isActive = currentStep === step.number;
+                  const isCompleted = currentStep > step.number;
+                  return (
+                    <button
+                      key={step.number}
+                      onClick={() => setCurrentStep(step.number)}
+                      className={`flex-1 flex flex-col items-center py-3 px-2 transition-all relative ${
+                        isActive ? 'bg-white shadow-sm z-10' : 'bg-transparent hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-black ${
+                          isActive ? 'bg-[#1351b4] text-white' : isCompleted ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
+                        }`}>
+                          {isCompleted ? '✓' : step.number}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase tracking-tighter ${
+                          isActive ? 'text-[#0c326f]' : 'text-slate-400'
+                        }`}>
+                          Passo {step.number}
+                        </span>
                       </div>
-                      {index < STEPS.length - 1 && (
-                        <div
-                          className={`h-1 flex-1 mx-2 transition-all ${
-                            currentStep > step.number ? 'bg-brand' : 'bg-slate-200'
-                          }`}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      <div className={`text-[11px] font-bold truncate max-w-full px-2 ${
+                        isActive ? 'text-[#0c326f]' : 'text-slate-500'
+                      }`}>
+                        {step.title}
+                      </div>
+                      {isActive && <div className="absolute bottom-0 left-0 w-full h-1 bg-[#1351b4]" />}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="border-t border-slate-200 pt-6">
-                <h2 className="text-xl font-semibold mb-2">{STEPS[currentStep - 1].title}</h2>
-                <p className="text-sm text-slate-600 mb-6">{STEPS[currentStep - 1].description}</p>
+            <Card className="rounded-t-none border-t-0 p-8" accent>
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-widest border border-slate-200">
+                    Etapa Atual
+                  </span>
+                  <h2 className="text-xl font-black text-[#0c326f] uppercase tracking-tight">{STEPS[currentStep - 1].title}</h2>
+                </div>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-2xl">{STEPS[currentStep - 1].description}</p>
+              </div>
 
                 {showQuickFilledSummary && (
                   <Card className="p-5 border border-slate-200 bg-slate-50/60 mb-6">
@@ -2025,7 +2036,6 @@ export function RatingValidator() {
                     </Button>
                   )}
                 </div>
-              </div>
             </Card>
 
             {/* Resultado */}
@@ -2316,134 +2326,163 @@ export function RatingValidator() {
                   </div>
                 </Card>
                 {/* Cabeçalho do resultado + botão Exportar PDF */}
-                <div className="pdf-keep-together flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+                <div className="pdf-keep-together flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-lg bg-white border border-slate-200 shadow-sm border-l-4 border-l-[#0c326f]">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900 mb-1">Resultado da análise — Transação Tributária</h2>
-                    <p className="text-sm text-slate-600">
-                      Rating estimado: <strong>{simulationResult.rating_estimado}</strong>
-                      {simulationResult.rating_real ? <> · Rating RF: <strong>{simulationResult.rating_real}</strong></> : null}
+                    <h2 className="text-xl font-bold text-[#0c326f] flex items-center gap-2">
+                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Relatório de Validação de Enquadramento
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1 uppercase tracking-wider font-medium">
+                      Transação Tributária · {formData.competencia ? `Competência: ${formData.competencia}` : 'Simulação de Cenário'}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleOpenPdfModal}
-                    disabled={pdfExporting}
-                    className="print:hidden shrink-0 inline-flex items-center gap-2"
-                    aria-label="Exportar resultado para PDF"
-                    data-report-exclude="preview"
-                  >
-                    {pdfExporting ? (
-                      'Preparando impressão...'
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Exportar para PDF
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleOpenPdfModal}
+                      disabled={pdfExporting}
+                      className="print:hidden shrink-0 inline-flex items-center gap-2 border-slate-300 hover:bg-slate-50"
+                      aria-label="Exportar resultado para PDF"
+                      data-report-exclude="preview"
+                    >
+                      {pdfExporting ? (
+                        'Preparando...'
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Exportar Relatório PDF
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div id="result-section" className="space-y-6">
                 {/* Cards de Indicadores */}
-                <div id="pdf-indicators-grid" className="pdf-keep-together grid grid-cols-3 gap-6">
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-slate-600">Liquidez Corrente</h3>
-                      <Badge
-                        className={
-                          simulationResult.indicators.liquidez_corrente >= 1.0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }
-                      >
-                        {simulationResult.indicators.liquidez_corrente >= 1.0 ? 'Adequado' : 'Atenção'}
-                      </Badge>
+                <div id="pdf-indicators-grid" className="pdf-keep-together grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider">Liquidez Corrente</h3>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        simulationResult.indicators.liquidez_corrente >= 1.0
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {simulationResult.indicators.liquidez_corrente >= 1.0 ? 'Adequado' : 'Crítico'}
+                      </span>
                     </div>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Ativo Circulante / Passivo Circulante
-                    </p>
-                  </Card>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black text-slate-900 tracking-tight">
+                        {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
+                      </p>
+                      <span className="text-slate-400 text-sm font-medium">pts</span>
+                    </div>
+                    <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${simulationResult.indicators.liquidez_corrente >= 1.0 ? 'bg-[#1351b4]' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min((simulationResult.indicators.liquidez_corrente / 2.5) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium uppercase">Capacidade de pagamento imediata (AC/PC)</p>
+                  </div>
 
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-slate-600">Liquidez Geral</h3>
-                      <Badge
-                        className={
-                          simulationResult.indicators.liquidez_geral >= 1.0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }
-                      >
-                        {simulationResult.indicators.liquidez_geral >= 1.0 ? 'Adequado' : 'Atenção'}
-                      </Badge>
+                  <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider">Liquidez Geral</h3>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        simulationResult.indicators.liquidez_geral >= 1.0
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {simulationResult.indicators.liquidez_geral >= 1.0 ? 'Adequado' : 'Crítico'}
+                      </span>
                     </div>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      (AC + RLP) / (PC + PNC)
-                    </p>
-                  </Card>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black text-slate-900 tracking-tight">
+                        {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
+                      </p>
+                      <span className="text-slate-400 text-sm font-medium">pts</span>
+                    </div>
+                    <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${simulationResult.indicators.liquidez_geral >= 1.0 ? 'bg-[#1351b4]' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min((simulationResult.indicators.liquidez_geral / 2) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium uppercase">Solvência de curto e longo prazo</p>
+                  </div>
 
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-slate-600">Solvência</h3>
-                      <Badge
-                        className={
-                          simulationResult.indicators.solvencia >= 0.3
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }
-                      >
-                        {simulationResult.indicators.solvencia >= 0.3 ? 'Bom' : 'Regular'}
-                      </Badge>
+                  <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider">Solvência</h3>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        simulationResult.indicators.solvencia >= 0.3
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {simulationResult.indicators.solvencia >= 0.3 ? 'Suficiente' : 'Regular'}
+                      </span>
                     </div>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {formatPercent(simulationResult.indicators.solvencia)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Patrimônio Líquido / Ativo Total
-                    </p>
-                  </Card>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black text-slate-900 tracking-tight">
+                        {formatPercent(simulationResult.indicators.solvencia)}
+                      </p>
+                    </div>
+                    <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${simulationResult.indicators.solvencia >= 0.3 ? 'bg-[#1351b4]' : 'bg-amber-500'}`}
+                        style={{ width: `${Math.min(simulationResult.indicators.solvencia * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium uppercase">Participação do capital próprio no ativo</p>
+                  </div>
                 </div>
 
                 {/* Rating Card — layout comparativo de planos */}
                 <Card className="pdf-keep-together p-6 overflow-hidden">
-                  {/* Resumo visual: Enquadramento Revisado vs Enquadramento RF */}
-                  <div className="flex flex-wrap items-center gap-6 mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`rounded-xl border-2 px-6 py-4 ${getRatingColor(simulationResult.rating_estimado)}`}>
-                        <span className="block text-3xl font-bold">{simulationResult.rating_estimado}</span>
-                        <span className="text-sm opacity-90">{getRatingLabel(simulationResult.rating_estimado)}</span>
+                  <div className="mb-8">
+                    <h3 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider mb-4 px-1">Comparativo de Enquadramento</h3>
+                    <div className="flex flex-col md:flex-row gap-4 items-stretch">
+                      <div className="flex-1 bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Enquadramento Atual (Receita Federal)</p>
+                        <div className={`w-20 h-20 rounded-lg flex items-center justify-center text-4xl font-black mb-4 ${
+                          simulationResult.rating_real 
+                            ? getRatingColor(simulationResult.rating_real).replace('px-5 py-3', '').replace('border-2', 'border-4')
+                            : 'bg-slate-100 text-slate-400 border-4 border-slate-200'
+                        }`}>
+                          {simulationResult.rating_real || '?'}
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">
+                          {simulationResult.rating_real ? getRatingLabel(simulationResult.rating_real) : 'Não informado'}
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Revisado</p>
-                        <p className="text-slate-700">Enquadramento Revisado</p>
+
+                      <div className="flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 bg-white p-6 rounded-lg border-2 border-[#1351b4] shadow-md flex flex-col items-center justify-center text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 bg-[#1351b4] text-white text-[9px] font-bold px-3 py-1 uppercase tracking-tighter rounded-bl-lg">REVISADO</div>
+                        <p className="text-[10px] font-bold text-[#1351b4] uppercase tracking-widest mb-4">Enquadramento Revisado (Analítico)</p>
+                        <div className={`w-20 h-20 rounded-lg flex items-center justify-center text-4xl font-black mb-4 ${
+                          getRatingColor(simulationResult.rating_estimado).replace('px-5 py-3', '').replace('border-2', 'border-4')
+                        }`}>
+                          {simulationResult.rating_estimado}
+                        </div>
+                        <p className="text-sm font-bold text-[#0c326f] uppercase tracking-tight">
+                          {getRatingLabel(simulationResult.rating_estimado)}
+                        </p>
                       </div>
                     </div>
-                    {simulationResult.rating_real && (
-                      <>
-                        <span className="text-slate-400 text-2xl font-light">×</span>
-                        <div className="flex items-center gap-4">
-                          <div className={`rounded-xl border-2 px-6 py-4 ${getRatingColor(simulationResult.rating_real)} ${
-                            simulationResult.has_discrepancy ? 'ring-2 ring-rose-300' : ''
-                          }`}>
-                            <span className="block text-3xl font-bold">{simulationResult.rating_real}</span>
-                            <span className="text-sm opacity-90">{getRatingLabel(simulationResult.rating_real)}</span>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Receita Federal</p>
-                            <p className="text-slate-700">Enquadramento Receita Federal</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
                   </div>
 
                   {simulationResult.has_discrepancy && (
@@ -2460,8 +2499,6 @@ export function RatingValidator() {
                     const levels: ('D' | 'C' | 'B' | 'A')[] = ['D', 'C', 'B', 'A'];
                     const real = simulationResult.rating_real;
                     const estimado = simulationResult.rating_estimado;
-                    const hasDiscrepancy = simulationResult.has_discrepancy && real && real !== estimado;
-                    /** Calcula "atende" pelo valor numérico do indicador (independente da API) */
                     const atendeNivel = (item: { id: string; value: number }, colLevel: 'D' | 'C' | 'B' | 'A') => {
                       const mins = THRESHOLD_MINS[item.id];
                       if (!mins) return colLevel === 'D';
@@ -2470,80 +2507,66 @@ export function RatingValidator() {
                     const getThreshold = (item: { id: string; thresholds_by_level?: { D?: string; C?: string; B?: string; A?: string } }, lvl: 'D' | 'C' | 'B' | 'A') =>
                       item.thresholds_by_level?.[lvl] ?? FALLBACK_THRESHOLDS[item.id]?.[lvl] ?? '-';
                     return (
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-3">Comparativo de indicadores por Rating</h3>
-                        <p className="text-sm text-slate-600 mb-4">
-                          Uma coluna por classificação (D, C, B, A). Seu valor vs. o que cada nível exige. Verde = atende; vermelho = discrepância (Enquadramento RF exige um nível que este indicador não atinge).
-                        </p>
-                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-                          <table className="w-full text-sm min-w-[36rem]">
+                      <div className="mt-8 border-t border-slate-100 pt-8">
+                        <h3 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider mb-4 px-1">Detalhamento da Validação</h3>
+                        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                          <table className="w-full text-sm min-w-[50rem]">
                             <thead>
-                              <tr>
-                                <th className="text-left p-4 font-semibold text-slate-700 bg-slate-50 rounded-tl-2xl border-b border-slate-200">Indicador</th>
-                                <th className="text-center p-4 font-semibold text-slate-700 bg-white border-b border-l border-slate-200">Seu valor</th>
+                              <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="text-left p-4 font-bold text-[#0c326f] uppercase tracking-tighter text-xs">Indicador de Capacidade</th>
+                                <th className="text-center p-4 font-bold text-[#0c326f] uppercase tracking-tighter text-xs border-l border-slate-200 bg-slate-100/50">Valor Calculado</th>
                                 {levels.map((lvl) => {
                                   const isCalculado = lvl === estimado;
                                   const isInformado = lvl === real;
-                                  const isRedHeader = isInformado && hasDiscrepancy;
                                   return (
                                     <th
                                       key={lvl}
-                                      className={`p-4 font-semibold text-center min-w-[8rem] border-b border-l border-slate-200 ${
-                                        isRedHeader
-                                          ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                          : isCalculado
-                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                            : 'bg-slate-50 text-slate-700'
-                                      } ${lvl === 'A' ? 'rounded-tr-2xl' : ''}`}
+                                      className={`p-4 font-black text-center min-w-[8rem] border-l border-slate-200 ${
+                                        isCalculado
+                                          ? 'bg-[#1351b4] text-white'
+                                          : isInformado
+                                            ? 'bg-slate-800 text-white'
+                                            : 'text-slate-500'
+                                      }`}
                                     >
-                                      <span className="block text-xl font-bold">{lvl}</span>
-                                      <span className="block text-xs font-normal mt-1 opacity-90">
-                                        {isCalculado && '✓ Enquadramento Revisado'}
-                                        {isInformado && !isCalculado && 'Enquadramento RF'}
-                                        {!isCalculado && !isInformado && getRatingLabel(lvl)}
+                                      <span className="block text-xl">{lvl}</span>
+                                      <span className="block text-[9px] font-bold mt-0.5 opacity-80 leading-none">
+                                        {isCalculado ? 'REVISADO' : isInformado ? 'RECEITA' : 'LIMITE'}
                                       </span>
                                     </th>
                                   );
                                 })}
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-100">
                               {simulationResult.indicator_analysis.map((item) => {
                                 const atendeCol = (lvl: 'D' | 'C' | 'B' | 'A') => atendeNivel(item, lvl);
                                 return (
-                                  <tr key={item.id} className="border-b border-slate-100 last:border-b-0">
-                                    <td className="p-4 bg-slate-50/70 border-r border-slate-100">
-                                      <div className="font-medium text-slate-800">{item.name}</div>
-                                      <div className="text-xs text-slate-500 mt-0.5">{item.formula}</div>
+                                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="p-4">
+                                      <div className="font-bold text-slate-800">{item.name}</div>
+                                      <div className="text-[10px] text-slate-500 mt-1 uppercase font-medium">{item.formula}</div>
                                     </td>
-                                    <td className="p-4 text-center font-mono font-bold text-slate-900 bg-white border-r border-slate-100">
+                                    <td className="p-4 text-center font-mono font-black text-slate-900 bg-slate-50/30 border-l border-slate-100">
                                       {item.id === 'solvencia' ? formatPercent(item.value) : formatNumber(item.value, 2)}
                                     </td>
                                     {levels.map((lvl) => {
                                       const atende = atendeCol(lvl);
-                                      const isCalculado = lvl === estimado;
-                                      const isRed = hasDiscrepancy && lvl === real && !atende;
-                                      const isGreen = lvl === estimado && atende;
+                                      const isCalculadoColumn = lvl === estimado;
                                       return (
                                         <td
                                           key={lvl}
                                           className={`p-4 text-center border-l border-slate-100 ${
-                                            isRed
-                                              ? 'bg-rose-50 text-rose-700'
-                                              : isGreen
-                                                ? 'bg-emerald-50 text-emerald-700'
-                                                : isCalculado
-                                                  ? 'bg-emerald-50/40 text-slate-700'
-                                                  : 'bg-white text-slate-600'
+                                            isCalculadoColumn ? 'bg-indigo-50/20' : ''
                                           }`}
                                         >
-                                          <div className="font-semibold">{getThreshold(item, lvl)}</div>
-                                          <div className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                          <div className="font-bold text-slate-700">{getThreshold(item, lvl)}</div>
+                                          <div className={`mt-2 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase ${
                                             atende
-                                              ? 'bg-emerald-100 text-emerald-700'
-                                              : 'bg-slate-100 text-slate-500'
+                                              ? 'text-emerald-700'
+                                              : 'text-slate-400'
                                           }`}>
-                                            {atende ? '✓ Atende' : 'Não atende'}
+                                            {atende ? '✓ Atende' : '---'}
                                           </div>
                                         </td>
                                       );
@@ -2554,12 +2577,6 @@ export function RatingValidator() {
                             </tbody>
                           </table>
                         </div>
-                        <p className="mt-4 text-sm text-slate-600">
-                          <strong>Uso jurídico:</strong> a análise resulta no <strong>Enquadramento Revisado</strong> ({simulationResult.rating_estimado}).
-                          {real && real !== estimado && (
-                            <> A divergência com o Enquadramento Receita Federal ({real}) pode fundamentar pedido de revisão junto à Receita Federal.</>
-                          )}
-                        </p>
                       </div>
                     );
                   })()}
@@ -2569,106 +2586,109 @@ export function RatingValidator() {
                   )}
                 </Card>
 
-                {/* Memória de Cálculo */}
-                <Card className="pdf-keep-together p-6">
-                  <h2 className="text-lg font-semibold text-slate-800 mb-1">Memória de Cálculo</h2>
-                  <p className="text-sm text-slate-600 mb-2">
-                    Metodologia baseada na <strong>Portaria PGFN nº 6.757, de 29 de julho de 2022</strong>, que regulamenta a transação na cobrança de créditos da União e do FGTS e dispõe sobre a aferição da capacidade de pagamento para fins de negociação.
-                  </p>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Indicadores calculados a partir dos demonstrativos contábeis (Balanço Patrimonial) conforme critérios utilizados na análise de Capag Efetiva (arts. 30 e seguintes da Portaria 6.757/2022).
-                  </p>
-                  <div className="space-y-6">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                      <h3 className="font-medium text-slate-800 mb-2">Liquidez Corrente</h3>
-                      <p className="text-sm text-slate-600 mb-2">
-                        <strong>Fórmula:</strong> Ativo Circulante ÷ Passivo Circulante — mede a capacidade de pagar obrigações de curto prazo. Valores ≥ 1,0 indicam capacidade adequada.
-                      </p>
-                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
-                        {formatCurrency(simulationResult.calculated_values.ativo_circulante_total)}
-                        <span className="text-slate-400 mx-2">÷</span>
-                        {formatCurrency(simulationResult.calculated_values.passivo_circulante_total)}
-                        <span className="text-slate-400 mx-2">=</span>
-                        <strong className="text-emerald-700">
-                          {formatNumber(simulationResult.indicators.liquidez_corrente, 2)}
-                        </strong>
-                      </div>
+                {/* Memória de Cálculo e Amparo Legal (Consolidado) */}
+                <div className="pdf-keep-together bg-white p-8 rounded-lg border border-slate-200 shadow-sm mt-8 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-[#0c326f]"></div>
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded bg-[#f2f5f8] border border-slate-200 flex items-center justify-center text-[#0c326f]">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                      <h3 className="font-medium text-slate-800 mb-2">Liquidez Geral</h3>
-                      <p className="text-sm text-slate-600 mb-2">
-                        <strong>Fórmula:</strong> (Ativo Circulante + Realizável a LP) ÷ (Passivo Circulante + Passivo Não Circulante) — mede a capacidade de pagar todas as obrigações (curto e longo prazo). Considera ativos e passivos circulantes e não circulantes.
-                      </p>
-                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
-                        <span className="text-slate-500">(</span>
-                        {formatCurrency(simulationResult.calculated_values.ativo_circulante_total)}
-                        <span className="text-slate-400 mx-1">+</span>
-                        {formatCurrency(simulationResult.calculated_values.realizavel_longo_prazo_total)}
-                        <span className="text-slate-500">)</span>
-                        <span className="text-slate-400 mx-2">÷</span>
-                        <span className="text-slate-500">(</span>
-                        {formatCurrency(simulationResult.calculated_values.passivo_circulante_total)}
-                        <span className="text-slate-400 mx-1">+</span>
-                        {formatCurrency(simulationResult.calculated_values.passivo_nao_circulante_total)}
-                        <span className="text-slate-500">)</span>
-                        <span className="text-slate-400 mx-2">=</span>
-                        <strong className="text-emerald-700">
-                          {formatNumber(simulationResult.indicators.liquidez_geral, 2)}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                      <h3 className="font-medium text-slate-800 mb-2">Solvência</h3>
-                      <p className="text-sm text-slate-600 mb-2">
-                        <strong>Fórmula:</strong> Patrimônio Líquido ÷ Ativo Total — mede a participação do capital próprio no ativo total. Valores mais altos indicam menor dependência de capital de terceiros.
-                      </p>
-                      <div className="font-mono text-sm bg-white rounded-lg p-3 border border-slate-200">
-                        {formatCurrency(simulationResult.calculated_values.patrimonio_liquido_total)}
-                        <span className="text-slate-400 mx-2">÷</span>
-                        {formatCurrency(simulationResult.calculated_values.ativo_total)}
-                        <span className="text-slate-400 mx-2">=</span>
-                        <strong className="text-emerald-700">
-                          {formatPercent(simulationResult.indicators.solvencia)}
-                        </strong>
-                      </div>
+                    <div>
+                      <h2 className="text-lg font-black text-[#0c326f] uppercase tracking-tight">Memória de Cálculo e Fundamentação</h2>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Normativa: Portaria PGFN nº 6.757/2022</p>
                     </div>
                   </div>
-                  {/* Regras de classificação conforme Portaria 6.757/2022 */}
-                  <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                    <h3 className="font-medium text-slate-800 mb-2">Regras de enquadramento (classificação A, B, C, D)</h3>
-                    <p className="text-sm text-slate-600 mb-3">
-                      A classificação para transação segue critérios baseados na pontuação dos três indicadores (Portaria PGFN 6.757/2022). Cada indicador atribui pontos conforme o valor obtido:
-                    </p>
-                    <ul className="text-sm text-slate-700 space-y-1.5 list-disc list-inside">
-                      <li><strong>Liquidez Corrente:</strong> ≥ 2,0 (3 pts), ≥ 1,5 (2 pts), ≥ 1,0 (1 pt)</li>
-                      <li><strong>Liquidez Geral:</strong> ≥ 1,5 (3 pts), ≥ 1,2 (2 pts), ≥ 1,0 (1 pt)</li>
-                      <li><strong>Solvência:</strong> ≥ 0,5 (3 pts), ≥ 0,3 (2 pts), ≥ 0,1 (1 pt)</li>
-                    </ul>
-                    <p className="text-sm text-slate-600 mt-3">
-                      <strong>Classificação final:</strong> A (≥ 7 pts), B (5–6 pts), C (3–4 pts), D (&lt; 3 pts). As classificações A e B indicam capacidade de cumprir obrigações; C e D indicam dificuldade de quitação do passivo, com possibilidade de descontos e parcelamento ampliado.
-                    </p>
-                  </div>
-                </Card>
 
-                {/* Embasamento Legal - para advogados e contadores */}
-                <Card className="pdf-keep-together pdf-only-complete p-6 bg-slate-50/80 border-slate-200">
-                  <h2 className="text-lg font-semibold text-slate-800 mb-2">Embasamento legal</h2>
-                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">Fundamentação normativa para uso em peças e pareceres</p>
-                  <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
-                    <p>
-                      O presente relatório utiliza metodologia alinhada à <strong>Portaria PGFN nº 6.757, de 29 de julho de 2022</strong>, que regulamenta a transação na cobrança de créditos da União e do FGTS. A capacidade de pagamento é o critério previsto em lei e utilizado pela Procuradoria-Geral da Fazenda Nacional (PGFN) e Receita Federal para conceder benefícios em negociações — como descontos e prazo alongado para pagamento (consultar: gov.br/pgfn — Serviços de orientação ao contribuinte).
-                    </p>
-                    <p>
-                      O contribuinte que discorda da classificação atribuída pela Receita Federal pode apresentar <strong>pedido de revisão de capacidade de pagamento</strong>, nos termos dos arts. 30 e seguintes da Portaria PGFN nº 6.757/2022, no prazo de 30 dias contados da ciência da classificação. O requerimento deve indicar o valor que entende correto, a metodologia de cálculo e comprovar com documentação (Balanço Patrimonial, DRE, DFC, relação de bens e direitos, extratos bancários e demais exigências do art. 30).
-                    </p>
-                    <p>
-                      As classificações <strong>A e B</strong> são atribuídas aos devedores que têm condições de cumprir as obrigações (negociação em até 60 meses, sem descontos). As classificações <strong>C e D</strong> aplicam-se quando a capacidade de pagamento não é suficiente para liquidar todo o passivo fiscal; nesses casos, a Fazenda Nacional pode conceder descontos e prazo ampliado, pois a dívida é considerada de difícil recuperação ou irrecuperável.
-                    </p>
-                    <p>
-                      Base legal: <strong>Lei nº 13.988/2020</strong> (transação tributária); <strong>Portaria PGFN nº 6.757/2022</strong> (regulamentação da transação e critérios de capacidade de pagamento); <strong>Portaria PGFN nº 1.241/2023</strong> (alterações); normas disponíveis em normas.receita.fazenda.gov.br.
-                    </p>
+                  <div className="grid grid-cols-1 gap-6 mb-8">
+                    {/* LC */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-5">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Liquidez Corrente (LC)</h4>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase">Capacidade de pagar obrigações imediatas</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-slate-400 uppercase">Pontuação</div>
+                          <div className="text-xl font-black text-[#1351b4]">{formatNumber(simulationResult.indicators.liquidez_corrente, 2)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 bg-white p-3 rounded border border-slate-200 font-mono text-xs overflow-x-auto">
+                        <span className="shrink-0">{formatCurrency(simulationResult.calculated_values.ativo_circulante_total)}</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="shrink-0">{formatCurrency(simulationResult.calculated_values.passivo_circulante_total)}</span>
+                        <span className="text-slate-300 font-bold">=</span>
+                        <span className="font-black text-slate-900">{formatNumber(simulationResult.indicators.liquidez_corrente, 2)}</span>
+                      </div>
+                    </div>
+
+                    {/* LG */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-5">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Liquidez Geral (LG)</h4>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase">Solvência global (curto e longo prazo)</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-slate-400 uppercase">Pontuação</div>
+                          <div className="text-xl font-black text-[#1351b4]">{formatNumber(simulationResult.indicators.liquidez_geral, 2)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 bg-white p-3 rounded border border-slate-200 font-mono text-xs overflow-x-auto">
+                        <span className="shrink-0">({formatCurrency(simulationResult.calculated_values.ativo_circulante_total)} + {formatCurrency(simulationResult.calculated_values.realizavel_longo_prazo_total)})</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="shrink-0">({formatCurrency(simulationResult.calculated_values.passivo_circulante_total)} + {formatCurrency(simulationResult.calculated_values.passivo_nao_circulante_total)})</span>
+                        <span className="text-slate-300 font-bold">=</span>
+                        <span className="font-black text-slate-900">{formatNumber(simulationResult.indicators.liquidez_geral, 2)}</span>
+                      </div>
+                    </div>
+
+                    {/* SOLVENCIA */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-5">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Solvência (S)</h4>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase">Participação de capital próprio no ativo</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-slate-400 uppercase">Pontuação</div>
+                          <div className="text-xl font-black text-[#1351b4]">{formatPercent(simulationResult.indicators.solvencia)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 bg-white p-3 rounded border border-slate-200 font-mono text-xs overflow-x-auto">
+                        <span className="shrink-0">{formatCurrency(simulationResult.calculated_values.patrimonio_liquido_total)}</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="shrink-0">{formatCurrency(simulationResult.calculated_values.ativo_total)}</span>
+                        <span className="text-slate-300 font-bold">=</span>
+                        <span className="font-black text-slate-900">{formatPercent(simulationResult.indicators.solvencia)}</span>
+                      </div>
+                    </div>
                   </div>
-                </Card>
+
+                  <div className="bg-[#f2f5f8] p-6 rounded-lg border border-slate-200">
+                    <h3 className="text-xs font-bold text-[#0c326f] uppercase tracking-widest mb-4">Embasamento Normativo e Recomendações</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="text-[11px] text-slate-600 leading-relaxed space-y-3 font-medium">
+                        <p>
+                          A classificação final para transação segue critérios baseados na pontuação ponderada dos indicadores acima (A ≥ 7, B 5-6, C 3-4, D &lt; 3).
+                        </p>
+                        <p>
+                          O contribuinte que discordar da classificação pode apresentar <strong>Pedido de Revisão de Capacidade de Pagamento</strong> (arts. 30 e ss. da Portaria PGFN 6.757/2022) no prazo de 30 dias.
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-slate-500 italic space-y-3 leading-tight border-l border-slate-200 pl-6">
+                        <p>
+                          As situações C e D são enquadradas como "Dívidas de Difícil Recuperação", autorizando descontos sobre juros e multas de até 70% e parcelamento em 145 meses, conforme Lei 13.988/2020.
+                        </p>
+                        <p>
+                          Documentação necessária: Balanço Patrimonial, DRE, DFC, Relação de Bens e Direitos, Extratos Bancários e Parecer Contábil.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Simulador de Parcelamento */}
                 <Card className="pdf-keep-together pdf-only-complete p-6">
@@ -3953,7 +3973,7 @@ export function RatingValidator() {
               </div>
               <div
                 className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
-                style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+                style={{ width: '210mm', maxWidth: '100%', maxHeight: '50vh', overflowY: 'auto' }}
               >
                 <div className="report-preview-inner p-4">
                   <ReportPrintHeader

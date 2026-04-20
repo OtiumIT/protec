@@ -1427,7 +1427,7 @@ export function IrpfAltaRenda() {
             </div>
             <div
               className="report-preview border border-slate-200 rounded-lg overflow-hidden bg-white"
-              style={{ width: '210mm', maxWidth: '100%', maxHeight: '65vh', overflowY: 'auto' }}
+              style={{ width: '210mm', maxWidth: '100%', maxHeight: '45vh', overflowY: 'auto' }}
             >
               <div className="report-preview-inner p-4">
                 <ReportPrintHeader

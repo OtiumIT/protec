@@ -43,7 +43,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" data-private-scroll-container="true">
           {/* Header */}
           <header
-            className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 sticky top-0 z-30 shadow-sm h-[72px]"
+            className="bg-[#0c326f] border-b border-[#1351b4] px-4 sm:px-6 sticky top-0 z-30 shadow-md h-[72px]"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <div className="h-full flex items-start justify-between gap-4 pt-2.5">
@@ -54,7 +54,7 @@ export function Layout({ children }: LayoutProps) {
                     if (isSidebarCollapsed) setIsSidebarCollapsed(false);
                     else setIsSidebarOpen((o) => !o);
                   }}
-                  className={`p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors flex ${!isSidebarCollapsed ? 'lg:hidden' : ''}`}
+                  className={`p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors flex ${!isSidebarCollapsed ? 'lg:hidden' : ''}`}
                   aria-label="Abrir menu"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,17 +64,17 @@ export function Layout({ children }: LayoutProps) {
               </div>
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="min-w-0 text-right leading-tight">
-                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Bem-vindo, {user?.name}!</h2>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">
+                  <h2 className="text-base sm:text-lg font-semibold text-white truncate">Bem-vindo, {user?.name}!</h2>
+                  <p className="text-xs sm:text-sm text-white/70 truncate">
                     {user?.role === 'super_admin' ? 'Super Administrador' :
                     user?.role === 'admin' ? 'Administrador' : 'Usuário'}
                   </p>
                 </div>
-                <Button variant="tertiary" size="sm" onClick={logout} className="inline-flex items-center justify-center gap-1.5 h-9 min-h-[36px] px-3 py-2 text-sm bg-transparent border-brand/40 text-brand hover:bg-brand/5">
+                <Button variant="tertiary" size="sm" onClick={logout} className="inline-flex items-center justify-center gap-1.5 h-9 min-h-[36px] px-3 py-2 text-sm bg-white/10 border-white/20 text-white hover:bg-white/20">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  <span className="hidden sm:inline">Sair</span>
+                  <span className="hidden sm:inline text-white">Sair</span>
                 </Button>
               </div>
             </div>
@@ -85,9 +85,11 @@ export function Layout({ children }: LayoutProps) {
             {children}
           </main>
           <FeedbackFab />
-          <div className="absolute bottom-2 right-4 pointer-events-none">
-            <ApiVersionBadge />
-          </div>
+          {user?.role?.toLowerCase() === 'super_admin' && (
+            <div className="absolute bottom-2 right-4 pointer-events-none">
+              <ApiVersionBadge />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,16 +1,26 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --brand-blue: #1351b4;
+    --gov-navy: #0c326f;
+    --bg-main: #eef2f6;
+    --gov-navy-dark: #071d41;
+    --gov-slate: #8090a5;
+    --gov-border: #d2dae2;
+  }
+
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-slate-50 text-slate-900;
+    background-color: var(--bg-main);
+    @apply text-slate-900;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -18,8 +28,48 @@
 }
 
 @layer components {
+  /* Cards Utilitários Estilo Gov */
+  .card-gov {
+    @apply bg-white border border-[#d2dae2] rounded-md shadow-sm relative overflow-hidden;
+  }
+
+  .card-gov::before {
+    content: '';
+    @apply absolute top-0 left-0 w-1 h-full bg-[#0c326f] opacity-0 transition-opacity;
+  }
+
+  .card-gov-accent::before {
+    @apply opacity-100;
+  }
+
+  /* Tabelas Institucionais */
+  .table-gov {
+    @apply w-full border-collapse bg-white text-sm;
+  }
+
+  .table-gov thead tr {
+    @apply bg-[#f8fafc] border-b border-[#d2dae2];
+  }
+
+  .table-gov th {
+    @apply p-4 text-left font-bold text-[#0c326f] uppercase tracking-tighter text-xs;
+  }
+
+  .table-gov td {
+    @apply p-4 border-b border-[#f1f5f9] text-slate-700 align-middle;
+  }
+
+  .table-gov tr:hover {
+    @apply bg-[#f8fafc]/80;
+  }
+
+  /* Badge Institucional Refinado */
+  .badge-gov {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider;
+  }
+
   .container-custom {
-    @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+    @apply mx-auto px-4 sm:px-6 lg:px-10 max-w-[1600px];
   }
 
   .pdf-keep-together,

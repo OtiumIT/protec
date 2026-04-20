@@ -603,24 +603,24 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           to={item.path || '#'}
           title={item.name}
           className={`
-            flex items-center gap-3 rounded-lg transition-all duration-200
+            flex items-center gap-3 transition-all duration-200
             ${isCollapsed ? 'lg:justify-center lg:px-2 lg:py-3' : 'items-start'}
-            ${isChild && !isCollapsed ? 'pl-3 pr-4 py-2.5' : 'px-4 py-3'}
+            ${isChild && !isCollapsed ? 'pl-6 pr-4 py-2.5' : 'px-4 py-3'}
             group relative
             ${active 
-              ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
+              ? 'bg-[#ebf5ff] text-[#1351b4] font-bold border-l-4 border-[#1351b4]' 
               : isChild 
-                ? 'text-slate-600 hover:bg-slate-50 hover:text-brand font-normal'
-                : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
+                ? 'text-slate-600 hover:bg-slate-50 hover:text-[#1351b4] font-normal border-l-4 border-transparent'
+                : 'text-slate-700 hover:bg-slate-50 hover:text-[#1351b4] border-l-4 border-transparent'
             }
             ${isChild ? 'text-sm' : ''}
-            focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+            focus:outline-none focus:ring-2 focus:ring-[#1351b4]/20 focus:ring-offset-2
           `}
           aria-current={active ? 'page' : undefined}
         >
           <span className={`
             flex-shrink-0 transition-colors duration-200 mt-0.5
-            ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
+            ${active ? 'text-[#1351b4]' : 'text-slate-500 group-hover:text-[#1351b4]'}
             ${isCollapsed ? 'lg:mt-0' : ''}
           `}>
             {item.icon}
@@ -629,14 +629,11 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             <>
               <span className="break-words min-w-0 flex-1 text-left leading-snug">{item.name}</span>
               {item.badge && (
-                <span className="ml-auto flex-shrink-0 bg-brand text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                <span className="ml-auto flex-shrink-0 bg-[#1351b4] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                   {item.badge}
                 </span>
               )}
             </>
-          )}
-          {active && !isCollapsed && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brand rounded-r-full" aria-hidden="true" />
           )}
         </Link>
       </li>
@@ -644,7 +641,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
   };
 
   /** Wrapper tab line padrão para conteúdo de categoria */
-  const tabLineWrapperClass = `mt-0.5 pl-2 border-l-2 border-slate-200 bg-slate-50/50 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`;
+  const tabLineWrapperClass = `mt-0 bg-white ${isCollapsed ? 'ml-0' : 'ml-0'} ${!isCollapsed ? 'space-y-0.5' : ''}`;
 
   /** Renderiza os itens de uma categoria com wrapper tab line unificado */
   const renderCategoryItems = (cat: MenuCategory) => {
@@ -746,7 +743,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           <Link
             to="/dashboard"
             aria-label="Ir para início"
-            className={`flex items-center min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}
+            className={`flex items-center min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[#1351b4]/20 focus:ring-offset-2 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}
           >
             <img
               src="/logo-iatax.png"
@@ -807,10 +804,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Buscar no menu (⌘K)"
+              placeholder="Buscar (⌘K)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-9 pr-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-slate-50 hover:bg-white"
+              className="w-full h-10 pl-9 pr-3 text-xs font-bold border border-[#d2dae2] rounded-md focus:outline-none focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4]/20 transition-all bg-[#f8fafc]"
             />
             {searchQuery && (
               <button
@@ -828,7 +825,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         )}
 
         {/* Menu - Categorias em accordion (1 expandida por vez) */}
-        <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-2 lg:px-2' : 'p-4'}`}>
+        <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-0 lg:px-0' : 'p-0'}`}>
           {isLoadingModules && !FORCE_SHOW_ALL_MODULES && (
             <div className="px-4 py-2 text-center">
               <p className="text-xs text-slate-400">Carregando módulos...</p>
@@ -839,19 +836,19 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
             if (cat.directLink) {
               return (
-                <div key={cat.id} className="mb-4">
+                <div key={cat.id} className="mb-0">
                   <Link
                     to={cat.directLink}
                     title={cat.name}
                     className={`
-                      w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
+                      w-full flex items-center gap-3 px-4 py-3 transition-all duration-200
                       group relative
-                      ${hasActive ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
+                      ${hasActive ? 'bg-[#ebf5ff] text-[#1351b4] font-bold border-l-4 border-[#1351b4]' : 'text-slate-700 hover:bg-slate-50 hover:text-[#1351b4] border-l-4 border-transparent'}
                       ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}
-                      focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                      focus:outline-none focus:ring-2 focus:ring-[#1351b4]/20 focus:ring-offset-2
                     `}
                   >
-                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                    <span className={`flex-shrink-0 ${hasActive ? 'text-[#1351b4]' : 'text-slate-500 group-hover:text-[#1351b4]'}`}>
                       {cat.icon}
                     </span>
                     {!isCollapsed && (
@@ -868,7 +865,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             const buttonId = `category-btn-${cat.id}`;
 
             return (
-              <div key={cat.id} className={`mb-4 ${cat.id === 'administracao' ? 'pt-4 border-t border-slate-100' : ''}`}>
+              <div key={cat.id} className={`mb-0 ${cat.id === 'administracao' ? 'pt-2 border-t border-slate-100' : ''}`}>
                 <button
                   id={buttonId}
                   aria-expanded={isExpanded}
@@ -880,16 +877,16 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                   }}
                   title={cat.locked ? `${cat.name} - ${lockedModuleTooltip}` : cat.name}
                   className={`
-                    w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
+                    w-full flex items-center gap-3 px-4 py-3 transition-all duration-200
                     group relative
-                    ${hasActive || isExpanded ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
+                    ${hasActive || isExpanded ? 'bg-[#ebf5ff]/50 text-[#1351b4] font-bold border-l-4 border-[#1351b4]' : 'text-slate-700 hover:bg-slate-50 hover:text-[#1351b4] border-l-4 border-transparent'}
                     ${isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'}
                     ${cat.locked ? 'opacity-70 cursor-not-allowed' : ''}
-                    focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                    focus:outline-none focus:ring-2 focus:ring-[#1351b4]/20 focus:ring-offset-2
                   `}
                 >
                   <div className={`flex items-center min-w-0 flex-1 gap-3 ${isCollapsed ? 'lg:justify-center' : ''}`}>
-                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                    <span className={`flex-shrink-0 ${hasActive ? 'text-[#1351b4]' : 'text-slate-500 group-hover:text-[#1351b4]'}`}>
                       {cat.icon}
                     </span>
                     {!isCollapsed && (

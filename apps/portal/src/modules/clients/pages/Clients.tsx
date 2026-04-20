@@ -156,39 +156,49 @@ export function Clients() {
     <Layout>
       <ToastContainer />
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Gestão de Clientes</h1>
-          <Button variant="secondary" onClick={() => handleOpenModal()}>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Gestão de Clientes</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">Gerencie a base de contribuintes e entidades analisadas no portal</p>
+          </div>
+          <Button onClick={() => handleOpenModal()}>
+            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
             Novo Cliente
           </Button>
         </div>
 
         {/* Search and Filters */}
         <Card className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              placeholder="Buscar por nome, CNPJ ou CPF..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <select
-              className="bg-white border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Todos os status</option>
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-            </select>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex-1 w-full">
+              <Input
+                placeholder="Buscar por nome, CNPJ ou CPF (filtro rápido)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="!py-3"
+              />
+            </div>
+            <div className="w-full md:w-60">
+              <select
+                className="w-full bg-white border border-[#d2dae2] rounded-md px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4]/20"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">Todos os status</option>
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </select>
+            </div>
             <Button
-              variant="primary"
-              className="w-full md:w-auto"
+              variant="secondary"
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('');
               }}
             >
-              Limpar Filtros
+              Limpar
             </Button>
           </div>
         </Card>
@@ -196,54 +206,72 @@ export function Clients() {
         {/* Clients List */}
         <Card>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Carregando...</div>
+            <div className="text-center py-20 bg-slate-50/50 rounded flex flex-col items-center">
+               <div className="w-8 h-8 rounded bg-slate-200 animate-pulse mb-4"></div>
+               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aguardando base de dados...</p>
+            </div>
           ) : filteredClients.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">Nenhum cliente encontrado</div>
+            <div className="text-center py-20 bg-slate-50/30 rounded border border-dashed border-slate-200">
+               <p className="text-sm font-bold text-slate-500 uppercase">Nenhum registro localizado</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-6">
+              <table className="table-gov border-t border-slate-100">
                 <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Nome</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">CNPJ/CPF</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Data</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Ações</th>
+                  <tr>
+                    <th className="pl-6">Contribuinte / Razão Social</th>
+                    <th>Identificação</th>
+                    <th>Contato Eletrônico</th>
+                    <th>Status</th>
+                    <th>Data Registro</th>
+                    <th className="text-right pr-6">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => (
-                    <tr key={client.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-slate-900">{client.name}</span>
+                    <tr key={client.id} className="group transition-colors">
+                      <td className="py-5 pl-6">
+                        <span className="font-bold text-slate-800 tracking-tight block leading-none mb-1 group-hover:text-[#1351b4]">{client.name}</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Entidade Protec</span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-slate-600">
-                        {client.cnpj ? formatCnpj(client.cnpj) : client.cpf ? formatCpf(client.cpf) : '-'}
+                      <td>
+                        <span className="font-black text-slate-700 tracking-tighter text-xs">
+                          {client.cnpj ? formatCnpj(client.cnpj) : client.cpf ? formatCpf(client.cpf) : '-'}
+                        </span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-slate-600">{client.email || '-'}</td>
-                      <td className="py-3 px-4">
+                      <td className="text-xs font-medium text-slate-600">{client.email || 'N/A'}</td>
+                      <td>
                         <Badge variant={client.status === 'active' ? 'success' : 'default'}>
                           {client.status === 'active' ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-sm text-slate-600">
-                        {new Date(client.createdAt).toLocaleDateString('pt-BR')}
+                      <td>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {new Date(client.createdAt).toLocaleDateString('pt-BR')}
+                        </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
+                      <td className="text-right pr-6">
+                        <div className="flex items-center justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleOpenModal(client)}
-                            className="text-brand hover:text-brand-dark text-sm font-medium"
+                            className="text-[#1351b4] hover:bg-blue-50 border-transparent !p-2"
                           >
-                            Editar
-                          </button>
-                          <button
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleDelete(client.id)}
-                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                            className="text-rose-600 hover:bg-rose-50 border-transparent !p-2"
                           >
-                            Excluir
-                          </button>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </Button>
                         </div>
                       </td>
                     </tr>

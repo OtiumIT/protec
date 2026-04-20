@@ -16,12 +16,12 @@ import {
 } from '../services/system.service';
 
 const MODULE_LABELS: Record<string, string> = {
-  'simulador-in-2306': 'Parcelamento IN 2306',
-  'irpf-alta-renda': 'IRPF Alta Renda',
-  'rating-validator': 'Rating/Parcelamento PGFN',
+  'simulador-in-2306': 'Simulador LC 224/2025',
+  'irpf-alta-renda': 'Tributação de Dividendos',
+  'rating-validator': 'Proposta de Transação',
   properties: 'Simulador Imóveis',
   'fiscal-files': 'Arquivos Fiscais',
-  clients: 'Cadastro de Clientes',
+  clients: 'Base de Contribuintes',
 };
 
 function normalizeDate(value: unknown): string | null {
@@ -52,24 +52,24 @@ function formatThermometerCreatedAt(iso: string): string {
 
 const THERM_LABELS: Record<string, { label: string; short: string; className: string }> = {
   hot: {
-    label: 'Quente (acima da média de uso)',
-    short: 'Quente',
-    className: 'bg-rose-100 text-rose-900 border-rose-200',
+    label: 'Engajamento Crítico',
+    short: 'Crítico',
+    className: 'bg-rose-50 text-rose-700 border-rose-200',
   },
   warm: {
-    label: 'Morno (na média de uso)',
-    short: 'Morno',
-    className: 'bg-amber-100 text-amber-900 border-amber-200',
+    label: 'Engajamento Estável',
+    short: 'Estável',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
   cold: {
-    label: 'Frio (abaixo da média de uso)',
-    short: 'Frio',
-    className: 'bg-sky-100 text-sky-900 border-sky-200',
+    label: 'Engajamento em Queda',
+    short: 'Queda',
+    className: 'bg-amber-50 text-amber-700 border-amber-200',
   },
   none: {
-    label: 'Sem uso no período',
-    short: 'Sem uso',
-    className: 'bg-slate-100 text-slate-600 border-slate-200',
+    label: 'Sem Atividade Localizada',
+    short: 'Inativo',
+    className: 'bg-slate-50 text-slate-500 border-slate-200',
   },
 };
 
@@ -214,45 +214,47 @@ export function Dashboard() {
 
   return (
     <Layout>
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Dashboard Analítico</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">Visão consolidada da operação e volumetria de dados no portal</p>
+          </div>
+          <div className="flex items-center gap-2">
+             <Badge variant="success">Sistema Operacional</Badge>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total de Clientes</p>
-                <p className="text-3xl font-bold text-slate-900">{isLoading ? '...' : stats.totalClients}</p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card accent>
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Base Total</p>
+              <p className="text-3xl font-black text-[#0c326f] tracking-tighter">{isLoading ? '...' : stats.totalClients}</p>
+              <p className="text-[9px] font-bold text-slate-500 mt-2 uppercase">Contribuintes Mapeados</p>
             </div>
           </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Clientes Ativos</p>
-                <p className="text-3xl font-bold text-slate-900">{isLoading ? '...' : stats.activeClients}</p>
-              </div>
+          <Card accent>
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Ativo</p>
+              <p className="text-3xl font-black text-[#0c326f] tracking-tighter">{isLoading ? '...' : stats.activeClients}</p>
+              <p className="text-[9px] font-bold text-emerald-600 mt-2 uppercase">Operação em Conformidade</p>
             </div>
           </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total de Usuários</p>
-                <p className="text-3xl font-bold text-slate-900">{isLoading ? '...' : stats.totalUsers}</p>
-              </div>
+          <Card accent>
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Membros</p>
+              <p className="text-3xl font-black text-[#0c326f] tracking-tighter">{isLoading ? '...' : stats.totalUsers}</p>
+              <p className="text-[9px] font-bold text-slate-500 mt-2 uppercase">Acessos Monitorados</p>
             </div>
           </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Planos Ativos</p>
-                <p className="text-3xl font-bold text-slate-900">{isLoading ? '...' : stats.activePlans}</p>
-              </div>
+          <Card accent>
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">SVA Ativos</p>
+              <p className="text-3xl font-black text-[#1351b4] tracking-tighter">{isLoading ? '...' : stats.activePlans}</p>
+              <p className="text-[9px] font-bold text-slate-500 mt-2 uppercase">Serviços Contratados</p>
             </div>
           </Card>
         </div>
@@ -277,11 +279,11 @@ export function Dashboard() {
                         total: row.total_events,
                       }))}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="modulo" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
-                      <YAxis allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="2 2" stroke="#e2e8f0" />
+                      <XAxis dataKey="modulo" tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} interval={0} angle={-15} textAnchor="end" height={70} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                       <Tooltip />
-                      <Bar dataKey="total" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="total" fill="#0c326f" radius={[2, 2, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -297,11 +299,11 @@ export function Dashboard() {
                         total: row.total,
                       }))}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="dia" tick={{ fontSize: 11 }} interval={4} />
-                      <YAxis allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="2 2" stroke="#e2e8f0" />
+                      <XAxis dataKey="dia" tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} interval={4} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                       <Tooltip />
-                      <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="total" stroke="#1351b4" strokeWidth={3} dot={{ r: 4, fill: '#1351b4', strokeWidth: 2, stroke: '#fff' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -336,23 +338,28 @@ export function Dashboard() {
           </Card>
         )}
 
-        <Card className="mb-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Clientes Recentes</h2>
+        <Card>
+          <h2 className="text-xs font-black text-[#0c326f] uppercase tracking-widest mb-6">Últimas Ingestões de Dados</h2>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Carregando...</div>
+            <div className="text-center py-20 bg-slate-50/50 rounded flex flex-col items-center">
+               <div className="w-8 h-8 rounded bg-slate-200 animate-pulse mb-4"></div>
+               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aguardando base de dados...</p>
+            </div>
           ) : recentClients.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">Nenhum cliente cadastrado</div>
+            <div className="text-center py-20 border border-dashed border-slate-200 rounded">
+               <p className="text-sm font-bold text-slate-500 uppercase tracking-tighter">Nenhum registro localizado</p>
+            </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentClients.map((client) => (
                 <div
                   key={client.id}
-                  className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200"
+                  className="flex items-center justify-between p-5 bg-white rounded border border-[#d2dae2] shadow-sm hover:border-[#1351b4] transition-colors group"
                 >
                   <div>
-                    <h3 className="font-semibold text-slate-900">{client.name}</h3>
-                    <p className="text-sm text-slate-500">
-                      Criado em {formatClientCreatedAt(client)}
+                    <h3 className="font-bold text-slate-800 tracking-tight group-hover:text-[#1351b4]">{client.name}</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase mt-1">
+                      Protocolado em {formatClientCreatedAt(client)}
                     </p>
                   </div>
                   <Badge variant={(client.status === 'active' || !client.status) ? 'success' : 'default'}>
@@ -375,79 +382,45 @@ export function Dashboard() {
 
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label htmlFor="therm-client-search" className="block text-sm font-medium text-slate-700 mb-1">
-                  Nome do cliente
+                <label htmlFor="therm-client-search" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                  Filtro por Cliente
                 </label>
                 <input
                   id="therm-client-search"
                   type="search"
-                  placeholder="Filtrar por nome…"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  placeholder="Nome do cliente…"
+                  className="w-full rounded-md border border-[#d2dae2] bg-white px-3 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#1351b4] focus:outline-none focus:ring-1 focus:ring-[#1351b4]/20"
                   value={thermFilters.clientSearch}
                   onChange={(e) => setThermFilters((p) => ({ ...p, clientSearch: e.target.value }))}
                 />
               </div>
               <div>
-                <label htmlFor="therm-company-search" className="block text-sm font-medium text-slate-700 mb-1">
-                  Nome do escritório
+                <label htmlFor="therm-company-search" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                  Filtro por Entidade
                 </label>
                 <input
                   id="therm-company-search"
                   type="search"
-                  placeholder="Filtrar empresas…"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  placeholder="Escritório ou Regional…"
+                  className="w-full rounded-md border border-[#d2dae2] bg-white px-3 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#1351b4] focus:outline-none focus:ring-1 focus:ring-[#1351b4]/20"
                   value={thermFilters.companySearch}
                   onChange={(e) => setThermFilters((p) => ({ ...p, companySearch: e.target.value }))}
                 />
               </div>
               <div>
-                <label htmlFor="therm-company-id" className="block text-sm font-medium text-slate-700 mb-1">
-                  Só este escritório (opcional)
+                <label htmlFor="therm-company-id" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                  Escritório Específico
                 </label>
                 <select
                   id="therm-company-id"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  className="w-full rounded-md border border-[#d2dae2] bg-white px-3 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#1351b4] focus:outline-none focus:ring-1 focus:ring-[#1351b4]/20"
                   value={thermFilters.companyId}
                   onChange={(e) => setThermFilters((p) => ({ ...p, companyId: e.target.value }))}
                 >
-                  <option value="">Todos (respeitando teto de consulta)</option>
+                  <option value="">Todos os Escritórios Scaneados</option>
                   {superAdminCompanies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="therm-limit" className="block text-sm font-medium text-slate-700 mb-1">
-                  Quantidade (últimos cadastros)
-                </label>
-                <select
-                  id="therm-limit"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
-                  value={thermFilters.limit}
-                  onChange={(e) => setThermFilters((p) => ({ ...p, limit: Number(e.target.value) }))}
-                >
-                  {[15, 30, 50, 100, 200].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="therm-days" className="block text-sm font-medium text-slate-700 mb-1">
-                  Janela de uso (dias)
-                </label>
-                <select
-                  id="therm-days"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
-                  value={thermFilters.days}
-                  onChange={(e) => setThermFilters((p) => ({ ...p, days: Number(e.target.value) }))}
-                >
-                  {[7, 14, 30, 60, 90, 180, 365].map((n) => (
-                    <option key={n} value={n}>
-                      {n} dias
                     </option>
                   ))}
                 </select>

@@ -152,16 +152,6 @@ export function FiscalFiles() {
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
   };
 
-  const getStatusDetail = (status: FiscalFile['status']) => {
-    const map = {
-      uploaded: 'Arquivo recebido e aguardando processamento.',
-      processing: 'Processamento em andamento no backend.',
-      processed: 'Processamento concluído com sucesso.',
-      error: 'Não foi possível concluir o processamento.',
-    };
-    return map[status];
-  };
-
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -343,97 +333,99 @@ export function FiscalFiles() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-slate-500">Carregando...</p>
+          <div className="text-center py-20 bg-[#f8fafc] rounded-lg border border-dashed border-slate-200">
+            <div className="animate-pulse flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-slate-200 mb-4"></div>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-none">Carregando dados...</p>
+            </div>
           </div>
         ) : files.length === 0 ? (
-          <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-slate-400 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            <p className="text-slate-500 text-lg mb-2">Nenhum arquivo encontrado</p>
-            <p className="text-slate-400 text-sm mb-4">
+          <div className="text-center py-20 bg-[#f8fafc] rounded-lg border border-dashed border-slate-200">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <p className="text-base font-black text-slate-800 uppercase tracking-tight mb-2">Nenhum arquivo processado</p>
+            <p className="text-sm text-slate-500 font-medium mb-6">
               {hasActiveFilters
-                ? 'Tente ajustar os filtros ou faça um novo upload'
-                : 'Faça upload de arquivos para começar'}
+                ? 'Os filtros atuais não retornaram nenhum arquivo fiscal.'
+                : 'Inicie o upload de arquivos fiscais (SPED/ECD) para análise.'}
             </p>
             <Link to="/fiscal-files/upload">
-              <Button variant="secondary">Fazer Upload</Button>
+              <Button size="sm">Fazer Primeiro Upload</Button>
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
-                onClick={() => handleViewDetails(file)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <p className="font-medium text-slate-900 truncate">{file.file_name}</p>
-                    {getStatusBadge(file.status)}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                    <span>Competência: {file.competence}</span>
-                    <span>Tipo: {file.file_type.toUpperCase()}</span>
-                    <span>Tamanho: {formatFileSize(file.file_size)}</span>
-                    <span>Enviado em: {formatDate(file.created_at)}</span>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1">{getStatusDetail(file.status)}</p>
-                  {file.processing_error && (
-                    <p className="text-xs text-red-600 mt-1">Erro: {file.processing_error}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-                  {file.status === 'processed' && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleViewDetails(file)}
-                      >
-                        Ver Detalhes
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleDownload(file.id, file.file_name)}
-                      >
-                        Download
-                      </Button>
-                    </>
-                  )}
-                  {file.status === 'error' && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleViewDetails(file)}
-                    >
-                      Ver Erro
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDelete(file.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Excluir
-                  </Button>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto -mx-6">
+            <table className="table-gov border-t border-slate-100">
+              <thead>
+                <tr>
+                  <th className="pl-6">Identificação do Arquivo</th>
+                  <th>Competência</th>
+                  <th>Tipo / Tamanho</th>
+                  <th>Status de Processamento</th>
+                  <th className="text-right pr-6">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file) => (
+                  <tr key={file.id} className="group cursor-pointer" onClick={() => handleViewDetails(file)}>
+                    <td className="pl-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-[#0c326f] font-black text-[10px]">
+                          {file.file_type.substring(0, 3).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 tracking-tight leading-none mb-1 group-hover:text-[#1351b4] transition-colors">{file.file_name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ID: {file.id.substring(0, 8)}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="font-black text-slate-700 tracking-tighter">{file.competence}</span>
+                    </td>
+                    <td>
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-600">{file.file_type.toUpperCase()}</span>
+                        <span className="mx-2 text-slate-300">•</span>
+                        <span className="text-slate-500 font-medium">{formatFileSize(file.file_size)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col gap-1.5 items-start">
+                        {getStatusBadge(file.status)}
+                        {file.processing_error && <span className="text-[9px] text-rose-600 font-bold uppercase leading-none">Erro: Falha Crítica</span>}
+                      </div>
+                    </td>
+                    <td className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleDownload(file.id, file.file_name)}
+                          className="!p-2 hover:text-[#1351b4]"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleDelete(file.id)}
+                          className="!p-2 text-rose-600 hover:bg-rose-50 border-transparent"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
@@ -500,66 +492,77 @@ export function FiscalFiles() {
               </div>
             )}
 
-            {/* Metadados */}
+            {/* Metadados — Refined Institutional Style */}
             {selectedFile.metadata && Object.keys(selectedFile.metadata).length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-3">Metadados</h3>
-                <div className="space-y-4">
-                  {selectedSummary && (
-                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-4">
-                      <h4 className="text-sm font-semibold text-indigo-900">Painel analítico de pré-preenchimento</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                          { label: 'Rating Validator', value: selectedSummary.prefill_confidence.rating_validator },
-                          { label: 'Simulador IN 2.306', value: selectedSummary.prefill_confidence.simulador_in2306 },
-                          { label: 'IRPF Alta Renda', value: selectedSummary.prefill_confidence.irpf_alta_renda },
-                        ].map((item) => {
-                          const pct = Math.max(0, Math.min(100, Math.round(item.value * 100)));
-                          return (
-                            <div key={item.label} className="rounded-lg border border-indigo-200 bg-white p-3">
-                              <p className="text-xs text-indigo-700">{item.label}</p>
-                              <div className="mt-2 flex items-center gap-3">
-                                <div
-                                  className="h-10 w-10 rounded-full"
-                                  style={{
-                                    background: `conic-gradient(#4f46e5 ${pct}%, #e0e7ff ${pct}% 100%)`,
-                                  }}
-                                />
-                                <p className="text-lg font-semibold text-indigo-900">{pct}%</p>
+              <div className="space-y-8">
+                {selectedSummary && (
+                  <div className="p-6 bg-slate-50 border border-slate-200 rounded-lg relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1351b4]"></div>
+                    <div className="flex items-center gap-3 mb-6">
+                       <h4 className="text-sm font-bold text-[#0c326f] uppercase tracking-wider">Painel Analítico de Confiança</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[
+                        { label: 'Rating Validator', value: selectedSummary.prefill_confidence.rating_validator, color: '#1351b4' },
+                        { label: 'Simulador IN 2.306', value: selectedSummary.prefill_confidence.simulador_in2306, color: '#1351b4' },
+                        { label: 'IRPF Alta Renda', value: selectedSummary.prefill_confidence.irpf_alta_renda, color: '#1351b4' },
+                      ].map((item) => {
+                        const pct = Math.max(0, Math.min(100, Math.round(item.value * 100)));
+                        return (
+                          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">{item.label}</p>
+                            <div className="flex items-center gap-4">
+                              <div
+                                className="h-12 w-12 rounded-full border-4 border-slate-50 flex items-center justify-center relative shadow-inner"
+                                style={{
+                                  background: `conic-gradient(${item.color} ${pct}%, #f1f5f9 ${pct}% 100%)`,
+                                }}
+                              >
+                                <div className="absolute inset-1 bg-white rounded-full flex items-center justify-center text-[10px] font-black text-slate-800">{pct}%</div>
+                              </div>
+                              <div>
+                                <p className="text-2xl font-black text-[#0c326f] leading-none mb-1">{pct}%</p>
+                                <p className="text-[9px] font-black text-emerald-600 uppercase">Qualidade Adequada</p>
                               </div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[10px] mt-6 pt-6 border-t border-slate-200">
+                      <div className="flex flex-col gap-1">
+                        <p className="text-slate-500 font-bold uppercase tracking-tighter">Tipos extraídos</p>
+                        <p className="font-bold text-slate-800">
+                          {selectedSummary.extracted_data_types.join(', ') || 'Nenhum'}
+                        </p>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                        <div className="rounded border border-indigo-200 bg-white p-3">
-                          <p className="text-indigo-700">Tipos extraídos</p>
-                          <p className="mt-1 font-medium text-indigo-900">
-                            {selectedSummary.extracted_data_types.join(', ') || 'Nenhum'}
-                          </p>
-                        </div>
-                        <div className="rounded border border-indigo-200 bg-white p-3">
-                          <p className="text-indigo-700">Registros mapeados</p>
-                          <p className="mt-1 font-medium text-indigo-900">
-                            {Object.values(spedInspection?.register_counts || {}).reduce((acc: number, n: any) => acc + Number(n || 0), 0)}
-                          </p>
-                        </div>
-                        <div className="rounded border border-indigo-200 bg-white p-3">
-                          <p className="text-indigo-700">Dados estruturados persistidos</p>
-                          <p className="mt-1 font-medium text-indigo-900">{selectedSummary.extracted_data.length}</p>
-                        </div>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-slate-500 font-bold uppercase tracking-tighter">Registros mapeados</p>
+                        <p className="font-bold text-slate-800">
+                          {Object.values(spedInspection?.register_counts || {}).reduce((acc: number, n: any) => acc + Number(n || 0), 0)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-slate-500 font-bold uppercase tracking-tighter">Dados persistidos</p>
+                        <p className="font-bold text-slate-800">{selectedSummary.extracted_data.length} blocos estruturados</p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {spedInspection?.header && (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                      <h4 className="text-sm font-semibold text-slate-900 mb-2">Resumo SPED</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        <div>
-                          <p className="text-slate-500">Tipo</p>
-                          <p className="font-medium text-slate-900 uppercase">{spedInspection.header.type || '-'}</p>
-                        </div>
+                {spedInspection?.header && (
+                  <div className="p-6 bg-white border border-[#d2dae2] rounded-lg shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
+                      <svg className="w-16 h-16 text-[#0c326f]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                      </svg>
+                    </div>
+                    <h4 className="text-xs font-black text-[#0c326f] uppercase tracking-widest mb-4">Inspeção Técnica de Cabeçalho (Sped)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-sm">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Tipo de Relatório</p>
+                        <p className="font-bold text-slate-800 uppercase">{spedInspection.header.type || '-'}</p>
+                      </div>
                         <div>
                           <p className="text-slate-500">CNPJ</p>
                           <p className="font-medium text-slate-900">{spedInspection.header.company_cnpj || '-'}</p>
@@ -765,7 +768,6 @@ export function FiscalFiles() {
                     </pre>
                   </details>
                 </div>
-              </div>
             )}
 
             {/* Dados Extraídos (quando processado) */}

@@ -12,9 +12,9 @@ export default {
       colors: {
         /** Cor principal do app (login + área logada): azul alinhado à landing */
         brand: {
-          DEFAULT: '#4f46e5',
-          dark: '#4338ca',
-          light: '#818cf8',
+          DEFAULT: '#1351b4',
+          dark: '#0c326f',
+          light: '#ebf5ff',
         },
         'otium-black': '#000000',
         'otium-dark': '#2d2d2d',

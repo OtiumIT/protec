@@ -170,11 +170,19 @@ export function Plans() {
     <Layout>
       <ToastContainer />
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Gestão de Planos</h1>
-          <Button variant="secondary" onClick={() => handleOpenModal()}>
-            Novo Plano
-          </Button>
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-6">
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Gestão de Planos</h1>
+              <p className="text-slate-500 text-sm font-medium mt-1">Configuração de ofertas comerciais, limites operacionais e tabelas de preços do sistema</p>
+            </div>
+            <Button onClick={() => handleOpenModal()}>
+              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Novo Plano
+            </Button>
+          </div>
         </div>
 
         {/* Plans Grid */}
@@ -183,37 +191,34 @@ export function Plans() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => (
-              <Card key={plan.id} className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
+              <Card key={plan.id} accent className="flex flex-col">
+                <div className="flex items-start justify-between mb-6">
+                   <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-black text-[#0c326f] tracking-tight uppercase leading-tight truncate">{plan.name}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Nível de Serviço</p>
+                  </div>
                   <div className="flex items-center space-x-2">
-                    {plan.isCustom && (
-                      <Badge variant="info">Customizado</Badge>
-                    )}
                     {plan.status === 'inactive' ? (
-                      <Badge variant="default">Inativo</Badge>
+                      <Badge variant="default">Suspenso</Badge>
                     ) : (
-                      <Badge variant="success">Ativo</Badge>
+                      <Badge variant="success">Operante</Badge>
                     )}
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <div className="flex items-baseline space-x-2 mb-2">
-                    <span className="text-3xl font-bold text-slate-900">
-                      {plan.isCustom ? 'Negociado' : formatCurrency(plan.price)}
+                <div className="mb-6 p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                  <div className="flex items-baseline space-x-1 mb-1">
+                    <span className="text-3xl font-black text-[#0c326f] tracking-tighter">
+                      {plan.isCustom ? 'PROPOSTA NEGOCIADA' : formatCurrency(plan.price)}
                     </span>
                     {!plan.isCustom && (
-                      <span className="text-sm text-slate-500">/mês</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">/ mês</span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-[11px] font-black text-[#1351b4] uppercase tracking-wide">
                     {plan.isCustom
-                      ? 'Módulos gerenciados individualmente'
-                      : [
-                          `Até ${plan.maxUsers} usuário${plan.maxUsers > 1 ? 's' : ''}`,
-                          ((plan.maxClients ?? 0) > 0 ? ` · Até ${plan.maxClients ?? 0} cliente${(plan.maxClients ?? 0) > 1 ? 's' : ''}` : ' · Clientes ilimitados'),
-                        ].join('')
+                      ? 'Consultoria e Módulos On-Demand'
+                      : `Threshold: ${plan.maxUsers} Membro${plan.maxUsers > 1 ? 's' : ''}`
                     }
                   </p>
                   {plan.stripePriceId && (
@@ -247,17 +252,18 @@ export function Plans() {
                   </ul>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="mt-auto pt-6 border-t border-slate-100 flex gap-3">
                   <Button
-                    variant="primary"
-                    className="flex-1"
+                    size="sm"
                     onClick={() => handleOpenModal(plan)}
+                    className="flex-1"
                   >
-                    Editar
+                    Editar Estrutura
                   </Button>
                   <Button
-                    variant="tertiary"
-                    className="flex-1"
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50"
                     onClick={() => handleDelete(plan.id)}
                   >
                     Excluir
