@@ -106,8 +106,13 @@ subscriptionRoutes.get('/admin', async (c) => {
       const subscription = await subscriptionService.getByCompany(companyId);
       return c.json({ data: { subscription } });
     } catch (error: any) {
-      // Se não encontrar subscription, retornar null ao invés de erro
-      if (error.code === 'SUBSCRIPTION_NOT_FOUND' || error.message?.includes('Subscription not found')) {
+      // Se não encontrar subscription ou plano órfão, retornar null ao invés de erro
+      if (
+        error.code === 'SUBSCRIPTION_NOT_FOUND' ||
+        error.code === 'PLAN_NOT_FOUND' ||
+        error.message?.includes('Subscription not found') ||
+        error.message?.includes('Plan not found')
+      ) {
         return c.json({ data: { subscription: null } });
       }
       throw error;

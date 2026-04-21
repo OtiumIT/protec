@@ -23,6 +23,35 @@ export const companyService = {
   },
 
   /**
+   * Lista empresas com último plano (super_admin / Base de Entidades) — uma requisição, sem N+1.
+   */
+  async listWithSubscriptions(): Promise<
+    Array<
+      Company & {
+        plan?: { id: string; name: string; isCustom?: boolean; isManaged?: boolean } | null;
+        subscriptionStatus?: string | null;
+      }
+    >
+  > {
+    const { token } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: {
+        companies: Array<
+          Company & {
+            plan?: { id: string; name: string; isCustom?: boolean; isManaged?: boolean } | null;
+            subscriptionStatus?: string | null;
+          }
+        >;
+        total?: number;
+      };
+    }>('/api/v1/companies?includeSubscription=true', {
+      method: 'GET',
+      token,
+    });
+    return response.data.companies || [];
+  },
+
+  /**
    * Criar nova empresa
    */
   async create(data: CreateCompanyData): Promise<Company> {

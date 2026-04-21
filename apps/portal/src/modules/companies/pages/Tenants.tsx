@@ -81,33 +81,13 @@ export function Tenants() {
   const loadTenants = async () => {
     setIsLoading(true);
     try {
-      // Usar rota /clients que retorna empresas quando for super_admin
-      const token = localStorage.getItem('accessToken');
-      const response = await apiRequest<{ data: { clients: any[] } }>('/api/v1/clients', {
-        method: 'GET',
-        token: token || undefined,
-      });
-      
-      // Buscar plano de cada tenant
-      const tenantsWithPlans = await Promise.all(
-        (response.data.clients || []).map(async (tenant: any) => {
-          try {
-            const subscriptionResponse = await subscriptionService.getByCompany(tenant.id);
-            return {
-              ...tenant,
-              plan: subscriptionResponse?.plan || null,
-            };
-          } catch (error: any) {
-            // Se não encontrar subscription, retornar sem plano
-            if (error.message?.includes('SUBSCRIPTION_NOT_FOUND') || error.message?.includes('404')) {
-              return { ...tenant, plan: null };
-            }
-            return { ...tenant, plan: null };
-          }
-        })
+      const rows = await companyService.listWithSubscriptions();
+      setTenants(
+        rows.map((row) => ({
+          ...row,
+          plan: row.plan ?? null,
+        })) as TenantWithPlan[]
       );
-      
-      setTenants(tenantsWithPlans);
     } catch (error) {
       console.error('Error loading tenants:', error);
     } finally {

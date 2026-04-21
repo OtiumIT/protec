@@ -38,6 +38,42 @@ companyRoutes.get(
         );
       }
 
+      const includeSubscription = c.req.query('includeSubscription') === 'true';
+
+      if (includeSubscription) {
+        const rows = await companyRepo.findAllWithLatestSubscriptionPlan();
+        const companies = rows.map((r) => {
+          const {
+            latest_subscription_status,
+            resolved_plan_id,
+            resolved_plan_name,
+            resolved_plan_is_custom,
+            resolved_plan_is_managed,
+            ...company
+          } = r;
+          const plan =
+            resolved_plan_id && resolved_plan_name
+              ? {
+                  id: resolved_plan_id,
+                  name: resolved_plan_name,
+                  isCustom: resolved_plan_is_custom ?? undefined,
+                  isManaged: resolved_plan_is_managed ?? undefined,
+                }
+              : null;
+          return {
+            ...company,
+            plan,
+            subscriptionStatus: latest_subscription_status,
+          };
+        });
+        return c.json({
+          data: {
+            companies,
+            total: companies.length,
+          },
+        });
+      }
+
       const companies = await companyRepo.findAll();
 
       return c.json({

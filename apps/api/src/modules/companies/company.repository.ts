@@ -185,6 +185,56 @@ export class CompanyRepository extends BaseRepository {
   }
 
   /**
+   * Listar empresas com última assinatura + plano (uma query; super_admin / Base de Entidades).
+   */
+  async findAllWithLatestSubscriptionPlan(): Promise<
+    Array<
+      Company & {
+        latest_subscription_status: string | null;
+        resolved_plan_id: string | null;
+        resolved_plan_name: string | null;
+        resolved_plan_is_custom: boolean | null;
+        resolved_plan_is_managed: boolean | null;
+      }
+    >
+  > {
+    const result = await this.query<
+      Company & {
+        latest_subscription_status: string | null;
+        resolved_plan_id: string | null;
+        resolved_plan_name: string | null;
+        resolved_plan_is_custom: boolean | null;
+        resolved_plan_is_managed: boolean | null;
+      }
+    >(
+      `SELECT c.id, c.name, c.domain, c.person_type, c.cnpj, c.cpf, c.legal_name, c.trade_name, c.email, c.phone,
+              c.contact_name, c.contact_email, c.contact_phone, c.tax_regime,
+              c.state_registration, c.municipal_registration, c.cnae,
+              c.zip_code, c.address_street, c.address_number, c.address_complement,
+              c.address_neighborhood, c.address_city, c.address_state, c.notes, c.source,
+              c.created_at, c.updated_at,
+              s.status AS latest_subscription_status,
+              p.id AS resolved_plan_id,
+              p.name AS resolved_plan_name,
+              p.is_custom AS resolved_plan_is_custom,
+              p.is_managed AS resolved_plan_is_managed
+       FROM companies c
+       LEFT JOIN LATERAL (
+         SELECT company_id, plan_id, status
+         FROM subscriptions
+         WHERE subscriptions.company_id = c.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) s ON true
+       LEFT JOIN plans p ON p.id = s.plan_id
+       ORDER BY c.created_at DESC`,
+      [],
+      false
+    );
+    return result.rows;
+  }
+
+  /**
    * Atualizar empresa
    */
   async update(id: string, data: UpdateCompanyData): Promise<Company> {
