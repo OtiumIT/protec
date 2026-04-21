@@ -35,11 +35,11 @@ Gerencia assinaturas das empresas, incluindo criação, atualização de status,
   3. Verificar status
   4. Bloquear se necessário
 
-### Regra 4: Plano Free – 7 dias de acesso
-- **Quando aplicar**: Qualquer acesso a funcionalidades (módulos) e recursos do tenant.
-- **Validação**: No plano Free, a data da primeira entrada é armazenada em `free_plan_started_at`. Após 7 dias, o tenant perde acesso a todas as funcionalidades (middleware retorna 402 `FREE_PLAN_EXPIRED`).
+### Regra 4: Plano Free – acesso até 31/05/2026
+- **Quando aplicar**: Qualquer acesso a funcionalidades protegidas por `requireModule` (módulos) no tenant com plano Free.
+- **Validação**: Enquanto a data/hora for anterior a **01/06/2026 00:00 (America/Sao_Paulo)**, o tenant Free mantém acesso aos módulos (desde que `tenant_modules` permita). A partir desse instante, perde acesso aos módulos (middleware retorna 402 `FREE_PLAN_EXPIRED`). Não depende mais de `free_plan_started_at` para esse corte.
 - **Exceção**: O tenant continua podendo acessar "Meu plano", listar planos e iniciar checkout para assinar plano pago.
-- **Definição da data**: Ao criar assinatura no Free ou ao alterar plano para Free, `free_plan_started_at` é preenchido apenas na primeira vez (não é resetado se voltar ao Free depois de um plano pago).
+- **`free_plan_started_at`**: Continua sendo preenchido na primeira entrada no Free (histórico / possíveis usos futuros), mas o bloqueio de módulos usa apenas o calendário acima.
 
 ### Regra 5: Plano Customizado (apenas admin geral)
 - **Quando aplicar**: POST/PUT `/subscriptions` (rotas do tenant, não admin)

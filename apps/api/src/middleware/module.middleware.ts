@@ -1,9 +1,17 @@
 import { Context, Next } from 'hono';
 import { query } from '../db/client';
 
-const FREE_PLAN_GRACE_DAYS = 7;
+/**
+ * Acesso aos módulos no plano Free: válido até 31/05/2026 (inclusive).
+ * A partir de 01/06/2026 00:00 (America/Sao_Paulo) o tenant no Free perde acesso às funcionalidades cobertas por requireModule.
+ */
+const FREE_PLAN_MODULE_ACCESS_END_MS = new Date('2026-06-01T00:00:00-03:00').getTime();
 
-/** E-mails (separados por vírgula) que ignoram o limite de 7 dias do plano Free. Ex.: FREE_PLAN_BYPASS_EMAILS=a@x.com,b@y.com */
+function isFreePlanModuleAccessExpired(): boolean {
+  return Date.now() >= FREE_PLAN_MODULE_ACCESS_END_MS;
+}
+
+/** E-mails (separados por vírgula) que ignoram o corte do plano Free (31/05/2026). Ex.: FREE_PLAN_BYPASS_EMAILS=a@x.com,b@y.com */
 function isFreePlanBypassEmail(email: string | undefined): boolean {
   if (!email) return false;
   const raw = process.env.FREE_PLAN_BYPASS_EMAILS;
@@ -19,7 +27,7 @@ function isFreePlanBypassEmail(email: string | undefined): boolean {
 /**
  * Middleware para verificar se módulo está ativo.
  * Retorna 402 Payment Required se módulo não estiver ativo.
- * No plano Free, após 7 dias da primeira entrada, bloqueia acesso a todas as funcionalidades.
+ * No plano Free, após 31/05/2026 bloqueia acesso às funcionalidades dos módulos (a partir de 01/06/2026).
  *
  * Com FORCE_ALL_MODULES_ACTIVE=true no .env, a verificação é ignorada (útil para demo/apresentação).
  * Com FREE_PLAN_BYPASS_EMAILS (lista separada por vírgulas), esses usuários não são bloqueados pelo fim do período Free.
@@ -47,9 +55,8 @@ export function requireModule(moduleKey: string) {
     }
 
     if (!isFreePlanBypassEmail(user?.email)) {
-      // Plano Free: após 7 dias da primeira entrada, bloquear todas as funcionalidades
-      const subResult = await query<{ plan_name: string; free_plan_started_at: Date | null }>(
-        `SELECT p.name AS plan_name, s.free_plan_started_at
+      const subResult = await query<{ plan_name: string }>(
+        `SELECT p.name AS plan_name
          FROM public.subscriptions s
          JOIN public.plans p ON p.id = s.plan_id
          WHERE s.company_id = $1
@@ -58,22 +65,17 @@ export function requireModule(moduleKey: string) {
         [companyId]
       );
       const sub = subResult.rows[0];
-      if (sub?.plan_name === 'Free' && sub.free_plan_started_at) {
-        const started = new Date(sub.free_plan_started_at).getTime();
-        const now = Date.now();
-        const sevenDaysMs = FREE_PLAN_GRACE_DAYS * 24 * 60 * 60 * 1000;
-        if (now - started > sevenDaysMs) {
-          return c.json(
-            {
-              error: {
-                message:
-                  'O período de uso do plano Free encerrou. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
-                code: 'FREE_PLAN_EXPIRED',
-              },
+      if (sub?.plan_name === 'Free' && isFreePlanModuleAccessExpired()) {
+        return c.json(
+          {
+            error: {
+              message:
+                'O período de uso do plano Free encerrou em 31 de maio de 2026. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
+              code: 'FREE_PLAN_EXPIRED',
             },
-            402
-          );
-        }
+          },
+          402
+        );
       }
     }
 

@@ -84,7 +84,7 @@ export type Subscription = {
   stripe_subscription_id?: string;
   stripe_customer_id?: string;
   canceled_at?: Date;
-  /** Data em que entrou no plano Free pela primeira vez; após 7 dias perde acesso às funcionalidades */
+  /** Data em que entrou no plano Free pela primeira vez (histórico; corte de acesso a módulos no Free é por calendário — ver middleware da API) */
   free_plan_started_at?: Date;
   created_at: Date;
   updated_at: Date;
