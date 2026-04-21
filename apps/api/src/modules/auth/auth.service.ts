@@ -104,7 +104,7 @@ export class AuthService {
       source: data.source || undefined,
     });
 
-    // Assinatura no plano Free para permitir uso e criação de usuários (7 dias de acesso)
+    // Assinatura no plano Free para permitir uso e criação de usuários (acesso a módulos até 31/05/2026 — ver module.middleware)
     await this.subscriptionRepo.create(company.id, {
       planId: freePlan.id,
       freePlanStartedAt: new Date(),
