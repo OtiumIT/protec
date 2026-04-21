@@ -3,6 +3,9 @@ import { AppError } from '../../shared/utils/error-handler';
 import type { Company } from '@shared/core';
 import { createTenantSchema, applyTenantMigrations } from '../../db/schema-manager';
 import { getClient } from '../../db/client';
+import { PlanRepository } from '../plans/plan.repository';
+import { SubscriptionRepository } from '../subscriptions/subscription.repository';
+import { SubscriptionService } from '../subscriptions/subscription.service';
 
 export class CompanyService {
   constructor(private companyRepo: CompanyRepository) {}
@@ -94,7 +97,9 @@ export class CompanyService {
       }
 
       await client.query('COMMIT');
-      
+
+      await this.ensureInitialFreeSubscription(company.id);
+
       console.log(`✅ Company ${company.id} criada com schema tenant_${company.id}`);
       return company;
     } catch (error: any) {
@@ -127,6 +132,29 @@ export class CompanyService {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Garante assinatura no plano Free para novo tenant (evita "sem plano" na Base de Entidades).
+   */
+  private async ensureInitialFreeSubscription(companyId: string): Promise<void> {
+    try {
+      const planRepo = new PlanRepository();
+      const subRepo = new SubscriptionRepository();
+      const subService = new SubscriptionService(subRepo, planRepo);
+      const freePlan = await planRepo.findByName('Free');
+      if (!freePlan) {
+        console.warn('⚠️ Plano Free não encontrado; assinatura inicial não criada.');
+        return;
+      }
+      const existing = await subRepo.findByCompany(companyId);
+      if (existing) {
+        return;
+      }
+      await subService.create(companyId, { planId: freePlan.id }, { allowCustomPlan: false });
+    } catch (e) {
+      console.error('⚠️ Falha ao criar assinatura Free inicial:', companyId, e);
     }
   }
 
