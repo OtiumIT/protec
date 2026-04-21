@@ -28,6 +28,7 @@ import { RatingValidator } from './modules/rating-validator/pages/RatingValidato
 import { RatingValidatorPrintPreview } from './modules/rating-validator/pages/RatingValidatorPrintPreview';
 import { SimuladorIN2306 } from './modules/simulador-in-2306/pages/SimuladorIN2306';
 import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
+import { SimuladorDistribuicaoLucros } from './modules/simulador-distribuicao-lucros/pages/SimuladorDistribuicaoLucros';
 import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
 import SimuladorGanhoCapitalImovel from './modules/properties/pages/SimuladorGanhoCapitalImovel';
 import { Properties } from './modules/properties/pages/Properties';
@@ -281,6 +282,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <IrpfAltaRenda />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/simulador-distribuicao-lucros-lei-15270"
+        element={
+          <PrivateRoute>
+            <SimuladorDistribuicaoLucros />
           </PrivateRoute>
         }
       />

@@ -148,6 +148,18 @@ export type IN2306Simulation = {
   updated_at: Date | string;
 };
 
+/** Simulação persistida: investimento PJ x retenção PF (Lei 15.270) */
+export type DistribuicaoLucrosSimulation = {
+  id: string;
+  client_id: string;
+  input_data: Record<string, unknown>;
+  result_data: Record<string, unknown>;
+  title: string | null;
+  created_by: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
 // Re-exportar LegalThesis para manter compatibilidade
 export type { LegalThesis };
 

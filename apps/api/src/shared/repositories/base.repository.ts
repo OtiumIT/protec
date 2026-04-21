@@ -83,7 +83,8 @@ export abstract class BaseRepository {
     // Tabelas de tenant (isoladas por schema) - NÃO requerem company_id
 const tenantTables = ['clients', 'fiscal_files', 'extracted_fiscal_data',
                          'rating_validations', 'tax_simulations', 'edicts', 'opportunities',
-                         'in_2306_simulations', 'irpf_alta_renda', 'properties', 'property_transactions', 'property_monthly_totals', 'property_simulations'];
+                         'in_2306_simulations', 'irpf_alta_renda', 'properties', 'property_transactions', 'property_monthly_totals', 'property_simulations',
+                         'distribuicao_lucros_simulations'];
     
     // Se a query acessa tabelas de tenant (isoladas por schema), NÃO requer company_id
     if (tenantTables.some(table => lowerSql.includes(table))) {

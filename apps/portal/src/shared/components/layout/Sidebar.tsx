@@ -24,9 +24,13 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   FISCAL_FILES: 'Arquivos Fiscais',
   RATING_VALIDATOR: 'Análise de Capacidade',
   SIMULADOR_IN_2306: 'Simulador LC 224/2025',
-  IRPF_ALTA_RENDA: 'Tributação de Dividendos',
+  /** Nome do grupo na sidebar; subitens listam cada ferramenta */
+  IRPF_ALTA_RENDA: 'IRPF',
   GESTAO_IMOVEIS: 'Gestão Imobiliária',
 };
+
+/** Itens do menu que não dependem de módulo ativo no tenant (ex.: promoções pontuais) */
+const ALWAYS_UNLOCKED_MODULE_KEYS = new Set<string>();
 
 interface MenuItem {
   name: string;
@@ -271,10 +275,25 @@ const adminMenuItems: MenuItem[] = [
     ),
   },
   {
-    name: 'Tributação de Dividendos',
+    name: 'IRPF',
     moduleKey: 'IRPF_ALTA_RENDA',
-    path: '/irpf-alta-renda',
     icon: CATEGORY_ICONS.diamond,
+    children: [
+      {
+        name: 'Tributação de Dividendos',
+        path: '/irpf-alta-renda',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Simulação de investimento na PJ x retenção na PF',
+        path: '/simulador-distribuicao-lucros-lei-15270',
+        icon: <FontAwesomeIcon icon={faCalculator} className="w-4 h-4" />,
+      },
+    ],
   },
   {
     name: 'Gestão Imobiliária',
@@ -453,7 +472,8 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       if (pathname === '/fiscal-files' || pathname.startsWith('/fiscal-files/')) return 'fiscal_files';
       if (pathname === '/rating-validator') return 'rating_validator';
       if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
-      if (pathname === '/irpf-alta-renda') return 'irpf_alta_renda';
+      if (pathname === '/irpf-alta-renda' || pathname === '/simulador-distribuicao-lucros-lei-15270')
+        return 'irpf_alta_renda';
       if (pathname.startsWith('/properties')) return 'gestao_imoveis';
       if (pathname === '/users' || pathname === '/documentacao' || pathname.startsWith('/documentacao')) return 'administracao';
     }
@@ -548,7 +568,8 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     moduleOrder.forEach(({ key, item }) => {
       if (item) {
         const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
-        const isLocked = !isSuperAdmin && !activeModules.has(key);
+        const isLocked =
+          !isSuperAdmin && !ALWAYS_UNLOCKED_MODULE_KEYS.has(key) && !activeModules.has(key);
         categories.push({
           id: key.toLowerCase(),
           name: moduleName,
