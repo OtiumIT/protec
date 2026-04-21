@@ -18,3 +18,4 @@ export * from './declaracao-irpf-completa.schema.js';
 export * from './property.schema.js';
 export * from './access-list.schema.js';
 export * from './user-feedback.schema.js';
+export * from './distribuicao-lucros-simulations.schema.js';
