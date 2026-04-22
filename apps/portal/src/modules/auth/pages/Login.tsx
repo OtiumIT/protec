@@ -137,25 +137,26 @@ export function Login() {
             </Link>
           </div>
 
-          {/* Logo and Header — Redesigned */}
+          {/* Logo and Header */}
           <div className="mb-10 text-center lg:text-left">
             <div className="flex items-center justify-center lg:justify-start mb-6 gap-4">
-              <div className="w-12 h-12 flex items-center justify-center">
-                <img
-                  src="/logo-protec.png"
-                  alt="Protec"
-                  className="w-10 h-10 object-contain"
-                />
-              </div>
-              <h1 className="text-xl font-black text-[#0c326f] uppercase tracking-tighter">
-                Protec
+              <img
+                src="/logo-iatax.png"
+                alt="IATax"
+                className="w-10 h-10 flex-shrink-0 object-contain rounded-lg"
+              />
+              <h1 className="text-xl font-bold text-slate-900">
+                IATax Soluções Inteligentes
               </h1>
             </div>
-            <h2 className="text-4xl font-black text-slate-900 mb-2 leading-none">
-              Portal do Contador
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              Inteligência Tributária
             </h2>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
-              Inteligência e Transação Tributária
+            <p className="text-slate-600 mb-1">
+              Sistema de Análise Fiscal e Tributária
+            </p>
+            <p className="text-sm text-slate-500">
+              Entre para continuar
             </p>
           </div>
 
