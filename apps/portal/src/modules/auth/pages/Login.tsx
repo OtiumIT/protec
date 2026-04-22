@@ -133,8 +133,8 @@ export function Login() {
           </div>
 
           {/* Logo and Header */}
-          <div className="mb-8 text-center lg:text-left">
-            <div className="flex items-center justify-center lg:justify-start mb-6 gap-3">
+          <div className="mb-10 text-center lg:text-left">
+            <div className="flex items-center justify-center lg:justify-start mb-6 gap-4">
               <img
                 src="/logo-iatax.png"
                 alt="IATax"
