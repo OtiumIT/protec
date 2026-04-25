@@ -96,5 +96,6 @@ jobs:
             --no-fail-on-empty-changeset \
             --stack-name protec-api \
             --capabilities CAPABILITY_IAM \
+            --tags Name=protec-api \
             --s3-bucket "$SAM_BUCKET" \
             --region "${AWS_REGION:-us-east-1}"

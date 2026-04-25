@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import {
   propertyService,
@@ -27,7 +26,7 @@ export function PropertyDashboard() {
   };
 
   return (
-    <Layout>
+    <>
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-6">
           Dashboard Imobiliário
@@ -78,6 +77,6 @@ export function PropertyDashboard() {
           </Link>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

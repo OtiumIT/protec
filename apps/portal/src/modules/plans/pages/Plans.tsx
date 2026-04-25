@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -167,7 +166,7 @@ export function Plans() {
   };
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div>
         <div className="flex items-center justify-between mb-6">
@@ -436,6 +435,6 @@ export function Plans() {
           variant="danger"
         />
       </div>
-    </Layout>
+    </>
   );
 }

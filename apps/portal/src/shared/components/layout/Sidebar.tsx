@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faHouse,
@@ -367,10 +368,8 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, logout } = useAuth();
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [activeModules, setActiveModules] = useState<Map<string, ActiveModule>>(new Map());
   const [isLoadingModules, setIsLoadingModules] = useState(false);
 
@@ -445,18 +444,6 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     
     previousPathRef.current = currentPath;
   }, [location.pathname, isSuperAdmin, tenantId]);
-
-  // Atalho de teclado para busca (Cmd/Ctrl + K)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory((prev) => (prev === categoryId ? null : categoryId));
@@ -589,32 +576,6 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     return categories;
   };
 
-  // Filtrar itens do menu baseado na busca e módulos ativos
-  const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
-    const filtered = items;
-
-    // Filtrar por busca
-    if (!searchQuery) return filtered;
-    
-    return filtered.filter(item => {
-      const matchesName = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesChildren = item.children?.some(child => 
-        child.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      return matchesName || matchesChildren;
-    }).map(item => {
-      if (item.children) {
-        return {
-          ...item,
-          children: item.children.filter(child =>
-            child.name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        };
-      }
-      return item;
-    });
-  };
-
   /** Renderiza um link de item do menu */
   const renderMenuLink = (item: MenuItem, isChild = false) => {
     const active = item.path ? isActive(item.path) : false;
@@ -629,19 +590,19 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             ${isChild && !isCollapsed ? 'pl-3 pr-4 py-2.5' : 'px-4 py-3'}
             group relative
             ${active 
-              ? 'bg-brand/10 text-brand font-semibold shadow-sm' 
+              ? 'bg-brand/20 text-indigo-200 font-semibold shadow-sm' 
               : isChild 
-                ? 'text-slate-600 hover:bg-slate-50 hover:text-brand font-normal'
-                : 'text-slate-700 hover:bg-slate-50 hover:text-brand'
+                ? 'text-slate-300 hover:bg-white/5 hover:text-indigo-200 font-normal'
+                : 'text-slate-200 hover:bg-white/5 hover:text-indigo-200'
             }
             ${isChild ? 'text-sm' : ''}
-            focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+            focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-0
           `}
           aria-current={active ? 'page' : undefined}
         >
           <span className={`
             flex-shrink-0 transition-colors duration-200 mt-0.5
-            ${active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}
+            ${active ? 'text-indigo-200' : 'text-slate-400 group-hover:text-indigo-200'}
             ${isCollapsed ? 'lg:mt-0' : ''}
           `}>
             {item.icon}
@@ -665,7 +626,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
   };
 
   /** Wrapper tab line padrão para conteúdo de categoria */
-  const tabLineWrapperClass = `mt-0.5 pl-2 border-l-2 border-slate-200 bg-slate-50/50 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`;
+  const tabLineWrapperClass = `mt-0.5 pl-2 border-l-2 border-white/15 bg-white/5 rounded-r-lg ${isCollapsed ? 'ml-2 lg:ml-1' : 'ml-4'} ${!isCollapsed ? 'space-y-0.5' : ''}`;
 
   /** Renderiza os itens de uma categoria com wrapper tab line unificado */
   const renderCategoryItems = (cat: MenuCategory) => {
@@ -696,11 +657,11 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                 }
                 return (
                   <li key={item.name} className="list-none">
-                    <div className="flex items-center gap-2 pl-2 py-2 text-sm font-medium text-slate-600">
-                      <span className="text-slate-500 flex-shrink-0">{item.icon}</span>
+                    <div className="flex items-center gap-2 pl-2 py-2 text-sm font-medium text-slate-300">
+                      <span className="text-slate-400 flex-shrink-0">{item.icon}</span>
                       {item.name}
                     </div>
-                    <div className="ml-2 pl-2 border-l-2 border-slate-200/80 space-y-0.5">
+                    <div className="ml-2 pl-2 border-l-2 border-white/20 space-y-0.5">
                       <ul className="space-y-0.5 list-none">
                         {item.children.map((child) => renderMenuLink(child, true))}
                       </ul>
@@ -735,8 +696,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       return false;
     });
   }
-  const filteredMenuItems = filterMenuItems(menuItems);
-  const categories = buildCategories(filteredMenuItems);
+  const categories = buildCategories(menuItems);
 
   return (
     <>
@@ -753,21 +713,21 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         className={`
           fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50
           w-64 h-screen max-h-screen
-          bg-white border-r border-slate-200
+          bg-landing-navy border-r border-white/10
           flex flex-col
           transform transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          shadow-xl lg:shadow-none
-          w-64 ${isCollapsed ? 'lg:w-16' : ''}
+          shadow-xl shadow-black/20 lg:shadow-none
+          ${isCollapsed ? 'lg:w-16' : ''}
         `}
         aria-label="Navegação principal"
       >
         {/* Logo e botão de colapsar */}
-        <div className={`border-b border-slate-200 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-4 flex-row justify-between'}`}>
+        <div className={`border-b border-white/10 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-3 flex-row justify-between'}`}>
           <Link
             to="/dashboard"
             aria-label="Ir para início"
-            className={`flex items-center min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}
+            className={`flex items-center min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-0 ${isCollapsed ? 'lg:flex-1 lg:justify-center' : 'gap-3'}`}
           >
             <img
               src="/logo-iatax.png"
@@ -776,10 +736,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             />
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-bold text-slate-900 break-words leading-tight">
+                <h1 className="text-lg font-bold text-slate-100 break-words leading-tight">
                   IATax
                 </h1>
-                <p className="text-xs text-slate-500 break-words leading-tight">Soluções Inteligentes</p>
+                <p className="text-xs text-slate-400 break-words leading-tight">Soluções Inteligentes</p>
               </div>
             )}
           </Link>
@@ -787,7 +747,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             {onToggleCollapse && (
               <button
                 onClick={onToggleCollapse}
-                className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex-shrink-0"
+                className="hidden lg:flex p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
                 aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
                 title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
               >
@@ -803,7 +763,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             )}
             <button
               onClick={onToggle}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors"
               aria-label="Fechar menu"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -813,46 +773,11 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
           </div>
         </div>
 
-        {/* Busca rápida - oculta quando recolhido */}
-        {!isCollapsed && (
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative">
-            <svg 
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Buscar no menu (⌘K)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-9 pr-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-all bg-slate-50 hover:bg-white"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600"
-                aria-label="Limpar busca"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-        )}
-
         {/* Menu - Categorias em accordion (1 expandida por vez) */}
-        <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-2 lg:px-2' : 'p-4'}`}>
+        <nav className={`flex-1 min-h-0 overflow-y-auto overscroll-contain transition-all duration-300 ${isCollapsed ? 'p-1.5 lg:px-1.5' : 'px-3 pt-2 pb-1'}`}>
           {isLoadingModules && !FORCE_SHOW_ALL_MODULES && (
-            <div className="px-4 py-2 text-center">
-              <p className="text-xs text-slate-400">Carregando módulos...</p>
+            <div className="px-2 py-1.5 text-center">
+              <p className="text-xs text-slate-500">Carregando módulos...</p>
             </div>
           )}
           {canSeeMenu && (FORCE_SHOW_ALL_MODULES || !isLoadingModules) && categories.map((cat) => {
@@ -860,19 +785,19 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
 
             if (cat.directLink) {
               return (
-                <div key={cat.id} className="mb-4">
+                <div key={cat.id} className="mb-2.5 last:mb-0">
                   <Link
                     to={cat.directLink}
                     title={cat.name}
                     className={`
                       w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
                       group relative
-                      ${hasActive ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
+                      ${hasActive ? 'bg-brand/15 text-indigo-200 border border-brand/30' : 'text-slate-200 hover:bg-white/5 hover:text-indigo-200 border border-transparent'}
                       ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}
-                      focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                      focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-0
                     `}
                   >
-                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                    <span className={`flex-shrink-0 ${hasActive ? 'text-indigo-200' : 'text-slate-400 group-hover:text-indigo-200'}`}>
                       {cat.icon}
                     </span>
                     {!isCollapsed && (
@@ -889,7 +814,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
             const buttonId = `category-btn-${cat.id}`;
 
             return (
-              <div key={cat.id} className={`mb-4 ${cat.id === 'administracao' ? 'pt-4 border-t border-slate-100' : ''}`}>
+              <div key={cat.id} className={`mb-2.5 last:mb-0 ${cat.id === 'administracao' ? 'pt-3 border-t border-white/10' : ''}`}>
                 <button
                   id={buttonId}
                   aria-expanded={isExpanded}
@@ -903,14 +828,14 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                   className={`
                     w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200
                     group relative
-                    ${hasActive || isExpanded ? 'bg-brand/5 text-brand border border-brand/20' : 'text-slate-700 hover:bg-slate-50 hover:text-brand border border-transparent'}
+                    ${hasActive || isExpanded ? 'bg-brand/15 text-indigo-200 border border-brand/30' : 'text-slate-200 hover:bg-white/5 hover:text-indigo-200 border border-transparent'}
                     ${isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'}
                     ${cat.locked ? 'opacity-70 cursor-not-allowed' : ''}
-                    focus:outline-none focus:ring-2 focus:ring-brand/20 focus:ring-offset-2
+                    focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-0
                   `}
                 >
                   <div className={`flex items-center min-w-0 flex-1 gap-3 ${isCollapsed ? 'lg:justify-center' : ''}`}>
-                    <span className={`flex-shrink-0 ${hasActive ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}`}>
+                    <span className={`flex-shrink-0 ${hasActive || isExpanded ? 'text-indigo-200' : 'text-slate-400 group-hover:text-indigo-200'}`}>
                       {cat.icon}
                     </span>
                     {!isCollapsed && (
@@ -927,7 +852,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                   </div>
                   {!isCollapsed && !cat.locked && (
                     <svg
-                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''} ${hasActive ? 'text-brand' : 'text-slate-400'}`}
+                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''} ${hasActive || isExpanded ? 'text-indigo-200' : 'text-slate-500'}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -953,32 +878,57 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
               </div>
             );
           })}
-
-          {searchQuery && categories.length === 0 && (
-            <div className="px-4 py-8 text-center">
-              <svg className="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <p className="text-sm text-slate-500">Nenhum item encontrado</p>
-            </div>
-          )}
         </nav>
 
-        {/* User Info */}
-        <div className={`border-t border-slate-200 bg-slate-50/50 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex lg:justify-center' : 'p-4'}`}>
-          <div className={`flex items-center ${isCollapsed ? 'lg:flex-col lg:gap-1' : 'space-x-3'}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-brand/20 to-brand/10 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-brand/20" title={user?.name ?? ''}>
-              <span className="text-brand font-semibold text-sm">
-                {user?.name?.charAt(0).toUpperCase()}
-              </span>
+        {/* Perfil + Sair (CTA laranja) */}
+        <div
+          className={`border-t border-white/10 bg-slate-900/60 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex lg:flex-col lg:items-center lg:gap-2' : 'px-3 py-3.5'}`}
+        >
+          {!isCollapsed ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 min-w-0 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2">
+                <div
+                  className="w-10 h-10 bg-gradient-to-br from-brand/35 to-brand/10 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-white/10"
+                  title={user?.name ?? ''}
+                >
+                  <span className="text-indigo-200 font-semibold text-sm">
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-slate-100 truncate" title={user?.name ?? ''}>
+                    {user?.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-landing-cta text-white text-sm font-semibold shadow-sm hover:bg-[#c2410c] focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:ring-offset-2 focus:ring-offset-[#0f172a] transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                Sair
+              </button>
             </div>
-            {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 break-words leading-snug">{user?.name}</p>
-              <p className="text-xs text-slate-500 break-words leading-snug">{user?.email}</p>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-9 h-9 bg-gradient-to-br from-brand/35 to-brand/10 rounded-full flex items-center justify-center ring-2 ring-white/10"
+                title={user?.name ?? ''}
+              >
+                <span className="text-indigo-200 font-semibold text-xs">{user?.name?.charAt(0).toUpperCase()}</span>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                title="Sair"
+                aria-label="Sair"
+                className="lg:flex w-8 h-8 rounded-lg bg-landing-cta text-white items-center justify-center hover:bg-[#c2410c] focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" strokeWidth={2} />
+              </button>
             </div>
-            )}
-          </div>
+          )}
         </div>
       </aside>
     </>

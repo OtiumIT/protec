@@ -7,7 +7,11 @@ interface VersionResponse {
 }
 
 /** Badge discreto com versão da API. Não exibe nada se a requisição falhar. */
-export function ApiVersionBadge() {
+interface ApiVersionBadgeProps {
+  className?: string;
+}
+
+export function ApiVersionBadge({ className = '' }: ApiVersionBadgeProps) {
   const [info, setInfo] = useState<VersionResponse | null>(null);
 
   useEffect(() => {
@@ -32,11 +36,11 @@ export function ApiVersionBadge() {
 
   return (
     <span
-      className="text-[10px] text-slate-400 font-mono"
+      className={`text-[10px] text-slate-400 font-mono ${className}`}
       title={dateStr ? `Atualizado em ${dateStr}` : 'Versão da API'}
     >
       API v{info.version}
-      {dateStr && ` · ${dateStr}`}
+      {dateStr && ` | ${dateStr}`}
     </span>
   );
 }

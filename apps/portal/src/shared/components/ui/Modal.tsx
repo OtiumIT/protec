@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -39,8 +40,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     large: 'max-w-3xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  const modalUi = (
+    <div className="fixed inset-0 z-[120] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Overlay - z-0 para ficar atrás do conteúdo do modal */}
         <div
@@ -80,4 +81,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(modalUi, document.body);
 }

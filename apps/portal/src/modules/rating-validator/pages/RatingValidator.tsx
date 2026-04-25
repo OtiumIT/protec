@@ -7,7 +7,6 @@ import {
 } from '../../../lib/report-pdf';
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
-import { Layout } from '../../../shared/components/layout/Layout';
 import {
   ratingValidatorService,
   type SimulateRatingInput,
@@ -1805,7 +1804,7 @@ export function RatingValidator() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900">Transação Tributária - Análise da capacidade de pagamento</h1>
@@ -4040,6 +4039,6 @@ export function RatingValidator() {
         </Modal>
       </div>
       <ToastContainer />
-    </Layout>
+    </>
   );
 }

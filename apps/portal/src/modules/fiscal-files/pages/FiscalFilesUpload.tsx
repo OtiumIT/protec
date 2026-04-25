@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import {
   fiscalFileService,
   FiscalFileApiError,
@@ -435,7 +434,7 @@ export function FiscalFilesUpload() {
   ).length;
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="space-y-6">
       
@@ -735,6 +734,6 @@ export function FiscalFilesUpload() {
         </div>
       </Card>
       </div>
-    </Layout>
+    </>
   );
 }

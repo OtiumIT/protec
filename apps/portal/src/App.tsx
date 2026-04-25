@@ -40,6 +40,7 @@ import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { EPSLanding } from './landing/pages/EPSLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
+import { PrivateAppShell } from './shared/components/layout/PrivateAppShell';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -145,227 +146,51 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/EPS" element={<EPSLanding />} />
-      <Route
-        path="/dashboard"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/clients"
-        element={
-          <PrivateRoute>
-            <Clients />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/tenants"
-        element={
-          <PrivateRoute>
-            <Tenants />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/users"
-        element={
-          <PrivateRoute>
-            <Users />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/administrators"
-        element={
-          <PrivateRoute>
-            <Administrators />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/editais"
-        element={
-          <PrivateRoute>
-            <Editais />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/plans"
-        element={
-          <PrivateRoute>
-            <Plans />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/meu-plano"
-        element={
-          <PrivateRoute>
-            <MeuPlano />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/gestao-assinatura"
-        element={
-          <PrivateRoute>
-            <GestaoAssinatura />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/fiscal-files"
-        element={
-          <PrivateRoute>
-            <FiscalFiles />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/fiscal-files/upload"
-        element={
-          <PrivateRoute>
-            <FiscalFilesUpload />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/fiscal-files/calibrator"
-        element={
-          <PrivateRoute>
-            <FiscalFilesCalibrator />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/fiscal-files/calibrador"
-        element={<Navigate to="/fiscal-files/calibrator" replace />}
-      />
-      <Route
-        path="/modules"
-        element={
-          <PrivateRoute>
-            <Modules />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/rating-validator"
-        element={
-          <PrivateRoute>
-            <RatingValidator />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/rating-validator/print-preview"
-        element={
-          <PrivateRoute>
-            <RatingValidatorPrintPreview />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/simulador-in-2306"
-        element={
-          <PrivateRoute>
-            <SimuladorIN2306 />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/irpf-alta-renda"
-        element={
-          <PrivateRoute>
-            <IrpfAltaRenda />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/simulador-distribuicao-lucros-lei-15270"
-        element={
-          <PrivateRoute>
-            <SimuladorDistribuicaoLucros />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/properties/simulador"
-        element={
-          <PrivateRoute>
-            <SimuladorImoveis />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/properties/simulador-ganho-capital"
-        element={
-          <PrivateRoute>
-            <SimuladorGanhoCapitalImovel />
-          </PrivateRoute>
-        }
-      />
-      <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
-      <Route
-        path="/properties/:id"
-        element={
-          <PrivateRoute>
-            <PropertyDetail />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/properties"
-        element={
-          <PrivateRoute>
-            <Properties />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/documentacao"
-        element={
-          <PrivateRoute>
-            <Documentacao />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/documentacao/glossario"
-        element={
-          <PrivateRoute>
-            <Glossario />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/access-list"
-        element={
-          <PrivateRoute>
-            <AccessList />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/feedback-admin"
-        element={
-          <PrivateRoute>
-            <FeedbackAdmin />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/change-password"
-        element={
-          <PrivateRoute>
-            <ChangePassword />
-          </PrivateRoute>
-        }
-      />
+        <Route
+          path="/change-password"
+          element={
+            <PrivateRoute>
+              <ChangePassword />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/rating-validator/print-preview"
+          element={
+            <PrivateRoute>
+              <RatingValidatorPrintPreview />
+            </PrivateRoute>
+          }
+        />
+        <Route element={<PrivateAppShell />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/tenants" element={<Tenants />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/administrators" element={<Administrators />} />
+          <Route path="/editais" element={<Editais />} />
+          <Route path="/plans" element={<Plans />} />
+          <Route path="/meu-plano" element={<MeuPlano />} />
+          <Route path="/gestao-assinatura" element={<GestaoAssinatura />} />
+          <Route path="/fiscal-files" element={<FiscalFiles />} />
+          <Route path="/fiscal-files/upload" element={<FiscalFilesUpload />} />
+          <Route path="/fiscal-files/calibrator" element={<FiscalFilesCalibrator />} />
+          <Route path="/fiscal-files/calibrador" element={<Navigate to="/fiscal-files/calibrator" replace />} />
+          <Route path="/modules" element={<Modules />} />
+          <Route path="/rating-validator" element={<RatingValidator />} />
+          <Route path="/simulador-in-2306" element={<SimuladorIN2306 />} />
+          <Route path="/irpf-alta-renda" element={<IrpfAltaRenda />} />
+          <Route path="/simulador-distribuicao-lucros-lei-15270" element={<SimuladorDistribuicaoLucros />} />
+          <Route path="/properties/simulador" element={<SimuladorImoveis />} />
+          <Route path="/properties/simulador-ganho-capital" element={<SimuladorGanhoCapitalImovel />} />
+          <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
+          <Route path="/properties/:id" element={<PropertyDetail />} />
+          <Route path="/properties" element={<Properties />} />
+          <Route path="/documentacao" element={<Documentacao />} />
+          <Route path="/documentacao/glossario" element={<Glossario />} />
+          <Route path="/access-list" element={<AccessList />} />
+          <Route path="/feedback-admin" element={<FeedbackAdmin />} />
+        </Route>
         <Route path="/quem-somos" element={<QuemSomos />} />
         <Route path="/o-produto" element={<OProduto />} />
         <Route path="/fale-conosco" element={<FaleConosco />} />

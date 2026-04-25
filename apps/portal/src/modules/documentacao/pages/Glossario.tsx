@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/shared/components/layout/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBook,
@@ -119,17 +118,17 @@ export function Glossario() {
 
   if (authLoading) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!isAdmin) {
     return (
-      <Layout>
+      <>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FontAwesomeIcon icon={faLock} className="h-12 w-12 text-slate-400 mb-4" />
           <h2 className="text-xl font-semibold text-slate-700">
@@ -139,12 +138,12 @@ export function Glossario() {
             Esta area e restrita a administradores.
           </p>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="mb-6">
           <button
@@ -231,6 +230,6 @@ export function Glossario() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

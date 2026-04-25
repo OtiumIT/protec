@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { CsvImportModal } from '../components/CsvImportModal';
 import { CredentialsCopyPanel } from '../components/CredentialsCopyPanel';
 import {
@@ -148,7 +147,7 @@ export function AccessList() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4">
@@ -431,6 +430,6 @@ export function AccessList() {
           {toast.message}
         </div>
       )}
-    </Layout>
+    </>
   );
 }

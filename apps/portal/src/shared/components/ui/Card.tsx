@@ -8,7 +8,7 @@ interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
 export const Card = ({ children, className = '', title, ...props }: CardProps) => {
   return (
     <div
-      className={`bg-white rounded-2xl border border-slate-200 shadow-lg p-8 hover:shadow-xl transition-shadow duration-200 ${className}`}
+      className={`bg-white rounded-xl border border-slate-200/90 shadow-card p-6 sm:p-8 hover:shadow-card-hover transition-shadow duration-200 ${className}`}
       {...props}
     >
       {title ? <h2 className="mb-4 text-lg font-semibold text-slate-800">{title}</h2> : null}

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import {
   fiscalFileService,
   type FiscalFile,
@@ -237,7 +236,7 @@ export function FiscalFiles() {
   );
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="space-y-6">
       
@@ -839,6 +838,6 @@ export function FiscalFiles() {
           variant="danger"
         />
       </div>
-    </Layout>
+    </>
   );
 }

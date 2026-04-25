@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { RuleCard } from '../components/RuleCard';
 import { MODULES_INFO, type RuleModule } from '@shared/types/documentation';
@@ -69,17 +68,17 @@ export function Documentacao() {
 
   if (authLoading) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!isAdmin) {
     return (
-      <Layout>
+      <>
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <FontAwesomeIcon icon={faLock} className="h-12 w-12 text-slate-400 mb-4" />
           <h2 className="text-xl font-semibold text-slate-700">
@@ -89,12 +88,12 @@ export function Documentacao() {
             Esta area e restrita a administradores.
           </p>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -248,6 +247,6 @@ export function Documentacao() {
           </main>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

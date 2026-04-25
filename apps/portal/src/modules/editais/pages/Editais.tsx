@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -210,7 +209,7 @@ export function Editais() {
   });
 
   return (
-    <Layout>
+    <>
       <div className="p-6">
         <div className="mb-6 flex justify-between items-center">
           <div>
@@ -979,6 +978,6 @@ export function Editais() {
         />
       </div>
       <ToastContainer />
-    </Layout>
+    </>
   );
 }

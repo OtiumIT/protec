@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -1420,7 +1419,7 @@ export function SimuladorImoveis() {
   const lc214MesesLista = lc214MesesAplicados.map((m) => formatMonthRefPtBr(m.mes_referencia)).join(', ');
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -4076,21 +4075,6 @@ export function SimuladorImoveis() {
         </div>
       </Modal>
 
-      {/* Botão flutuante — Exportar PDF (impressão) */}
-      {result && (
-        <button
-          type="button"
-          onClick={handleOpenPrintPreview}
-          aria-label="Exportar resultado para PDF"
-          title="Exportar para PDF"
-          className="print:hidden fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand/40"
-        >
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </button>
-      )}
-
       <ClientFormModal
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
@@ -4227,6 +4211,6 @@ export function SimuladorImoveis() {
           ano={ano}
         />
       )}
-    </Layout>
+    </>
   );
 }

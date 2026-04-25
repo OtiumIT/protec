@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -188,7 +187,7 @@ export function FeedbackAdmin() {
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   return (
-    <Layout>
+    <>
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Feedbacks dos usuários</h1>
@@ -443,6 +442,6 @@ export function FeedbackAdmin() {
           </Button>
         </div>
       </Modal>
-    </Layout>
+    </>
   );
 }

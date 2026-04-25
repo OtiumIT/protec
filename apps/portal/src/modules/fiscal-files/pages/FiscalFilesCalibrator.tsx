@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -214,7 +213,7 @@ export function FiscalFilesCalibrator() {
     });
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -499,7 +498,7 @@ export function FiscalFilesCalibrator() {
         message="Tem certeza que deseja remover esta regra? Essa ação não pode ser desfeita."
         variant="danger"
       />
-    </Layout>
+    </>
   );
 }
 

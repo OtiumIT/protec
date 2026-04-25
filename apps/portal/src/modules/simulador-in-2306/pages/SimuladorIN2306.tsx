@@ -3,7 +3,6 @@ import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/Re
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
-import { Layout } from '../../../shared/components/layout/Layout';
 import {
   simuladorIN2306Service,
   type SimulateTributarioInput,
@@ -918,7 +917,7 @@ export function SimuladorIN2306() {
   );
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">Simulação LC 224/2025 – Lucro Presumido</h1>
@@ -2244,6 +2243,6 @@ export function SimuladorIN2306() {
           </p>
         </details>
       </Card>
-    </Layout>
+    </>
   );
 }

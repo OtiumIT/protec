@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -368,7 +367,7 @@ export function PropertyDetail() {
   if (!property && !isLoading) return null;
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div>
         {property && (
@@ -991,6 +990,6 @@ export function PropertyDetail() {
           </div>
         </form>
       </Modal>
-    </Layout>
+    </>
   );
 }

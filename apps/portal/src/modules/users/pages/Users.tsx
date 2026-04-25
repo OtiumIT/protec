@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -372,7 +371,7 @@ export function Users() {
   };
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="h-full flex flex-col">
         {/* Header com busca integrada */}
@@ -750,6 +749,6 @@ export function Users() {
           variant="danger"
         />
       </div>
-    </Layout>
+    </>
   );
 }

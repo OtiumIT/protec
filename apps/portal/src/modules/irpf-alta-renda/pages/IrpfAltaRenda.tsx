@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import {
   irpfAltaRendaService,
   type IrpfAltaRendaRecord,
@@ -998,7 +997,7 @@ export function IrpfAltaRenda() {
   };
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <RemoveConfirmModal
         isOpen={removeConfirmModal.isOpen}
@@ -2579,6 +2578,6 @@ export function IrpfAltaRenda() {
           )}
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }

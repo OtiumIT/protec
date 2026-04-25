@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import {
   feedbackService,
@@ -55,13 +55,25 @@ const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
   { value: 'other', label: 'Outro' },
 ];
 
+type FeedbackTriggerVariant = 'fab' | 'header' | 'inline';
+
+interface FeedbackTriggerProps {
+  variant?: FeedbackTriggerVariant;
+  className?: string;
+}
+
 /**
- * Botão flutuante + modal para envio de feedback (usuário autenticado).
+ * Gatilho de feedback + painel lateral (header) ou FAB (telas sem barra do Layout).
  * Inclui confirmação explícita de tratamento de dados (base LGPD).
  */
-export function FeedbackFab() {
+export function FeedbackTrigger({ variant = 'fab', className = '' }: FeedbackTriggerProps) {
   const location = useLocation();
+  const panelId = useId();
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const closeAnimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingRef = useRef(false);
   const [open, setOpen] = useState(false);
+  const [slideIn, setSlideIn] = useState(false);
   const [panel, setPanel] = useState<'send' | 'history'>('send');
   const [category, setCategory] = useState<FeedbackCategory>('suggestion');
   const [message, setMessage] = useState('');
@@ -91,7 +103,7 @@ export function FeedbackFab() {
     }
   }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setPanel('send');
     setCategory('suggestion');
     setMessage('');
@@ -106,14 +118,75 @@ export function FeedbackFab() {
     setThreadLoadingId(null);
     setUserReplyText({});
     setUserReplySending(null);
-  };
+  }, []);
 
-  const handleClose = () => {
+  const finalizeClose = useCallback(() => {
+    isClosingRef.current = false;
     setOpen(false);
     reset();
-  };
+    setSlideIn(false);
+  }, [reset]);
+
+  const handleClose = useCallback(() => {
+    if (!open || isClosingRef.current) return;
+    isClosingRef.current = true;
+    setSlideIn(false);
+    if (closeAnimTimeoutRef.current) {
+      window.clearTimeout(closeAnimTimeoutRef.current);
+    }
+    closeAnimTimeoutRef.current = window.setTimeout(() => {
+      closeAnimTimeoutRef.current = null;
+      finalizeClose();
+    }, 550);
+  }, [open, finalizeClose]);
+
+  useEffect(() => {
+    return () => {
+      if (closeAnimTimeoutRef.current) {
+        window.clearTimeout(closeAnimTimeoutRef.current);
+        closeAnimTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setSlideIn(false);
+      return;
+    }
+    document.body.style.overflow = 'hidden';
+    let innerRaf = 0;
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => setSlideIn(true));
+    });
+    const focusT = window.setTimeout(() => closeBtnRef.current?.focus(), 60);
+    return () => {
+      document.body.style.overflow = '';
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
+      window.clearTimeout(focusT);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, handleClose]);
 
   const handleOpen = () => {
+    if (closeAnimTimeoutRef.current) {
+      window.clearTimeout(closeAnimTimeoutRef.current);
+      closeAnimTimeoutRef.current = null;
+    }
+    isClosingRef.current = false;
+    if (open) {
+      setSlideIn(true);
+      return;
+    }
     setOpen(true);
     setPanel('send');
     setDone(false);
@@ -191,54 +264,42 @@ export function FeedbackFab() {
     }
   };
 
-  return (
+  const isHeaderTrigger = variant === 'header' || variant === 'inline';
+  const triggerClassName = isHeaderTrigger
+    ? `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300/60 ${className}`
+    : `fixed bottom-20 right-4 z-40 flex h-12 items-center gap-2 rounded-full border border-brand/30 bg-white px-4 text-sm font-medium text-brand shadow-lg transition hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/30 sm:bottom-6 sm:right-6 ${className}`;
+
+  const titleId = `${panelId}-title`;
+
+  const panelInner = (
     <>
-      <button
-        type="button"
-        onClick={handleOpen}
-        className="fixed bottom-20 right-4 z-40 flex h-12 items-center gap-2 rounded-full border border-brand/30 bg-white px-4 text-sm font-medium text-brand shadow-lg transition hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/30 sm:bottom-6 sm:right-6"
-        aria-label="Enviar feedback"
-        data-analytics-event="feedback_open"
-        data-analytics-label="Feedback FAB"
-      >
-        <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-          />
-        </svg>
-        <span className="hidden sm:inline">Feedback</span>
-      </button>
+      <div className="flex shrink-0 gap-2 border-b border-slate-200 px-4 pb-3 pt-1 sm:px-5">
+        <button
+          type="button"
+          onClick={() => setPanel('send')}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            panel === 'send' ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Novo envio
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPanel('history');
+            void loadHistory();
+          }}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            panel === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Meus envios
+        </button>
+      </div>
 
-      <Modal isOpen={open} onClose={handleClose} title="Feedback" size="lg">
-        <div className="flex gap-2 border-b border-slate-200 -mx-6 px-6 -mt-2 pb-3 mb-4">
-          <button
-            type="button"
-            onClick={() => setPanel('send')}
-            className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              panel === 'send' ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Novo envio
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPanel('history');
-              void loadHistory();
-            }}
-            className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              panel === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Meus envios
-          </button>
-        </div>
-
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 pt-3 sm:px-5">
         {panel === 'history' ? (
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3">
             {historyLoading && <p className="text-sm text-slate-500">Carregando…</p>}
             {historyError && <p className="text-sm text-red-600">{historyError}</p>}
             {!historyLoading && history.length === 0 && !historyError && (
@@ -434,7 +495,82 @@ export function FeedbackFab() {
             </div>
           </form>
         )}
-      </Modal>
+      </div>
     </>
   );
+
+  const drawer =
+    open &&
+    typeof document !== 'undefined' &&
+    createPortal(
+      <div className="fixed inset-0 z-[120]">
+        <div
+          className="absolute inset-0 bg-transparent"
+          onClick={handleClose}
+          role="presentation"
+          aria-hidden
+        />
+        <div
+          id={panelId}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className={`absolute inset-y-0 right-0 z-[121] flex h-full min-h-0 max-h-[100dvh] w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-xl transition-transform duration-500 ease-in-out ${
+            slideIn ? 'translate-x-0' : 'translate-x-full'
+          }`}
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)' }}
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-brand/5 px-4 py-3 sm:px-5">
+              <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+                Feedback
+              </h2>
+              <button
+                ref={closeBtnRef}
+                type="button"
+                onClick={handleClose}
+                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Fechar"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {panelInner}
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        className={triggerClassName}
+        aria-label="Enviar feedback"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        data-analytics-event="feedback_open"
+        data-analytics-label={isHeaderTrigger ? 'Feedback Header' : 'Feedback FAB'}
+      >
+        <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+          />
+        </svg>
+        {variant === 'fab' && <span className="hidden sm:inline">Feedback</span>}
+      </button>
+      {drawer}
+    </>
+  );
+}
+
+export function FeedbackFab() {
+  return <FeedbackTrigger variant="fab" />;
 }

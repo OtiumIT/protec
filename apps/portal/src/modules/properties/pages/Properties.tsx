@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -278,7 +277,7 @@ export function Properties() {
   const totalPages = Math.ceil(total / limit) || 1;
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div>
         <div className="flex items-center justify-between mb-6">
@@ -538,6 +537,6 @@ export function Properties() {
           variant="danger"
         />
       </div>
-    </Layout>
+    </>
   );
 }

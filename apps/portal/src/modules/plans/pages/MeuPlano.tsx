@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -95,7 +94,7 @@ export function MeuPlano() {
   };
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Meu plano</h1>
@@ -209,6 +208,6 @@ export function MeuPlano() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

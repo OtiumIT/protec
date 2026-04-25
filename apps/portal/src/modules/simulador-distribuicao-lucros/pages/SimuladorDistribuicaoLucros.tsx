@@ -14,7 +14,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -411,7 +410,7 @@ export function SimuladorDistribuicaoLucros() {
   ]);
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="space-y-5 max-w-5xl mx-auto px-1 pb-8">
         <div>
@@ -911,6 +910,6 @@ export function SimuladorDistribuicaoLucros() {
           setClientId(client.id);
         }}
       />
-    </Layout>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 export default {
   content: [
     "./index.html",
+    "./src/**/*.css",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
@@ -34,6 +35,12 @@ export default {
           'accent-light': '#818cf8',
           cta: '#ea580c',
         },
+        /** Fundo do canvas da área logada (nome plano: bg-app-canvas) */
+        'app-canvas': '#f8fafc',
+      },
+      boxShadow: {
+        card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(15 23 42 / 0.07)',
+        'card-hover': '0 2px 4px 0 rgb(0 0 0 / 0.05), 0 8px 20px -4px rgb(15 23 42 / 0.08)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

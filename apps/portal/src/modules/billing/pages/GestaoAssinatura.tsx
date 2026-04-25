@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { useToast } from '../../../shared/components/ui/Toast';
@@ -92,7 +91,7 @@ export function GestaoAssinatura() {
   });
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Gestão de assinatura</h1>
@@ -289,6 +288,6 @@ export function GestaoAssinatura() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

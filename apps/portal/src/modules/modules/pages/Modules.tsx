@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Badge } from '../../../shared/components/ui/Badge';
@@ -244,18 +243,18 @@ export function Modules() {
 
   if (!isAdmin) {
     return (
-      <Layout>
+      <>
         <div className="p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600">Você não tem permissão para acessar esta página.</p>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="p-6 space-y-6">
         <div>
@@ -524,6 +523,6 @@ export function Modules() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

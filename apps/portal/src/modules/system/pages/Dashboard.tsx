@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -213,7 +212,7 @@ export function Dashboard() {
   };
 
   return (
-    <Layout>
+    <>
       <div>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
@@ -593,7 +592,7 @@ export function Dashboard() {
           </Card>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

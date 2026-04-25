@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Layout } from '../../../shared/components/layout/Layout';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -1915,7 +1914,7 @@ export default function SimuladorGanhoCapitalImovel() {
   }
 
   return (
-    <Layout>
+    <>
       <ToastContainer />
       <div className="max-w-6xl mx-auto px-4 py-6">
         {moduleBlockedMessage && (
@@ -2243,6 +2242,6 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         </div>
       </Modal>
-    </Layout>
+    </>
   );
 }
