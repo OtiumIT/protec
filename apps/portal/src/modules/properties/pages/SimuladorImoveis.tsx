@@ -45,6 +45,11 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+/** Média mensal a partir do total anual (exibição nos cards; não equivale à apuração mês a mês). */
+function mediaMensalAnual(annual: number) {
+  return round2(annual / 12);
+}
+
 /** Nome sugerido ao guardar PDF (Chrome usa `document.title` como nome do ficheiro). */
 function sanitizePdfDocumentTitle(raw: string): string {
   const t = raw
@@ -2680,6 +2685,16 @@ export function SimuladorImoveis() {
             <p className="text-2xl font-bold text-brand">
               {formatMoney(result.cenarios.pf.imposto_total)}
             </p>
+            <p
+              className="text-sm text-slate-500 mt-1 tabular-nums"
+              title="Média mensal: total anual dividido por 12. Não equivale ao imposto apurado em cada mês ou trimestre."
+            >
+              <span className="text-slate-400">Média mensal:</span>{' '}
+              <span className="font-medium text-slate-600">
+                {formatMoney(mediaMensalAnual(result.cenarios.pf.imposto_total))}
+              </span>
+              <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
+            </p>
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
             </p>
@@ -2702,6 +2717,16 @@ export function SimuladorImoveis() {
             <h3 className="font-semibold text-slate-700 mb-2">Pessoa Jurídica (Lucro Presumido)</h3>
             <p className="text-2xl font-bold text-slate-800">
               {formatMoney(result.cenarios.pj.imposto_total)}
+            </p>
+            <p
+              className="text-sm text-slate-500 mt-1 tabular-nums"
+              title="Média mensal: total anual dividido por 12. Não equivale ao imposto apurado em cada mês ou trimestre."
+            >
+              <span className="text-slate-400">Média mensal:</span>{' '}
+              <span className="font-medium text-slate-600">
+                {formatMoney(mediaMensalAnual(result.cenarios.pj.imposto_total))}
+              </span>
+              <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
             </p>
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva: {result.cenarios.pj.aliquota_efetiva.toFixed(2)}%
@@ -2895,6 +2920,16 @@ export function SimuladorImoveis() {
                     <p className="text-2xl font-bold text-emerald-700">
                       {formatMoney(irHoje)}
                     </p>
+                    <p
+                      className="text-sm text-slate-500 mt-1 tabular-nums"
+                      title="Média mensal: total anual dividido por 12. Não equivale ao imposto apurado em cada mês ou trimestre."
+                    >
+                      <span className="text-slate-400">Média mensal:</span>{' '}
+                      <span className="font-medium text-slate-600">
+                        {formatMoney(mediaMensalAnual(irHoje))}
+                      </span>
+                      <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
+                    </p>
                     <p className="text-sm text-slate-600 mt-1">
                       Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
                     </p>
@@ -2923,6 +2958,16 @@ export function SimuladorImoveis() {
                   <p className="text-2xl font-bold text-slate-800">
                     {formatMoney(totalPF2027)}
                   </p>
+                  <p
+                    className="text-sm text-slate-500 mt-1 tabular-nums"
+                    title="Média mensal: total anual dividido por 12. Não equivale ao imposto apurado em cada mês ou trimestre."
+                  >
+                    <span className="text-slate-400">Média mensal:</span>{' '}
+                    <span className="font-medium text-slate-600">
+                      {formatMoney(mediaMensalAnual(totalPF2027))}
+                    </span>
+                    <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
+                  </p>
                   <p className="text-sm text-slate-600 mt-1">
                     Alíquota total: {aliquotaTotal.toFixed(2)}%
                   </p>
@@ -2950,6 +2995,20 @@ export function SimuladorImoveis() {
             <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
             <p className="text-2xl font-bold text-slate-800">
               {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
+            </p>
+            <p
+              className="text-sm text-slate-500 mt-1 tabular-nums"
+              title="Média mensal: total anual dividido por 12. Não equivale ao imposto apurado em cada mês ou trimestre."
+            >
+              <span className="text-slate-400">Média mensal:</span>{' '}
+              <span className="font-medium text-slate-600">
+                {formatMoney(
+                  mediaMensalAnual(
+                    (result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0
+                  )
+                )}
+              </span>
+              <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
             </p>
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(2) ?? '0'}%
