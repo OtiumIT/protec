@@ -3,6 +3,7 @@ import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { FeedbackTrigger } from '../feedback/FeedbackFab';
+import { TOP_RAIL_HEIGHT_CLASS } from './layout-top-rail';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -41,10 +42,10 @@ export function Layout({ children }: LayoutProps) {
       <div className="flex-1 h-screen min-h-0 flex flex-col min-w-0 relative">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" data-private-scroll-container="true">
           <header
-            className="bg-white/90 backdrop-blur border-b border-slate-200/90 px-3 sm:px-5 sticky top-0 z-30 shadow-sm h-[72px] flex items-center"
+            className={`bg-white/90 backdrop-blur border-b border-slate-200/90 box-border px-3 sm:px-5 sticky top-0 z-30 shadow-sm ${TOP_RAIL_HEIGHT_CLASS} flex items-center shrink-0`}
             style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)' }}
           >
-            <div className="h-full w-full flex items-center justify-between gap-3 min-h-[52px]">
+            <div className="h-full min-h-0 w-full flex items-center justify-between gap-3">
               <div className="flex items-center min-w-0">
                 <button
                   type="button"

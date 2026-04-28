@@ -45,6 +45,45 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+/** Uma linha da tabela de projeção Reforma PJ 2027–2033 (mesma lógica da grid e do modal de explicação). */
+function computeProjecaoReformaPjLinha(
+  receita: number,
+  custos: number,
+  irpjCsll: number,
+  aliquotaCBS: number,
+  fatorReducao: number,
+  ibsNominal: number,
+  divisor: number
+) {
+  const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
+  const ibsEfetivo = round2(ibsNominal * fatorReducao);
+  const aliqCombinada = cbsEfetiva + ibsEfetivo;
+  const cbsNaReceitaAnual = round2((receita * cbsEfetiva) / 100);
+  const ibsNaReceitaAnual = round2((receita * ibsEfetivo) / 100);
+  const ibsCbsBruto = round2((receita * aliqCombinada) / 100);
+  const creditos = round2((custos * aliqCombinada) / 100);
+  const ibsCbsLiquido = Math.max(0, round2(ibsCbsBruto - creditos));
+  const total = round2(ibsCbsLiquido + irpjCsll);
+  const aliqEfetiva = receita > 0 ? round2((total / receita) * 100) : 0;
+  return {
+    cbsEfetiva,
+    ibsEfetivo,
+    aliqCombinada,
+    cbsNaReceitaAnual,
+    ibsNaReceitaAnual,
+    ibsCbsBruto,
+    creditos,
+    ibsCbsLiquido,
+    total,
+    aliqEfetiva,
+    cbsExibido: round2((receita * cbsEfetiva) / 100 / divisor),
+    ibsExibido: round2((receita * ibsEfetivo) / 100 / divisor),
+    liquidoExibido: round2(ibsCbsLiquido / divisor),
+    irpjCsllExibido: round2(irpjCsll / divisor),
+    totalExibido: round2(total / divisor),
+  };
+}
+
 /** Média mensal a partir do total anual (exibição nos cards; não equivale à apuração mês a mês). */
 function mediaMensalAnual(annual: number) {
   return round2(annual / 12);
@@ -301,6 +340,8 @@ export function SimuladorImoveis() {
   const [aliquotaCBS, setAliquotaCBS] = useState<number>(9);
   const [anoReferenciaReforma, setAnoReferenciaReforma] = useState<number>(2033);
   const [projecaoModo, setProjecaoModo] = useState<'anual' | 'mensal'>('anual');
+  /** Chave `item.ano` da linha da projeção PJ cujo modal de explicação está aberto. */
+  const [projecaoPjDetalheKey, setProjecaoPjDetalheKey] = useState<string | null>(null);
   const [quantidadeImoveisResidenciais, setQuantidadeImoveisResidenciais] = useState<number>(1);
   const [quantidadeImoveisResidenciaisLonga, setQuantidadeImoveisResidenciaisLonga] = useState<number>(1);
   const [quantidadeImoveisComerciais, setQuantidadeImoveisComerciais] = useState<number>(0);
@@ -3284,6 +3325,7 @@ export function SimuladorImoveis() {
                 receita > 0 && aliqNominalRef > 0
                   ? debitoRefBruto / receita / (aliqNominalRef / 100)
                   : (100 - (perfilLocacao === 'hospedagem_temporada' ? 40 : 70)) / 100;
+              const fatorReducaoCalibrado = receita > 0 && aliqNominalRef > 0;
 
               const divisor = projecaoModo === 'mensal' ? 12 : 1;
 
@@ -3294,13 +3336,42 @@ export function SimuladorImoveis() {
                 { ano: '2031', ibsNominal: aliquotaPlenaIBS * 0.3 },
                 { ano: '2032', ibsNominal: aliquotaPlenaIBS * 0.4 },
                 { ano: '2033', ibsNominal: aliquotaPlenaIBS * 1.0 },
-              ];
+              ] as const;
+
+              const itemDetalhe = projecaoPjDetalheKey ? anos.find((a) => a.ano === projecaoPjDetalheKey) : undefined;
+              const linhaDetalhe = itemDetalhe
+                ? computeProjecaoReformaPjLinha(
+                    receita,
+                    custos,
+                    irpjCsll,
+                    aliquotaCBS,
+                    fatorReducao,
+                    itemDetalhe.ibsNominal,
+                    divisor
+                  )
+                : null;
+
+              const textoIbsNominalModal = (ano: string, ibsN: number) => {
+                if (ano === '2027/2028') {
+                  return 'IBS nominal 0,1% a.a. (fixo em 2027 e 2028, fase de teste / transição da LC 214/2025), somado à CBS estimada.';
+                }
+                if (aliquotaPlenaIBS <= 0) {
+                  return `IBS nominal usado na linha: ${round2(ibsN)}% a.a. (defina a alíquota plena IBS no simulador para detalhar o cronograma).`;
+                }
+                const fracao = ibsN / aliquotaPlenaIBS;
+                const pctCron = fracao * 100;
+                return `IBS nominal = ${pctCron.toFixed(0)}% da alíquota plena IBS (${aliquotaPlenaIBS}% a.a., parâmetro do simulador) = ${round2(ibsN)}% a.a. (cronograma de transição IBS 2029–2033, LC 214/2025).`;
+              };
 
               return (
+                <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="py-2 px-1 w-10 text-center font-medium text-slate-500 print:hidden" scope="col" title="Explicação do cálculo">
+                          <span className="sr-only">Detalhe</span>
+                        </th>
                         <th className="py-2 px-3 text-left font-medium text-slate-600">Ano</th>
                         <th className="py-2 px-3 text-right font-medium text-slate-600">CBS{projecaoModo === 'mensal' ? '/mês' : ''}</th>
                         <th className="py-2 px-3 text-right font-medium text-slate-600">IBS{projecaoModo === 'mensal' ? '/mês' : ''}</th>
@@ -3312,30 +3383,154 @@ export function SimuladorImoveis() {
                     </thead>
                     <tbody>
                       {anos.map((item) => {
-                        const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
-                        const ibsEfetivo = round2(item.ibsNominal * fatorReducao);
-                        const aliqCombinada = cbsEfetiva + ibsEfetivo;
-                        const ibsCbsBruto = round2((receita * aliqCombinada) / 100);
-                        const creditos = round2((custos * aliqCombinada) / 100);
-                        const ibsCbsLiquido = Math.max(0, round2(ibsCbsBruto - creditos));
-                        const total = round2(ibsCbsLiquido + irpjCsll);
-                        const aliqEfetiva = receita > 0 ? round2((total / receita) * 100) : 0;
+                        const L = computeProjecaoReformaPjLinha(
+                          receita,
+                          custos,
+                          irpjCsll,
+                          aliquotaCBS,
+                          fatorReducao,
+                          item.ibsNominal,
+                          divisor
+                        );
 
                         return (
                           <tr key={item.ano} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-2 px-1 text-center print:hidden">
+                              <button
+                                type="button"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-violet-100 hover:text-violet-700"
+                                aria-label={`Explicar cálculo da projeção — ${item.ano}`}
+                                onClick={() => setProjecaoPjDetalheKey(item.ano)}
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </button>
+                            </td>
                             <td className="py-2 px-3 font-medium text-slate-700">{item.ano}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * cbsEfetiva) / 100 / divisor))}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2((receita * ibsEfetivo) / 100 / divisor))}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(ibsCbsLiquido / divisor))}</td>
-                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(round2(irpjCsll / divisor))}</td>
-                            <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(round2(total / divisor))}</td>
-                            <td className="py-2 px-3 text-right text-slate-500">{aliqEfetiva.toFixed(2)}%</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(L.cbsExibido)}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(L.ibsExibido)}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(L.liquidoExibido)}</td>
+                            <td className="py-2 px-3 text-right text-slate-600">{formatMoney(L.irpjCsllExibido)}</td>
+                            <td className="py-2 px-3 text-right font-semibold text-brand">{formatMoney(L.totalExibido)}</td>
+                            <td className="py-2 px-3 text-right text-slate-500">{L.aliqEfetiva.toFixed(2)}%</td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
                 </div>
+                <Modal
+                  isOpen={projecaoPjDetalheKey != null && itemDetalhe != null && linhaDetalhe != null}
+                  onClose={() => setProjecaoPjDetalheKey(null)}
+                  title={itemDetalhe ? `Cálculo — Projeção ${itemDetalhe.ano} (LC 214/2025, PJ)` : 'Cálculo da projeção'}
+                  size="lg"
+                >
+                  {itemDetalhe && linhaDetalhe && (
+                    <div className="text-xs space-y-3 text-slate-700 max-h-[min(70vh,32rem)] overflow-y-auto pr-1">
+                      <p className="text-slate-500 font-sans text-[11px] leading-relaxed">
+                        Projeção meramente ilustrativa. O IBS evolui conforme o cronograma legal; IRPJ e CSLL reproduzem o
+                        lucro presumido já apurado nesta simulação (não projetados ano a ano).
+                      </p>
+                      {projecaoModo === 'mensal' && (
+                        <p className="text-amber-800/90 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 font-sans text-[11px]">
+                          Modo <strong>mensal</strong>: os valores da tabela são o total anual abaixo ÷ 12 (média mensal
+                          estimada; não representa apuração mês a mês).
+                        </p>
+                      )}
+
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono space-y-1.5">
+                        <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-1">Dados de entrada (mesma base do card Reforma PJ)</p>
+                        <p>Receita anual usada na projeção: <span className="text-slate-900 font-semibold">{formatMoney(receita)}</span></p>
+                        <p>Custos operacionais (base de créditos IBS/CBS): {formatMoney(custos)}</p>
+                        <p>CBS estimada (parâmetro): {aliquotaCBS}% a.a.</p>
+                        <p>Alíquota plena IBS (parâmetro): {aliquotaPlenaIBS}% a.a.</p>
+                        <p className="font-sans text-slate-600 pt-1">{textoIbsNominalModal(itemDetalhe.ano, itemDetalhe.ibsNominal)}</p>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono space-y-1.5">
+                        <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-1">Fator de ajuste (redutor / Art. 281 / transição)</p>
+                        {fatorReducaoCalibrado ? (
+                          <>
+                            <p className="font-sans text-slate-600">
+                              O fator {fatorReducao.toFixed(6)} replica a relação entre a alíquota <em>nominal</em> IBS+CBS
+                              e o débito de IBS/CBS sobre a receita do <strong>cenário de referência</strong> (card Reforma
+                              PJ), incluindo redutor de locação, eventual combinação longa/curta (Art. 281) e demais regras
+                              desse cenário.
+                            </p>
+                            <p>
+                              Débito IBS/CBS (antes de créditos) de referência: {formatMoney(debitoRefBruto)} · Alíquota
+                              nominal IBS+CBS de referência: {aliqNominalRef}%
+                            </p>
+                            <p>
+                              Fator = {formatMoney(debitoRefBruto)} ÷ {formatMoney(receita)} ÷ ({aliqNominalRef} ÷ 100) ={' '}
+                              <span className="text-slate-900 font-semibold">{fatorReducao.toFixed(6)}</span>
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-sans text-slate-600">
+                            Fator fixo {fatorReducao.toFixed(4)} (1 − redutor {perfilLocacao === 'hospedagem_temporada' ? '40' : '70'}%)
+                            — usado quando receita ou alíquota de referência não permitem calibrar a partir do cenário
+                            simulado.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono space-y-1.5">
+                        <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-1">Passo a passo (valores anuais)</p>
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide">Alíquotas efetivas após o fator</p>
+                        <p>
+                          CBS efetiva = {aliquotaCBS}% × fator = <span className="text-slate-900 font-semibold">{linhaDetalhe.cbsEfetiva.toFixed(2)}%</span>
+                        </p>
+                        <p>
+                          IBS efetivo = IBS nominal {round2(itemDetalhe.ibsNominal)}% × fator ={' '}
+                          <span className="text-slate-900 font-semibold">{linhaDetalhe.ibsEfetivo.toFixed(2)}%</span>
+                        </p>
+                        <p>Alíquota combinada (CBS + IBS) = {linhaDetalhe.aliqCombinada.toFixed(2)}%</p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide pt-1">Débito na receita (CBS e IBS separados)</p>
+                        <p>
+                          {formatMoney(receita)} × {linhaDetalhe.cbsEfetiva.toFixed(2)}% = {formatMoney(linhaDetalhe.cbsNaReceitaAnual)} (CBS)
+                        </p>
+                        <p>
+                          {formatMoney(receita)} × {linhaDetalhe.ibsEfetivo.toFixed(2)}% = {formatMoney(linhaDetalhe.ibsNaReceitaAnual)} (IBS)
+                        </p>
+                        <p>
+                          Débito bruto IBS/CBS = {formatMoney(linhaDetalhe.ibsCbsBruto)} (soma dos dois, com arredondamento
+                          de 2 casas)
+                        </p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide pt-1">Créditos e líquido IBS/CBS</p>
+                        <p>
+                          Créditos = {formatMoney(custos)} × {linhaDetalhe.aliqCombinada.toFixed(2)}% = {formatMoney(linhaDetalhe.creditos)}
+                        </p>
+                        <p>
+                          IBS/CBS líquido = max(0, {formatMoney(linhaDetalhe.ibsCbsBruto)} − {formatMoney(linhaDetalhe.creditos)}) ={' '}
+                          <span className="text-slate-900 font-semibold">{formatMoney(linhaDetalhe.ibsCbsLiquido)}</span>
+                        </p>
+
+                        <p className="font-sans text-[10px] text-slate-500 uppercase tracking-wide pt-1">IRPJ + CSLL (lucro presumido — apuração anual desta simulação)</p>
+                        <p>
+                          IRPJ (incl. adic. e postergado, se houver) + CSLL = {formatMoney(irpjCsll)} (repetido em todas as
+                          linhas da projeção; não varia com o ano do IBS)
+                        </p>
+
+                        <p className="border-t border-slate-200 pt-2 mt-1 font-sans">
+                          <span className="text-slate-500">Total anual =</span> IBS/CBS líquido + IRPJ + CSLL ={' '}
+                          <span className="text-slate-900 font-bold">{formatMoney(linhaDetalhe.total)}</span>
+                        </p>
+                        <p>Alíquota efetiva total (s/ receita) = {linhaDetalhe.aliqEfetiva.toFixed(2)}%</p>
+                        {projecaoModo === 'mensal' && (
+                          <p className="text-slate-500 font-sans pt-1">
+                            Exibido na tabela (÷ 12): total {formatMoney(linhaDetalhe.totalExibido)}/mês, IBS/CBS líq.{' '}
+                            {formatMoney(linhaDetalhe.liquidoExibido)}/mês, etc.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Modal>
+                </>
               );
             })()}
             <p className="text-xs text-slate-500 mt-3">

@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { moduleService, type ActiveModule } from '../../../modules/modules/services/module.service';
+import { TOP_RAIL_HEIGHT_CLASS } from './layout-top-rail';
 
 /** Quando false, o menu respeita estritamente /modules/active para usuários de tenant. */
 const FORCE_SHOW_ALL_MODULES = false;
@@ -723,7 +724,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         aria-label="Navegação principal"
       >
         {/* Logo e botão de colapsar */}
-        <div className={`border-b border-white/10 flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2 lg:flex-col lg:gap-2' : 'p-3 flex-row justify-between'}`}>
+        <div
+          className={`border-b border-white/10 box-border flex items-center shrink-0 transition-all duration-300 ${TOP_RAIL_HEIGHT_CLASS} ${isCollapsed ? 'px-2 py-2 lg:flex-col lg:justify-center lg:gap-1' : 'px-3 py-2 flex-row justify-between'}`}
+        >
           <Link
             to="/dashboard"
             aria-label="Ir para início"
