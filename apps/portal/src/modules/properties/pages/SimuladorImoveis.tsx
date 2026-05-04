@@ -3041,11 +3041,41 @@ export function SimuladorImoveis() {
               /** Mesma base da coluna IRPJ+CSLL do quadro Projeção 2027–2033 */
               const irpjCsllGrid = round2(irpjLucroPresumido + csllPj);
               const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-              const ibsCbsLiquidoRef = ref?.ibs_cbs_liquido ?? 0;
-              const totalReformaPjCard = round2(ibsCbsLiquidoRef + irpjCsllGrid);
-              const receitaRef = ref?.receita_bruta_total ?? 0;
-              const aliquotaEfetivaCard =
-                receitaRef > 0 ? round2((totalReformaPjCard / receitaRef) * 100) : 0;
+
+              /**
+               * Para garantir paridade exata com a linha 2033 do grid de projeção,
+               * o card recomputa IBS/CBS líquido pela mesma função e com os mesmos
+               * inputs do grid (receita, custos, fatorReducao calibrado, alíquota plena IBS).
+               */
+              const receitaCardBase = result.cenarios.pf.receita_bruta_total;
+              const receitaCard =
+                quantidadeImoveisResidenciais > 0 &&
+                quantidadeImoveisComerciais > 0 &&
+                (receitaLocacaoResidencialAnual > 0 || receitaLocacaoNaoResidencialAnual > 0)
+                  ? receitaLocacaoResidencialAnual + receitaLocacaoNaoResidencialAnual
+                  : receitaCardBase;
+              const custosCard = ref?.custos_operacionais_total ?? 0;
+              const aliqNominalRefCard = (ref as { aliquota_nominal_ibs_cbs?: number } | undefined)?.aliquota_nominal_ibs_cbs ?? 26.5;
+              const debitoRefBrutoCard =
+                (ref as { ibs_cbs_antes_redutor_social?: number } | undefined)?.ibs_cbs_antes_redutor_social
+                  ?? (ref as { ibs_cbs_sobre_receita?: number } | undefined)?.ibs_cbs_sobre_receita
+                  ?? 0;
+              const fatorReducaoCard =
+                receitaCard > 0 && aliqNominalRefCard > 0
+                  ? debitoRefBrutoCard / receitaCard / (aliqNominalRefCard / 100)
+                  : (100 - (perfilLocacao === 'hospedagem_temporada' ? 40 : 70)) / 100;
+              const linha2033 = computeProjecaoReformaPjLinha(
+                receitaCard,
+                custosCard,
+                irpjCsllGrid,
+                aliquotaCBS,
+                fatorReducaoCard,
+                aliquotaPlenaIBS * 1.0,
+                1
+              );
+              const ibsCbsLiquidoCard = linha2033.ibsCbsLiquido;
+              const totalReformaPjCard = linha2033.total;
+              const aliquotaEfetivaCard = linha2033.aliqEfetiva;
 
               return (
                 <>
@@ -3074,7 +3104,10 @@ export function SimuladorImoveis() {
               )}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              IBS/CBS: {formatMoney(ibsCbsLiquidoRef)} + IRPJ+CSLL: {formatMoney(irpjCsllGrid)} (IRPJ inclui adicional e postergado, se houver — mesma base da coluna IRPJ+CSLL na projeção 2027–2033) = total acima.
+              IBS/CBS: {formatMoney(ibsCbsLiquidoCard)} + IRPJ+CSLL: {formatMoney(irpjCsllGrid)} (IRPJ inclui adicional e postergado, se houver — mesma base da coluna IRPJ+CSLL na projeção 2027–2033) = total acima.
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Valores no regime pleno (2033) — equivalem à última linha do quadro Projeção 2027–2033.
             </p>
             {((ref) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
@@ -3274,7 +3307,7 @@ export function SimuladorImoveis() {
                       <span className="text-slate-500">Total =</span> IBS/CBS + IRPJ + CSLL ={' '}
                       <span className="text-slate-800 font-bold">{formatMoney(totalReformaPjCard)}</span>
                       <span className="text-slate-500 font-sans text-[10px] block mt-1">
-                        (IRPJ+CSLL alinhados ao lucro presumido da PJ, mesma base da projeção 2027–2033)
+                        IBS/CBS, IRPJ e CSLL no regime pleno (2033) — paridade com a última linha da Projeção 2027–2033.
                       </span>
                     </p>
                   </div>
