@@ -3033,9 +3033,25 @@ export function SimuladorImoveis() {
             })()}
           </Card>
           <Card>
+            {(() => {
+              const pj = result.cenarios.pj;
+              const irpjLucroPresumido =
+                (pj.irpj ?? 0) + (pj.irpj_adicional ?? 0) + (pj.irpj_postergado ?? 0);
+              const csllPj = pj.csll ?? 0;
+              /** Mesma base da coluna IRPJ+CSLL do quadro Projeção 2027–2033 */
+              const irpjCsllGrid = round2(irpjLucroPresumido + csllPj);
+              const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
+              const ibsCbsLiquidoRef = ref?.ibs_cbs_liquido ?? 0;
+              const totalReformaPjCard = round2(ibsCbsLiquidoRef + irpjCsllGrid);
+              const receitaRef = ref?.receita_bruta_total ?? 0;
+              const aliquotaEfetivaCard =
+                receitaRef > 0 ? round2((totalReformaPjCard / receitaRef) * 100) : 0;
+
+              return (
+                <>
             <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Jurídica (IBS/CBS + IRPJ + CSLL)</h3>
             <p className="text-2xl font-bold text-slate-800">
-              {formatMoney((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0)}
+              {formatMoney(totalReformaPjCard)}
             </p>
             <p
               className="text-sm text-slate-500 mt-1 tabular-nums"
@@ -3043,46 +3059,27 @@ export function SimuladorImoveis() {
             >
               <span className="text-slate-400">Média mensal:</span>{' '}
               <span className="font-medium text-slate-600">
-                {formatMoney(
-                  mediaMensalAnual(
-                    (result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.imposto_total ?? 0
-                  )
-                )}
+                {formatMoney(mediaMensalAnual(totalReformaPjCard))}
               </span>
               <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva total: {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(2) ?? '0'}%
-              {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
+              Alíquota efetiva total: {aliquotaEfetivaCard.toFixed(2)}%
+              {((ref) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short ? (
                 <span className="text-slate-500"> (com redutor 70% longa duração e 40% curta temporada)</span>
               ) : (
-                ((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct != null && (
-                  <span className="text-slate-500"> (com redutor {(result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027)?.redutor_locacao_aplicado_pct ?? 70}% para locação)</span>
+                ((ref) as { redutor_locacao_aplicado_pct?: number })?.redutor_locacao_aplicado_pct != null && (
+                  <span className="text-slate-500"> (com redutor {ref?.redutor_locacao_aplicado_pct ?? 70}% para locação)</span>
                 )
               )}
             </p>
-            {(() => {
-              const ref = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
-              const irpj = (ref as { irpj?: number })?.irpj;
-              const csll = (ref as { csll?: number })?.csll;
-              const ibsCbs = ref?.ibs_cbs_liquido ?? 0;
-              if (irpj != null && csll != null) {
-                return (
-                  <p className="text-xs text-slate-500 mt-1">
-                    IBS/CBS: {formatMoney(ibsCbs)} + IRPJ: {formatMoney(irpj)} + CSLL: {formatMoney(csll)} = Total acima.
-                  </p>
-                );
-              }
-              return (
-                <p className="text-xs text-slate-500 mt-1">
-                  Total = IBS/CBS (substitui PIS/COFINS) + IRPJ + CSLL sobre o lucro presumido.
-                </p>
-              );
-            })()}
-            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
+            <p className="text-xs text-slate-500 mt-1">
+              IBS/CBS: {formatMoney(ibsCbsLiquidoRef)} + IRPJ+CSLL: {formatMoney(irpjCsllGrid)} (IRPJ inclui adicional e postergado, se houver — mesma base da coluna IRPJ+CSLL na projeção 2027–2033) = total acima.
+            </p>
+            {((ref) as { aplicou_transicao_art487?: boolean })?.aplicou_transicao_art487 && (
               <p className="text-xs text-emerald-700 mt-1 font-medium">Aplicado regime de transição Art. 487 (3,65% sobre receita bruta).</p>
             )}
-            {((result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
+            {((ref) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
               <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
             )}
             <details className="mt-3">
@@ -3113,8 +3110,8 @@ export function SimuladorImoveis() {
                 const custos = refExt.custos_operacionais_total ?? 0;
                 const liquido = ref.ibs_cbs_liquido ?? 0;
                 const temRedutorSocial = refExt.ibs_cbs_antes_redutor_social != null && (refExt.redutor_social_aplicado ?? 0) > 0;
-                const irpj = refExt.irpj ?? 0;
-                const csll = refExt.csll ?? 0;
+                const irpj = irpjLucroPresumido;
+                const csll = csllPj;
                 const redutorDiferenciado = refExt.redutor_diferenciado_short === true;
                 const pctRedutorLonga = refExt.redutor_long_pct ?? refExt.redutor_locacao_aplicado_pct ?? 70;
                 const pctRedutorShort = refExt.redutor_short_pct ?? 40;
@@ -3274,12 +3271,19 @@ export function SimuladorImoveis() {
                     )}
                     
                     <p className="border-t border-slate-200 pt-2 mt-2 font-sans">
-                      <span className="text-slate-500">Total =</span> IBS/CBS + IRPJ + CSLL = <span className="text-slate-800 font-bold">{formatMoney(ref.imposto_total ?? 0)}</span>
+                      <span className="text-slate-500">Total =</span> IBS/CBS + IRPJ + CSLL ={' '}
+                      <span className="text-slate-800 font-bold">{formatMoney(totalReformaPjCard)}</span>
+                      <span className="text-slate-500 font-sans text-[10px] block mt-1">
+                        (IRPJ+CSLL alinhados ao lucro presumido da PJ, mesma base da projeção 2027–2033)
+                      </span>
                     </p>
                   </div>
                 );
               })()}
             </details>
+                </>
+              );
+            })()}
           </Card>
           </div>
 
