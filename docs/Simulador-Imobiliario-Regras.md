@@ -8,7 +8,7 @@ Documento de referência das regras de negócio, inputs, outputs e fundamentaç�
 
 Comparar a carga tributária sobre renda de locação de imóveis em três cenários:
 
-- **Pessoa Física (PF)**: IR pela tabela progressiva mensal (Carnê-Leão), com deduções da Lei 7.713/88.
+- **Pessoa Física (PF)**: IR pela tabela progressiva mensal (Carnê-Leão), com deduções previstas no art. 42 do RIR/2018 (Decreto 9.580/2018) e no art. 14 da Lei 7.739/89.
 - **Pessoa Jurídica (PJ)**: Lucro Presumido (IRPJ, CSLL, PIS, COFINS), com regras da IN 2.306/2026 e presunção 16% quando aplicável.
 - **Reforma 2027**: Cenário pós-vigência da Reforma Tributária (IBS/CBS), com redutor para locação e, na ótica PF, **IR (Carnê-Leão) + IBS/CBS**.
 
@@ -45,12 +45,12 @@ Cada elemento deve ter `mes_referencia` no formato `YYYY-MM` (ex.: `2025-01`) e 
 
 | Campo | Descrição | Base legal |
 |-------|------------|------------|
-| **iptu** | IPTU do imóvel | Lei 7.713/88 – dedução da base do IR. |
-| **condominio** | Condomínio | Lei 7.713/88. |
-| **seguro_imovel** | Seguro do imóvel | Lei 7.713/88. |
-| **juros_financiamento** | Juros de financiamento do imóvel | Lei 7.713/88. |
-| **manutencao_conservacao** | Manutenção e conservação | Lei 7.713/88. |
-| **outras_dedutiveis** | Outras despesas dedutíveis | Lei 7.713/88. |
+| **iptu** | IPTU do imóvel | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89 – exclusão da base do IR. |
+| **condominio** | Condomínio (somente quando pago pelo locador) | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89. |
+| **seguro_imovel** | Seguro do imóvel | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89. |
+| **juros_financiamento** | Juros de financiamento do imóvel | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89. |
+| **manutencao_conservacao** | Manutenção e conservação | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89. |
+| **outras_dedutiveis** | Outras despesas dedutíveis | Art. 42 do RIR/2018 e art. 14 da Lei 7.739/89. |
 
 **Custos operacionais (não deduzem IR PF; geram crédito IBS/CBS na Reforma 2027):**
 
@@ -140,7 +140,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 - Fórmula por mês: `IR = base_mes × aliquota − deducao` (arredondado 2 decimais).
 - **Alíquota efetiva anual**: (imposto total / base total) × 100, ou valor informado em `aliquota_efetiva_dirpf` quando fornecido (modo com imóveis).
 
-**Leis/normas consideradas:** Lei 7.713/88 (deduções), Lei 9.250/95 e legislação do IR (tabela progressiva, Carnê-Leão).
+**Leis/normas consideradas:** art. 42 do RIR/2018 (Decreto 9.580/2018) e art. 14 da Lei 7.739/89 (exclusões da receita de aluguel — IPTU, taxas, despesas de cobrança e condomínio quando pago pelo locador), Lei 9.250/95 e legislação do IR (tabela progressiva, Carnê-Leão).
 
 ### 3.4 Cenário B – Pessoa Jurídica (Lucro Presumido)
 
@@ -317,7 +317,8 @@ Lista utilizada na tela e na API para o simulador.
 
 | Norma | Artigo | Descrição |
 |-------|--------|-----------|
-| **Lei 7.713/88** | Art. 3º e seguintes | Deduções de despesas com imóveis de uso residencial (IPTU, condomínio, juros, manutenção etc.) da base de cálculo do IR. |
+| **Decreto nº 9.580/2018 (RIR/2018)** | Art. 42 | Rendimentos de aluguel — exclusões da base do IR (IPTU, taxas, despesas pagas para a cobrança ou recebimento e despesas de condomínio quando pagas pelo locador). |
+| **Lei nº 7.739/1989** | Art. 14 | Base legal das exclusões da receita de aluguel consolidadas no art. 42 do RIR/2018. |
 | **Lei 9.250/95 e legislação do IR** | — | Imposto de Renda sobre rendimentos de locação: tabela progressiva mensal (Carnê-Leão), aplicável à base líquida após deduções. |
 | **EC 132/2023** | — | Reforma Tributária: previsão do IBS e da CBS no âmbito do consumo. |
 

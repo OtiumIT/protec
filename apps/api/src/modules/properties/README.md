@@ -71,7 +71,7 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### Regra 5: Categorias de Transações
 
-- **Despesas dedutíveis (PF)**: IPTU, condomínio, taxa imobiliária, taxa plataforma (Lei 7.713/88)
+- **Despesas dedutíveis (PF)**: IPTU, condomínio (quando pago pelo locador), taxa imobiliária, taxa plataforma — exclusões da receita de aluguel previstas no art. 42 do RIR/2018 (Decreto 9.580/2018) e no art. 14 da Lei 7.739/89
 - **Custos operacionais (créditos Reforma 2027)**: Reforma, mobília, limpeza, energia, internet, taxa intermediação
 - **Airbnb / short stay (novas categorias)**: camareira, segurança, material de limpeza, lavanderia/enxoval, check-in/checkout de terceiros
 - **Custos administrativos/financeiros**: taxas de meios de pagamento, tarifas bancárias, vacância estimada, inadimplência estimada

@@ -1,7 +1,8 @@
 /**
  * Motor de Cálculo Tributário Imobiliário - PF vs PJ vs Reforma 2027
  *
- * Cenário A (PF): Tabela progressiva Carnê-Leão, deduções Lei 7.713/88
+ * Cenário A (PF): Tabela progressiva Carnê-Leão; exclusões da receita de aluguel
+ *                  conforme art. 42 do RIR/2018 (Decreto 9.580/2018) e art. 14 da Lei 7.739/89
  * Cenário B (PJ): Lucro Presumido 32%, IN 2.306/2026
  * Cenário C (Reforma): IBS/CBS com créditos sobre custos operacionais
  */

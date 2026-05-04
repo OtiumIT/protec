@@ -12,10 +12,16 @@ export const rulesImoveis: RuleDocumentation[] = [
       'Subtrai as despesas dedutiveis da receita para obter a base. Aplica a aliquota da faixa correspondente e subtrai a deducao fixa.',
     embasamento_legal: [
       {
-        norma: 'Lei n. 7.713/1988',
-        artigo: 'Art. 3.',
-        descricao: 'Tributacao de rendimentos de alugueis na Pessoa Fisica.',
-        url: 'https://www.planalto.gov.br/ccivil_03/leis/l7713.htm',
+        norma: 'Decreto n. 9.580/2018 (RIR/2018)',
+        artigo: 'Art. 42',
+        descricao: 'Rendimentos de aluguel — exclusoes da base de calculo do IR (IPTU, taxas, despesas pagas para a cobranca ou recebimento e despesas de condominio quando pagas pelo locador).',
+        url: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm',
+      },
+      {
+        norma: 'Lei n. 7.739/1989',
+        artigo: 'Art. 14',
+        descricao: 'Base legal das exclusoes da receita de aluguel consolidadas no art. 42 do RIR/2018.',
+        url: 'https://www.planalto.gov.br/ccivil_03/leis/l7739.htm',
       },
       {
         norma: 'IN RFB n. 1.500/2014',

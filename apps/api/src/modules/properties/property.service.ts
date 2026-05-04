@@ -43,9 +43,15 @@ import {
 const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
   {
     cenario: 'pf',
-    norma: 'Lei 7.713/88',
-    artigo: 'Art. 3º e seguintes',
-    descricao: 'Deduções de despesas com imóveis de uso residencial (IPTU, condomínio, juros, manutenção etc.) da base de cálculo do IR.',
+    norma: 'Decreto nº 9.580/2018 (RIR/2018)',
+    artigo: 'Art. 42',
+    descricao: 'Rendimentos de aluguel — exclusões da base de cálculo do IR (IPTU, taxas, despesas pagas para a cobrança ou recebimento, despesas de condomínio quando pagas pelo locador, etc.).',
+  },
+  {
+    cenario: 'pf',
+    norma: 'Lei nº 7.739/1989',
+    artigo: 'Art. 14',
+    descricao: 'Dedução, da receita de aluguel, dos encargos de IPTU, taxas, despesas pagas para a cobrança ou recebimento e despesas de condomínio quando pagas pelo locador (base legal das exclusões consolidadas no art. 42 do RIR/2018).',
   },
   {
     cenario: 'pf',
