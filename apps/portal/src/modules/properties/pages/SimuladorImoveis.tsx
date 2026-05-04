@@ -2948,12 +2948,12 @@ export function SimuladorImoveis() {
               const irHoje = result.cenarios.pf.imposto_total;
               const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
               
-              // Verificar se PF é contribuinte de IBS/CBS
+              // Verificar se PF é contribuinte de IBS/CBS (LC 214/2025).
+              // Regulamento: SEMPRE exige > 3 imóveis (4 ou mais), cumulativamente com receita > 240k.
               const LIMITE_RECEITA = 240_000;
-              const LIMITE_RECEITA_ABSOLUTO = 288_000;
               const LIMITE_IMOVEIS = 3;
-              const ehContribuinteIbsCbs = receita > LIMITE_RECEITA_ABSOLUTO || 
-                (quantidadeImoveisTotal > LIMITE_IMOVEIS && receita > LIMITE_RECEITA);
+              const ehContribuinteIbsCbs =
+                quantidadeImoveisTotal > LIMITE_IMOVEIS && receita > LIMITE_RECEITA;
               
               if (!ehContribuinteIbsCbs) {
                 return (
@@ -2980,8 +2980,8 @@ export function SimuladorImoveis() {
                       </p>
                       <p className="text-xs text-emerald-700 mt-1">
                         {quantidadeImoveisTotal <= LIMITE_IMOVEIS
-                          ? `Com ${quantidadeImoveisTotal} imóvel(is) e receita de ${formatMoney(receita)}, a PF não atinge os critérios para ser contribuinte de IBS/CBS.`
-                          : `Receita de ${formatMoney(receita)} está abaixo de R$ 240.000.`}
+                          ? `Com ${quantidadeImoveisTotal} imóvel(is), a PF não atinge o critério de mais de ${LIMITE_IMOVEIS} imóveis exigido pelo regulamento — independentemente da receita anual de ${formatMoney(receita)}.`
+                          : `Com ${quantidadeImoveisTotal} imóvel(is), a receita de ${formatMoney(receita)} está abaixo do limite de R$ 240.000.`}
                       </p>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
@@ -3024,9 +3024,7 @@ export function SimuladorImoveis() {
                     Em 2027 a PF continua pagando o mesmo IR de hoje sobre a renda; soma-se o IBS/CBS sobre a atividade.
                   </p>
                   <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1.5">
-                    Contribuinte de IBS/CBS: {receita > LIMITE_RECEITA_ABSOLUTO 
-                      ? `Receita > R$ 288.000 (independente do número de imóveis)`
-                      : `Mais de ${LIMITE_IMOVEIS} imóveis (${quantidadeImoveisTotal}) e receita > R$ 240.000`}
+                    Contribuinte de IBS/CBS: mais de {LIMITE_IMOVEIS} imóveis ({quantidadeImoveisTotal}) e receita &gt; R$ 240.000.
                   </p>
                 </>
               );
@@ -3588,11 +3586,10 @@ export function SimuladorImoveis() {
           const refPj = result.cenarios.reforma_2027_pj ?? result.cenarios.reforma_2027;
           const receitaComparativo = refPf?.receita_bruta_total ?? pf.receita_bruta_total ?? 0;
           const LIMITE_RECEITA = 240_000;
-          const LIMITE_RECEITA_ABSOLUTO = 288_000;
           const LIMITE_IMOVEIS = 3;
+          /** Regulamento LC 214/2025: PF só é contribuinte com mais de 3 imóveis E receita > 240k. */
           const ehContribuinteIbsCbs =
-            receitaComparativo > LIMITE_RECEITA_ABSOLUTO ||
-            (quantidadeImoveisTotal > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA);
+            quantidadeImoveisTotal > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA;
 
           const totalRefPf = pf.imposto_total + (refPf?.ibs_cbs_liquido ?? 0);
 

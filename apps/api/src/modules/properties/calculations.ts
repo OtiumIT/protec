@@ -41,7 +41,13 @@ const LIMITE_PRESUNCAO_16_LOCACAO = 120_000;
 
 /** Limites para PF ser contribuinte de IBS/CBS (LC 214/2025) */
 const LIMITE_RECEITA_IBS_CBS_PF = 240_000;
-const LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF = 288_000; // 20% acima de 240k
+/**
+ * Limite "absoluto" nominal R$ 288k (240k + 20%). Pelo regulamento, NÃO torna a PF
+ * contribuinte de IBS/CBS por si só — exige cumulativamente > 3 imóveis.
+ * Mantido como referência indexável (override `limite_receita_absoluto_contribuinte_pf_manual`)
+ * para futuras antecipações dentro do mesmo ano-calendário.
+ */
+export const LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF = 288_000;
 const LIMITE_IMOVEIS_IBS_CBS_PF = 3;
 const ALIQ_IRPJ = 0.15;
 const ALIQ_IRPJ_ADICIONAL = 0.1;
@@ -63,10 +69,16 @@ export type LimitesContribuinteIbsCbsPF = {
 
 /**
  * Verifica se a Pessoa Física é contribuinte de IBS/CBS na locação de imóveis (LC 214/2025).
- * Critérios:
- * - Mais de 3 imóveis E receita acima do limite indexado (nominal R$ 240k) = contribuinte
- * - OU receita acima do limite absoluto indexado (nominal R$ 288k) = contribuinte independente do número de imóveis
- * - Caso contrário = não contribuinte (apenas IR Carnê-Leão)
+ *
+ * Conforme regulamento, a PF só é contribuinte de IBS/CBS na locação quando atende
+ * cumulativamente as DUAS condições:
+ *  - possui MAIS DE 3 imóveis (i.e., 4 ou mais); e
+ *  - receita anual de locação > R$ 240k (limite indexado por IPCA).
+ *
+ * O limite "absoluto" (nominal R$ 288k = 240k + 20%) NÃO transforma a PF em contribuinte
+ * por si só: ele permanece como gatilho de antecipação para o mesmo ano-calendário, mas
+ * sempre exigindo > 3 imóveis. Como o simulador trabalha em base anual, a decisão binária
+ * fica: contribuinte ⇔ imóveis > 3 ∧ receita > 240k.
  */
 export function verificarContribuinteIbsCbsPF(
   quantidadeImoveis: number,
@@ -74,16 +86,8 @@ export function verificarContribuinteIbsCbsPF(
   limites?: LimitesContribuinteIbsCbsPF
 ): { contribuinte: boolean; motivo: string } {
   const lim240 = limites?.limite_receita_com_mais_de_tres_imoveis ?? LIMITE_RECEITA_IBS_CBS_PF;
-  const lim288 = limites?.limite_receita_absoluto ?? LIMITE_RECEITA_ABSOLUTO_IBS_CBS_PF;
   const lim240Fmt = lim240.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-  const lim288Fmt = lim288.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
-  if (receitaAnual > lim288) {
-    return {
-      contribuinte: true,
-      motivo: `Receita anual > R$ ${lim288Fmt} (limite absoluto para contribuinte IBS/CBS PF)`,
-    };
-  }
   if (quantidadeImoveis > LIMITE_IMOVEIS_IBS_CBS_PF && receitaAnual > lim240) {
     return {
       contribuinte: true,
@@ -92,9 +96,10 @@ export function verificarContribuinteIbsCbsPF(
   }
   return {
     contribuinte: false,
-    motivo: quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF
-      ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis e receita ≤ R$ ${lim288Fmt}`
-      : `Receita ≤ R$ ${lim240Fmt}`,
+    motivo:
+      quantidadeImoveis <= LIMITE_IMOVEIS_IBS_CBS_PF
+        ? `Até ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis (regulamento exige mais de ${LIMITE_IMOVEIS_IBS_CBS_PF} imóveis para PF ser contribuinte de IBS/CBS)`
+        : `Receita ≤ R$ ${lim240Fmt}`,
   };
 }
 

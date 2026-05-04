@@ -732,7 +732,7 @@ export function PropertyDetail() {
                       Alíquota: {(simulation.cenarios.reforma_2027_pf ?? simulation.cenarios.reforma_2027)?.aliquota_efetiva?.toFixed(1) ?? '0'}%
                     </p>
                     <p className="text-xs text-amber-800/90 mt-1 bg-amber-50 rounded px-2 py-1">
-                      A obrigatoriedade de IBS/CBS para PF depende de receita &gt; R$ 240k e mais de 3 imóveis (ou &gt; R$ 288k, conforme interpretação em discussão). O regulamento definirá os critérios.
+                      Pelo regulamento da LC 214/2025, a PF só é contribuinte de IBS/CBS quando possui mais de 3 imóveis (4 ou mais) E receita anual &gt; R$ 240k. Receita acima de R$ 288k (240k + 20%) sozinha não torna a PF contribuinte.
                     </p>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg">

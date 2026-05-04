@@ -189,7 +189,7 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 - **Imposto total PF 2027** = **IR (Carnê-Leão, mesmo valor do cenário PF atual)** + **IBS/CBS líquido**.
 - O IR considerado é o do cenário “Pessoa Física (Carnê-Leão)” da mesma simulação; em 2027 a PF continua pagando IR sobre a renda e ainda paga IBS/CBS sobre a atividade.
-- **PF não contribuinte de IBS/CBS** (LC 214/2025: até 3 imóveis e receita ≤ R$ 288k; ou receita ≤ R$ 240k): o cenário Reforma PF equivale ao cenário PF atual (só IR). No **comparativo de cenários**, a coluna "Reforma LC 214/2025 PF" exibe **"—"** (não se aplica) para imposto total, alíquota efetiva e diferença.
+- **PF não contribuinte de IBS/CBS** (regulamento LC 214/2025: PF só é contribuinte com **mais de 3 imóveis** E receita anual **> R$ 240k**, cumulativamente — receita > R$ 288k sozinha **não** torna a PF contribuinte): o cenário Reforma PF equivale ao cenário PF atual (só IR). No **comparativo de cenários**, a coluna "Reforma LC 214/2025 PF" exibe **"—"** (não se aplica) para imposto total, alíquota efetiva e diferença.
 
 **Leis/normas:** LC 214/2025 (Art. 261 – redutor 70%; Art. 281 – redutor 40% hospedagem; Art. 487 – transição 3,65%); transição 2027-2029 (CBS 9%); EC 132/2023.
 

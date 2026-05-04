@@ -49,10 +49,15 @@ function run(): void {
   );
   assert.equal(calcularBreakEven(12, 18), null, 'Sem vantagem de PJ não há break-even.');
 
-  const pfNaoContribuinte = verificarContribuinteIbsCbsPF(2, 280_000);
-  assert.equal(pfNaoContribuinte.contribuinte, false, 'PF com até 3 imóveis e <= 288k não é contribuinte IBS/CBS.');
+  // Regulamento LC 214/2025: PF só é contribuinte de IBS/CBS com mais de 3 imóveis E receita > 240k.
+  const pfNaoContribuinteAtePoucos = verificarContribuinteIbsCbsPF(2, 280_000);
+  assert.equal(pfNaoContribuinteAtePoucos.contribuinte, false, 'PF com até 3 imóveis NÃO é contribuinte IBS/CBS, qualquer que seja a receita.');
+  const pfNaoContribuinteReceitaAlta = verificarContribuinteIbsCbsPF(2, 320_000);
+  assert.equal(pfNaoContribuinteReceitaAlta.contribuinte, false, 'PF com 2 imóveis e receita > 288k AINDA NÃO é contribuinte (regulamento exige >3 imóveis).');
+  const pfNaoContribuintePoucaReceita = verificarContribuinteIbsCbsPF(5, 200_000);
+  assert.equal(pfNaoContribuintePoucaReceita.contribuinte, false, 'PF com >3 imóveis mas receita ≤ 240k NÃO é contribuinte.');
   const pfContribuinte = verificarContribuinteIbsCbsPF(4, 260_000);
-  assert.equal(pfContribuinte.contribuinte, true, 'PF com >3 imóveis e >240k é contribuinte IBS/CBS.');
+  assert.equal(pfContribuinte.contribuinte, true, 'PF com >3 imóveis e receita > 240k É contribuinte IBS/CBS.');
 
   // Reforma: receita_longa_total + receita_short_total + usar_ambos_redutores (alinhado a simulate por property_ids)
   const aggReformaMix = makeAggregated(10_000, 5_000, 500);
