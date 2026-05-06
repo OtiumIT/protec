@@ -12,16 +12,17 @@ export const rulesImoveis: RuleDocumentation[] = [
       'Subtrai as despesas dedutiveis da receita para obter a base. Aplica a aliquota da faixa correspondente e subtrai a deducao fixa.',
     embasamento_legal: [
       {
-        norma: 'Decreto n. 9.580/2018 (RIR/2018)',
-        artigo: 'Art. 42',
-        descricao: 'Rendimentos de aluguel — exclusoes da base de calculo do IR (IPTU, taxas, despesas pagas para a cobranca ou recebimento e despesas de condominio quando pagas pelo locador).',
-        url: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm',
-      },
-      {
         norma: 'Lei n. 7.739/1989',
         artigo: 'Art. 14',
-        descricao: 'Base legal das exclusoes da receita de aluguel consolidadas no art. 42 do RIR/2018.',
+        descricao:
+          'Exclusoes da receita de aluguel na base do IR (IPTU, taxas, despesas de cobranca/recebimento, condominio pago pelo locador, juros de financiamento da aquisicao, manutencao etc.). Consolidado no art. 42 do RIR/2018 (Decreto n. 9.580/2018).',
         url: 'https://www.planalto.gov.br/ccivil_03/leis/l7739.htm',
+      },
+      {
+        norma: 'Decreto n. 9.580/2018 (RIR/2018)',
+        artigo: 'Art. 42',
+        descricao: 'Regulamenta as exclusoes dos rendimentos de aluguel (correlato ao art. 14 da Lei n. 7.739/1989).',
+        url: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d95802018.htm',
       },
       {
         norma: 'IN RFB n. 1.500/2014',
@@ -47,7 +48,7 @@ export const rulesImoveis: RuleDocumentation[] = [
         descricao:
           'Despesas dedutiveis anuais: IPTU (valor total anual, inserido em Janeiro no simulador), ' +
           'Seguro do imovel (premio anual, inserido em Janeiro no simulador), ' +
-          'Condominio — somente quando pago pelo locador/proprietario; se assumido pelo locatario, nao e dedutivel (art. 47, Lei n. 7.739/1989). ' +
+          'Condominio — somente quando pago pelo locador/proprietario; se assumido pelo locatario, nao e dedutivel (art. 14, Lei n. 7.739/1989). ' +
           'Tambem sao dedutiveis: juros de financiamento, manutencao e conservacao.',
         tipo: 'moeda',
       },

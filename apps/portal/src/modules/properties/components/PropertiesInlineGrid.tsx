@@ -112,9 +112,9 @@ type Props = {
   simulationLoadButtonLoading?: boolean;
 };
 
-/** Carnê-Leão: só deduz condomínio pago pelo locador; carga assumida pelo locatário não integra a base (art. 47, Lei 7.739/1989). */
+/** Carnê-Leão: só deduz condomínio pago pelo locador; carga assumida pelo locatário não integra a base (art. 14, Lei 7.739/1989). */
 const CONDOMINIO_HEADER_TOOLTIP =
-  'Preencha apenas se o condomínio for pago pelo proprietário (locador). Se o locatário assume o encargo integralmente, deixe em branco ou zero — esse valor não é despesa dedutível na base do Carnê-Leão (art. 47, Lei nº 7.739/1989).';
+  'Preencha apenas se o condomínio for pago pelo proprietário (locador). Se o locatário assume o encargo integralmente, deixe em branco ou zero — esse valor não é despesa dedutível na base do Carnê-Leão (art. 14, Lei n. 7.739/1989).';
 
 const COLUMN_DEFS: Array<{ id: ColumnId; label: string; isMoney?: boolean; headerTooltip?: string }> = [
   { id: 'identificador', label: 'Imovel' },

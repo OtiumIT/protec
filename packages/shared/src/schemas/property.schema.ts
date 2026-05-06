@@ -193,7 +193,7 @@ export const SimulateStandaloneMesSchema = z.object({
   receita_aluguel_curto: monetaryValue.optional().default(0),
   receita_garagem: monetaryValue.optional().default(0),
   receita_outras: monetaryValue.optional().default(0),
-  // Despesas dedutíveis (PF) — art. 42 do RIR/2018 (Decreto 9.580/2018) e art. 14 da Lei 7.739/89
+  // Despesas dedutíveis (PF) — art. 14 da Lei n. 7.739/1989 (consolidado no art. 42 do RIR/2018)
   iptu: monetaryValue.optional().default(0),
   condominio: monetaryValue.optional().default(0),
   seguro_imovel: monetaryValue.optional().default(0),

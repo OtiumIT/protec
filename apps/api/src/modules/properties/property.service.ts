@@ -43,15 +43,10 @@ import {
 const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
   {
     cenario: 'pf',
-    norma: 'Decreto nº 9.580/2018 (RIR/2018)',
-    artigo: 'Art. 42',
-    descricao: 'Rendimentos de aluguel — exclusões da base de cálculo do IR (IPTU, taxas, despesas pagas para a cobrança ou recebimento, despesas de condomínio quando pagas pelo locador, etc.).',
-  },
-  {
-    cenario: 'pf',
-    norma: 'Lei nº 7.739/1989',
+    norma: 'Lei n. 7.739/1989',
     artigo: 'Art. 14',
-    descricao: 'Dedução, da receita de aluguel, dos encargos de IPTU, taxas, despesas pagas para a cobrança ou recebimento e despesas de condomínio quando pagas pelo locador (base legal das exclusões consolidadas no art. 42 do RIR/2018).',
+    descricao:
+      'Exclusões da receita de aluguel na base do IR (IPTU, taxas, despesas de cobrança/recebimento, condomínio pago pelo locador, juros de financiamento da aquisição, manutenção etc.). Tratamento consolidado no art. 42 do RIR/2018 (Decreto n. 9.580/2018).',
   },
   {
     cenario: 'pf',

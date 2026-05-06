@@ -104,7 +104,7 @@ type MesFields = Omit<SimulateStandaloneMesInput, 'mes_referencia'>;
 type SectionKey = 'receita' | 'despesa' | 'custo';
 
 const CONDOMINIO_TOOLTIP =
-  'Dedutível apenas quando pago pelo locador (proprietário). Se o encargo de condomínio for assumido pelo locatário, não integra as despesas dedutíveis da base de cálculo do Carnê-Leão (art. 47, Lei nº 7.739/1989).';
+  'Dedutível apenas quando pago pelo locador (proprietário). Se o encargo de condomínio for assumido pelo locatário, não integra as despesas dedutíveis da base de cálculo do Carnê-Leão (art. 14, Lei n. 7.739/1989).';
 
 const ROWS: Array<{ label: string; field: keyof MesFields; section: SectionKey; tooltip?: string }> = [
   { label: 'Aluguel tradicional (longo prazo)', field: 'receita_aluguel_tradicional', section: 'receita' },
