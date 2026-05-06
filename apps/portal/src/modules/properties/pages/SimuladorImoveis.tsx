@@ -674,6 +674,8 @@ export function SimuladorImoveis() {
   }, [
     showPrintPreview,
     result,
+    // Garante re-clone do preview quando o backend alterar textos de embasamento (mesmo objeto result)
+    result?.embasamentos_legais,
     effectiveClientName,
     reportClientName,
     clientId,
@@ -3698,6 +3700,32 @@ export function SimuladorImoveis() {
         })()}
       </Card>
 
+      {result?.embasamentos_legais && result.embasamentos_legais.length > 0 && (
+        <Card className="mt-6 p-4 report-embasamentos-legais" data-print-section="embasamentos-legais">
+          <h3 className="text-lg font-semibold text-slate-800 mb-3">Embasamentos legais</h3>
+          <div className="space-y-4">
+            {(['pf', 'pj', 'reforma'] as const).map((cenario) => {
+              const itens = result.embasamentos_legais!.filter((e) => e.cenario === cenario);
+              if (itens.length === 0) return null;
+              const labels = { pf: 'Pessoa Física', pj: 'Pessoa Jurídica', reforma: 'Reforma LC 214/2025 (IBS/CBS)' };
+              return (
+                <div key={cenario}>
+                  <p className="font-medium text-slate-700 mb-1">{labels[cenario]}</p>
+                  <ul className="list-disc list-inside text-sm text-slate-600 space-y-0.5">
+                    {itens.map((e, i) => (
+                      <li key={i}>
+                        <strong>{e.norma}</strong>
+                        {e.artigo && ` (${e.artigo})`}: {e.descricao}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {result?.cenarios?.pf?.trimestres && result?.cenarios?.pj?.trimestres && (
         <Card className="mt-6 p-4">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">Comparativo trimestral – Imposto por regime</h3>
@@ -3967,32 +3995,6 @@ export function SimuladorImoveis() {
                 })()}
               </div>
             </details>
-          </div>
-        </Card>
-      )}
-
-      {result?.embasamentos_legais && result.embasamentos_legais.length > 0 && (
-        <Card className="mt-6 p-4">
-          <h3 className="text-lg font-semibold text-slate-800 mb-3">Embasamentos legais</h3>
-          <div className="space-y-4">
-            {(['pf', 'pj', 'reforma'] as const).map((cenario) => {
-              const itens = result.embasamentos_legais!.filter((e) => e.cenario === cenario);
-              if (itens.length === 0) return null;
-              const labels = { pf: 'Pessoa Física', pj: 'Pessoa Jurídica', reforma: 'Reforma LC 214/2025 (IBS/CBS)' };
-              return (
-                <div key={cenario}>
-                  <p className="font-medium text-slate-700 mb-1">{labels[cenario]}</p>
-                  <ul className="list-disc list-inside text-sm text-slate-600 space-y-0.5">
-                    {itens.map((e, i) => (
-                      <li key={i}>
-                        <strong>{e.norma}</strong>
-                        {e.artigo && ` (${e.artigo})`}: {e.descricao}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
           </div>
         </Card>
       )}

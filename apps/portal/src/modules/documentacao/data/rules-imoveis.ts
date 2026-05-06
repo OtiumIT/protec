@@ -97,7 +97,7 @@ export const rulesImoveis: RuleDocumentation[] = [
       'IPTU e Seguro do imovel sao despesas anuais — no simulador, o valor total anual e inserido uma unica vez (concentrado em Janeiro). O total dedutivel ao longo do ano e o mesmo.',
       'Condominio e dedutivel apenas quando pago pelo locador (proprietario). Se assumido pelo locatario, nao reduz a base de calculo do carne-leao.',
     ],
-    ultima_atualizacao: '2026-04-07',
+    ultima_atualizacao: '2026-05-05',
     tags: ['pf', 'carne-leao', 'aluguel'],
     vigencia: {
       inicio: '2024-05-01',
