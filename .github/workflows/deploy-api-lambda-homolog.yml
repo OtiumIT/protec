@@ -1,0 +1,102 @@
+# Deploy API para homolog — segundo stack na mesma conta/região (mesmo SSM / mesmo banco se desejado).
+# Saída: URL própria em API Gateway (Output ApiUrl do stack protec-api-homolog).
+
+name: Deploy API Lambda (homolog)
+
+on:
+  push:
+    branches:
+      - homolog
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Lambda bundle
+        run: pnpm run build:lambda
+
+      - name: Setup SAM CLI
+        run: |
+          pip install aws-sam-cli
+          sam --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN || vars.AWS_OIDC_ROLE_ARN || 'arn:aws:iam::688123783562:role/iatax_github' }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: SAM Build
+        run: sam build -t infra/template.yaml
+
+      - name: Garantir bucket S3 para artefatos SAM
+        env:
+          SAM_BUCKET: protec-sam-artifacts-688123783562
+        run: |
+          if aws s3api head-bucket --bucket "$SAM_BUCKET" 2>/dev/null; then
+            echo "Bucket $SAM_BUCKET já existe"
+          else
+            aws s3 mb "s3://$SAM_BUCKET" --region "${AWS_REGION:-us-east-1}"
+            echo "Bucket $SAM_BUCKET criado"
+          fi
+
+      - name: Remover stack protec-api-homolog se estiver em falha
+        run: |
+          set +e
+          STATUS=$(aws cloudformation describe-stacks --stack-name protec-api-homolog --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ] || [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
+            echo "Stack protec-api-homolog não existe ou não consultável — seguindo."
+            exit 0
+          fi
+          echo "Status atual: $STATUS"
+          case "$STATUS" in
+            ROLLBACK_FAILED|CREATE_FAILED|DELETE_FAILED|UPDATE_ROLLBACK_FAILED|UPDATE_FAILED)
+              echo "::warning::Removendo stack em estado $STATUS para permitir novo deploy"
+              aws cloudformation delete-stack --stack-name protec-api-homolog
+              echo "Aguardando exclusão (até ~40 min)..."
+              aws cloudformation wait stack-delete-complete --stack-name protec-api-homolog
+              echo "Stack removido."
+              ;;
+            *)
+              echo "Stack em estado utilizável ($STATUS) — não removendo."
+              ;;
+          esac
+
+      - name: SAM Deploy (homolog)
+        env:
+          SAM_BUCKET: protec-sam-artifacts-688123783562
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name protec-api-homolog \
+            --capabilities CAPABILITY_IAM \
+            --tags Environment=homolog Name=protec-api-homolog \
+            --s3-bucket "$SAM_BUCKET" \
+            --region "${AWS_REGION:-us-east-1}"
+
+      - name: Resumo — URL da API homolog
+        run: |
+          echo "::notice::Consulte no CloudFormation o Output ApiUrl do stack **protec-api-homolog** e configure VITE_API_URL no Pages (branch homolog ou preview)."

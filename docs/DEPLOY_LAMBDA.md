@@ -98,6 +98,22 @@ sam deploy
 
 Ver `infra/README.md` para parâmetros e detalhes.
 
+## Ambiente homolog (API dedicada)
+
+Há um **segundo stack** na mesma conta AWS, com o **mesmo** `infra/template.yaml` e os **mesmos** parâmetros SSM em `/protec-api/*` (incluindo `DATABASE_URL`), se quiser reutilizar o banco de produção/homolog de dados.
+
+| | Produção (padrão) | Homolog |
+|---|-------------------|--------|
+| Workflow GitHub | `Deploy API Lambda` (push em `main`) | **`Deploy API Lambda (homolog)`** (push em `homolog` ou *Run workflow*) |
+| Stack CloudFormation | `protec-api` | `protec-api-homolog` |
+| URL | Output `ApiUrl` do stack `protec-api` | Output `ApiUrl` do stack `protec-api-homolog` |
+
+**Configuração do portal (ex.: Cloudflare Pages):** no ambiente/branch de homolog, defina `VITE_API_URL` com a URL do Output `protec-api-homolog` (não a da produção).
+
+**CORS:** as origens permitidas vêm de `CORS_ORIGIN` / `CORS_ORIGIN_DOMAINS` no SSM (iguais para os dois stacks após o deploy, pois o template injeta no momento do deploy). Inclua a URL do site de homolog (ex.: preview do Pages ou subdomínio) nesses parâmetros e faça **novo deploy** de **ambos** os stacks se precisar alterar só CORS.
+
+**Primeira vez:** faça push na branch `homolog` ou execute **Actions → Deploy API Lambda (homolog) → Run workflow**. Depois copie `ApiUrl` em **CloudFormation → protec-api-homolog → Outputs**.
+
 ## Migrar para outra conta AWS
 
 1. Crie a role OIDC na nova conta (igual ao passo 1).

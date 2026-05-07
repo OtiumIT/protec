@@ -19,6 +19,18 @@ chmod +x infra/setup-ssm.sh
 
 O script lê o `.env` e cria os parâmetros em `/protec-api/*`. No Windows, use Git Bash ou WSL.
 
+## Deploy homolog (segunda API)
+
+O workflow **Deploy API Lambda (homolog)** publica o stack `protec-api-homolog` (mesmo template e mesmos parâmetros SSM que `protec-api`). Veja [docs/DEPLOY_LAMBDA.md](../docs/DEPLOY_LAMBDA.md#ambiente-homolog-api-dedicada).
+
+Deploy manual equivalente:
+
+```bash
+pnpm run build:lambda
+sam build -t infra/template.yaml
+sam deploy --stack-name protec-api-homolog --capabilities CAPABILITY_IAM --no-confirm-changeset --s3-bucket protec-sam-artifacts-688123783562
+```
+
 ## Deploy manual
 
 1. **Build da API** (na raiz do monorepo):
