@@ -1,6 +1,7 @@
 import type { User } from '@shared/core';
 import { FeedbackRepository } from './feedback.repository';
 import { AppError } from '../../shared/utils/error-handler';
+import { emailService } from '../../shared/services/email.service';
 
 export class FeedbackService {
   private repo = new FeedbackRepository();
@@ -20,7 +21,7 @@ export class FeedbackService {
 
     const tenantId = user.tenant_id ?? null;
 
-    return this.repo.insert({
+    const row = await this.repo.insert({
       tenantId,
       userId: user.id,
       category: input.category,
@@ -28,6 +29,16 @@ export class FeedbackService {
       pagePath: input.page_path?.trim() || null,
       consentPrivacyPolicy: true,
     });
+
+    emailService
+      .sendFeedbackReceivedNotification({
+        userName: user.name,
+        userEmail: user.email,
+        message: input.message.trim(),
+      })
+      .catch((err) => console.error('[email] Erro ao notificar equipe sobre novo feedback:', err));
+
+    return row;
   }
 
   async listMine(user: User, page?: number, limit?: number) {
@@ -70,6 +81,14 @@ export class FeedbackService {
         feedback_author_user_id: existing.user_id,
       })
     );
+
+    emailService
+      .sendFeedbackResponseNotification({
+        toEmail: existing.user_email,
+        userName: existing.user_name,
+        adminResponse: adminResponse.trim(),
+      })
+      .catch((err) => console.error('[email] Erro ao notificar usuário sobre resposta ao feedback:', err));
 
     return updated;
   }
@@ -175,6 +194,15 @@ export class FeedbackService {
         reply_id: reply.id,
       })
     );
+
+    emailService
+      .sendFeedbackResponseNotification({
+        toEmail: row.user_email,
+        userName: row.user_name,
+        adminResponse: message.trim(),
+      })
+      .catch((err) => console.error('[email] Erro ao notificar usuário sobre reply da equipe:', err));
+
     return reply;
   }
 }

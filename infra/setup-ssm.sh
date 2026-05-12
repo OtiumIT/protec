@@ -48,6 +48,7 @@ put_param "OPENAI_API_KEY" "$(get_var OPENAI_API_KEY)"
 put_param "RESEND_API_KEY" "$(get_var RESEND_API_KEY)"
 put_param "APP_URL" "$(get_var APP_URL)"
 put_param "EMAIL_FROM" "$(get_var EMAIL_FROM)"
+put_param "ADMIN_FEEDBACK_EMAILS" "$(get_var ADMIN_FEEDBACK_EMAILS)"
 
 echo ""
 echo "Concluído. Os parâmetros estão em SSM Parameter Store."

@@ -12,9 +12,16 @@ Canal para usuários autenticados enviarem sugestões ou relatos sobre o produto
 - Resposta principal: atualiza `status` para `answered` (exceto se já estiver `resolved` — mantém `resolved`), preenche `admin_response`, `responded_at`, `responded_by_user_id`. Evento `AUDIT_USER_FEEDBACK_RESPONSE`. Mudança só de status: log `AUDIT_USER_FEEDBACK_STATUS`.
 - Conversa: mensagens extra em `user_feedback_replies` (`is_staff` = equipe). O usuário só pode responder no fio se `status !== 'resolved'` e já existir contato da equipe (`admin_response` ou reply `is_staff`). Follow-ups de equipe marcam `status=answered` se ainda estiver `open`.
 
+## Notificações por E-mail (Resend)
+- **Novo feedback** (`POST /feedback`): ao criar, dispara `emailService.sendFeedbackReceivedNotification` para todos os endereços em `ADMIN_FEEDBACK_EMAILS` (var de ambiente, separados por vírgula). Falha no envio não bloqueia a operação.
+- **Resposta da equipe** (`PATCH /feedback/admin/:id/respond`): ao salvar `admin_response`, dispara `emailService.sendFeedbackResponseNotification` para o e-mail do autor do feedback.
+- **Reply da equipe no fio** (`POST /feedback/admin/:id/replies`): ao inserir reply com `is_staff=true`, dispara o mesmo `sendFeedbackResponseNotification` para o autor.
+- Variável obrigatória para envio admin: `ADMIN_FEEDBACK_EMAILS` (SSM: `/protec-api/ADMIN_FEEDBACK_EMAILS`).
+
 ## Dependências
 - Tabelas: `public.user_feedback`, `public.user_feedback_replies`, `public.users`, `public.companies`.
 - Auth: `authMiddleware` (sem `tenantMiddleware` — tenant vem do registro do usuário).
+- Serviço de e-mail: `shared/services/email.service.ts` (Resend).
 
 ## Fluxos e Endpoints
 - `POST /feedback` — corpo validado por `CreateUserFeedbackSchema`; cria linha com consentimento.

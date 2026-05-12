@@ -32,10 +32,10 @@ const sectionCardClass = 'bg-white rounded-2xl border border-slate-200 shadow-lg
 // ===== CONSTANTES =====
 
 const ART18_TABELA: [number, number][] = [
-  [1969, 100], [1970, 100], [1971, 95], [1972, 90], [1973, 85],
-  [1974, 80], [1975, 75], [1976, 70], [1977, 65], [1978, 60],
-  [1979, 55], [1980, 50], [1981, 45], [1982, 40], [1983, 35],
-  [1984, 30], [1985, 25], [1986, 20], [1987, 15], [1988, 5],
+  [1969, 100], [1970, 95], [1971, 90], [1972, 85], [1973, 80],
+  [1974, 75], [1975, 70], [1976, 65], [1977, 60], [1978, 55],
+  [1979, 50], [1980, 45], [1981, 40], [1982, 35], [1983, 30],
+  [1984, 25], [1985, 20], [1986, 15], [1987, 10], [1988, 5],
 ];
 
 const IBS_TRANSICAO: Record<number, { cbs: number; ibs: number; obs: string; teste?: boolean; ibsEfetivaPct?: number }> = {
@@ -76,6 +76,33 @@ function fmtBRL(v: number): string {
 
 function fmtPct(v: number, dec = 2): string {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '%';
+}
+
+function formatIsoDateToBr(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return '';
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function maskBrDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function parseBrDateToIso(br: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(br);
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const day = Number(dd);
+  const month = Number(mm);
+  const year = Number(yyyy);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(`${yyyy}-${mm}-${dd}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) return null;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function sanitizePdfDocumentTitle(raw: string): string {
@@ -405,10 +432,52 @@ function MoneyField({
 }
 
 function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [display, setDisplay] = useState('');
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setDisplay(value ? formatIsoDateToBr(value) : '');
+    }
+  }, [value, focused]);
+
   return (
     <div>
       <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <input type="date" value={value} onChange={e => onChange(e.target.value)} className={fieldClass} />
+      <input
+        type="text"
+        inputMode="numeric"
+        lang="pt-BR"
+        autoComplete="off"
+        placeholder="dd/mm/aaaa"
+        value={display}
+        onChange={(e) => {
+          const masked = maskBrDateInput(e.target.value);
+          setDisplay(masked);
+          if (masked.length === 10) {
+            const iso = parseBrDateToIso(masked);
+            if (iso) onChange(iso);
+            return;
+          }
+          if (masked === '') onChange('');
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          if (!display) {
+            onChange('');
+            return;
+          }
+          const iso = parseBrDateToIso(display);
+          if (iso) {
+            onChange(iso);
+            setDisplay(formatIsoDateToBr(iso));
+            return;
+          }
+          setDisplay(value ? formatIsoDateToBr(value) : '');
+        }}
+        className={fieldClass}
+      />
     </div>
   );
 }
