@@ -17,6 +17,7 @@ Canal para usuários autenticados enviarem sugestões ou relatos sobre o produto
 - **Resposta da equipe** (`PATCH /feedback/admin/:id/respond`): ao salvar `admin_response`, dispara `emailService.sendFeedbackResponseNotification` para o e-mail do autor do feedback.
 - **Reply da equipe no fio** (`POST /feedback/admin/:id/replies`): ao inserir reply com `is_staff=true`, dispara o mesmo `sendFeedbackResponseNotification` para o autor.
 - Variável obrigatória para envio admin: `ADMIN_FEEDBACK_EMAILS` (SSM: `/protec-api/ADMIN_FEEDBACK_EMAILS`).
+- Remetente: `EMAIL_FROM` (ex.: `IATax <noreply@otiumit.com.br>`); domínio deve estar verificado no Resend (`otiumit.com.br`).
 
 ## Dependências
 - Tabelas: `public.user_feedback`, `public.user_feedback_replies`, `public.users`, `public.companies`.

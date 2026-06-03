@@ -300,7 +300,7 @@ export class AccessListService {
     return {
       email: entry.email,
       tempPassword,
-      loginUrl: 'https://iataxsistemas.com.br/login',
+      loginUrl: `${(process.env.APP_URL ?? 'http://localhost:5173').replace(/\/+$/, '')}/login`,
       name: entry.name,
     };
   }

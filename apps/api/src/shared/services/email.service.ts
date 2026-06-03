@@ -6,7 +6,7 @@ function getResend(): Resend | null {
   return new Resend(key);
 }
 
-const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'IATax <noreply@iatax.com.br>';
+const FROM_ADDRESS = process.env.EMAIL_FROM ?? 'IATax <noreply@otiumit.com.br>';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5173';
 
 export const emailService = {
@@ -32,7 +32,7 @@ export const emailService = {
       console.warn('[email] RESEND_API_KEY não configurada; e-mail de boas-vindas não enviado para', to);
       return;
     }
-    const loginUrl = 'https://iataxsistemas.com.br/login';
+    const loginUrl = `${APP_URL.replace(/\/+$/, '')}/login`;
 
     await resend.emails.send({
       from: FROM_ADDRESS,
