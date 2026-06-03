@@ -30,11 +30,14 @@ export class FeedbackService {
       consentPrivacyPolicy: true,
     });
 
+    const companyName = tenantId ? await this.repo.findCompanyName(tenantId).catch(() => null) : null;
+
     emailService
       .sendFeedbackReceivedNotification({
         userName: user.name,
         userEmail: user.email,
         message: input.message.trim(),
+        companyName,
       })
       .catch((err) => console.error('[email] Erro ao notificar equipe sobre novo feedback:', err));
 
@@ -162,12 +165,23 @@ export class FeedbackService {
         400
       );
     }
-    return this.repo.insertReply({
+    const reply = await this.repo.insertReply({
       feedbackId,
       authorUserId: actor.id,
       isStaff: false,
       body: message.trim(),
     });
+
+    emailService
+      .sendFeedbackUserReplyNotification({
+        userName: row.user_name,
+        userEmail: row.user_email,
+        companyName: row.company_name ?? null,
+        message: message.trim(),
+      })
+      .catch((err) => console.error('[email] Erro ao notificar equipe sobre reply do usuário:', err));
+
+    return reply;
   }
 
   async addAdminThreadReply(actor: User, feedbackId: string, message: string) {

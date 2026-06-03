@@ -85,6 +85,31 @@ export const emailService = {
       html: buildFeedbackResponseHtml(params),
     });
   },
+
+  async sendFeedbackUserReplyNotification(params: {
+    userName: string;
+    userEmail: string;
+    companyName: string | null;
+    message: string;
+  }): Promise<void> {
+    const resend = getResend();
+    const adminEmails = (process.env.ADMIN_FEEDBACK_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    if (!resend || adminEmails.length === 0) {
+      console.warn('[email] RESEND_API_KEY ou ADMIN_FEEDBACK_EMAILS não configurados; notificação de reply do usuário ignorada');
+      return;
+    }
+
+    await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: adminEmails,
+      subject: `Usuário respondeu no feedback — ${params.userName}`,
+      html: buildFeedbackUserReplyHtml(params),
+    });
+  },
 };
 
 function buildAccessWelcomeHtml(name: string, login: string, tempPassword: string, loginUrl: string): string {
@@ -247,6 +272,62 @@ function buildFeedbackResponseHtml(params: {
       <p style="margin-top:20px;font-size:13px;color:#94a3b8;">
         Você também pode acessar diretamente em: <a href="${portalUrl}" style="color:#f59e0b;word-break:break-all;">${portalUrl}</a>
       </p>
+    </div>
+    <div class="footer">© ${new Date().getFullYear()} IATax Soluções Inteligentes</div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildFeedbackUserReplyHtml(params: {
+  userName: string;
+  userEmail: string;
+  companyName: string | null;
+  message: string;
+}): string {
+  const companyLine = params.companyName
+    ? `<tr><td>Empresa:</td><td>${params.companyName}</td></tr>`
+    : '';
+  return `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usuário respondeu no feedback</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .wrapper { max-width: 560px; margin: 40px auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; }
+    .header p { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
+    .body { padding: 36px 40px; }
+    .body p { color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 20px; }
+    .meta { background: #f1f5f9; border-radius: 12px; padding: 20px 24px; margin: 0 0 24px; }
+    .meta table { width: 100%; border-collapse: collapse; }
+    .meta td { padding: 6px 0; color: #334155; font-size: 14px; vertical-align: top; }
+    .meta td:first-child { font-weight: 600; white-space: nowrap; padding-right: 16px; color: #64748b; width: 80px; }
+    .message-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px; font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .footer { padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>IATax Soluções Inteligentes</h1>
+      <p>Usuário respondeu no fio do feedback</p>
+    </div>
+    <div class="body">
+      <p>Um usuário respondeu a uma mensagem da equipe no fio de feedback.</p>
+      <div class="meta">
+        <table>
+          <tr><td>Nome:</td><td>${params.userName}</td></tr>
+          <tr><td>E-mail:</td><td>${params.userEmail}</td></tr>
+          ${companyLine}
+        </table>
+      </div>
+      <p style="color:#64748b;font-size:13px;margin:0 0 8px;font-weight:600;">Mensagem:</p>
+      <div class="message-box">${params.message}</div>
     </div>
     <div class="footer">© ${new Date().getFullYear()} IATax Soluções Inteligentes</div>
   </div>

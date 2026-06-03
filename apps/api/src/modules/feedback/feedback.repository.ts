@@ -276,4 +276,12 @@ export class FeedbackRepository {
       [feedbackId]
     );
   }
+
+  async findCompanyName(tenantId: string): Promise<string | null> {
+    const result = await query<{ name: string }>(
+      `SELECT name FROM public.companies WHERE id = $1`,
+      [tenantId]
+    );
+    return result.rows[0]?.name ?? null;
+  }
 }
