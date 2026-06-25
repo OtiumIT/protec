@@ -79,6 +79,7 @@ export function EPSLanding() {
     } catch (err: any) {
       const msg =
         err?.data?.error?.message ||
+        err?.response?.data?.error?.message ||
         err?.message ||
         'Erro ao criar conta. Tente novamente.';
       setError(msg);

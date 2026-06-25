@@ -38,7 +38,16 @@ const authService = new AuthService(
  */
 authRoutes.post(
   '/register',
-  zValidator('json', RegisterSchema),
+  zValidator('json', RegisterSchema, (result, c) => {
+    if (!result.success) {
+      const firstIssue = result.error.issues[0];
+      const message = firstIssue?.message ?? 'Erro de validação. Verifique os campos e tente novamente.';
+      return c.json(
+        { error: { message, code: 'VALIDATION_ERROR', details: result.error.issues } },
+        400
+      );
+    }
+  }),
   async (c) => {
     try {
       const data = c.req.valid('json');
