@@ -113,9 +113,11 @@ export class AuthService {
     // Ativação de módulos: landing pages parceiras recebem apenas módulos específicos
     if (data.source === 'EPS') {
       const featureToggleRepo = new FeatureToggleRepository();
-      const gestaoImoveisModule = await featureToggleRepo.findByKey('GESTAO_IMOVEIS');
-      if (gestaoImoveisModule) {
-        await featureToggleRepo.activateForTenant(company.id, gestaoImoveisModule.id);
+      for (const moduleKey of ['GESTAO_IMOVEIS', 'SIMULADOR_IN_2306']) {
+        const module = await featureToggleRepo.findByKey(moduleKey);
+        if (module) {
+          await featureToggleRepo.activateForTenant(company.id, module.id);
+        }
       }
     } else {
       await this.featureToggleService.activatePlanModulesForTenant(company.id, freePlan.id);
