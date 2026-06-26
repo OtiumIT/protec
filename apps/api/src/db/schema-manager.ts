@@ -97,20 +97,22 @@ export async function applyTenantMigrations(companyId: string, client?: PoolClie
       // Setar search_path para o schema do tenant
       await useClient.query(`SET search_path TO "${schemaName}", public`);
 
+      // Executar todas as migrations em uma única query batch para minimizar
+      // round-trips ao banco (de N*2 chamadas para 1 chamada)
+      const batchParts: string[] = [];
       for (const migration of tenantMigrations) {
-        console.log(`⏳ Executando: ${migration.filename} no schema ${schemaName}`);
-        
-        // Executar migration no schema do tenant
-        await useClient.query(migration.sql);
-        
-        // Registrar migration executada
-        await useClient.query(
-          `INSERT INTO "${schemaName}".schema_migrations (version, filename) VALUES ($1, $2)`,
-          [migration.version, migration.filename]
+        // Garantir que o SQL termine com ponto-e-vírgula
+        const sql = migration.sql.trimEnd().replace(/;?\s*$/, ';');
+        const escapedFilename = migration.filename.replace(/'/g, "''");
+        batchParts.push(
+          sql,
+          `INSERT INTO "${schemaName}".schema_migrations (version, filename) VALUES (${migration.version}, '${escapedFilename}');`
         );
-        
-        console.log(`✅ ${migration.filename} executada com sucesso no schema ${schemaName}`);
       }
+
+      console.log(`⏳ Executando ${tenantMigrations.length} migration(s) em batch para ${schemaName}`);
+      await useClient.query(batchParts.join('\n'));
+      console.log(`✅ Batch de migrations executado com sucesso no schema ${schemaName}`);
 
       if (!client) {
         await useClient.query('COMMIT');

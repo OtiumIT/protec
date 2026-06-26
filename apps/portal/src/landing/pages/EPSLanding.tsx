@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { parseDigits, formatCpf, formatCnpj, isValidCpf, isValidCnpj } from '../../shared/utils/masks';
@@ -11,7 +11,7 @@ function formatDocument(value: string): string {
 
 export function EPSLanding() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, login } = useAuth();
 
   const [name, setName] = useState('');
   const [document, setDocument] = useState('');
@@ -23,6 +23,34 @@ export function EPSLanding() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [activatingCountdown, setActivatingCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  const startActivationFlow = (emailVal: string, passwordVal: string) => {
+    setActivating(true);
+    setActivatingCountdown(20);
+    let remaining = 20;
+    countdownRef.current = setInterval(() => {
+      remaining -= 1;
+      setActivatingCountdown(remaining);
+      if (remaining <= 0) {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        login({ email: emailVal, password: passwordVal })
+          .then(() => navigate('/dashboard'))
+          .catch(() => {
+            setActivating(false);
+            setError('Conta criada! Mas o login automático falhou. Clique em "Fazer login no IATax" para entrar.');
+          });
+      }
+    }, 1000);
+  };
 
   const validateDocument = (digits: string): string => {
     if (digits.length === 0) return '';
@@ -92,12 +120,21 @@ export function EPSLanding() {
       });
       navigate('/dashboard');
     } catch (err: any) {
-      const msg =
+      const msg: string =
         err?.data?.error?.message ||
         err?.response?.data?.error?.message ||
         err?.message ||
-        'Erro ao criar conta. Tente novamente.';
-      setError(msg);
+        '';
+
+      // 503 = Lambda ainda processando em background (timeout do API Gateway).
+      // O cadastro foi iniciado — aguardamos e tentamos login automático.
+      if (msg.includes('503') || msg.toLowerCase().includes('service unavailable')) {
+        setIsLoading(false);
+        startActivationFlow(email, password);
+        return;
+      }
+
+      setError(msg || 'Erro ao criar conta. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -293,6 +330,23 @@ export function EPSLanding() {
                 compra do curso.
               </p>
             </div>
+
+            {/* Ativando conta (503 timeout do API Gateway — Lambda processa em background) */}
+            {activating && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800 flex flex-col gap-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  <svg className="w-5 h-5 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Ativando seu acesso...
+                </div>
+                <p className="text-blue-700">
+                  Seu cadastro está sendo processado. Entrando automaticamente em{' '}
+                  <span className="font-bold">{activatingCountdown}s</span>...
+                </p>
+              </div>
+            )}
 
             {/* Erro */}
             {error && (
