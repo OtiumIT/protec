@@ -54,6 +54,25 @@ export function requireModule(moduleKey: string) {
       return;
     }
 
+    // Verificar se módulo está ativo (public.* para não depender do search_path após setTenantSchema)
+    const result = await query<{ id: string; enabled_until: Date | null }>(
+      `SELECT tm.id, tm.enabled_until
+       FROM public.tenant_modules tm
+       JOIN public.modules m ON m.id = tm.module_id
+       WHERE tm.tenant_id = $1 AND m.key = $2 
+       AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
+      [companyId, moduleKey]
+    );
+
+    // Módulo com enabled_until = NULL significa ativação explícita e ilimitada
+    // (ex.: EPS, planos pagos, ativações manuais). Libera sem verificar expiração do Free.
+    const hasUnlimitedAccess = result.rows.some((r) => r.enabled_until === null);
+    if (hasUnlimitedAccess) {
+      await next();
+      return;
+    }
+
+    // Se o módulo não está ativo, verificar razão (Free expirado ou simplesmente não ativo)
     if (!isFreePlanBypassEmail(user?.email)) {
       const subResult = await query<{ plan_name: string }>(
         `SELECT p.name AS plan_name
@@ -79,16 +98,7 @@ export function requireModule(moduleKey: string) {
       }
     }
 
-    // Verificar se módulo está ativo (public.* para não depender do search_path após setTenantSchema)
-    const result = await query<{ id: string }>(
-      `SELECT tm.id 
-       FROM public.tenant_modules tm
-       JOIN public.modules m ON m.id = tm.module_id
-       WHERE tm.tenant_id = $1 AND m.key = $2 
-       AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
-      [companyId, moduleKey]
-    );
-
+    // Módulo não está ativo por nenhum critério
     if (result.rows.length === 0) {
       return c.json(
         {
