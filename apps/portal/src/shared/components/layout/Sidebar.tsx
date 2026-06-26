@@ -46,6 +46,8 @@ interface MenuItem {
 interface MenuCategory {
   id: string;
   name: string;
+  /** Texto secundário exibido abaixo do nome em itálico e fonte menor */
+  subtitle?: string;
   icon: React.ReactNode;
   items: MenuItem[];
   /** Quando definido, a categoria é um link direto (clique navega, sem submenu) */
@@ -553,6 +555,10 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       IRPF_ALTA_RENDA: CATEGORY_ICONS.diamond,
       GESTAO_IMOVEIS: CATEGORY_ICONS.building,
     };
+    const MODULE_SUBTITLES: Record<string, string> = {
+      SIMULADOR_IN_2306: 'aumento lucro presumido',
+    };
+
     moduleOrder.forEach(({ key, item }) => {
       if (item) {
         const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
@@ -561,6 +567,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
         categories.push({
           id: key.toLowerCase(),
           name: moduleName,
+          subtitle: MODULE_SUBTITLES[key],
           icon: moduleIcons[key] ?? item.icon,
           items: [item],
           locked: isLocked,
@@ -844,6 +851,9 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
                     {!isCollapsed && (
                       <div className="min-w-0 flex-1 text-left">
                         <span className="text-sm font-semibold break-words leading-snug block">{cat.name}</span>
+                        {cat.subtitle && !cat.locked && (
+                          <span className="text-xs italic text-slate-400 leading-tight block mt-0.5">{cat.subtitle}</span>
+                        )}
                         {cat.locked && (
                           <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <FontAwesomeIcon icon={faLock} className="w-3 h-3" />
