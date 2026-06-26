@@ -2,10 +2,10 @@ import { Context, Next } from 'hono';
 import { query } from '../db/client';
 
 /**
- * Acesso aos módulos no plano Free: válido até 31/05/2026 (inclusive).
- * A partir de 01/06/2026 00:00 (America/Sao_Paulo) o tenant no Free perde acesso às funcionalidades cobertas por requireModule.
+ * Acesso aos módulos no plano Free: válido até 31/08/2026 (inclusive).
+ * A partir de 01/09/2026 00:00 (America/Sao_Paulo) o tenant no Free perde acesso às funcionalidades cobertas por requireModule.
  */
-const FREE_PLAN_MODULE_ACCESS_END_MS = new Date('2026-06-01T00:00:00-03:00').getTime();
+const FREE_PLAN_MODULE_ACCESS_END_MS = new Date('2026-09-01T00:00:00-03:00').getTime();
 
 function isFreePlanModuleAccessExpired(): boolean {
   return Date.now() >= FREE_PLAN_MODULE_ACCESS_END_MS;
@@ -89,7 +89,7 @@ export function requireModule(moduleKey: string) {
           {
             error: {
               message:
-                'O período de uso do plano Free encerrou em 31 de maio de 2026. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
+                'O período de uso do plano Free encerrou em 31 de agosto de 2026. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
               code: 'FREE_PLAN_EXPIRED',
             },
           },
