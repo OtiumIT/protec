@@ -15,6 +15,7 @@ export function EPSLanding() {
 
   const [name, setName] = useState('');
   const [document, setDocument] = useState('');
+  const [documentError, setDocumentError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,16 +24,30 @@ export function EPSLanding() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const validateDocument = (digits: string): string => {
+    if (digits.length === 0) return '';
+    if (digits.length < 11) return '';
+    if (digits.length === 11) return isValidCpf(digits) ? '' : 'CPF inválido. Verifique os dígitos.';
+    if (digits.length === 14) return isValidCnpj(digits) ? '' : 'CNPJ inválido. Verifique os dígitos.';
+    return 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).';
+  };
+
   const handleDocumentChange = (value: string) => {
     const digits = parseDigits(value);
     if (digits.length <= 14) {
       setDocument(formatDocument(value));
+      setDocumentError(validateDocument(digits));
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (name.trim().length < 3) {
+      setError('Nome deve ter no mínimo 3 caracteres.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('As senhas não coincidem.');
@@ -54,12 +69,12 @@ export function EPSLanding() {
     }
 
     if (isCpf && !isValidCpf(digits)) {
-      setError('CPF inválido.');
+      setError('CPF inválido. Verifique os dígitos informados.');
       return;
     }
 
     if (isCnpj && !isValidCnpj(digits)) {
-      setError('CNPJ inválido.');
+      setError('CNPJ inválido. Verifique os dígitos informados.');
       return;
     }
 
@@ -337,11 +352,18 @@ export function EPSLanding() {
                   type="text"
                   value={document}
                   onChange={(e) => handleDocumentChange(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors ${
+                    documentError
+                      ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                      : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
                   placeholder="CPF ou CNPJ"
                   required
                 />
               </div>
+              {documentError && (
+                <p className="text-sm text-red-600 -mt-2 ml-1">{documentError}</p>
+              )}
 
               {/* E-mail */}
               <div className="relative">
