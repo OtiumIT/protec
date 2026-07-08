@@ -6,6 +6,10 @@
  * meta tags precisam vir no HTML do servidor. O index.html traz um baseline
  * genérico (marcado com data-og); aqui, em rotas específicas, removemos o
  * baseline e injetamos as tags daquela página.
+ *
+ * IMPORTANTE: esta pasta fica na RAIZ do repositório porque o projeto Pages
+ * usa "Root directory" em branco (raiz do repo) e output apps/portal/dist.
+ * Ver docs/CLOUDFLARE_PAGES.md.
  */
 
 const SITE = 'https://iataxsistemas.com.br';
@@ -76,21 +80,26 @@ class HeadAppender {
 export async function onRequest(context) {
   const response = await context.next();
 
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('text/html')) return response;
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/html')) return response;
 
-  const url = new URL(context.request.url);
-  const key = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
-  const og = ROUTES[key];
+    const url = new URL(context.request.url);
+    const key = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    const og = ROUTES[key];
 
-  // Rotas sem preview próprio mantêm o baseline estático do index.html.
-  if (!og) return response;
+    // Rotas sem preview próprio mantêm o baseline estático do index.html.
+    if (!og) return response;
 
-  const canonical = `${SITE}${url.pathname}`;
-  const headHtml = buildHead(canonical, og);
+    const canonical = `${SITE}${url.pathname}`;
+    const headHtml = buildHead(canonical, og);
 
-  return new HTMLRewriter()
-    .on('[data-og]', new RemoveElement())
-    .on('head', new HeadAppender(headHtml))
-    .transform(response);
+    return new HTMLRewriter()
+      .on('[data-og]', new RemoveElement())
+      .on('head', new HeadAppender(headHtml))
+      .transform(response);
+  } catch (err) {
+    // Nunca quebrar a página por causa das meta tags.
+    return response;
+  }
 }
