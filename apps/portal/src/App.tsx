@@ -39,6 +39,7 @@ import { AccessList } from './modules/access-list/pages/AccessList';
 import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { EPSLanding } from './landing/pages/EPSLanding';
+import { PabloArrudaLanding } from './landing/pages/PabloArrudaLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
 import { PrivateAppShell } from './shared/components/layout/PrivateAppShell';
 
@@ -146,6 +147,9 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/EPS" element={<EPSLanding />} />
+        <Route path="/PabloArruda" element={<PabloArrudaLanding />} />
+        <Route path="/pabloarruda" element={<Navigate to="/PabloArruda" replace />} />
+        <Route path="/pablo-arruda" element={<Navigate to="/PabloArruda" replace />} />
         <Route
           path="/change-password"
           element={

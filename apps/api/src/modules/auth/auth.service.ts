@@ -111,7 +111,7 @@ export class AuthService {
     });
 
     // Ativação de módulos: landing pages parceiras recebem apenas módulos específicos
-    if (data.source === 'EPS') {
+    if (data.source === 'EPS' || data.source === 'PabloArruda') {
       const featureToggleRepo = new FeatureToggleRepository();
       for (const moduleKey of ['GESTAO_IMOVEIS', 'SIMULADOR_IN_2306']) {
         const module = await featureToggleRepo.findByKey(moduleKey);
