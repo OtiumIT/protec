@@ -17,6 +17,7 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { formatCnpj, formatCpf } from '../../../shared/utils/masks';
 import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
+import { InfoHint } from '../../../shared/components/InfoHint';
 import {
   BarChart,
   Bar,
@@ -2294,13 +2295,7 @@ export function SimuladorImoveis() {
                         <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
                           <span className="inline-flex items-center gap-1.5">
                             {row.label}
-                            {row.tooltip && (
-                              <span
-                                title={row.tooltip}
-                                aria-label={row.tooltip}
-                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
-                              >ⓘ</span>
-                            )}
+                            {row.tooltip && <InfoHint text={row.tooltip} />}
                           </span>
                         </td>
                         <td className="py-1.5 px-2 min-w-[220px]">
@@ -2451,13 +2446,7 @@ export function SimuladorImoveis() {
                             <td className="sticky left-0 z-10 py-2 px-3 text-slate-700 bg-white/95 font-medium">
                               <span className="inline-flex items-center gap-1.5">
                                 {row.label}
-                                {row.tooltip && (
-                                  <span
-                                    title={row.tooltip}
-                                    aria-label={row.tooltip}
-                                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] cursor-help select-none"
-                                  >ⓘ</span>
-                                )}
+                                {row.tooltip && <InfoHint text={row.tooltip} />}
                               </span>
                             </td>
                             <td className="py-1.5 px-2 min-w-[220px]">

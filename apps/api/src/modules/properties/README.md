@@ -20,6 +20,12 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
   - ano-calendário atual com operação que exceda os limites das hipóteses do ano anterior.
 - Se não houver enquadramento nas hipóteses acima, a simulação PF de venda não aplica IBS/CBS sobre a alienação.
 
+### Regra 0.2: Ganho de capital — comparativo dos 3 modelos
+
+- O simulador **sempre** calcula e exibe juntos: **PF** (IRPF/GC), **PJ LP mercadoria/estoque** e **PJ LP ativo imobilizado**.
+- Não há seleção exclusiva de “natureza na PJ” na UI; o campo `naturezaPJ` no snapshot permanece apenas para compatibilidade de persistência.
+- Aba IBS/CBS também compara os três modelos antes e depois da Reforma.
+
 ### Regra 1: Isolamento Multitenant
 
 - **Quando aplicar**: Todas as operações

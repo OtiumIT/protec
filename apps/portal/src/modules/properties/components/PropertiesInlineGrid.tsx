@@ -5,6 +5,7 @@ import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
 import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
+import { InfoHint } from '../../../shared/components/InfoHint';
 
 type ColumnId =
   | 'identificador'
@@ -826,15 +827,7 @@ export function PropertiesInlineGrid({
                 <th key={col.id} className="text-left py-2 px-2 text-slate-700 align-middle">
                   <span className="inline-flex items-center gap-1">
                     {col.label}
-                    {col.headerTooltip ? (
-                      <span
-                        title={col.headerTooltip}
-                        aria-label={col.headerTooltip}
-                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-sky-300/80 bg-sky-50 text-sky-600 text-[9px] font-semibold cursor-help select-none"
-                      >
-                        ⓘ
-                      </span>
-                    ) : null}
+                    {col.headerTooltip ? <InfoHint text={col.headerTooltip} /> : null}
                   </span>
                 </th>
               ))}

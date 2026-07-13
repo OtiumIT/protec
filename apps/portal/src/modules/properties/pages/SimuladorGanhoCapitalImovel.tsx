@@ -270,6 +270,15 @@ function calcPJAtivoReforma(receita: number, custoPJ: number, _cbsEf: number, ib
   return { ...base, cbs: 0, ibs, total: base.irpj + base.csll + ibs };
 }
 
+/** Zera PIS/COFINS quando o usuário opta por IRPJ+CSLL somente (mantém IRPJ/CSLL). */
+function withOptionalPisCofins<T extends { pis: number; cofins: number; irpj: number; csll: number; total: number }>(
+  calc: T,
+  incluir: boolean
+): T {
+  if (incluir) return calc;
+  return { ...calc, pis: 0, cofins: 0, total: calc.irpj + calc.csll };
+}
+
 // Constrói Map YYYY-MM → variação % a partir da série
 function buildIpcaMap(series: FiscalIndicesIpcaSeriesResponse | null): Map<string, number> {
   const map = new Map<string, number>();
@@ -610,14 +619,12 @@ export default function SimuladorGanhoCapitalImovel() {
     return { gcBruto, gcApos18, fr1, fr2, gcTrib, ir, red18pct };
   }, [venda, custo, despesas, dtAq, dtAl]);
 
-  // ===== CÁLCULO PJ =====
+  // ===== CÁLCULO PJ (sempre mercadoria + ativo — comparativo dos 3 modelos com a PF) =====
   const resultPJ = useMemo(() => {
-    const merc = calcPJMercadoria(venda);
-    const ativo = calcPJAtivo(venda, custoPJ);
-    const selected = naturezaPJ === 'mercadoria' ? merc : ativo;
-    const effective = incluirPisCofins ? selected : { ...selected, pis: 0, cofins: 0, total: selected.irpj + selected.csll };
-    return { merc, ativo, selected: effective };
-  }, [venda, custoPJ, naturezaPJ, incluirPisCofins]);
+    const merc = withOptionalPisCofins(calcPJMercadoria(venda), incluirPisCofins);
+    const ativo = withOptionalPisCofins(calcPJAtivo(venda, custoPJ), incluirPisCofins);
+    return { merc, ativo };
+  }, [venda, custoPJ, incluirPisCofins]);
 
   // ===== CÁLCULO IMÓVEL RURAL (VTN + benfeitorias) =====
   const resultRural = useMemo(() => {
@@ -710,7 +717,6 @@ export default function SimuladorGanhoCapitalImovel() {
     const ibsPJ = trans.ibsEfetivaPct ?? (IBS_PLENA_PCT * trans.ibs);
     const pjMercReforma = calcPJMercadoriaReforma(venda, cbsPJ, ibsPJ);
     const pjAtivoReforma = calcPJAtivoReforma(venda, custoPJ, cbsPJ, ibsPJ);
-    const pjReformaSelected = naturezaPJ === 'mercadoria' ? pjMercReforma : pjAtivoReforma;
 
     return {
       trans, cbsAno, ibsAno: ibsAno_, totalAno,
@@ -718,12 +724,12 @@ export default function SimuladorGanhoCapitalImovel() {
       baseAposAj, redutorSocial, redutorSocialLabel, redutorSocialNominal, redutorSocialCor,
       baseIBSCBS, cbsDev, ibsDev, totalDev,
       contribuinteCheck,
-      pjMercReforma, pjAtivoReforma, pjReformaSelected,
+      pjMercReforma, pjAtivoReforma,
       cbsPJ, ibsPJ,
     };
   }, [
     ibsAno, imovelAte2026, redutorTipo, valorRefIBS, correcaoPctEfetiva,
-    venda, custo, custoPJ, tipoImovel, naturezaPJ,
+    venda, custo, custoPJ, tipoImovel,
     vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
     vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
     redutorImóvelNovoCor, redutorLoteCor, fatorRedutoresLc214,
@@ -1116,17 +1122,16 @@ export default function SimuladorGanhoCapitalImovel() {
               <option value="imovel_rural">Imóvel rural</option>
             </SelectField>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <SelectField label="Natureza do imóvel na PJ" value={naturezaPJ} onChange={v => setNaturezaPJ(v as NaturezaPJ)}>
-              <option value="ativo">Ativo imobilizado (venda de bem do ativo)</option>
-              <option value="mercadoria">Mercadoria / Estoque (atividade imobiliária)</option>
-            </SelectField>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <MoneyField label="Custo de aquisição PJ (valor contábil)" value={custoPJ} onChange={setCustoPJ} />
             <SelectField label="Tributos PJ a considerar" value={incluirPisCofins ? 'sim' : 'nao'} onChange={v => setIncluirPisCofins(v === 'sim')}>
               <option value="sim">IRPJ + CSLL + PIS + COFINS</option>
               <option value="nao">Somente IRPJ + CSLL</option>
             </SelectField>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Os três modelos (PF, PJ mercadoria/estoque e PJ ativo imobilizado) são calculados juntos no comparativo abaixo — sem necessidade de escolher a natureza na PJ.
+          </p>
         </div>
 
         {tipoImovel === 'imovel_rural' && (
@@ -1315,9 +1320,53 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         )}
 
+        {/* Comparativo dos 3 modelos */}
+        <div className={sectionCardClass}>
+          <h3 className="text-base font-semibold text-slate-800 mb-2">Comparativo dos 3 modelos</h3>
+          <p className="text-xs text-slate-500 mb-4">
+            Carga tributária total — PF (ganho de capital), PJ Lucro Presumido como mercadoria/estoque e como ativo imobilizado.
+          </p>
+          {(() => {
+            const pfTotal = r?.ir.total ?? 0;
+            const mercTotal = pj.merc.total;
+            const ativoTotal = pj.ativo.total;
+            const rows = [
+              { key: 'pf', label: 'PF — ganho de capital', total: pfTotal },
+              { key: 'merc', label: 'PJ LP — mercadoria / estoque', total: mercTotal },
+              { key: 'ativo', label: 'PJ LP — ativo imobilizado', total: ativoTotal },
+            ];
+            const melhor = [...rows].sort((a, b) => a.total - b.total)[0]!;
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  {rows.map((row) => (
+                    <div
+                      key={row.key}
+                      className={`rounded-lg border p-3 ${row.key === melhor.key ? 'border-brand bg-brand/5' : 'border-slate-200 bg-slate-50'}`}
+                    >
+                      <div className="text-xs font-medium text-slate-500 mb-1">{row.label}</div>
+                      <div className={`text-lg font-semibold ${row.key === melhor.key ? 'text-brand' : 'text-rose-700'}`}>
+                        {fmtBRL(row.total)}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {venda > 0 ? `${fmtPct((row.total / venda) * 100)} s/ venda` : '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Metric
+                  label="Regime mais vantajoso (menor total)"
+                  value={melhor.label}
+                  color="blue"
+                />
+              </>
+            );
+          })()}
+        </div>
+
         {/* Resultado PF */}
         <div className={sectionCardClass}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4">Resultado — Pessoa Física (IRPF sobre ganho de capital)</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4">1. Pessoa Física (IRPF sobre ganho de capital)</h3>
           {!r ? (
             <div className="text-sm text-slate-500 italic">
               Preencha as datas de aquisição e alienação e os valores da operação.
@@ -1357,43 +1406,90 @@ export default function SimuladorGanhoCapitalImovel() {
           )}
         </div>
 
-        {/* Resultado PJ */}
+        {/* Resultado PJ — Mercadoria / Estoque */}
         <div className={sectionCardClass}>
-          <h3 className="text-base font-semibold text-slate-800 mb-4">Resultado — Pessoa Jurídica (Lucro Presumido)</h3>
+          <h3 className="text-base font-semibold text-slate-800 mb-4">2. PJ Lucro Presumido — Mercadoria / Estoque</h3>
+          <p className="text-xs text-slate-500 mb-3">Base = receita bruta da alienação (atividade imobiliária). Presunção IRPJ 8% / CSLL 12% (+10% se receita &gt; R$ 5 mi).</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-            <Metric label={`Base: ${naturezaPJ === 'mercadoria' ? 'receita bruta' : 'ganho de capital'}`} value={naturezaPJ === 'mercadoria' ? fmtBRL(venda) : fmtBRL(pj.ativo.ganho)} />
-            <Metric label="Lucro presumido (IRPJ)" value={fmtBRL(pj.selected.baseirpj)} />
-            <Metric label="IRPJ (15% + adicional)" value={fmtBRL(pj.selected.irpj)} color="red" />
-            <Metric label="CSLL" value={fmtBRL(pj.selected.csll)} color="red" />
+            <Metric label="Base: receita bruta" value={fmtBRL(venda)} />
+            <Metric label="Lucro presumido (IRPJ)" value={fmtBRL(pj.merc.baseirpj)} />
+            <Metric label="IRPJ (15% + adicional)" value={fmtBRL(pj.merc.irpj)} color="red" />
+            <Metric label="CSLL" value={fmtBRL(pj.merc.csll)} color="red" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-            <Metric label="PIS (0,65%)" value={incluirPisCofins ? fmtBRL(pj.selected.pis) : 'Não incluído'} />
-            <Metric label="COFINS (3%)" value={incluirPisCofins ? fmtBRL(pj.selected.cofins) : 'Não incluído'} />
-            <Metric label="Total tributos PJ" value={fmtBRL(pj.selected.total)} color="red" />
+            <Metric label="PIS (0,65%)" value={incluirPisCofins ? fmtBRL(pj.merc.pis) : 'Não incluído'} />
+            <Metric label="COFINS (3%)" value={incluirPisCofins ? fmtBRL(pj.merc.cofins) : 'Não incluído'} />
+            <Metric label="Total tributos PJ" value={fmtBRL(pj.merc.total)} color="red" />
             <Metric
               label="Alíquota efetiva s/ venda"
-              value={venda > 0 ? fmtPct((pj.selected.total / venda) * 100) : '—'}
+              value={venda > 0 ? fmtPct((pj.merc.total / venda) * 100) : '—'}
               color="red"
             />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Metric label="Carga s/ valor de venda" value={venda > 0 ? fmtPct((pj.selected.total / venda) * 100) : '—'} />
-            <Metric label="Líquido PJ pós-tributos" value={fmtBRL(venda - pj.selected.total - custoPJ)} color="green" />
+            <Metric label="Líquido PJ pós-tributos" value={fmtBRL(venda - pj.merc.total - custoPJ)} color="green" />
             {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
               <>
                 <Metric
-                  label="Diferença PJ vs PF"
-                  value={fmtBRL(Math.abs(r.ir.total - pj.selected.total))}
-                  color={r.ir.total > pj.selected.total ? 'green' : 'red'}
+                  label="Diferença vs PF"
+                  value={fmtBRL(Math.abs(r.ir.total - pj.merc.total))}
+                  color={r.ir.total > pj.merc.total ? 'green' : 'red'}
                 />
                 <Metric
-                  label="Regime mais vantajoso"
-                  value={r.ir.total > pj.selected.total
-                    ? `PJ — economia de ${fmtPct(((r.ir.total - pj.selected.total) / r.ir.total) * 100)}`
-                    : r.ir.total < pj.selected.total
-                    ? `PF — economia de ${fmtPct(((pj.selected.total - r.ir.total) / pj.selected.total) * 100)}`
-                    : 'Equivalente'}
-                  color={r.ir.total > pj.selected.total ? 'blue' : 'green'}
+                  label="Vs PF"
+                  value={
+                    r.ir.total > pj.merc.total
+                      ? `PJ mercadoria — economia ${fmtPct(((r.ir.total - pj.merc.total) / r.ir.total) * 100)}`
+                      : r.ir.total < pj.merc.total
+                        ? `PF — economia ${fmtPct(((pj.merc.total - r.ir.total) / pj.merc.total) * 100)}`
+                        : 'Equivalente'
+                  }
+                  color={r.ir.total > pj.merc.total ? 'blue' : 'green'}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Resultado PJ — Ativo imobilizado */}
+        <div className={sectionCardClass}>
+          <h3 className="text-base font-semibold text-slate-800 mb-4">3. PJ Lucro Presumido — Ativo imobilizado</h3>
+          <p className="text-xs text-slate-500 mb-3">Base = ganho de capital (venda − custo contábil). PIS/COFINS não incidem sobre o ganho.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+            <Metric label="Base: ganho de capital" value={fmtBRL(pj.ativo.ganho)} />
+            <Metric label="Base IRPJ/CSLL (100%)" value={fmtBRL(pj.ativo.baseirpj)} />
+            <Metric label="IRPJ (15% + adicional)" value={fmtBRL(pj.ativo.irpj)} color="red" />
+            <Metric label="CSLL" value={fmtBRL(pj.ativo.csll)} color="red" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+            <Metric label="PIS" value="Não incide" />
+            <Metric label="COFINS" value="Não incide" />
+            <Metric label="Total tributos PJ" value={fmtBRL(pj.ativo.total)} color="red" />
+            <Metric
+              label="Alíquota efetiva s/ venda"
+              value={venda > 0 ? fmtPct((pj.ativo.total / venda) * 100) : '—'}
+              color="red"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Metric label="Líquido PJ pós-tributos" value={fmtBRL(venda - pj.ativo.total - custoPJ)} color="green" />
+            {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
+              <>
+                <Metric
+                  label="Diferença vs PF"
+                  value={fmtBRL(Math.abs(r.ir.total - pj.ativo.total))}
+                  color={r.ir.total > pj.ativo.total ? 'green' : 'red'}
+                />
+                <Metric
+                  label="Vs PF"
+                  value={
+                    r.ir.total > pj.ativo.total
+                      ? `PJ ativo — economia ${fmtPct(((r.ir.total - pj.ativo.total) / r.ir.total) * 100)}`
+                      : r.ir.total < pj.ativo.total
+                        ? `PF — economia ${fmtPct(((pj.ativo.total - r.ir.total) / pj.ativo.total) * 100)}`
+                        : 'Equivalente'
+                  }
+                  color={r.ir.total > pj.ativo.total ? 'blue' : 'green'}
                 />
               </>
             )}
@@ -1403,26 +1499,26 @@ export default function SimuladorGanhoCapitalImovel() {
         {/* Memória de cálculo */}
         {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
           <div className={sectionCardClass}>
-            <h3 className="text-base font-semibold text-slate-800 mb-4">Memória de cálculo</h3>
+            <h3 className="text-base font-semibold text-slate-800 mb-4">Memória de cálculo — 3 modelos</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Item</th>
                     <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PF — IRPF/GC</th>
-                    <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ LP — ativo imob.</th>
                     <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ LP — mercadoria</th>
+                    <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ LP — ativo imob.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {[
                     ['Valor de alienação', fmtBRL(venda), fmtBRL(venda), fmtBRL(venda)],
                     ['(-) Custo / custo contábil', fmtBRL(custo + despesas), `${fmtBRL(custoPJ)} (contábil)`, `${fmtBRL(custoPJ)} (contábil)`],
-                    ['= Ganho bruto', fmtBRL(r.gcBruto), fmtBRL(venda) + ' (receita)', fmtBRL(venda - custoPJ) + ' (ganho cap.)'],
+                    ['= Ganho bruto / base', fmtBRL(r.gcBruto), fmtBRL(venda) + ' (receita)', fmtBRL(venda - custoPJ) + ' (ganho cap.)'],
                     ['(-) Redução art. 18 L. 7.713', r.red18pct > 0 ? `−${r.red18pct}% → ${fmtBRL(r.gcApos18)}` : 'N/A (aq. após 1988)', '—', '—'],
                     ['(×) FR1', `FR1 = ${r.fr1.toFixed(6)}`, '—', '—'],
                     ['(×) FR2', `FR2 = ${r.fr2.toFixed(6)}`, '—', '—'],
-                    ['= Base tributável', fmtBRL(r.gcTrib), `${fmtBRL(pj.merc.baseirpj)} (IRPJ)`, `${fmtBRL(venda - custoPJ)} (ganho)`],
+                    ['= Base tributável', fmtBRL(r.gcTrib), `${fmtBRL(pj.merc.baseirpj)} (IRPJ)`, `${fmtBRL(pj.ativo.baseirpj)} (ganho)`],
                     ['IRPJ / IRPF (15–22,5%)', fmtBRL(r.ir.total), fmtBRL(pj.merc.irpj), fmtBRL(pj.ativo.irpj)],
                     ['CSLL', '—', fmtBRL(pj.merc.csll), fmtBRL(pj.ativo.csll)],
                     ['PIS (0,65%)', '—', incluirPisCofins ? fmtBRL(pj.merc.pis) : 'Não incluído', 'Não incide'],
@@ -1435,12 +1531,12 @@ export default function SimuladorGanhoCapitalImovel() {
                       r.gcBruto > 0 ? fmtPct((pj.merc.total / r.gcBruto) * 100) : '—',
                       r.gcBruto > 0 ? fmtPct((pj.ativo.total / r.gcBruto) * 100) : '—',
                     ],
-                  ].map(([item, pf, pjA, pjM], i) => (
+                  ].map(([item, pfCol, pjMerc, pjAtivo], i) => (
                     <tr key={i} className={i % 2 === 0 ? '' : 'bg-slate-50/90'}>
                       <td className="py-2 px-3 font-medium text-slate-700">{item}</td>
-                      <td className="py-2 px-3 text-slate-600">{pf}</td>
-                      <td className="py-2 px-3 text-slate-600">{pjA}</td>
-                      <td className="py-2 px-3 text-slate-600">{pjM}</td>
+                      <td className="py-2 px-3 text-slate-600">{pfCol}</td>
+                      <td className="py-2 px-3 text-slate-600">{pjMerc}</td>
+                      <td className="py-2 px-3 text-slate-600">{pjAtivo}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1457,29 +1553,26 @@ export default function SimuladorGanhoCapitalImovel() {
     const r = resultPF;
     const irpfTotal = r?.ir.total ?? 0;
 
-    const pjAntes = resultPJ.selected;
-    const pjDepois = ib.pjReformaSelected;
+    const mercAntes = resultPJ.merc;
+    const ativoAntes = resultPJ.ativo;
+    const mercDepois = ib.pjMercReforma;
+    const ativoDepois = ib.pjAtivoReforma;
 
     const pfAntes = irpfTotal;
     const pfDepois = irpfTotal + ib.totalDev;
     const deltaPfReforma = pfDepois - pfAntes;
-    const deltaPjReforma = pjDepois.total - pjAntes.total;
+    const deltaMercReforma = mercDepois.total - mercAntes.total;
+    const deltaAtivoReforma = ativoDepois.total - ativoAntes.total;
     const gcTrib = resultPF?.gcTrib;
     const baseRowPf = gcTrib != null ? fmtBRL(gcTrib) : '—';
-    const baseRowPjAntes =
-      naturezaPJ === 'mercadoria'
-        ? `Presunção 8%: ${fmtBRL(pjAntes.baseirpj)}`
-        : `Ganho: ${fmtBRL(resultPJ.ativo.ganho)}`;
-    const baseRowPjDepois =
-      naturezaPJ === 'mercadoria'
-        ? `Presunção 8%: ${fmtBRL(pjDepois.baseirpj)}`
-        : `Ganho: ${fmtBRL(ib.pjAtivoReforma.ganho)}`;
 
     const cenarios = [
       { label: 'PF — antes da reforma', v: pfAntes },
       { label: 'PF — após reforma (IRPF + IBS/CBS)', v: pfDepois },
-      { label: `PJ LP — antes da reforma`, v: pjAntes.total },
-      { label: `PJ LP — após reforma`, v: pjDepois.total },
+      { label: 'PJ mercadoria — antes', v: mercAntes.total },
+      { label: 'PJ mercadoria — após reforma', v: mercDepois.total },
+      { label: 'PJ ativo — antes', v: ativoAntes.total },
+      { label: 'PJ ativo — após reforma', v: ativoDepois.total },
     ].sort((a, b) => a.v - b.v);
 
     return (
@@ -1670,15 +1763,17 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         </div>
 
-        {/* Comparativo quádruplo */}
+        {/* Comparativo — 3 modelos × antes/depois da Reforma */}
         <div className={sectionCardClass}>
-          <h3 className="text-base font-semibold text-slate-800 mb-2">Comparativo total — PF e PJ antes e depois da Reforma</h3>
-          <p className="text-xs text-slate-500 mb-4">Carga tributária total nos quatro cenários. O ano de transição selecionado determina as alíquotas IBS/CBS aplicadas.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <Metric label="PF — antes da reforma" value={fmtBRL(pfAntes)} />
-            <Metric label="PF — após reforma (IRPF + IBS/CBS)" value={fmtBRL(pfDepois)} color="red" />
-            <Metric label={`PJ LP (${naturezaPJ}) — antes`} value={fmtBRL(pjAntes.total)} />
-            <Metric label={`PJ LP — após reforma`} value={fmtBRL(pjDepois.total)} color="red" />
+          <h3 className="text-base font-semibold text-slate-800 mb-2">Comparativo total — 3 modelos antes e depois da Reforma</h3>
+          <p className="text-xs text-slate-500 mb-4">Carga tributária total. O ano de transição selecionado determina as alíquotas IBS/CBS aplicadas.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            <Metric label="PF — antes" value={fmtBRL(pfAntes)} />
+            <Metric label="PJ mercadoria — antes" value={fmtBRL(mercAntes.total)} />
+            <Metric label="PJ ativo — antes" value={fmtBRL(ativoAntes.total)} />
+            <Metric label="PF — após (IRPF + IBS/CBS)" value={fmtBRL(pfDepois)} color="red" />
+            <Metric label="PJ mercadoria — após" value={fmtBRL(mercDepois.total)} color="red" />
+            <Metric label="PJ ativo — após" value={fmtBRL(ativoDepois.total)} color="red" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -1687,48 +1782,48 @@ export default function SimuladorGanhoCapitalImovel() {
                   <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Tributo</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PF — antes</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PF — após</th>
-                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ LP — antes</th>
-                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ LP — após</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ merc. — antes</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ merc. — após</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ ativo — antes</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">PJ ativo — após</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  ['Valor de alienação', fmtBRL(venda), fmtBRL(venda), fmtBRL(venda), fmtBRL(venda)],
+                  ['Valor de alienação', fmtBRL(venda), fmtBRL(venda), fmtBRL(venda), fmtBRL(venda), fmtBRL(venda), fmtBRL(venda)],
                   [
-                    'IRPF / IRPJ (base de cálculo)',
-                    `GC tributável: ${baseRowPf}`,
-                    `GC tributável: ${baseRowPf}`,
-                    baseRowPjAntes,
-                    baseRowPjDepois,
+                    'Base de cálculo',
+                    `GC trib.: ${baseRowPf}`,
+                    `GC trib.: ${baseRowPf}`,
+                    `Presunção: ${fmtBRL(mercAntes.baseirpj)}`,
+                    `Presunção: ${fmtBRL(mercDepois.baseirpj)}`,
+                    `Ganho: ${fmtBRL(ativoAntes.ganho)}`,
+                    `Ganho: ${fmtBRL(ativoDepois.ganho)}`,
                   ],
-                  ['IRPF / IRPJ + adicional', fmtBRL(irpfTotal), fmtBRL(irpfTotal), fmtBRL(pjAntes.irpj), fmtBRL(pjDepois.irpj)],
-                  ['CSLL', '—', '—', fmtBRL(pjAntes.csll), fmtBRL(pjDepois.csll)],
-                  ['PIS (0,65%)', '—', 'extinto', fmtBRL(pjAntes.pis), 'extinto'],
-                  ['COFINS (3%)', '—', 'extinto', fmtBRL(pjAntes.cofins), 'extinto'],
-                  ['CBS', '—', fmtBRL(ib.cbsDev), '—', fmtBRL(ib.pjReformaSelected.cbs ?? 0)],
-                  ['IBS', '—', fmtBRL(ib.ibsDev), '—', fmtBRL(ib.pjReformaSelected.ibs ?? 0)],
-                  ['TOTAL tributos', fmtBRL(pfAntes), fmtBRL(pfDepois), fmtBRL(pjAntes.total), fmtBRL(pjDepois.total)],
+                  ['IRPF / IRPJ + adicional', fmtBRL(irpfTotal), fmtBRL(irpfTotal), fmtBRL(mercAntes.irpj), fmtBRL(mercDepois.irpj), fmtBRL(ativoAntes.irpj), fmtBRL(ativoDepois.irpj)],
+                  ['CSLL', '—', '—', fmtBRL(mercAntes.csll), fmtBRL(mercDepois.csll), fmtBRL(ativoAntes.csll), fmtBRL(ativoDepois.csll)],
+                  ['PIS (0,65%)', '—', 'extinto', fmtBRL(mercAntes.pis), 'extinto', 'Não incide', 'extinto'],
+                  ['COFINS (3%)', '—', 'extinto', fmtBRL(mercAntes.cofins), 'extinto', 'Não incide', 'extinto'],
+                  ['CBS', '—', fmtBRL(ib.cbsDev), '—', fmtBRL(mercDepois.cbs ?? 0), '—', fmtBRL(ativoDepois.cbs ?? 0)],
+                  ['IBS', '—', fmtBRL(ib.ibsDev), '—', fmtBRL(mercDepois.ibs ?? 0), '—', fmtBRL(ativoDepois.ibs ?? 0)],
+                  ['TOTAL tributos', fmtBRL(pfAntes), fmtBRL(pfDepois), fmtBRL(mercAntes.total), fmtBRL(mercDepois.total), fmtBRL(ativoAntes.total), fmtBRL(ativoDepois.total)],
                   [
                     'Carga s/ venda',
                     venda > 0 ? fmtPct((pfAntes / venda) * 100) : '—',
                     venda > 0 ? fmtPct((pfDepois / venda) * 100) : '—',
-                    venda > 0 ? fmtPct((pjAntes.total / venda) * 100) : '—',
-                    venda > 0 ? fmtPct((pjDepois.total / venda) * 100) : '—',
+                    venda > 0 ? fmtPct((mercAntes.total / venda) * 100) : '—',
+                    venda > 0 ? fmtPct((mercDepois.total / venda) * 100) : '—',
+                    venda > 0 ? fmtPct((ativoAntes.total / venda) * 100) : '—',
+                    venda > 0 ? fmtPct((ativoDepois.total / venda) * 100) : '—',
                   ],
                   [
                     'Variação reforma (Δ vs antes)',
                     '—',
-                    deltaPfReforma > 0
-                      ? `+${fmtBRL(deltaPfReforma)}`
-                      : deltaPfReforma < 0
-                        ? fmtBRL(deltaPfReforma)
-                        : 'sem alteração',
+                    deltaPfReforma > 0 ? `+${fmtBRL(deltaPfReforma)}` : deltaPfReforma < 0 ? fmtBRL(deltaPfReforma) : 'sem alteração',
                     '—',
-                    deltaPjReforma > 0
-                      ? `+${fmtBRL(deltaPjReforma)}`
-                      : deltaPjReforma < 0
-                        ? fmtBRL(deltaPjReforma)
-                        : 'sem alteração',
+                    deltaMercReforma > 0 ? `+${fmtBRL(deltaMercReforma)}` : deltaMercReforma < 0 ? fmtBRL(deltaMercReforma) : 'sem alteração',
+                    '—',
+                    deltaAtivoReforma > 0 ? `+${fmtBRL(deltaAtivoReforma)}` : deltaAtivoReforma < 0 ? fmtBRL(deltaAtivoReforma) : 'sem alteração',
                   ],
                 ].map(([item, ...cols], i) => (
                   <tr key={i} className={i % 2 === 0 ? '' : 'bg-slate-50/90'}>
