@@ -420,7 +420,8 @@ export function SimuladorImoveis() {
   const aplicarRateioAnual = useCallback(
     (field: keyof MesFields) => {
       const val = round2(valoresAnuais[field] ?? 0);
-      if (val <= 0) return;
+      if (val < 0) return;
+      // val === 0: zera todos os meses (permite limpar rateio anterior)
       if (CAMPOS_ANUAIS.has(field)) {
         setMeses((prev) =>
           prev.map((m, i) => ({
@@ -428,7 +429,11 @@ export function SimuladorImoveis() {
             [field]: i === 0 ? val : 0,
           }))
         );
-        success('Valor anual concentrado em Janeiro. Ajuste manualmente se necessário.');
+        success(
+          val === 0
+            ? 'Meses zerados para este campo.'
+            : 'Valor anual concentrado em Janeiro. Ajuste manualmente se necessário.'
+        );
       } else {
         const valorMensal = round2(val / 12);
         setMeses((prev) =>
@@ -437,7 +442,11 @@ export function SimuladorImoveis() {
             [field]: valorMensal,
           }))
         );
-        success('Valor anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+        success(
+          val === 0
+            ? 'Meses zerados para este campo.'
+            : 'Valor anual rateado nos 12 meses. Ajuste manualmente se necessário.'
+        );
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -458,6 +467,8 @@ export function SimuladorImoveis() {
     );
     if (valTrad > 0 || valCurto > 0) {
       success('Aluguel anual rateado nos 12 meses. Ajuste manualmente se necessário.');
+    } else {
+      success('Receitas mensais zeradas.');
     }
   }, [aluguelAnualTradicional, aluguelAnualCurto, success]);
 
@@ -477,6 +488,8 @@ export function SimuladorImoveis() {
     );
     if (total > 0) {
       success('Despesas anuais rateadas nos 12 meses. Ajuste manualmente se necessário.');
+    } else {
+      success('Despesas mensais zeradas.');
     }
   }, [despesaAnualTotal, success]);
 
@@ -492,6 +505,8 @@ export function SimuladorImoveis() {
     if (total > 0) {
       setCustosOperacionaisAberto(true);
       success('Custos operacionais anuais rateados nos 12 meses. Ajuste manualmente se necessário.');
+    } else {
+      success('Custos operacionais mensais zerados.');
     }
   }, [custoAnualTotal, success]);
 
