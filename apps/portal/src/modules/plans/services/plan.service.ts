@@ -7,6 +7,7 @@ export interface Plan {
   maxUsers: number;
   maxClients?: number;
   price: number;
+  originalPrice?: number | null;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
   isCustom?: boolean;
@@ -20,6 +21,7 @@ export interface CreatePlanData {
   maxUsers: number;
   maxClients?: number;
   price: number;
+  originalPrice?: number | null;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
   isCustom?: boolean;
@@ -32,6 +34,7 @@ export interface UpdatePlanData {
   maxUsers?: number;
   maxClients?: number;
   price?: number;
+  originalPrice?: number | null;
   billingCycle?: 'monthly' | 'yearly';
   features?: string[];
   isCustom?: boolean;
@@ -63,6 +66,9 @@ function convertPlan(plan: any): Plan {
     isManaged: plan.is_managed || plan.isManaged,
     status: plan.status || 'active',
     stripePriceId: plan.stripe_price_id ?? plan.stripePriceId ?? null,
+    originalPrice: plan.original_price != null
+      ? (typeof plan.original_price === 'string' ? parseFloat(plan.original_price) : plan.original_price)
+      : (plan.originalPrice != null ? plan.originalPrice : null),
   };
 }
 
@@ -112,6 +118,7 @@ export const planService = {
           maxUsers: data.maxUsers,
           maxClients: data.maxClients ?? 0,
           price: data.price,
+          originalPrice: data.originalPrice,
           billingCycle: data.billingCycle,
           features: data.features,
         }),
@@ -133,6 +140,7 @@ export const planService = {
           maxUsers: data.maxUsers,
           maxClients: data.maxClients,
           price: data.price,
+          originalPrice: data.originalPrice,
           billingCycle: data.billingCycle,
           features: data.features,
           status: data.status,

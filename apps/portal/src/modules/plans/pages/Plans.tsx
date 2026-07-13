@@ -12,6 +12,7 @@ import {
   type Plan,
   type CreatePlanData,
 } from '../services/plan.service';
+import { PlanPromoPrice } from '../components/PlanPromoPrice';
 
 export function Plans() {
   const { success: showSuccess, error: showError, ToastContainer } = useToast();
@@ -37,6 +38,7 @@ export function Plans() {
     maxUsers: 1,
     maxClients: 0,
     price: 0,
+    originalPrice: null,
     billingCycle: 'monthly',
     features: [],
     stripePriceId: null,
@@ -79,6 +81,7 @@ export function Plans() {
         maxUsers: plan.maxUsers,
         maxClients: plan.maxClients ?? 0,
         price: plan.price,
+        originalPrice: plan.originalPrice ?? null,
         billingCycle: plan.billingCycle,
         features: plan.features,
         status: plan.status === 'inactive' ? 'inactive' : 'active',
@@ -86,7 +89,7 @@ export function Plans() {
       });
     } else {
       setEditingPlan(null);
-      setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [], stripePriceId: null });
+      setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, originalPrice: null, billingCycle: 'monthly', features: [], stripePriceId: null });
     }
     setFeatureInput('');
     setIsModalOpen(true);
@@ -95,7 +98,7 @@ export function Plans() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingPlan(null);
-    setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, billingCycle: 'monthly', features: [], stripePriceId: null });
+    setFormData({ name: '', maxUsers: 1, maxClients: 0, price: 0, originalPrice: null, billingCycle: 'monthly', features: [], stripePriceId: null });
     setFeatureInput('');
     setIsSubmitting(false);
   };
@@ -158,13 +161,6 @@ export function Plans() {
     });
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
   return (
     <>
       <ToastContainer />
@@ -198,15 +194,14 @@ export function Plans() {
                 </div>
 
                 <div className="mb-6">
-                  <div className="flex items-baseline space-x-2 mb-2">
-                    <span className="text-3xl font-bold text-slate-900">
-                      {plan.isCustom ? 'Negociado' : formatCurrency(plan.price)}
-                    </span>
-                    {!plan.isCustom && (
-                      <span className="text-sm text-slate-500">/mês</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-600">
+                  {plan.isCustom ? (
+                    <div className="flex items-baseline space-x-2 mb-2">
+                      <span className="text-3xl font-bold text-slate-900">Negociado</span>
+                    </div>
+                  ) : (
+                    <PlanPromoPrice plan={plan} size="md" />
+                  )}
+                  <p className="text-sm text-slate-600 mt-2">
                     {plan.isCustom
                       ? 'Módulos gerenciados individualmente'
                       : [
@@ -281,7 +276,7 @@ export function Plans() {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Máximo de Usuários
@@ -312,15 +307,29 @@ export function Plans() {
                   placeholder="0 = ilimitado"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <MoneyInput
-                  label="Preço"
+                  label="Valor cheio (de)"
+                  value={formData.originalPrice ?? 0}
+                  onChange={(value) =>
+                    setFormData({ ...formData, originalPrice: value > 0 ? value : null })
+                  }
+                />
+              </div>
+              <div>
+                <MoneyInput
+                  label="Valor promocional (por)"
                   value={formData.price}
                   onChange={(value) => setFormData({ ...formData, price: value })}
                   required
                 />
               </div>
             </div>
+            <p className="text-xs text-slate-500">
+              O valor promocional é o cobrado na assinatura. O valor cheio aparece riscado na tela Meu plano.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">

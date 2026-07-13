@@ -6,15 +6,7 @@ import { useToast } from '../../../shared/components/ui/Toast';
 import { planService, type Plan } from '../services/plan.service';
 import { subscriptionService, type Subscription } from '../../system/services/subscription.service';
 import { billingService } from '../../billing/services/billing.service';
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+import { PlanPromoPrice } from '../components/PlanPromoPrice';
 
 export function MeuPlano() {
   const { error: showError, ToastContainer } = useToast();
@@ -119,11 +111,20 @@ export function MeuPlano() {
                           {subscription.status === 'trialing' ? 'Período de teste' : 'Ativo'}
                         </Badge>
                       </div>
-                      <p className="text-slate-600 mt-1">
-                        {subscription.plan.isCustom
-                          ? 'Plano customizado'
-                          : `${formatCurrency(subscription.plan.price)}/${subscription.plan.billingCycle === 'yearly' ? 'ano' : 'mês'}`}
-                      </p>
+                      <div className="mt-2">
+                        {subscription.plan.isCustom ? (
+                          <p className="text-slate-600">Plano customizado</p>
+                        ) : (
+                          <PlanPromoPrice
+                            plan={{
+                              price: subscription.plan.price,
+                              originalPrice: subscription.plan.originalPrice,
+                              billingCycle: subscription.plan.billingCycle,
+                            }}
+                            size="md"
+                          />
+                        )}
+                      </div>
                       <p className="text-sm text-slate-500 mt-1">
                         Até {subscription.plan.maxUsers} usuário(s)
                         {(subscription.plan.maxClients ?? 0) > 0
@@ -163,20 +164,30 @@ export function MeuPlano() {
                   .map((plan) => {
                     const isCurrent = plan.id === currentPlanId;
                     const isChanging = changingPlanId === plan.id;
+                    const hasPromo =
+                      plan.price > 0 &&
+                      plan.originalPrice != null &&
+                      plan.originalPrice > plan.price;
                     return (
-                      <Card key={plan.id} className={isCurrent ? 'ring-2 ring-brand' : ''}>
+                      <Card
+                        key={plan.id}
+                        className={
+                          isCurrent
+                            ? 'ring-2 ring-brand'
+                            : hasPromo
+                              ? 'border-2 border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white'
+                              : ''
+                        }
+                      >
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
                           {isCurrent && (
                             <Badge variant="success">Seu plano</Badge>
                           )}
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 mb-1">
-                          {formatCurrency(plan.price)}
-                          <span className="text-sm font-normal text-slate-500">
-                            /{plan.billingCycle === 'yearly' ? 'ano' : 'mês'}
-                          </span>
-                        </p>
+                        <div className="mb-4">
+                          <PlanPromoPrice plan={plan} />
+                        </div>
                         <p className="text-sm text-slate-600 mb-4">
                           Até {plan.maxUsers} usuário(s)
                           {(plan.maxClients ?? 0) > 0

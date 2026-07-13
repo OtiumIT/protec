@@ -28,6 +28,11 @@ function formatBillingCycle(cycle: 'monthly' | 'yearly'): string {
 function PlanCard({ plan, isHighlighted }: { plan: Plan; isHighlighted: boolean }) {
   const features = Array.isArray(plan.features) ? plan.features : [];
   const priceLabel = plan.billingCycle === 'yearly' ? '/ano' : '/mês';
+  const isPaid = plan.price > 0;
+  const hasPromo = isPaid && plan.originalPrice != null && plan.originalPrice > plan.price;
+  const discountPct = hasPromo
+    ? Math.round(((plan.originalPrice! - plan.price) / plan.originalPrice!) * 100)
+    : 0;
   return (
     <article
       className={`flex flex-col flex-1 min-w-0 sm:max-w-[400px] rounded-2xl border-2 bg-white p-6 shadow-lg transition-shadow duration-200 hover:shadow-xl ${
@@ -37,8 +42,15 @@ function PlanCard({ plan, isHighlighted }: { plan: Plan; isHighlighted: boolean 
       }`}
       aria-labelledby={`plano-${plan.id}-title`}
     >
-      <div className="flex flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 p-2.5 w-10 h-10">
-        <PlanIcon className="h-5 w-5" />
+      <div className="flex items-center justify-between">
+        <div className="flex flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 p-2.5 w-10 h-10">
+          <PlanIcon className="h-5 w-5" />
+        </div>
+        {hasPromo && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-landing-cta px-3 py-1 text-xs font-bold text-white shadow-sm">
+            Plano promocional{discountPct > 0 ? ` · ${discountPct}% OFF` : ''}
+          </span>
+        )}
       </div>
       <h3 id={`plano-${plan.id}-title`} className="mt-3 text-lg font-bold text-slate-900">
         {plan.name}
@@ -46,11 +58,32 @@ function PlanCard({ plan, isHighlighted }: { plan: Plan; isHighlighted: boolean 
       <p className="mt-1.5 text-sm text-slate-600">
         Até {plan.maxUsers} usuário{plan.maxUsers > 1 ? 's' : ''}
       </p>
-      <p className="mt-3 text-xl font-bold text-slate-900">
-        {formatPrice(plan.price)}
-        <span className="text-sm font-normal text-slate-500">{priceLabel}</span>
-      </p>
+      {hasPromo ? (
+        <div className="mt-3">
+          <p className="text-sm text-slate-400">
+            De <span className="line-through">{formatPrice(plan.originalPrice!)}</span>
+            <span className="text-xs">{priceLabel}</span>
+          </p>
+          <p className="mt-0.5 text-3xl font-extrabold text-slate-900">
+            {formatPrice(plan.price)}
+            <span className="text-sm font-normal text-slate-500">{priceLabel}</span>
+          </p>
+        </div>
+      ) : (
+        <p className="mt-3 text-xl font-bold text-slate-900">
+          {formatPrice(plan.price)}
+          <span className="text-sm font-normal text-slate-500">{priceLabel}</span>
+        </p>
+      )}
       <p className="mt-0.5 text-xs text-slate-500">{formatBillingCycle(plan.billingCycle)}</p>
+      {isPaid && (
+        <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          30 dias grátis
+        </span>
+      )}
       <ul className="mt-4 flex-1 space-y-2" aria-label="Benefícios incluídos">
         {features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">

@@ -6,6 +6,7 @@ export interface CreatePlanData {
   maxUsers: number;
   maxClients?: number;
   price: number;
+  originalPrice?: number | null;
   billingCycle: 'monthly' | 'yearly';
   features: string[];
   isCustom?: boolean;
@@ -17,6 +18,7 @@ export interface UpdatePlanData {
   maxUsers?: number;
   maxClients?: number;
   price?: number;
+  originalPrice?: number | null;
   billingCycle?: 'monthly' | 'yearly';
   features?: string[];
   isCustom?: boolean;
@@ -32,7 +34,7 @@ export class PlanRepository extends BaseRepository {
    */
   async findById(id: string): Promise<Plan | null> {
     const result = await this.query<any>(
-      'SELECT id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at FROM plans WHERE id = $1',
+      'SELECT id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at FROM plans WHERE id = $1',
       [id],
       false // Planos não requerem filtro de tenant
     );
@@ -49,7 +51,7 @@ export class PlanRepository extends BaseRepository {
    */
   async findByName(name: string): Promise<Plan | null> {
     const result = await this.query<any>(
-      `SELECT id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
+      `SELECT id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
        FROM plans WHERE name = $1 LIMIT 1`,
       [name],
       false
@@ -67,7 +69,7 @@ export class PlanRepository extends BaseRepository {
   async findAll(): Promise<Plan[]> {
     const result = await this.query<any>(
       `SELECT DISTINCT ON (name) 
-        id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
+        id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
        FROM plans 
        WHERE (status IS NULL OR status = 'active')
        ORDER BY name, created_at ASC`,
@@ -87,7 +89,7 @@ export class PlanRepository extends BaseRepository {
   async findAllForAdmin(): Promise<Plan[]> {
     const result = await this.query<any>(
       `SELECT DISTINCT ON (name) 
-        id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
+        id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at 
        FROM plans 
        ORDER BY name, created_at ASC`,
       [],
@@ -111,14 +113,15 @@ export class PlanRepository extends BaseRepository {
 
     const maxClients = data.maxClients ?? 0;
     const result = await this.query<any>(
-      `INSERT INTO plans (name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed) 
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) 
-       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, created_at, updated_at`,
+      `INSERT INTO plans (name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9) 
+       RETURNING id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, created_at, updated_at`,
       [
         data.name,
         data.maxUsers,
         maxClients,
         data.price,
+        data.originalPrice ?? null,
         data.billingCycle,
         JSON.stringify(featuresObj),
         (data as any).isCustom || false,
@@ -154,6 +157,10 @@ export class PlanRepository extends BaseRepository {
     if (data.price !== undefined) {
       updates.push(`price = $${paramIndex++}`);
       params.push(data.price);
+    }
+    if (data.originalPrice !== undefined) {
+      updates.push(`original_price = $${paramIndex++}`);
+      params.push(data.originalPrice);
     }
     if (data.billingCycle !== undefined) {
       updates.push(`billing_cycle = $${paramIndex++}`);
@@ -194,7 +201,7 @@ export class PlanRepository extends BaseRepository {
       `UPDATE plans 
        SET ${updates.join(', ')}, updated_at = NOW() 
        WHERE id = $${paramIndex++} 
-       RETURNING id, name, max_users, max_clients, price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at`,
+       RETURNING id, name, max_users, max_clients, price, original_price, billing_cycle, features, is_custom, is_managed, status, stripe_price_id, created_at, updated_at`,
       params,
       false
     );

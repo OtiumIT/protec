@@ -9,6 +9,9 @@ function normalizeSubscription(sub: SubscriptionResponse['data']['subscription']
     maxUsers: (plan?.max_users ?? plan?.maxUsers) as number ?? 0,
     maxClients: (plan?.max_clients ?? plan?.maxClients) as number ?? 0,
     price: typeof plan?.price === 'string' ? parseFloat(plan.price as string) : ((plan?.price as number) ?? 0),
+    originalPrice: plan?.original_price != null
+      ? (typeof plan.original_price === 'string' ? parseFloat(plan.original_price as string) : (plan.original_price as number))
+      : (plan?.originalPrice as number | null | undefined) ?? null,
     billingCycle: ((plan?.billing_cycle ?? plan?.billingCycle) as Plan['billingCycle']) ?? 'monthly',
     features: Array.isArray(plan?.features) ? (plan.features as string[]) : [],
     isCustom: (plan?.is_custom ?? plan?.isCustom) as boolean | undefined,
