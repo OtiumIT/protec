@@ -1,4 +1,5 @@
--- Migration: 065_plans_original_price
+-- Migration: 068_plans_original_price
+-- (renumerada de 065: conflito com 065_eps_simulador_in_2306.sql — schema_migrations usa version INTEGER)
 -- Valor cheio (exibição) vs price (valor promocional cobrado no Stripe)
 
 ALTER TABLE plans
