@@ -35,11 +35,12 @@ Gerencia assinaturas das empresas, incluindo criação, atualização de status,
   3. Verificar status
   4. Bloquear se necessário
 
-### Regra 4: Plano Free – acesso até 31/05/2026
-- **Quando aplicar**: Qualquer acesso a funcionalidades protegidas por `requireModule` (módulos) no tenant com plano Free.
-- **Validação**: Enquanto a data/hora for anterior a **01/06/2026 00:00 (America/Sao_Paulo)**, o tenant Free mantém acesso aos módulos (desde que `tenant_modules` permita). A partir desse instante, perde acesso aos módulos (middleware retorna 402 `FREE_PLAN_EXPIRED`). Não depende mais de `free_plan_started_at` para esse corte.
-- **Exceção**: O tenant continua podendo acessar "Meu plano", listar planos e iniciar checkout para assinar plano pago.
-- **`free_plan_started_at`**: Continua sendo preenchido na primeira entrada no Free (histórico / possíveis usos futuros), mas o bloqueio de módulos usa apenas o calendário acima.
+### Regra 4: Plano Free – trial de 30 dias por cliente
+- **Quando aplicar**: Qualquer acesso a funcionalidades protegidas por `requireModule` no tenant com plano Free.
+- **Validação**: Acesso válido enquanto `now < free_plan_started_at + 30 dias`. Após esse instante, o middleware retorna 402 `FREE_PLAN_EXPIRED`.
+- **Exceção**: E-mails em `FREE_PLAN_BYPASS_EMAILS` não são bloqueados. O tenant continua podendo acessar "Meu plano", listar planos e iniciar checkout para assinar plano pago.
+- **`free_plan_started_at`**: Preenchido na primeira entrada no Free (cadastro / atribução). A checagem do Free ocorre **antes** do atalho `enabled_until = NULL` (módulos do Free são gravados com NULL no cadastro).
+- **Multitenancy**: Isolamento por `company_id` na assinatura; o trial é por tenant, não global.
 
 ### Regra 5: Plano Customizado (apenas admin geral)
 - **Quando aplicar**: POST/PUT `/subscriptions` (rotas do tenant, não admin)

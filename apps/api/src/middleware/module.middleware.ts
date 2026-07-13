@@ -1,17 +1,10 @@
 import { Context, Next } from 'hono';
 import { query } from '../db/client';
 
-/**
- * Acesso aos módulos no plano Free: válido até 31/08/2026 (inclusive).
- * A partir de 01/09/2026 00:00 (America/Sao_Paulo) o tenant no Free perde acesso às funcionalidades cobertas por requireModule.
- */
-const FREE_PLAN_MODULE_ACCESS_END_MS = new Date('2026-09-01T00:00:00-03:00').getTime();
+/** Dias de trial do plano Free, contados a partir de `free_plan_started_at` (por cliente). */
+const FREE_TRIAL_DAYS = 30;
 
-function isFreePlanModuleAccessExpired(): boolean {
-  return Date.now() >= FREE_PLAN_MODULE_ACCESS_END_MS;
-}
-
-/** E-mails (separados por vírgula) que ignoram o corte do plano Free (31/05/2026). Ex.: FREE_PLAN_BYPASS_EMAILS=a@x.com,b@y.com */
+/** E-mails (separados por vírgula) que ignoram o corte do plano Free. Ex.: FREE_PLAN_BYPASS_EMAILS=a@x.com,b@y.com */
 function isFreePlanBypassEmail(email: string | undefined): boolean {
   if (!email) return false;
   const raw = process.env.FREE_PLAN_BYPASS_EMAILS;
@@ -24,10 +17,23 @@ function isFreePlanBypassEmail(email: string | undefined): boolean {
     .includes(normalized);
 }
 
+function isFreeTrialExpired(freePlanStartedAt: Date | string | null | undefined): boolean {
+  if (!freePlanStartedAt) return true;
+  const started = new Date(freePlanStartedAt);
+  if (Number.isNaN(started.getTime())) return true;
+  const trialEnd = new Date(started);
+  trialEnd.setDate(trialEnd.getDate() + FREE_TRIAL_DAYS);
+  return Date.now() >= trialEnd.getTime();
+}
+
 /**
  * Middleware para verificar se módulo está ativo.
  * Retorna 402 Payment Required se módulo não estiver ativo.
- * No plano Free, após 31/05/2026 bloqueia acesso às funcionalidades dos módulos (a partir de 01/06/2026).
+ *
+ * Plano Free: trial de 30 dias por cliente a partir de `free_plan_started_at`.
+ * Após o trial, bloqueia acesso aos módulos (402 FREE_PLAN_EXPIRED) até assinar um plano pago.
+ * A checagem do Free ocorre antes do atalho `enabled_until = NULL` (os módulos do Free
+ * são gravados com NULL no cadastro).
  *
  * Com FORCE_ALL_MODULES_ACTIVE=true no .env, a verificação é ignorada (útil para demo/apresentação).
  * Com FREE_PLAN_BYPASS_EMAILS (lista separada por vírgulas), esses usuários não são bloqueados pelo fim do período Free.
@@ -54,7 +60,37 @@ export function requireModule(moduleKey: string) {
       return;
     }
 
-    // Verificar se módulo está ativo (public.* para não depender do search_path após setTenantSchema)
+    if (!isFreePlanBypassEmail(user?.email)) {
+      const subResult = await query<{ plan_name: string; free_plan_started_at: Date | null }>(
+        `SELECT p.name AS plan_name, s.free_plan_started_at
+         FROM public.subscriptions s
+         JOIN public.plans p ON p.id = s.plan_id
+         WHERE s.company_id = $1
+         ORDER BY s.created_at DESC
+         LIMIT 1`,
+        [companyId]
+      );
+      const sub = subResult.rows[0];
+      if (sub?.plan_name === 'Free') {
+        if (isFreeTrialExpired(sub.free_plan_started_at)) {
+          return c.json(
+            {
+              error: {
+                message:
+                  'O período de teste de 30 dias do plano Free encerrou. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
+                code: 'FREE_PLAN_EXPIRED',
+              },
+            },
+            402
+          );
+        }
+        // Trial ativo: libera acesso aos módulos cobertos pelo requireModule
+        await next();
+        return;
+      }
+    }
+
+    // Planos não-Free (ou bypass): lógica padrão de tenant_modules
     const result = await query<{ id: string; enabled_until: Date | null }>(
       `SELECT tm.id, tm.enabled_until
        FROM public.tenant_modules tm
@@ -64,41 +100,14 @@ export function requireModule(moduleKey: string) {
       [companyId, moduleKey]
     );
 
-    // Módulo com enabled_until = NULL significa ativação explícita e ilimitada
-    // (ex.: EPS, planos pagos, ativações manuais). Libera sem verificar expiração do Free.
+    // Módulo com enabled_until = NULL = ativação explícita e ilimitada
+    // (ex.: EPS, planos pagos, ativações manuais).
     const hasUnlimitedAccess = result.rows.some((r) => r.enabled_until === null);
     if (hasUnlimitedAccess) {
       await next();
       return;
     }
 
-    // Se o módulo não está ativo, verificar razão (Free expirado ou simplesmente não ativo)
-    if (!isFreePlanBypassEmail(user?.email)) {
-      const subResult = await query<{ plan_name: string }>(
-        `SELECT p.name AS plan_name
-         FROM public.subscriptions s
-         JOIN public.plans p ON p.id = s.plan_id
-         WHERE s.company_id = $1
-         ORDER BY s.created_at DESC
-         LIMIT 1`,
-        [companyId]
-      );
-      const sub = subResult.rows[0];
-      if (sub?.plan_name === 'Free' && isFreePlanModuleAccessExpired()) {
-        return c.json(
-          {
-            error: {
-              message:
-                'O período de uso do plano Free encerrou em 31 de agosto de 2026. Assine um plano pago em "Meu plano" para continuar acessando as funcionalidades.',
-              code: 'FREE_PLAN_EXPIRED',
-            },
-          },
-          402
-        );
-      }
-    }
-
-    // Módulo não está ativo por nenhum critério
     if (result.rows.length === 0) {
       return c.json(
         {

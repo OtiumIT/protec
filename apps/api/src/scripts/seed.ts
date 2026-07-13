@@ -20,7 +20,7 @@ async function seed() {
         maxUsers: 1,
         price: 0,
         billingCycle: 'monthly',
-        features: ['7 dias grátis', 'Acesso a todos os módulos durante o período de teste', '1 usuário', 'Suporte por e-mail'],
+        features: ['30 dias grátis', 'Acesso a todos os módulos durante o período de teste', '1 usuário', 'Suporte por e-mail'],
       },
       {
         name: 'Standard',
