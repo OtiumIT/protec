@@ -175,7 +175,8 @@ export function SimuladorIN2306() {
   const aplicarRateioAnualReceita = useCallback(
     (field: keyof ReceitasTrimestre) => {
       const val = round2(valoresAnuaisReceita[field] ?? 0);
-      if (val <= 0) return;
+      if (val < 0) return;
+      // val === 0: zera os 4 trimestres (permite limpar rateio anterior)
       const valorTrimestral = round2(val / 4);
       setTrimestres((prev) =>
         prev.map((t) => ({
@@ -183,7 +184,11 @@ export function SimuladorIN2306() {
           [field]: valorTrimestral,
         }))
       );
-      success('Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.');
+      success(
+        val === 0
+          ? 'Trimestres zerados para este campo.'
+          : 'Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.'
+      );
     },
     [valoresAnuaisReceita, success]
   );
@@ -191,7 +196,8 @@ export function SimuladorIN2306() {
   const aplicarRateioAnualDeducoesRetencoes = useCallback(
     (field: 'pis_cofins_zero' | 'icms_destacado' | 'irrf' | 'orgaos_publicos') => {
       const val = round2(valoresAnuaisDeducoesRetencoes[field] ?? 0);
-      if (val <= 0) return;
+      if (val < 0) return;
+      // val === 0: zera os 4 trimestres (permite limpar rateio anterior)
       const valorTrimestral = round2(val / 4);
       if (field === 'pis_cofins_zero' || field === 'icms_destacado') {
         setDeducoesTrimestrais((prev) =>
@@ -202,7 +208,11 @@ export function SimuladorIN2306() {
           prev.map((r) => ({ ...r, [field]: valorTrimestral }))
         );
       }
-      success('Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.');
+      success(
+        val === 0
+          ? 'Trimestres zerados para este campo.'
+          : 'Valor anual rateado nos 4 trimestres. Ajuste manualmente se necessário.'
+      );
     },
     [valoresAnuaisDeducoesRetencoes, success]
   );

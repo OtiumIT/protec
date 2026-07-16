@@ -1496,12 +1496,19 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         </div>
 
-        {/* Memória de cálculo */}
+        {/* Memória de cálculo — recolhida por padrão */}
         {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
-          <div className={sectionCardClass}>
-            <h3 className="text-base font-semibold text-slate-800 mb-4">Memória de cálculo — 3 modelos</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+          <details className={`${sectionCardClass} group p-0 overflow-hidden`}>
+            <summary className="cursor-pointer list-none px-5 sm:px-6 py-4 flex items-center gap-2 select-none [&::-webkit-details-marker]:hidden">
+              <span className="text-slate-400 text-xs group-open:rotate-90 transition-transform" aria-hidden>
+                ▶
+              </span>
+              <span className="text-base font-semibold text-slate-800">Memória de cálculo — 3 modelos</span>
+              <span className="text-xs font-normal text-slate-500 ml-auto group-open:hidden">Clique para expandir</span>
+              <span className="text-xs font-normal text-slate-500 ml-auto hidden group-open:inline">Clique para recolher</span>
+            </summary>
+            <div className="px-5 sm:px-6 pb-5 sm:pb-6 overflow-x-auto border-t border-slate-100">
+              <table className="w-full text-xs mt-3">
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="text-left py-2 px-3 font-semibold text-slate-500 uppercase tracking-wide">Item</th>
@@ -1542,7 +1549,7 @@ export default function SimuladorGanhoCapitalImovel() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </details>
         )}
       </div>
     );
