@@ -753,15 +753,15 @@ export function SimuladorImoveis() {
     };
   }, [fillDemo1, fillDemo2CenarioIbsCbs]);
 
-  const loadClients = useCallback(async () => {
-    setIsLoadingClients(true);
+  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setIsLoadingClients(true);
     try {
       const data = await clientService.list();
       setClients(Array.isArray(data) ? data : []);
     } catch {
-      setClients([]);
+      if (!options?.silent) setClients([]);
     } finally {
-      setIsLoadingClients(false);
+      if (!options?.silent) setIsLoadingClients(false);
     }
   }, []);
 
@@ -4373,8 +4373,10 @@ export function SimuladorImoveis() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          loadClients();
+          // Inclui na lista imediatamente para o select não oscilar enquanto recarrega
+          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
+          void loadClients({ silent: true });
         }}
       />
 

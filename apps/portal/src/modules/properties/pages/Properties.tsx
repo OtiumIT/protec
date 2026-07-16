@@ -90,15 +90,15 @@ export function Properties() {
     loadProperties();
   }, [clientFilter, page]);
 
-  const loadClients = async () => {
-    setIsLoadingClients(true);
+  const loadClients = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setIsLoadingClients(true);
     try {
       const data = await clientService.list();
       setClients(data);
     } catch (err) {
       console.error('Error loading clients:', err);
     } finally {
-      setIsLoadingClients(false);
+      if (!options?.silent) setIsLoadingClients(false);
     }
   };
 
@@ -325,8 +325,9 @@ export function Properties() {
           isOpen={showClientModal}
           onClose={() => setShowClientModal(false)}
           onSuccess={(client) => {
-            loadClients();
+            setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
             setClientFilter(client.id);
+            void loadClients({ silent: true });
           }}
         />
 

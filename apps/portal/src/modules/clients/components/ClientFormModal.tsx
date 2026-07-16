@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
-import { useToast } from '../../../shared/components/ui/Toast';
 import {
   clientService,
   type ClientWithCreatedAt,
@@ -16,62 +15,107 @@ interface ClientFormModalProps {
   onSuccess: (client: ClientWithCreatedAt) => void;
 }
 
+const emptyForm = (): CreateClientData => ({
+  name: '',
+  person_type: 'pj',
+  cnpj: '',
+  cpf: '',
+  email: '',
+});
+
 export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalProps) {
-  const { error: showError } = useToast();
-  const [formData, setFormData] = useState<CreateClientData>({
-    name: '',
-    person_type: 'pj',
-    cnpj: '',
-    cpf: '',
-    email: '',
-  });
+  const [formData, setFormData] = useState<CreateClientData>(emptyForm);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData(emptyForm());
+    setFormError(null);
+    setIsSubmitting(false);
+  }, [isOpen]);
 
   const handleClose = () => {
-    setFormData({ name: '', person_type: 'pj', cnpj: '', cpf: '', email: '' });
+    if (isSubmitting) return;
+    setFormData(emptyForm());
+    setFormError(null);
     onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setFormError(null);
     const cnpjDigits = formData.cnpj ? parseDigits(formData.cnpj) : '';
     const cpfDigits = formData.cpf ? parseDigits(formData.cpf) : '';
-    if (formData.person_type === 'pj' && cnpjDigits) {
+
+    if (!formData.name.trim()) {
+      setFormError('Informe o nome do cliente.');
+      return;
+    }
+    if (formData.person_type === 'pj') {
+      if (!cnpjDigits) {
+        setFormError('Informe o CNPJ.');
+        return;
+      }
       if (cnpjDigits.length !== 14) {
-        showError('CNPJ deve ter 14 dígitos.');
+        setFormError('CNPJ deve ter 14 dígitos.');
         return;
       }
       if (!isValidCnpj(cnpjDigits)) {
-        showError('CNPJ inválido. Verifique os dígitos.');
+        setFormError('CNPJ inválido. Verifique os dígitos.');
         return;
       }
     }
-    if (formData.person_type === 'pf' && cpfDigits) {
+    if (formData.person_type === 'pf') {
+      if (!cpfDigits) {
+        setFormError('Informe o CPF.');
+        return;
+      }
       if (cpfDigits.length !== 11) {
-        showError('CPF deve ter 11 dígitos.');
+        setFormError('CPF deve ter 11 dígitos.');
         return;
       }
       if (!isValidCpf(cpfDigits)) {
-        showError('CPF inválido. Verifique os dígitos.');
+        setFormError('CPF inválido. Verifique os dígitos.');
         return;
       }
     }
+
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
-        cnpj: formData.cnpj ? parseDigits(formData.cnpj) : undefined,
-        cpf: formData.cpf ? parseDigits(formData.cpf) : undefined,
+        name: formData.name.trim(),
+        cnpj: formData.person_type === 'pj' ? cnpjDigits : undefined,
+        cpf: formData.person_type === 'pf' ? cpfDigits : undefined,
+        email: formData.email?.trim() || undefined,
       };
       const client = await clientService.create(payload);
-      handleClose();
+      setFormData(emptyForm());
+      setFormError(null);
+      onClose();
       onSuccess(client);
     } catch (err: unknown) {
-      showError(err instanceof Error ? err.message : 'Erro ao salvar cliente');
+      const message = err instanceof Error ? err.message : 'Erro ao salvar cliente';
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Novo cliente">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {formError}
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pessoa</label>
           <div className="flex gap-4">
@@ -81,7 +125,11 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
                 name="personType"
                 value="pj"
                 checked={formData.person_type === 'pj'}
-                onChange={() => setFormData({ ...formData, person_type: 'pj', cpf: '' })}
+                disabled={isSubmitting}
+                onChange={() => {
+                  setFormError(null);
+                  setFormData({ ...formData, person_type: 'pj', cpf: '' });
+                }}
                 className="rounded border-slate-300"
               />
               <span>PJ</span>
@@ -92,7 +140,11 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
                 name="personType"
                 value="pf"
                 checked={formData.person_type === 'pf'}
-                onChange={() => setFormData({ ...formData, person_type: 'pf', cnpj: '' })}
+                disabled={isSubmitting}
+                onChange={() => {
+                  setFormError(null);
+                  setFormData({ ...formData, person_type: 'pf', cnpj: '' });
+                }}
                 className="rounded border-slate-300"
               />
               <span>PF</span>
@@ -102,8 +154,12 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
         <Input
           label="Nome"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={(e) => {
+            setFormError(null);
+            setFormData({ ...formData, name: e.target.value });
+          }}
           required
+          disabled={isSubmitting}
         />
         {formData.person_type === 'pj' ? (
           <Input
@@ -111,11 +167,15 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
             value={formatCnpj(formData.cnpj ?? '')}
             onChange={(e) => {
               const raw = parseDigits(e.target.value);
-              if (raw.length <= 14) setFormData({ ...formData, cnpj: raw });
+              if (raw.length <= 14) {
+                setFormError(null);
+                setFormData({ ...formData, cnpj: raw });
+              }
             }}
             placeholder="00.000.000/0001-00"
             required
             maxLength={18}
+            disabled={isSubmitting}
           />
         ) : (
           <Input
@@ -123,24 +183,38 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
             value={formatCpf(formData.cpf ?? '')}
             onChange={(e) => {
               const raw = parseDigits(e.target.value);
-              if (raw.length <= 11) setFormData({ ...formData, cpf: raw });
+              if (raw.length <= 11) {
+                setFormError(null);
+                setFormData({ ...formData, cpf: raw });
+              }
             }}
             placeholder="000.000.000-00"
             required
             maxLength={14}
+            disabled={isSubmitting}
           />
         )}
         <Input
           label="Email"
           type="email"
           value={formData.email || ''}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={(e) => {
+            setFormError(null);
+            setFormData({ ...formData, email: e.target.value });
+          }}
+          disabled={isSubmitting}
         />
         <div className="flex space-x-3 pt-4">
-          <Button type="submit" variant="secondary" className="flex-1">
-            Criar cliente
+          <Button type="submit" variant="secondary" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting ? 'Salvando...' : 'Criar cliente'}
           </Button>
-          <Button type="button" variant="tertiary" onClick={handleClose} className="flex-1">
+          <Button
+            type="button"
+            variant="tertiary"
+            onClick={handleClose}
+            className="flex-1"
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
         </div>

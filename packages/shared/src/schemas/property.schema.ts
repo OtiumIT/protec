@@ -533,6 +533,8 @@ export const GanhoCapitalSimuladorInputSchema = z.object({
   tipoImovel: GanhoCapitalTipoImovelSchema,
   naturezaPJ: GanhoCapitalNaturezaPJSchema,
   custoPJ: gcNum,
+  /** Receita bruta já auferida no trimestre antes da venda simulada (IN RFB 2.306/2026). */
+  faturamentoTrimestreAnterior: gcNum.nonnegative().optional().default(0),
   incluirPisCofins: z.boolean(),
   ibsAno: z.number().int(),
   imovelAte2026: z.boolean(),

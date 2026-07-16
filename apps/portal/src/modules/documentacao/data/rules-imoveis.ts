@@ -787,4 +787,91 @@ export const rulesImoveis: RuleDocumentation[] = [
       },
     ],
   },
+  {
+    id: 'imoveis-venda-pj-faixas-in-2306',
+    modulo: 'simulador-imoveis',
+    nome: 'Venda de imovel pela PJ: faixas trimestrais da IN RFB 2.306/2026',
+    descricao:
+      'Na venda tratada como mercadoria ou estoque, o faturamento anterior do trimestre consome o limite de R$ 1.250.000. A parcela da venda dentro do saldo usa presuncao de 8% para IRPJ e 12% para CSLL; somente o excedente usa 8,8% e 13,2%.',
+    formula:
+      'Venda_Normal = min(Venda, max(0, 1.250.000 - Faturamento_Anterior)); Venda_Majorada = max(0, Venda - Venda_Normal)',
+    formula_explicada:
+      'A venda atual e dividida conforme o saldo do limite trimestral. IRPJ e CSLL sao calculados e demonstrados separadamente em cada faixa.',
+    embasamento_legal: [
+      {
+        norma: 'IN RFB n. 2.306/2026',
+        artigo: 'Art. 15, paragrafos 2. a 6.',
+        descricao:
+          'Regulamenta o acrescimo de 10% nos percentuais de presuncao sobre a parcela da receita que exceder o limite trimestral.',
+      },
+    ],
+    variaveis: [
+      {
+        nome: 'Faturamento_Anterior',
+        descricao: 'Receita bruta ja realizada pela PJ no trimestre antes da venda simulada',
+        tipo: 'moeda',
+      },
+      {
+        nome: 'Venda_Atual',
+        descricao: 'Receita bruta da alienacao simulada',
+        tipo: 'moeda',
+      },
+      {
+        nome: 'Limite_Trimestral',
+        descricao: 'Limite de R$ 1.250.000 para aplicacao da presuncao normal',
+        tipo: 'moeda',
+      },
+    ],
+    exemplo_numerico: {
+      titulo: 'Faturamento anterior de R$ 1 milhao e venda de R$ 600 mil',
+      dados_entrada: {
+        faturamento_anterior: 1000000,
+        venda_atual: 600000,
+        limite_trimestral: 1250000,
+      },
+      passos: [
+        {
+          ordem: 1,
+          descricao: 'Calcular o saldo da faixa normal',
+          calculo: '1.250.000 - 1.000.000',
+          resultado: 'R$ 250.000,00',
+        },
+        {
+          ordem: 2,
+          descricao: 'Separar a venda nas duas faixas',
+          calculo: 'R$ 250.000 normal e R$ 350.000 majorada',
+          resultado: 'R$ 600.000,00 distribuídos',
+        },
+        {
+          ordem: 3,
+          descricao: 'Calcular as bases de IRPJ por faixa',
+          calculo: '(250.000 x 8%) + (350.000 x 8,8%)',
+          resultado: 'R$ 50.800,00 de base IRPJ',
+        },
+      ],
+      resultado_final: {
+        faixa_normal: 'R$ 250.000,00',
+        faixa_majorada: 'R$ 350.000,00',
+        base_irpj_total: 'R$ 50.800,00',
+      },
+    },
+    observacoes: [
+      'O faturamento informado nao inclui a venda atual.',
+      'O limite anual de R$ 5 milhoes pertence ao ajuste anual e nao e usado como faixa isolada da operacao.',
+      'A tela demonstra separadamente receita, base e imposto de cada faixa.',
+    ],
+    ultima_atualizacao: '2026-07-16',
+    tags: ['ganho-de-capital', 'pj', 'lucro-presumido', 'irpj', 'csll', 'in-2306'],
+    vigencia: {
+      inicio: '2026-01-01',
+      observacao: 'Aplicacao conforme a vigencia da IN RFB n. 2.306/2026.',
+    },
+    alertas: [
+      {
+        tipo: 'atencao',
+        mensagem:
+          'O ajuste anual previsto na IN RFB n. 2.306/2026 nao e recalculado nesta simulacao isolada de venda.',
+      },
+    ],
+  },
 ];

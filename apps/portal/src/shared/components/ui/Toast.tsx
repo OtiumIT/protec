@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -71,6 +71,7 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
       <div className={iconStyles[type]}>{icons[type]}</div>
       <p className="flex-1 text-sm font-medium">{message}</p>
       <button
+        type="button"
         onClick={() => {
           setIsVisible(false);
           setTimeout(onClose, 300);
@@ -81,6 +82,27 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+function ToastItem({
+  id,
+  message,
+  type,
+  onRemove,
+  top,
+}: {
+  id: string;
+  message: string;
+  type: ToastType;
+  onRemove: (id: string) => void;
+  top: number;
+}) {
+  const handleClose = useCallback(() => onRemove(id), [id, onRemove]);
+  return (
+    <div style={{ top: `${top}px` }} className="fixed right-4 z-[100]">
+      <Toast message={message} type={type} onClose={handleClose} />
     </div>
   );
 }
@@ -98,19 +120,26 @@ export function useToast() {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const ToastContainer = () => (
-    <>
-      {toasts.map((toast, index) => (
-        <div key={toast.id} style={{ top: `${4 + index * 80}px` }} className="fixed right-4 z-[100]">
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
-        </div>
-      ))}
-    </>
-  );
+  // Identidade estável entre re-renders do pai (evita remount/oscilação dos toasts)
+  const ToastContainer = useMemo(() => {
+    function ToastContainerInner() {
+      return (
+        <>
+          {toasts.map((toast, index) => (
+            <ToastItem
+              key={toast.id}
+              id={toast.id}
+              message={toast.message}
+              type={toast.type}
+              onRemove={removeToast}
+              top={4 + index * 80}
+            />
+          ))}
+        </>
+      );
+    }
+    return ToastContainerInner;
+  }, [toasts, removeToast]);
 
   const success = useCallback((message: string) => showToast(message, 'success'), [showToast]);
   const error = useCallback((message: string) => showToast(message, 'error'), [showToast]);

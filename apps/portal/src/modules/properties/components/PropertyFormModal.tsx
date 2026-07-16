@@ -3,7 +3,6 @@ import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
-import { useToast } from '../../../shared/components/ui/Toast';
 import { propertyService } from '../services/property.service';
 import type { PropertyWithClient } from '../services/property.service';
 import type { ClientWithCreatedAt } from '../../clients/services/client.service';
@@ -23,7 +22,8 @@ export function PropertyFormModal({
   clients,
   defaultClientId = '',
 }: PropertyFormModalProps) {
-  const { error: showError } = useToast();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [formData, setFormData] = useState({
     client_id: defaultClientId,
@@ -58,6 +58,10 @@ export function PropertyFormModal({
     if (isOpen && defaultClientId) {
       setFormData((prev) => ({ ...prev, client_id: defaultClientId }));
     }
+    if (isOpen) {
+      setFormError(null);
+      setIsSubmitting(false);
+    }
   }, [isOpen, defaultClientId]);
 
   useEffect(() => {
@@ -67,6 +71,7 @@ export function PropertyFormModal({
   }, [isOpen, clients, formData.client_id]);
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setFormData({
       client_id: defaultClientId,
       tipo_locacao: 'fixa',
@@ -95,16 +100,28 @@ export function PropertyFormModal({
       vacancia_mensal_padrao: 0,
       inadimplencia_mensal_padrao: 0,
     });
+    setFormError(null);
     onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setFormError(null);
+    if (!formData.client_id) {
+      setFormError('Selecione o cliente na tela anterior para cadastrar o imóvel.');
+      return;
+    }
+    if (!formData.identificador.trim()) {
+      setFormError('Informe a descrição do imóvel.');
+      return;
+    }
+    setIsSubmitting(true);
     try {
       const property = await propertyService.create({
         client_id: formData.client_id,
         tipo_locacao: formData.tipo_locacao,
-        identificador: formData.identificador,
+        identificador: formData.identificador.trim(),
         modo_entrada: formData.modo_entrada,
         matricula_imovel: formData.matricula_imovel || undefined,
         inscricao_iptu: formData.inscricao_iptu || undefined,
@@ -129,10 +146,13 @@ export function PropertyFormModal({
         vacancia_mensal_padrao: formData.vacancia_mensal_padrao || undefined,
         inadimplencia_mensal_padrao: formData.inadimplencia_mensal_padrao || undefined,
       });
-      handleClose();
+      setFormError(null);
+      onClose();
       onSuccess(property as PropertyWithClient);
     } catch (err: unknown) {
-      showError(err instanceof Error ? err.message : 'Erro ao salvar imóvel');
+      setFormError(err instanceof Error ? err.message : 'Erro ao salvar imóvel');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -187,6 +207,14 @@ export function PropertyFormModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Novo imóvel" size="xl">
       <form onSubmit={handleSubmit} className="space-y-5">
+        {formError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {formError}
+          </div>
+        )}
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
             <p className="text-sm font-semibold text-slate-800">Informações gerais</p>
@@ -261,8 +289,12 @@ export function PropertyFormModal({
         </section>
 
         <div className="flex space-x-3 pt-2">
-          <Button type="submit" variant="secondary" className="flex-1" disabled={!formData.client_id}>Criar</Button>
-          <Button type="button" variant="tertiary" onClick={handleClose} className="flex-1">Cancelar</Button>
+          <Button type="submit" variant="secondary" className="flex-1" disabled={!formData.client_id || isSubmitting}>
+            {isSubmitting ? 'Salvando...' : 'Criar'}
+          </Button>
+          <Button type="button" variant="tertiary" onClick={handleClose} className="flex-1" disabled={isSubmitting}>
+            Cancelar
+          </Button>
         </div>
       </form>
     </Modal>

@@ -26,6 +26,16 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - Não há seleção exclusiva de “natureza na PJ” na UI; o campo `naturezaPJ` no snapshot permanece apenas para compatibilidade de persistência.
 - Aba IBS/CBS também compara os três modelos antes e depois da Reforma.
 
+### Regra 0.3: Venda por PJ mercadoria — faturamento trimestral (IN RFB 2.306/2026)
+
+- O usuário informa o faturamento bruto já realizado no trimestre **antes** da venda simulada.
+- A venda atual consome primeiro o saldo do limite trimestral de **R$ 1.250.000**.
+- Na parcela da venda dentro do limite, a presunção é de 8% para IRPJ e 12% para CSLL.
+- Somente a parcela da venda que exceder o saldo do limite usa a presunção majorada em 10%: 8,8% para IRPJ e 13,2% para CSLL.
+- O limite anual de R$ 5 milhões pertence ao ajuste anual da IN e não é tratado como faixa isolada da venda nesta tela.
+- A memória demonstra separadamente receita, base, IRPJ de 15% e CSLL de 9% em cada faixa, além do adicional de IRPJ de 10% sobre a base presumida desta venda que exceder R$ 60.000.
+- `faturamentoTrimestreAnterior` é opcional no snapshot e assume zero para manter compatibilidade com simulações antigas.
+
 ### Regra 1: Isolamento Multitenant
 
 - **Quando aplicar**: Todas as operações

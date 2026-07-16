@@ -113,16 +113,18 @@ export function SimuladorDistribuicaoLucros() {
   const [appKey, setAppKey] = useState<AppKey>('cdb_pre');
   const [chartTab, setChartTab] = useState<ChartTab>(1);
 
-  const loadClients = useCallback(async () => {
-    setIsLoadingClients(true);
+  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setIsLoadingClients(true);
     try {
       const list = await clientService.list();
       setClients(Array.isArray(list) ? list : []);
     } catch (e) {
-      showError(e instanceof Error ? e.message : 'Erro ao carregar clientes');
-      setClients([]);
+      if (!options?.silent) {
+        showError(e instanceof Error ? e.message : 'Erro ao carregar clientes');
+        setClients([]);
+      }
     } finally {
-      setIsLoadingClients(false);
+      if (!options?.silent) setIsLoadingClients(false);
     }
   }, [showError]);
 
@@ -906,8 +908,9 @@ export function SimuladorDistribuicaoLucros() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          void loadClients();
+          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
+          void loadClients({ silent: true });
         }}
       />
     </>

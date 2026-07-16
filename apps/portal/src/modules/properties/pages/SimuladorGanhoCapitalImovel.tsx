@@ -57,8 +57,8 @@ const IBS_PLENA_PCT = 9.5;
 const REDUTOR_IMOVEL_NOVO_NOMINAL = 100_000;
 const REDUTOR_LOTE_NOMINAL = 30_000;
 
-// Limite para acréscimo de 10% na presunção (IN 2.306/2026)
-const LIMITE_RECEITA_ACRESCIMO_PRESUNCAO = 5_000_000;
+// Limite trimestral para acréscimo de 10% na presunção (IN RFB 2.306/2026)
+const LIMITE_TRIMESTRAL_ACRESCIMO_PRESUNCAO = 1_250_000;
 
 type TabId = GanhoCapitalTabId;
 type TipoImovel = 'imovel_construido' | 'lote_residencial' | 'imovel_rural';
@@ -197,7 +197,7 @@ function calcRuralPF(params: {
       fmtBRL(venda_benf) +
       ' = ' +
       fmtBRL(ar.base) +
-      (irpf_benf === 0 ? ' — isento' : ' → IRPF ' + fmtBRL(irpf_benf) + ' (' + aliqEf.toFixed(2) + '% s/ receita)');
+      (irpf_benf === 0 ? ' — isento' : ' → IRPF ' + fmtBRL(irpf_benf) + ' (' + aliqEf.toFixed(2) + '% sobre receita)');
   } else {
     const red18 = getReducaoArt18(anoAq);
     const fr1 = calcFR1(dtAq);
@@ -234,18 +234,53 @@ function calcRuralPJ(vtn_aq: number, vtn_al: number, venda_benf: number, custo_b
   return { gc_terra, gc_benf, ganho, irpj, csll, total: irpj + csll, adicional };
 }
 
-function calcPJMercadoria(receita: number) {
-  const aplicarAcrescimoPresuncao = receita > LIMITE_RECEITA_ACRESCIMO_PRESUNCAO;
-  const presuncaoIrpj = aplicarAcrescimoPresuncao ? 0.088 : 0.08;
-  const presuncaoCsll = aplicarAcrescimoPresuncao ? 0.132 : 0.12;
-  const baseirpj = receita * presuncaoIrpj;
-  const basecsll = receita * presuncaoCsll;
+function calcPJMercadoria(receita: number, faturamentoTrimestreAnterior: number) {
+  const receitaVenda = Math.max(0, receita);
+  const faturamentoAnterior = Math.max(0, faturamentoTrimestreAnterior);
+  const saldoFaixaNormal = Math.max(
+    0,
+    LIMITE_TRIMESTRAL_ACRESCIMO_PRESUNCAO - faturamentoAnterior
+  );
+  const receitaFaixaNormal = Math.min(receitaVenda, saldoFaixaNormal);
+  const receitaFaixaMajorada = Math.max(0, receitaVenda - receitaFaixaNormal);
+  const baseIrpjNormal = receitaFaixaNormal * 0.08;
+  const baseIrpjMajorada = receitaFaixaMajorada * 0.088;
+  const baseCsllNormal = receitaFaixaNormal * 0.12;
+  const baseCsllMajorada = receitaFaixaMajorada * 0.132;
+  const baseirpj = baseIrpjNormal + baseIrpjMajorada;
+  const basecsll = baseCsllNormal + baseCsllMajorada;
+  const irpj15Normal = baseIrpjNormal * 0.15;
+  const irpj15Majorado = baseIrpjMajorada * 0.15;
   const adicional = Math.max(0, baseirpj - 60_000) * 0.1;
-  const irpj = baseirpj * 0.15 + adicional;
-  const csll = basecsll * 0.09;
-  const pis = receita * 0.0065;
-  const cofins = receita * 0.03;
-  return { irpj, csll, pis, cofins, total: irpj + csll + pis + cofins, baseirpj, basecsll, adicional, aplicarAcrescimoPresuncao };
+  const irpj = irpj15Normal + irpj15Majorado + adicional;
+  const csllNormal = baseCsllNormal * 0.09;
+  const csllMajorada = baseCsllMajorada * 0.09;
+  const csll = csllNormal + csllMajorada;
+  const pis = receitaVenda * 0.0065;
+  const cofins = receitaVenda * 0.03;
+  return {
+    irpj,
+    csll,
+    pis,
+    cofins,
+    total: irpj + csll + pis + cofins,
+    baseirpj,
+    basecsll,
+    adicional,
+    aplicarAcrescimoPresuncao: receitaFaixaMajorada > 0,
+    faturamentoAnterior,
+    faturamentoAcumulado: faturamentoAnterior + receitaVenda,
+    receitaFaixaNormal,
+    receitaFaixaMajorada,
+    baseIrpjNormal,
+    baseIrpjMajorada,
+    baseCsllNormal,
+    baseCsllMajorada,
+    irpj15Normal,
+    irpj15Majorado,
+    csllNormal,
+    csllMajorada,
+  };
 }
 
 function calcPJAtivo(receita: number, custoPJ: number) {
@@ -257,8 +292,13 @@ function calcPJAtivo(receita: number, custoPJ: number) {
   return { irpj, csll, pis: 0, cofins: 0, total: irpj + csll, ganho, baseirpj: ganho, basecsll: ganho, adicional };
 }
 
-function calcPJMercadoriaReforma(receita: number, cbsEf: number, ibsEf: number) {
-  const base = calcPJMercadoria(receita);
+function calcPJMercadoriaReforma(
+  receita: number,
+  faturamentoTrimestreAnterior: number,
+  cbsEf: number,
+  ibsEf: number
+) {
+  const base = calcPJMercadoria(receita, faturamentoTrimestreAnterior);
   const cbs = (receita * cbsEf) / 100;
   const ibs = (receita * ibsEf) / 100;
   return { ...base, cbs, ibs, pis: 0, cofins: 0, total: base.irpj + base.csll + cbs + ibs };
@@ -536,6 +576,7 @@ export default function SimuladorGanhoCapitalImovel() {
   const [tipoImovel, setTipoImovel] = useState<TipoImovel>('imovel_construido');
   const [naturezaPJ, setNaturezaPJ] = useState<NaturezaPJ>('ativo');
   const [custoPJ, setCustoPJ] = useState(0);
+  const [faturamentoTrimestreAnterior, setFaturamentoTrimestreAnterior] = useState(0);
   const [incluirPisCofins, setIncluirPisCofins] = useState(true);
 
   // Inputs — IBS/CBS
@@ -621,10 +662,13 @@ export default function SimuladorGanhoCapitalImovel() {
 
   // ===== CÁLCULO PJ (sempre mercadoria + ativo — comparativo dos 3 modelos com a PF) =====
   const resultPJ = useMemo(() => {
-    const merc = withOptionalPisCofins(calcPJMercadoria(venda), incluirPisCofins);
+    const merc = withOptionalPisCofins(
+      calcPJMercadoria(venda, faturamentoTrimestreAnterior),
+      incluirPisCofins
+    );
     const ativo = withOptionalPisCofins(calcPJAtivo(venda, custoPJ), incluirPisCofins);
     return { merc, ativo };
-  }, [venda, custoPJ, incluirPisCofins]);
+  }, [venda, custoPJ, faturamentoTrimestreAnterior, incluirPisCofins]);
 
   // ===== CÁLCULO IMÓVEL RURAL (VTN + benfeitorias) =====
   const resultRural = useMemo(() => {
@@ -715,7 +759,12 @@ export default function SimuladorGanhoCapitalImovel() {
     // PJ reforma
     const cbsPJ = CBS_PLENA_PCT * trans.cbs;
     const ibsPJ = trans.ibsEfetivaPct ?? (IBS_PLENA_PCT * trans.ibs);
-    const pjMercReforma = calcPJMercadoriaReforma(venda, cbsPJ, ibsPJ);
+    const pjMercReforma = calcPJMercadoriaReforma(
+      venda,
+      faturamentoTrimestreAnterior,
+      cbsPJ,
+      ibsPJ
+    );
     const pjAtivoReforma = calcPJAtivoReforma(venda, custoPJ, cbsPJ, ibsPJ);
 
     return {
@@ -729,7 +778,7 @@ export default function SimuladorGanhoCapitalImovel() {
     };
   }, [
     ibsAno, imovelAte2026, redutorTipo, valorRefIBS, correcaoPctEfetiva,
-    venda, custo, custoPJ, tipoImovel,
+    venda, custo, custoPJ, faturamentoTrimestreAnterior, tipoImovel,
     vendeuMaisDeTresOuConstruiuMaisDeUmNoAnoAnterior,
     vendeuNoAnoAtualExcedendoLimitesDoAnoAnterior,
     redutorImóvelNovoCor, redutorLoteCor, fatorRedutoresLc214,
@@ -782,6 +831,7 @@ export default function SimuladorGanhoCapitalImovel() {
       tipoImovel,
       naturezaPJ,
       custoPJ,
+      faturamentoTrimestreAnterior,
       incluirPisCofins,
       ibsAno,
       imovelAte2026,
@@ -819,6 +869,7 @@ export default function SimuladorGanhoCapitalImovel() {
     tipoImovel,
     naturezaPJ,
     custoPJ,
+    faturamentoTrimestreAnterior,
     incluirPisCofins,
     ibsAno,
     imovelAte2026,
@@ -1008,6 +1059,7 @@ export default function SimuladorGanhoCapitalImovel() {
       setTipoImovel(inp.tipoImovel);
       setNaturezaPJ(inp.naturezaPJ);
       setCustoPJ(inp.custoPJ);
+      setFaturamentoTrimestreAnterior(inp.faturamentoTrimestreAnterior ?? 0);
       setIncluirPisCofins(inp.incluirPisCofins);
       setIbsAno(inp.ibsAno);
       setImovelAte2026(inp.imovelAte2026);
@@ -1065,6 +1117,7 @@ export default function SimuladorGanhoCapitalImovel() {
     setTipoImovel('imovel_construido');
     setNaturezaPJ('ativo');
     setCustoPJ(0);
+    setFaturamentoTrimestreAnterior(0);
     setIncluirPisCofins(true);
     setIbsAno(2027);
     setImovelAte2026(true);
@@ -1122,13 +1175,23 @@ export default function SimuladorGanhoCapitalImovel() {
               <option value="imovel_rural">Imóvel rural</option>
             </SelectField>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <MoneyField label="Custo de aquisição PJ (valor contábil)" value={custoPJ} onChange={setCustoPJ} />
+            <MoneyField
+              label="Qual seu faturamento no trimestre atual?"
+              value={faturamentoTrimestreAnterior}
+              onChange={setFaturamentoTrimestreAnterior}
+            />
             <SelectField label="Tributos PJ a considerar" value={incluirPisCofins ? 'sim' : 'nao'} onChange={v => setIncluirPisCofins(v === 'sim')}>
               <option value="sim">IRPJ + CSLL + PIS + COFINS</option>
               <option value="nao">Somente IRPJ + CSLL</option>
             </SelectField>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Informe o faturamento bruto já realizado pela PJ neste trimestre, antes desta venda.
+            O saldo até R$ 1.250.000 usa a presunção normal; a parcela excedente desta venda usa
+            os percentuais majorados da IN RFB 2.306/2026.
+          </p>
           <p className="mt-2 text-xs text-slate-500">
             Os três modelos (PF, PJ mercadoria/estoque e PJ ativo imobilizado) são calculados juntos no comparativo abaixo — sem necessidade de escolher a natureza na PJ.
           </p>
@@ -1218,7 +1281,7 @@ export default function SimuladorGanhoCapitalImovel() {
                     value={fmtBRL(resultRural.pf.gc_terra_trib)}
                     color="blue"
                   />
-                  <Metric label="IRPF s/ GC terra nua" value={fmtBRL(resultRural.pf.irpf_terra_total)} color="red" />
+                  <Metric label="IRPF sobre GC terra nua" value={fmtBRL(resultRural.pf.irpf_terra_total)} color="red" />
                   <Metric
                     label="Tratamento das benfeitorias"
                     value={ruralVendaBenf > 0 ? 'Ver texto abaixo' : 'Sem benfeitorias informadas'}
@@ -1239,16 +1302,16 @@ export default function SimuladorGanhoCapitalImovel() {
                     }
                   />
                   <Metric
-                    label="IRPF s/ benfeitorias"
+                    label="IRPF sobre benfeitorias"
                     value={ruralVendaBenf > 0 ? fmtBRL(resultRural.pf.irpf_benf) : '—'}
                     color="red"
                   />
                   <Metric label="IRPF total (terra + benfeitorias)" value={fmtBRL(resultRural.pf.irpf_total)} color="red" />
                   <Metric
-                    label="Carga total PF s/ referência"
+                    label="Carga total PF sobre referência"
                     value={
                       resultRural.vendaRef > 0
-                        ? fmtPct((resultRural.pf.irpf_total / resultRural.vendaRef) * 100) + ' s/ (VTN_al + venda benf.)'
+                        ? fmtPct((resultRural.pf.irpf_total / resultRural.vendaRef) * 100) + ' sobre (VTN_al + venda benf.)'
                         : '—'
                     }
                   />
@@ -1275,10 +1338,10 @@ export default function SimuladorGanhoCapitalImovel() {
                   <Metric label="GC benfeitorias PJ (venda − custo PJ)" value={ruralVendaBenf > 0 ? fmtBRL(resultRural.pj.gc_benf) : '—'} />
                   <Metric label="Ganho de capital PJ total" value={fmtBRL(resultRural.pj.ganho)} color="blue" />
                   <Metric
-                    label="Carga PJ s/ referência"
+                    label="Carga PJ sobre referência"
                     value={
                       resultRural.vendaRef > 0
-                        ? fmtPct((resultRural.pj.total / resultRural.vendaRef) * 100) + ' s/ (VTN_al + venda benf.)'
+                        ? fmtPct((resultRural.pj.total / resultRural.vendaRef) * 100) + ' sobre (VTN_al + venda benf.)'
                         : '—'
                     }
                   />
@@ -1349,7 +1412,7 @@ export default function SimuladorGanhoCapitalImovel() {
                         {fmtBRL(row.total)}
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {venda > 0 ? `${fmtPct((row.total / venda) * 100)} s/ venda` : '—'}
+                        {venda > 0 ? `${fmtPct((row.total / venda) * 100)} sobre venda` : '—'}
                       </div>
                     </div>
                   ))}
@@ -1395,9 +1458,9 @@ export default function SimuladorGanhoCapitalImovel() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Metric label="Total IRPF" value={fmtBRL(r.ir.total)} color="red" />
-                <Metric label="Alíquota efetiva s/ ganho bruto" value={fmtPct(r.gcBruto > 0 ? (r.ir.total / r.gcBruto) * 100 : 0)} color="red" />
+                <Metric label="Alíquota efetiva sobre ganho bruto" value={fmtPct(r.gcBruto > 0 ? (r.ir.total / r.gcBruto) * 100 : 0)} color="red" />
                 <Metric
-                  label="Carga s/ valor de venda"
+                  label="Carga sobre valor de venda"
                   value={venda > 0 ? fmtPct((r.ir.total / venda) * 100) : '—'}
                 />
                 <Metric label="Líquido PF pós-IR" value={fmtBRL(venda - r.ir.total - custo - despesas)} color="green" />
@@ -1409,19 +1472,71 @@ export default function SimuladorGanhoCapitalImovel() {
         {/* Resultado PJ — Mercadoria / Estoque */}
         <div className={sectionCardClass}>
           <h3 className="text-base font-semibold text-slate-800 mb-4">2. PJ Lucro Presumido — Mercadoria / Estoque</h3>
-          <p className="text-xs text-slate-500 mb-3">Base = receita bruta da alienação (atividade imobiliária). Presunção IRPJ 8% / CSLL 12% (+10% se receita &gt; R$ 5 mi).</p>
+          <p className="text-xs text-slate-500 mb-3">
+            A venda é somada ao faturamento já realizado no trimestre. O saldo até R$ 1.250.000
+            usa presunção IRPJ 8% / CSLL 12%; a parcela excedente usa 8,8% / 13,2%.
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-            <Metric label="Base: receita bruta" value={fmtBRL(venda)} />
-            <Metric label="Lucro presumido (IRPJ)" value={fmtBRL(pj.merc.baseirpj)} />
-            <Metric label="IRPJ (15% + adicional)" value={fmtBRL(pj.merc.irpj)} color="red" />
-            <Metric label="CSLL" value={fmtBRL(pj.merc.csll)} color="red" />
+            <Metric label="Faturamento anterior no trimestre" value={fmtBRL(pj.merc.faturamentoAnterior)} />
+            <Metric label="Venda atual" value={fmtBRL(venda)} />
+            <Metric label="Faturamento trimestral acumulado" value={fmtBRL(pj.merc.faturamentoAcumulado)} />
+            <Metric label="Limite trimestral" value={fmtBRL(LIMITE_TRIMESTRAL_ACRESCIMO_PRESUNCAO)} />
+          </div>
+          {pj.merc.aplicarAcrescimoPresuncao && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              IN RFB 2.306/2026: {fmtBRL(pj.merc.receitaFaixaMajorada)} desta venda ficou acima
+              do limite trimestral e recebeu o acréscimo de 10% nos percentuais de presunção.
+            </div>
+          )}
+          <div className="overflow-x-auto mb-3 rounded-lg border border-slate-200">
+            <table className="w-full min-w-[760px] text-xs">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="text-left px-3 py-2">Faixa da venda</th>
+                  <th className="text-right px-3 py-2">Receita</th>
+                  <th className="text-right px-3 py-2">Base IRPJ</th>
+                  <th className="text-right px-3 py-2">IRPJ 15%</th>
+                  <th className="text-right px-3 py-2">Base CSLL</th>
+                  <th className="text-right px-3 py-2">CSLL 9%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr>
+                  <td className="px-3 py-2 font-medium text-slate-700">Normal — IRPJ 8% / CSLL 12%</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.receitaFaixaNormal)}</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.baseIrpjNormal)}</td>
+                  <td className="px-3 py-2 text-right text-rose-700">{fmtBRL(pj.merc.irpj15Normal)}</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.baseCsllNormal)}</td>
+                  <td className="px-3 py-2 text-right text-rose-700">{fmtBRL(pj.merc.csllNormal)}</td>
+                </tr>
+                <tr className="bg-amber-50/50">
+                  <td className="px-3 py-2 font-medium text-slate-700">Majorada — IRPJ 8,8% / CSLL 13,2%</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.receitaFaixaMajorada)}</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.baseIrpjMajorada)}</td>
+                  <td className="px-3 py-2 text-right text-rose-700">{fmtBRL(pj.merc.irpj15Majorado)}</td>
+                  <td className="px-3 py-2 text-right">{fmtBRL(pj.merc.baseCsllMajorada)}</td>
+                  <td className="px-3 py-2 text-right text-rose-700">{fmtBRL(pj.merc.csllMajorada)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Composição do IRPJ desta venda
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Metric label="IRPJ 15% — faixa normal" value={fmtBRL(pj.merc.irpj15Normal)} />
+              <Metric label="IRPJ 15% — faixa majorada" value={fmtBRL(pj.merc.irpj15Majorado)} />
+              <Metric label="Adicional IRPJ 10%" value={fmtBRL(pj.merc.adicional)} />
+              <Metric label="IRPJ total" value={fmtBRL(pj.merc.irpj)} color="red" />
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
             <Metric label="PIS (0,65%)" value={incluirPisCofins ? fmtBRL(pj.merc.pis) : 'Não incluído'} />
             <Metric label="COFINS (3%)" value={incluirPisCofins ? fmtBRL(pj.merc.cofins) : 'Não incluído'} />
             <Metric label="Total tributos PJ" value={fmtBRL(pj.merc.total)} color="red" />
             <Metric
-              label="Alíquota efetiva s/ venda"
+              label="Alíquota efetiva sobre venda"
               value={venda > 0 ? fmtPct((pj.merc.total / venda) * 100) : '—'}
               color="red"
             />
@@ -1466,7 +1581,7 @@ export default function SimuladorGanhoCapitalImovel() {
             <Metric label="COFINS" value="Não incide" />
             <Metric label="Total tributos PJ" value={fmtBRL(pj.ativo.total)} color="red" />
             <Metric
-              label="Alíquota efetiva s/ venda"
+              label="Alíquota efetiva sobre venda"
               value={venda > 0 ? fmtPct((pj.ativo.total / venda) * 100) : '—'}
               color="red"
             />
@@ -1520,20 +1635,27 @@ export default function SimuladorGanhoCapitalImovel() {
                 <tbody className="divide-y divide-slate-100">
                   {[
                     ['Valor de alienação', fmtBRL(venda), fmtBRL(venda), fmtBRL(venda)],
+                    ['Faturamento anterior no trimestre', '—', fmtBRL(pj.merc.faturamentoAnterior), '—'],
+                    ['Faturamento trimestral acumulado', '—', fmtBRL(pj.merc.faturamentoAcumulado), '—'],
+                    ['Venda na faixa normal (8% / 12%)', '—', fmtBRL(pj.merc.receitaFaixaNormal), '—'],
+                    ['Venda na faixa majorada (8,8% / 13,2%)', '—', fmtBRL(pj.merc.receitaFaixaMajorada), '—'],
                     ['(-) Custo / custo contábil', fmtBRL(custo + despesas), `${fmtBRL(custoPJ)} (contábil)`, `${fmtBRL(custoPJ)} (contábil)`],
                     ['= Ganho bruto / base', fmtBRL(r.gcBruto), fmtBRL(venda) + ' (receita)', fmtBRL(venda - custoPJ) + ' (ganho cap.)'],
                     ['(-) Redução art. 18 L. 7.713', r.red18pct > 0 ? `−${r.red18pct}% → ${fmtBRL(r.gcApos18)}` : 'N/A (aq. após 1988)', '—', '—'],
                     ['(×) FR1', `FR1 = ${r.fr1.toFixed(6)}`, '—', '—'],
                     ['(×) FR2', `FR2 = ${r.fr2.toFixed(6)}`, '—', '—'],
                     ['= Base tributável', fmtBRL(r.gcTrib), `${fmtBRL(pj.merc.baseirpj)} (IRPJ)`, `${fmtBRL(pj.ativo.baseirpj)} (ganho)`],
+                    ['IRPJ 15% — faixa normal', '—', fmtBRL(pj.merc.irpj15Normal), '—'],
+                    ['IRPJ 15% — faixa majorada', '—', fmtBRL(pj.merc.irpj15Majorado), '—'],
+                    ['Adicional IRPJ 10%', '—', fmtBRL(pj.merc.adicional), fmtBRL(pj.ativo.adicional)],
                     ['IRPJ / IRPF (15–22,5%)', fmtBRL(r.ir.total), fmtBRL(pj.merc.irpj), fmtBRL(pj.ativo.irpj)],
                     ['CSLL', '—', fmtBRL(pj.merc.csll), fmtBRL(pj.ativo.csll)],
                     ['PIS (0,65%)', '—', incluirPisCofins ? fmtBRL(pj.merc.pis) : 'Não incluído', 'Não incide'],
                     ['COFINS (3%)', '—', incluirPisCofins ? fmtBRL(pj.merc.cofins) : 'Não incluído', 'Não incide'],
                     ['TOTAL tributos', fmtBRL(r.ir.total), fmtBRL(pj.merc.total), fmtBRL(pj.ativo.total)],
-                    ['Carga s/ venda', fmtPct(venda > 0 ? (r.ir.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.merc.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.ativo.total / venda) * 100 : 0)],
+                    ['Carga sobre venda', fmtPct(venda > 0 ? (r.ir.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.merc.total / venda) * 100 : 0), fmtPct(venda > 0 ? (pj.ativo.total / venda) * 100 : 0)],
                     [
-                      'Carga s/ ganho bruto',
+                      'Carga sobre ganho bruto',
                       r.gcBruto > 0 ? fmtPct((r.ir.total / r.gcBruto) * 100) : '—',
                       r.gcBruto > 0 ? fmtPct((pj.merc.total / r.gcBruto) * 100) : '—',
                       r.gcBruto > 0 ? fmtPct((pj.ativo.total / r.gcBruto) * 100) : '—',
@@ -1766,7 +1888,7 @@ export default function SimuladorGanhoCapitalImovel() {
             <Metric label="CBS devida (PF)" value={fmtBRL(ib.cbsDev)} color="red" />
             <Metric label="IBS devido (PF)" value={fmtBRL(ib.ibsDev)} color="red" />
             <Metric label="Total IBS+CBS (PF)" value={fmtBRL(ib.totalDev)} color="red" />
-            <Metric label="Carga IBS/CBS s/ venda" value={venda > 0 ? fmtPct((ib.totalDev / venda) * 100) : '—'} />
+            <Metric label="Carga IBS/CBS sobre venda" value={venda > 0 ? fmtPct((ib.totalDev / venda) * 100) : '—'} />
           </div>
         </div>
 
@@ -1815,7 +1937,7 @@ export default function SimuladorGanhoCapitalImovel() {
                   ['IBS', '—', fmtBRL(ib.ibsDev), '—', fmtBRL(mercDepois.ibs ?? 0), '—', fmtBRL(ativoDepois.ibs ?? 0)],
                   ['TOTAL tributos', fmtBRL(pfAntes), fmtBRL(pfDepois), fmtBRL(mercAntes.total), fmtBRL(mercDepois.total), fmtBRL(ativoAntes.total), fmtBRL(ativoDepois.total)],
                   [
-                    'Carga s/ venda',
+                    'Carga sobre venda',
                     venda > 0 ? fmtPct((pfAntes / venda) * 100) : '—',
                     venda > 0 ? fmtPct((pfDepois / venda) * 100) : '—',
                     venda > 0 ? fmtPct((mercAntes.total / venda) * 100) : '—',
@@ -1846,7 +1968,7 @@ export default function SimuladorGanhoCapitalImovel() {
             <div className="text-xs text-slate-700 space-x-4">
               {cenarios.map((c, i) => (
                 <span key={i} className="mr-4">
-                  <strong>{i + 1}º</strong> {c.label} — {fmtBRL(c.v)} ({venda > 0 ? fmtPct((c.v / venda) * 100) : '—'} s/ venda)
+                  <strong>{i + 1}º</strong> {c.label} — {fmtBRL(c.v)} ({venda > 0 ? fmtPct((c.v / venda) * 100) : '—'} sobre venda)
                 </span>
               ))}
             </div>
@@ -1965,11 +2087,11 @@ export default function SimuladorGanhoCapitalImovel() {
                 {[
                   ['Base de incidência', 'Ganho de capital líquido (após reduções)', 'Receita bruta de venda', 'Ganho de capital (venda − custo contábil)'],
                   ['Percentual de presunção', 'N/A', '8% (IRPJ) / 12% (CSLL)', '100% do ganho (IRPJ/CSLL direto)'],
-                  ['IRPJ / IRPF', '15% a 22,5% progressivo (L. 13.259/16)', '15% + adicional 10% s/ LP > R$ 20k/mês', '15% + adicional 10% s/ GC > R$ 60k/trim.'],
+                  ['IRPJ / IRPF', '15% a 22,5% progressivo (L. 13.259/16)', '15% + adicional 10% sobre LP > R$ 20k/mês', '15% + adicional 10% sobre GC > R$ 60k/trim.'],
                   ['CSLL', 'Não incide', '9% sobre presunção (12%)', '9% sobre 100% do ganho'],
                   ['PIS', 'Não incide', '0,65% sobre receita', 'Não incide (ganho de capital)'],
                   ['COFINS', 'Não incide', '3% sobre receita', 'Não incide (ganho de capital)'],
-                  ['Carga total estimada s/ receita', 'Variável (ver simulador)', '~6,73% a ~7,23%', '~34% s/ ganho de capital'],
+                  ['Carga total estimada sobre receita', 'Variável (ver simulador)', '~6,73% a ~7,23%', '~34% sobre ganho de capital'],
                   ['Reduções / Benefícios', 'Art. 18 L. 7.713 + FR1/FR2 L. 11.196', 'Nenhuma redução de base', 'Nenhuma redução de base'],
                   ['Isenções aplicáveis', 'Imóvel único < R$440k; reaplicação 180d; GC < R$20k/mês', 'Não se aplicam', 'Não se aplicam'],
                   ['Momento do recolhimento', 'DARF até último dia útil do mês seguinte', 'Trimestral', 'Trimestral'],
@@ -1996,7 +2118,8 @@ export default function SimuladorGanhoCapitalImovel() {
         <div className={sectionCardClass}>
           <h3 className="text-base font-semibold text-slate-800 mb-4">Carga tributária típica por faixa de ganho — PF (sem reduções)</h3>
           <p className="text-xs text-slate-500 mb-3">
-            IRPF sobre ganho tributável isolado; PJ mercadoria com receita = 120% do ganho (ilustrativo, alinhado à planilha de referência).
+            IRPF sobre ganho tributável isolado; PJ mercadoria com receita = 120% do ganho e
+            faturamento trimestral anterior igual a zero (ilustrativo, alinhado à planilha de referência).
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -2013,7 +2136,7 @@ export default function SimuladorGanhoCapitalImovel() {
                   const ir = calcIRPF(gc);
                   const aliqPf = gc > 0 ? (ir.total / gc) * 100 : 0;
                   const receitaMerc = gc * 1.2;
-                  const pjMerc = calcPJMercadoria(receitaMerc);
+                  const pjMerc = calcPJMercadoria(receitaMerc, 0);
                   const pjCarga = receitaMerc > 0 ? (pjMerc.total / receitaMerc) * 100 : 0;
                   const melhor = aliqPf <= pjCarga ? 'PF' : 'PJ (mercadoria)';
                   return (
@@ -2058,7 +2181,18 @@ export default function SimuladorGanhoCapitalImovel() {
           <FormulaBox>{`Faixa 1: min(GC_trib, 5.000.000) × 15%\nFaixa 2: max(0, min(GC_trib − 5.000.000, 5.000.000)) × 17,5%\nFaixa 3: max(0, min(GC_trib − 10.000.000, 20.000.000)) × 20%\nFaixa 4: max(0, GC_trib − 30.000.000) × 22,5%`}</FormulaBox>
 
           <SectionTitle>7. PJ Lucro Presumido — mercadoria (atividade imobiliária)</SectionTitle>
-          <FormulaBox>{`Base IRPJ = Receita × 8% (ou 8,8% quando receita > R$ 5.000.000 no período da operação)\nBase CSLL = Receita × 12% (ou 13,2% quando receita > R$ 5.000.000 no período da operação)\nAdicional = max(0, Base_IRPJ − 60.000) × 10%\nIRPJ = Base_IRPJ × 15% + Adicional\nCSLL = Base_CSLL × 9%\nPIS = Receita × 0,65%\nCOFINS = Receita × 3%`}</FormulaBox>
+          <FormulaBox>{`Receita trimestral acumulada = faturamento anterior + venda atual
+Saldo normal = max(0, R$ 1.250.000 − faturamento anterior)
+Venda normal = min(venda, saldo normal)
+Venda majorada = max(0, venda − venda normal)
+
+Base IRPJ = (venda normal × 8%) + (venda majorada × 8,8%)
+Base CSLL = (venda normal × 12%) + (venda majorada × 13,2%)
+Adicional = max(0, Base_IRPJ − 60.000) × 10%
+IRPJ = (Base normal × 15%) + (Base majorada × 15%) + Adicional
+CSLL = Base_CSLL × 9%
+PIS = Receita × 0,65%
+COFINS = Receita × 3%`}</FormulaBox>
 
           <SectionTitle>8. PJ Lucro Presumido — ativo imobilizado</SectionTitle>
           <FormulaBox>{`Ganho PJ = Valor venda − Custo contábil\nBase IRPJ = Ganho PJ (100%)\nAdicional = max(0, Ganho − 60.000) × 10%\nIRPJ = Ganho × 15% + Adicional\nCSLL = Ganho × 9%\nPIS/COFINS: não incidem sobre ganho de capital`}</FormulaBox>
@@ -2076,7 +2210,7 @@ export default function SimuladorGanhoCapitalImovel() {
             <p><strong>Base legal:</strong> Lei nº 7.713/1988 art. 18 | Lei nº 11.196/2005 art. 40 | Lei nº 13.259/2016 | RIR/2018 arts. 591–592 | LC nº 214/2025 arts. 35, 251 e 259 | Lei nº 9.393/1996 art. 19</p>
             <p><strong>Correção monetária:</strong> IPCA — Série BCB SGS 433 (variação mensal %)</p>
             <p>
-              <strong>Notas (PJ e reduções):</strong> no cenário de mercadoria, quando a receita da operação supera R$ 5.000.000, a ferramenta aplica acréscimo de 10% sobre os percentuais de presunção (8%→8,8% e 12%→13,2%). Além disso, o adicional de IRPJ de 10% incide sobre a parcela do lucro presumido ou do ganho de capital que exceder R$ 60.000 no trimestre (venda integral no trimestre). Na venda de ativo imobilizado, PIS/COFINS não incidem sobre o ganho de capital (art. 3º da Lei nº 9.718/1998). Para aquisições até 1988, art. 18 e FR1/FR2 não são cumulativos — aplica-se o mais favorável ao contribuinte, conforme orientação da RFB.
+              <strong>Notas (PJ e reduções):</strong> no cenário de mercadoria, a ferramenta soma o faturamento anterior informado à venda atual e aplica o limite trimestral de R$ 1.250.000. Apenas a parcela desta venda que exceder o saldo do limite recebe o acréscimo de 10% nos percentuais de presunção (8%→8,8% e 12%→13,2%), conforme a IN RFB 2.306/2026. O limite anual de R$ 5 milhões pertence ao ajuste anual e não é usado como faixa isolada desta venda. O adicional de IRPJ de 10% incide sobre a base presumida desta venda que exceder R$ 60.000. Na venda de ativo imobilizado, PIS/COFINS não incidem sobre o ganho de capital (art. 3º da Lei nº 9.718/1998). Para aquisições até 1988, art. 18 e FR1/FR2 não são cumulativos — aplica-se o mais favorável ao contribuinte, conforme orientação da RFB.
             </p>
           </div>
         </div>
