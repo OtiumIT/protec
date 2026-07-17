@@ -98,21 +98,24 @@ sam deploy
 
 Ver `infra/README.md` para parâmetros e detalhes.
 
-## Ambiente homolog (API dedicada)
+## Ambiente homolog (API dedicada + portal em homolog.iataxsistemas.com.br)
 
-Há um **segundo stack** na mesma conta AWS, com o **mesmo** `infra/template.yaml` e os **mesmos** parâmetros SSM em `/protec-api/*` (incluindo `DATABASE_URL`), se quiser reutilizar o banco de produção/homolog de dados.
+Há um **segundo stack** na mesma conta AWS, com o **mesmo** `infra/template.yaml` e os **mesmos** parâmetros SSM em `/protec-api/*` (incluindo `DATABASE_URL`).
 
 | | Produção (padrão) | Homolog |
 |---|-------------------|--------|
 | Workflow GitHub | `Deploy API Lambda` (push em `main`) | **`Deploy API Lambda (homolog)`** (push em `homolog` ou *Run workflow*) |
 | Stack CloudFormation | `protec-api` | `protec-api-homolog` |
-| URL | Output `ApiUrl` do stack `protec-api` | Output `ApiUrl` do stack `protec-api-homolog` |
+| URL da API | Output `ApiUrl` do stack `protec-api` | Output `ApiUrl` do stack `protec-api-homolog` |
+| Portal | `iataxsistemas.com.br` (Cloudflare Pages) | `homolog.iataxsistemas.com.br` (projeto Pages dedicado, branch `homolog`) |
 
-**Configuração do portal (ex.: Cloudflare Pages):** no ambiente/branch de homolog, defina `VITE_API_URL` com a URL do Output `protec-api-homolog` (não a da produção).
+> ⚠️ **Banco compartilhado:** hoje o homolog usa o **mesmo `DATABASE_URL` e os mesmos segredos** da produção (prefixo SSM `/protec-api/*`). Ou seja, qualquer escrita em homolog **afeta os dados de produção**. Para isolar de verdade, crie um prefixo SSM próprio (ex.: `/protec-api-homolog/*`) com `DATABASE_URL`/segredos separados e parametrize o `template.yaml` por ambiente — não implementado ainda.
 
-**CORS:** as origens permitidas vêm de `CORS_ORIGIN` / `CORS_ORIGIN_DOMAINS` no SSM (iguais para os dois stacks após o deploy, pois o template injeta no momento do deploy). Inclua a URL do site de homolog (ex.: preview do Pages ou subdomínio) nesses parâmetros e faça **novo deploy** de **ambos** os stacks se precisar alterar só CORS.
+**Configuração do portal (Cloudflare Pages — projeto de homolog):** defina `VITE_API_URL` com a URL do Output `protec-api-homolog` (não a de produção). Ver [CLOUDFLARE_PAGES.md](CLOUDFLARE_PAGES.md#homolog).
 
-**Primeira vez:** faça push na branch `homolog` ou execute **Actions → Deploy API Lambda (homolog) → Run workflow**. Depois copie `ApiUrl` em **CloudFormation → protec-api-homolog → Outputs**.
+**CORS:** o subdomínio `https://homolog.iataxsistemas.com.br` já está na lista fixa do API Gateway em `infra/template.yaml` (junto com `hml.`). Além disso, as origens da camada Hono vêm de `CORS_ORIGIN` / `CORS_ORIGIN_DOMAINS` no SSM; se `CORS_ORIGIN_DOMAINS` incluir `iataxsistemas.com.br`, qualquer subdomínio (inclusive `homolog.`) já é aceito. Ao mudar CORS, faça **novo deploy** dos stacks afetados (o template resolve `{{resolve:ssm:...}}` no momento do deploy).
+
+**Primeira vez:** faça push na branch `homolog` ou execute **Actions → Deploy API Lambda (homolog) → Run workflow**. Depois copie `ApiUrl` em **CloudFormation → protec-api-homolog → Outputs** e use no `VITE_API_URL` do projeto Pages de homolog.
 
 ## Migrar para outra conta AWS
 
