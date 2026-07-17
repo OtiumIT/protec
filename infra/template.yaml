@@ -21,7 +21,6 @@ Resources:
           - https://iataxsistemas.com.br
           - https://www.iataxsistemas.com.br
           - https://hml.iataxsistemas.com.br
-          - https://homolog.iataxsistemas.com.br
         AllowMethods:
           - GET
           - POST
