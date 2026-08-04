@@ -155,6 +155,13 @@ function createPropertySupabaseClient() {
   return createClient(url, key);
 }
 
+function sanitizeFilename(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_');
+}
+
 /** POST /properties/upload-url — Signed URL for large file upload to Storage */
 propertyRoutes.post('/upload-url', async (c) => {
   try {
@@ -169,7 +176,7 @@ propertyRoutes.post('/upload-url', async (c) => {
     }
     const companyId = c.get('companyId') as string;
     const uid = randomBytes(8).toString('hex');
-    const storagePath = `${companyId}/property-temp/${uid}-${filename}`;
+    const storagePath = `${companyId}/property-temp/${uid}-${sanitizeFilename(filename)}`;
     const { data, error } = await supabase.storage.from(PROPERTY_UPLOAD_BUCKET).createSignedUploadUrl(storagePath);
     if (error) {
       return c.json({ error: { message: 'Falha ao gerar URL de upload.', code: 'UPLOAD_URL_ERROR' } }, 500);

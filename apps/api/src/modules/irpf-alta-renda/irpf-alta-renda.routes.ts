@@ -39,6 +39,13 @@ const service = new IrpfAltaRendaService(repo, companyRepo);
  */
 const UPLOAD_BUCKET = 'fiscal-files';
 
+function sanitizeFilename(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_');
+}
+
 irpfAltaRendaRoutes.post('/upload-url', async (c) => {
   try {
     const body = await c.req.json();
@@ -55,7 +62,7 @@ irpfAltaRendaRoutes.post('/upload-url', async (c) => {
 
     const companyId = c.get('companyId') as string;
     const uid = randomBytes(8).toString('hex');
-    const storagePath = `${companyId}/irpf-temp/${uid}-${filename}`;
+    const storagePath = `${companyId}/irpf-temp/${uid}-${sanitizeFilename(filename)}`;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase.storage
