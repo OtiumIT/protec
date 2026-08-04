@@ -17,7 +17,7 @@ import { editalRoutes } from './editais/edital.routes';
 import { judicialProcessRoutes } from './judicial-processes/judicial-process.routes';
 import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.routes';
 import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
-import { propertyRoutes } from './properties/property.routes';
+import { propertyRoutes, propertyPublicRoutes } from './properties/property.routes';
 import { distribuicaoLucrosSimulationsRoutes } from './distribuicao-lucros-simulations/distribuicao-lucros-simulations.routes';
 import { gestaoImobiliariaRoutes, gestaoImobiliariaPublicRoutes } from './gestao-imobiliaria/gestao-imobiliaria.routes';
 import { mapeamentoDespesasPjRoutes } from './mapeamento-despesas-pj/mapeamento-despesas-pj.routes';
@@ -312,6 +312,7 @@ app.route('/api/v1/editais', editalRoutes);
 app.route('/api/v1/judicial-processes', judicialProcessRoutes);
 app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
+app.route('/api/v1/properties/public', propertyPublicRoutes);
 app.route('/api/v1/properties', propertyRoutes);
 app.route('/api/v1/distribuicao-lucros-simulations', distribuicaoLucrosSimulationsRoutes);
 // Público (read-only) deve ser registrado ANTES da versão autenticada para não herdar middleware de auth/tenant.

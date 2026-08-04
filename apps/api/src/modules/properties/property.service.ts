@@ -2,6 +2,8 @@ import { PropertyRepository } from './property.repository';
 import { PropertySimulationRepository } from './property-simulation.repository';
 import { ClientRepository } from '../clients/client.repository';
 import { AppError } from '../../shared/utils/error-handler';
+import { randomBytes, createHash } from 'crypto';
+import { query } from '../../db/client';
 import {
   calcularPF,
   calcularPFDirpfSimplificado,
@@ -9,6 +11,8 @@ import {
   calcularReforma2027,
   calcularBreakEven,
   verificarContribuinteIbsCbsPF,
+  calcularIRRFDividendos,
+  calcularProjecaoReforma,
   type OpcoesReformaCalculo,
 } from './calculations';
 import { resolveLc214IndicesParaSimulacao } from './property-lc214-resolve';
@@ -796,9 +800,12 @@ export class PropertyService {
       cenarioPF.imposto_total,
       input.ano
     );
-    const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
+    const cenarioPJBase = calcularPJ(aggregatedTotal, undefined, {
       aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
     });
+    const lucroDistribuidoPJ = Math.max(0, cenarioPJBase.receita_bruta_total - cenarioPJBase.imposto_total);
+    const dividendosPJ = calcularIRRFDividendos(lucroDistribuidoPJ);
+    const cenarioPJ = { ...cenarioPJBase, dividendos: dividendosPJ };
     const creditoInfo = await this.repo.getCreditoIbsCbsAproveitamento(
       input.property_ids,
       input.ano
@@ -1067,6 +1074,12 @@ export class PropertyService {
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
       indices_lc214: lc214Simulate.indices_lc214,
+      projecao_reforma: calcularProjecaoReforma(aggregatedTotal, {
+        aliquotaIbsPlena: input.opcoes_reforma?.aliquota_ibs_plena,
+        aliquotaCBS: input.opcoes_reforma?.aliquota_cbs_estimada,
+        redutorLocacao: redutorLocacaoSimulate,
+        aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
+      }),
     };
   }
 
@@ -1203,9 +1216,12 @@ export class PropertyService {
       cenarioPF.imposto_total,
       input.ano
     );
-    const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
+    const cenarioPJBase = calcularPJ(aggregatedTotal, undefined, {
       aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
     });
+    const lucroDistribuidoPJStandalone = Math.max(0, cenarioPJBase.receita_bruta_total - cenarioPJBase.imposto_total);
+    const dividendosPJStandalone = calcularIRRFDividendos(lucroDistribuidoPJStandalone);
+    const cenarioPJ = { ...cenarioPJBase, dividendos: dividendosPJStandalone };
     // cenarioPJ32Fixo removido - presunção 16% agora é automática baseada na receita
     const redutorLocacao =
       input.opcoes_reforma?.perfil_locacao === 'hospedagem_temporada'
@@ -1408,6 +1424,12 @@ export class PropertyService {
       },
       embasamentos_legais: EMBASAMENTOS_LEGAIS,
       indices_lc214: lc214Standalone.indices_lc214,
+      projecao_reforma: calcularProjecaoReforma(aggregatedTotal, {
+        aliquotaIbsPlena: input.opcoes_reforma?.aliquota_ibs_plena,
+        aliquotaCBS: input.opcoes_reforma?.aliquota_cbs_estimada,
+        redutorLocacao: redutorLocacao,
+        aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
+      }),
     };
   }
 
@@ -1584,5 +1606,82 @@ export class PropertyService {
     }
     await this.getSimulationById(id);
     await this.simulationRepo.delete(id);
+  }
+
+  async createSimulationShare(
+    simulationId: string,
+    companyId: string,
+    opts: { title?: string; expires_in_days?: number; simulation_kind?: string },
+    userId?: string,
+  ) {
+    const simulation = await this.getSimulationById(simulationId);
+    const rawToken = randomBytes(24).toString('base64url');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresInDays = opts.expires_in_days ?? 30;
+    const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+    const kind = opts.simulation_kind ?? simulation.simulation_kind ?? 'locacao';
+
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+
+    await this.simulationRepo.query(
+      `INSERT INTO property_simulation_shares
+        (simulation_id, simulation_kind, token_hash, title, expires_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [simulationId, kind, tokenHash, opts.title ?? null, expiresAt, userId ?? null],
+      false,
+    );
+
+    await query(
+      `INSERT INTO public.simulation_share_tokens (token_hash, company_id, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (token_hash) DO NOTHING`,
+      [tokenHash, companyId, expiresAt],
+    );
+
+    return { token: rawToken, expires_at: expiresAt };
+  }
+
+  async getPublicSimulation(tokenHash: string): Promise<{
+    simulation: PropertySimulation;
+    share: { title: string | null; simulation_kind: string };
+    branding: { report_brand_name: string | null };
+  }> {
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+
+    const shareResult = await this.simulationRepo.query<{
+      simulation_id: string; title: string | null; simulation_kind: string;
+      revoked_at: Date | null; expires_at: Date;
+    }>(
+      `SELECT simulation_id, title, simulation_kind, revoked_at, expires_at
+       FROM property_simulation_shares
+       WHERE token_hash = $1`,
+      [tokenHash],
+      false,
+    );
+    const share = shareResult.rows[0];
+    if (!share) throw new AppError('Link inválido', 'SHARE_NOT_FOUND', 404);
+    if (share.revoked_at) throw new AppError('Este link foi revogado', 'SHARE_REVOKED', 403);
+    if (new Date(share.expires_at).getTime() < Date.now()) {
+      throw new AppError('Este link expirou', 'SHARE_EXPIRED', 403);
+    }
+
+    await this.simulationRepo.query(
+      `UPDATE property_simulation_shares SET access_count = access_count + 1 WHERE token_hash = $1`,
+      [tokenHash],
+      false,
+    );
+
+    const simulation = await this.simulationRepo.findById(share.simulation_id);
+    if (!simulation) throw new AppError('Simulação não encontrada', 'SIMULATION_NOT_FOUND', 404);
+
+    return {
+      simulation,
+      share: { title: share.title, simulation_kind: share.simulation_kind },
+      branding: { report_brand_name: null },
+    };
   }
 }

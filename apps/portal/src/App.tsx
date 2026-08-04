@@ -35,6 +35,7 @@ import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { GestaoImobiliaria } from './modules/gestao-imobiliaria/pages/GestaoImobiliaria';
 import { PrestacaoContasPublica } from './modules/gestao-imobiliaria/pages/PrestacaoContasPublica';
+import { SimulacaoPublica } from './modules/properties/pages/SimulacaoPublica';
 import { MapeamentoDespesasPj } from './modules/mapeamento-despesas-pj/pages/MapeamentoDespesasPj';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
@@ -152,6 +153,7 @@ function AppRoutes() {
         <Route path="/EPS" element={<EPSLanding />} />
         <Route path="/PabloArruda" element={<PabloArrudaLanding />} />
         <Route path="/prestacao-de-contas" element={<PrestacaoContasPublica />} />
+        <Route path="/simulacao-publica" element={<SimulacaoPublica />} />
         <Route path="/pabloarruda" element={<Navigate to="/PabloArruda" replace />} />
         <Route path="/pablo-arruda" element={<Navigate to="/PabloArruda" replace />} />
         <Route

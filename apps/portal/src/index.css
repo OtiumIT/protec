@@ -321,9 +321,22 @@
     break-inside: auto !important;
     page-break-inside: auto !important;
   }
-  /* details (Ver cálculo): ocultar completamente no PDF */
-  #simulador-imoveis-resultado-print details {
+  /* Inline "Ver cálculo" per-card: hide in PDF. Memória de cálculo sections are kept. */
+  #simulador-imoveis-resultado-print details[data-report-exclude="pdf"] {
     display: none !important;
+  }
+  #simulador-imoveis-resultado-print details[data-report-include="pdf"],
+  #simulador-ganho-capital-resultado-print details[data-report-include="pdf"] {
+    display: block !important;
+  }
+  #simulador-imoveis-resultado-print details[data-report-include="pdf"] > summary,
+  #simulador-ganho-capital-resultado-print details[data-report-include="pdf"] > summary {
+    list-style: none;
+    pointer-events: none;
+  }
+  #simulador-imoveis-resultado-print details[data-report-include="pdf"] > summary::-webkit-details-marker,
+  #simulador-ganho-capital-resultado-print details[data-report-include="pdf"] > summary::-webkit-details-marker {
+    display: none;
   }
   /* Cards do simulador: padding compacto em print para bordas ajustadas ao conteúdo */
   #simulador-imoveis-resultado-print .bg-white.rounded-2xl,

@@ -28,6 +28,8 @@ export interface CreateCompanyData {
   address_state?: string;
   notes?: string;
   source?: string;
+  report_logo_url?: string;
+  report_brand_name?: string;
 }
 
 export interface UpdateCompanyData extends Partial<CreateCompanyData> {}
@@ -44,6 +46,7 @@ export class CompanyRepository extends BaseRepository {
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
               address_neighborhood, address_city, address_state, notes, source,
+              report_logo_url, report_brand_name,
               created_at, updated_at 
        FROM companies WHERE id = $1`,
       [id],
@@ -62,6 +65,7 @@ export class CompanyRepository extends BaseRepository {
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
               address_neighborhood, address_city, address_state, notes, source,
+              report_logo_url, report_brand_name,
               created_at, updated_at 
        FROM companies WHERE domain = $1`,
       [domain],
@@ -80,6 +84,7 @@ export class CompanyRepository extends BaseRepository {
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
               address_neighborhood, address_city, address_state, notes, source,
+              report_logo_url, report_brand_name,
               created_at, updated_at 
        FROM companies WHERE cnpj = $1`,
       [cnpj],
@@ -98,6 +103,7 @@ export class CompanyRepository extends BaseRepository {
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
               address_neighborhood, address_city, address_state, notes, source,
+              report_logo_url, report_brand_name,
               created_at, updated_at 
        FROM companies WHERE cpf = $1`,
       [cpf],
@@ -117,17 +123,19 @@ export class CompanyRepository extends BaseRepository {
                    contact_name, contact_email, contact_phone, tax_regime,
                    state_registration, municipal_registration, cnae,
                    zip_code, address_street, address_number, address_complement,
-                   address_neighborhood, address_city, address_state, notes, source
+                   address_neighborhood, address_city, address_state, notes, source,
+                   report_logo_url, report_brand_name
                  ) 
                  VALUES (
                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                   $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+                   $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
                  ) 
                  RETURNING id, name, domain, person_type, cnpj, cpf, legal_name, trade_name, email, phone,
                            contact_name, contact_email, contact_phone, tax_regime,
                            state_registration, municipal_registration, cnae,
                            zip_code, address_street, address_number, address_complement,
                            address_neighborhood, address_city, address_state, notes, source,
+                           report_logo_url, report_brand_name,
                            created_at, updated_at`;
     const params = [
       data.name,
@@ -155,6 +163,8 @@ export class CompanyRepository extends BaseRepository {
       data.address_state || null,
       data.notes || null,
       data.source || null,
+      data.report_logo_url || null,
+      data.report_brand_name || null,
     ];
     
     if (client) {
@@ -176,6 +186,7 @@ export class CompanyRepository extends BaseRepository {
               state_registration, municipal_registration, cnae,
               zip_code, address_street, address_number, address_complement,
               address_neighborhood, address_city, address_state, notes, source,
+              report_logo_url, report_brand_name,
               created_at, updated_at 
        FROM companies ORDER BY created_at DESC`,
       [],
@@ -212,6 +223,7 @@ export class CompanyRepository extends BaseRepository {
               c.state_registration, c.municipal_registration, c.cnae,
               c.zip_code, c.address_street, c.address_number, c.address_complement,
               c.address_neighborhood, c.address_city, c.address_state, c.notes, c.source,
+              c.report_logo_url, c.report_brand_name,
               c.created_at, c.updated_at,
               s.status AS latest_subscription_status,
               p.id AS resolved_plan_id,
@@ -247,7 +259,8 @@ export class CompanyRepository extends BaseRepository {
       'contact_name', 'contact_email', 'contact_phone', 'tax_regime',
       'state_registration', 'municipal_registration', 'cnae',
       'zip_code', 'address_street', 'address_number', 'address_complement',
-      'address_neighborhood', 'address_city', 'address_state', 'notes', 'source'
+      'address_neighborhood', 'address_city', 'address_state', 'notes', 'source',
+      'report_logo_url', 'report_brand_name'
     ];
 
     for (const field of fields) {
@@ -271,10 +284,23 @@ export class CompanyRepository extends BaseRepository {
                  state_registration, municipal_registration, cnae,
                  zip_code, address_street, address_number, address_complement,
                  address_neighborhood, address_city, address_state, notes, source,
+                 report_logo_url, report_brand_name,
                  created_at, updated_at`,
       params,
       false
     );
     return result.rows[0];
+  }
+
+  /**
+   * Buscar apenas dados de branding da empresa
+   */
+  async findBranding(id: string): Promise<{ report_logo_url: string | null; report_brand_name: string | null } | null> {
+    const result = await this.query<{ report_logo_url: string | null; report_brand_name: string | null }>(
+      `SELECT report_logo_url, report_brand_name FROM companies WHERE id = $1`,
+      [id],
+      false
+    );
+    return result.rows[0] || null;
   }
 }

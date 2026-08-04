@@ -4,7 +4,7 @@ import { CompanyService } from './company.service';
 import { CompanyRepository } from './company.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
-import { UpdateCompanySchema, CreateCompanySchema } from '@shared/core';
+import { UpdateCompanySchema, CreateCompanySchema, UpdateCompanyBrandingSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const companyRoutes = new Hono();
@@ -219,6 +219,76 @@ companyRoutes.put(
           company,
         },
       });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * PATCH /companies/:id/branding
+ * Atualizar logo e marca da empresa para relatórios
+ */
+companyRoutes.patch(
+  '/:id/branding',
+  zValidator('json', UpdateCompanyBrandingSchema),
+  async (c) => {
+    try {
+      const companyId = c.get('companyId');
+      const id = c.req.param('id');
+      const currentUser = c.get('user');
+
+      if (id !== companyId) {
+        return c.json(
+          { error: { message: 'Cannot access other companies', code: 'FORBIDDEN' } },
+          403
+        );
+      }
+
+      if (currentUser.role !== 'admin') {
+        return c.json(
+          { error: { message: 'Insufficient permissions', code: 'FORBIDDEN' } },
+          403
+        );
+      }
+
+      const data = c.req.valid('json');
+      const company = await companyService.update(id, data);
+
+      return c.json({ data: { company } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * GET /companies/:id/branding
+ * Retornar apenas dados de branding (leve, sem dados sensíveis)
+ */
+companyRoutes.get(
+  '/:id/branding',
+  async (c) => {
+    try {
+      const companyId = c.get('companyId');
+      const id = c.req.param('id');
+
+      if (id !== companyId) {
+        return c.json(
+          { error: { message: 'Cannot access other companies', code: 'FORBIDDEN' } },
+          403
+        );
+      }
+
+      const branding = await companyRepo.findBranding(id);
+      if (!branding) {
+        return c.json(
+          { error: { message: 'Company not found', code: 'COMPANY_NOT_FOUND' } },
+          404
+        );
+      }
+
+      return c.json({ data: { branding } });
     } catch (error) {
       return errorHandler(error, c);
     }

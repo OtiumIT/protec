@@ -16,6 +16,7 @@ import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-repo
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { formatCnpj, formatCpf } from '../../../shared/utils/masks';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
 import { InfoHint } from '../../../shared/components/InfoHint';
 import {
@@ -284,6 +285,7 @@ const WIZARD_STEPS = [
 
 export function SimuladorImoveis() {
   const { success, error: showError, ToastContainer } = useToast();
+  const branding = useBranding();
   const isPaymentRequiredError = (err: unknown): boolean => {
     const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
     return (
@@ -686,7 +688,8 @@ export function SimuladorImoveis() {
     if (!el) return;
     const clone = el.cloneNode(true) as HTMLElement;
     stripReportExcludedFromClone(clone, 'preview');
-    clone.querySelectorAll('details').forEach((d) => d.remove());
+    clone.querySelectorAll('details[data-report-include="pdf"]').forEach((d) => d.setAttribute('open', ''));
+    clone.querySelectorAll('details[data-report-exclude="pdf"]').forEach((d) => d.remove());
     printPreviewContentRef.current.innerHTML = '';
     printPreviewContentRef.current.appendChild(clone);
   }, [
@@ -2596,6 +2599,7 @@ export function SimuladorImoveis() {
             title="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
             clientName={effectiveClientName || undefined}
             subtitle={coverDocumentLabel || undefined}
+            brandName={branding?.report_brand_name}
             details={[
               { label: 'Ano-base', value: String(result.ano) },
               ...(result.fluxo_caixa?.[0] ? [{ label: 'Receita (Carnê-Leão / LP)', value: formatMoney(result.fluxo_caixa[0].receita_total) }] : []),
@@ -2761,7 +2765,7 @@ export function SimuladorImoveis() {
             <p className="text-sm text-slate-600 mt-1">
               Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
             </p>
-            <details className="mt-3">
+            <details className="mt-3" data-report-exclude="pdf">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                 Ver cálculo
@@ -2803,7 +2807,7 @@ export function SimuladorImoveis() {
                     : `Ajuste estimado (a pagar): ${formatMoney(Math.abs(result.cenarios.pf_dirpf_simplificado.ajuste_estimado))}`}
                 </p>
               )}
-              <details className="mt-3">
+              <details className="mt-3" data-report-exclude="pdf">
                 <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Ver cálculo</summary>
                 <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
                   <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">
@@ -2943,7 +2947,47 @@ export function SimuladorImoveis() {
               }
               return null;
             })()}
-            <details className="mt-3">
+            {result.cenarios.pj.dividendos && (
+              <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                <p className="text-xs font-semibold text-violet-800 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                  Custo de distribuição ao sócio (IRRF sobre dividendos)
+                </p>
+                <p className="text-[10px] text-violet-700 mt-1">
+                  Lei 15.270/2025 — IRRF 10% sobre dividendos acima de R$ 50 mil/mês
+                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-slate-700">
+                    Lucro distribuível: <span className="font-semibold">{formatMoney(result.cenarios.pj.dividendos.lucro_distribuivel)}</span>
+                  </p>
+                  {result.cenarios.pj.dividendos.irrf_total > 0 ? (
+                    <p className="text-xs text-red-700 font-medium">
+                      IRRF: {formatMoney(result.cenarios.pj.dividendos.irrf_total)} → Líquido ao sócio: {formatMoney(result.cenarios.pj.dividendos.lucro_liquido_socio)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-emerald-700">
+                      Sem IRRF — distribuição mensal ≤ R$ 50 mil
+                    </p>
+                  )}
+                  {result.cenarios.pj.dividendos.cenarios_parcelamento.length > 1 && (
+                    <div className="mt-2 border-t border-violet-200 pt-2">
+                      <p className="text-[10px] text-violet-600 font-medium mb-1">Cenários de parcelamento da distribuição:</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {result.cenarios.pj.dividendos.cenarios_parcelamento.map((c) => (
+                          <div key={c.parcelas} className={`text-center p-1.5 rounded text-[10px] ${c.parcela_excede_threshold ? 'bg-red-50 border border-red-200' : 'bg-emerald-50 border border-emerald-200'}`}>
+                            <p className="font-medium text-slate-700">{c.parcelas}× de {formatMoney(c.valor_parcela)}</p>
+                            <p className={c.parcela_excede_threshold ? 'text-red-600' : 'text-emerald-600'}>
+                              IRRF: {formatMoney(c.irrf)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            <details className="mt-3" data-report-exclude="pdf">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                 Ver cálculo
@@ -2984,7 +3028,7 @@ export function SimuladorImoveis() {
               </div>
             </details>
             {result.cenarios.pj.trimestres && result.cenarios.pj.trimestres.length > 0 && (
-              <details className="mt-2">
+              <details className="mt-2" data-report-exclude="pdf">
                 <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
                   Detalhamento por trimestre
                 </summary>
@@ -3193,7 +3237,7 @@ export function SimuladorImoveis() {
             {((ref) as { redutor_diferenciado_short?: boolean })?.redutor_diferenciado_short && (
               <p className="text-xs text-slate-600 mt-1">Redutor da alíquota 70% (longa duração) e 40% (curta temporada — Art. 281 LC 214/2025), aplicados proporcionalmente à receita de cada tipo.</p>
             )}
-            <details className="mt-3">
+            <details className="mt-3" data-report-exclude="pdf">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                 Ver cálculo IBS/CBS
@@ -3778,6 +3822,43 @@ export function SimuladorImoveis() {
         })()}
       </Card>
 
+      {result?.projecao_reforma && result.projecao_reforma.length > 0 && (
+        <Card className="mt-6 p-5">
+          <h3 className="text-lg font-semibold text-slate-800 mb-1">Projeção Reforma Tributária — 2026 a 2034</h3>
+          <p className="text-xs text-slate-500 mb-4">Comparativo da carga tributária PJ (regime atual vs IBS/CBS) ao longo da transição LC 214/2025</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500">Ano</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">IBS %</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">ICMS/ISS %</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ Reforma</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ Atual</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PF</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">Alíq. efetiva</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.projecao_reforma.map((p) => (
+                  <tr key={p.ano} className={`border-b border-slate-100 ${p.ano === new Date().getFullYear() ? 'bg-brand/5 font-semibold' : ''}`}>
+                    <td className="py-1.5 px-2 font-medium text-slate-700">{p.ano}</td>
+                    <td className="py-1.5 px-2 text-right text-slate-600">{p.ibs_pct}%</td>
+                    <td className="py-1.5 px-2 text-right text-slate-600">{p.icms_iss_pct}%</td>
+                    <td className={`py-1.5 px-2 text-right font-medium ${p.imposto_pj_reforma < p.imposto_pj_atual ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {formatMoney(p.imposto_pj_reforma)}
+                    </td>
+                    <td className="py-1.5 px-2 text-right text-slate-600">{formatMoney(p.imposto_pj_atual)}</td>
+                    <td className="py-1.5 px-2 text-right text-slate-600">{formatMoney(p.imposto_pf)}</td>
+                    <td className="py-1.5 px-2 text-right text-slate-600">{p.aliquota_efetiva_reforma.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       {result?.embasamentos_legais && result.embasamentos_legais.length > 0 && (
         <Card className="mt-6 p-4 report-embasamentos-legais" data-print-section="embasamentos-legais">
           <h3 className="text-lg font-semibold text-slate-800 mb-3">Embasamentos legais</h3>
@@ -3944,7 +4025,7 @@ export function SimuladorImoveis() {
                 </p>
               </div>
             )}
-            <details className="border border-slate-200 rounded-lg overflow-hidden" open>
+            <details className="border border-slate-200 rounded-lg overflow-hidden" open data-report-include="pdf">
               <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Pessoa Física (Carnê-Leão)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">
                 {(() => {
@@ -3989,7 +4070,7 @@ export function SimuladorImoveis() {
               </div>
             </details>
             {exibirDirpfSimplificado && result.cenarios.pf_dirpf_simplificado && (
-              <details className="border border-slate-200 rounded-lg overflow-hidden">
+              <details className="border border-slate-200 rounded-lg overflow-hidden" data-report-include="pdf">
                 <summary className="p-3 bg-slate-50 font-medium cursor-pointer">
                   PF — DIRPF com desconto simplificado (ajuste anual)
                 </summary>
@@ -4020,7 +4101,7 @@ export function SimuladorImoveis() {
                 </div>
               </details>
             )}
-            <details className="border border-slate-200 rounded-lg overflow-hidden">
+            <details className="border border-slate-200 rounded-lg overflow-hidden" data-report-include="pdf">
               <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Pessoa Jurídica (Lucro Presumido)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">
                 {(() => {
@@ -4071,7 +4152,7 @@ export function SimuladorImoveis() {
                 })()}
               </div>
             </details>
-            <details className="border border-slate-200 rounded-lg overflow-hidden">
+            <details className="border border-slate-200 rounded-lg overflow-hidden" data-report-include="pdf">
               <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Reforma LC 214/2025 (IBS/CBS)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">
                 {(() => {
@@ -4165,6 +4246,11 @@ export function SimuladorImoveis() {
                 </p>
                 <p className="text-sm text-slate-700 mt-0.5">
                   Como PJ: <strong>{formatMoney(fc.lucro_liquido_pj)}</strong> no ano
+                  {result.cenarios.pj.dividendos && result.cenarios.pj.dividendos.irrf_total > 0 && (
+                    <span className="text-violet-600 text-xs ml-1">
+                      (– IRRF {formatMoney(result.cenarios.pj.dividendos.irrf_total)} = <strong>{formatMoney(result.cenarios.pj.dividendos.lucro_liquido_socio)}</strong> ao sócio)
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   Após receitas, despesas, custos e impostos.
@@ -4449,19 +4535,22 @@ export function SimuladorImoveis() {
                 variant="previewModal"
                 reportTitle={effectiveReportTitle}
                 metaLine={`Emissão ${reportEmissionDateStr}`}
+                logoUrl={branding?.report_logo_url}
+                brandName={branding?.report_brand_name}
               />
               <ReportCoverSection
                 variant="previewModal"
                 title="Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025"
                 clientName={effectiveClientName || undefined}
                 subtitle={coverDocumentLabel || undefined}
+                brandName={branding?.report_brand_name}
                 details={[
                   ...(result ? [{ label: 'Ano-base', value: String(result.ano) }] : []),
                   ...(result?.fluxo_caixa?.[0] ? [{ label: 'Receita (Carnê-Leão / LP)', value: formatMoney(result.fluxo_caixa[0].receita_total) }] : []),
                 ]}
               />
               <div ref={printPreviewContentRef} className="report-preview-content" />
-              <ReportPrintFooter variant="previewModal" />
+              <ReportPrintFooter variant="previewModal" brandName={branding?.report_brand_name} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

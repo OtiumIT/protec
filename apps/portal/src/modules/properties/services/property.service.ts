@@ -867,4 +867,18 @@ export const propertyService = {
     });
     return response.data;
   },
+
+  async createSimulationShare(simulationId: string, opts?: { title?: string; expires_in_days?: number }): Promise<{ token: string; expires_at: string }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: { token: string; expires_at: string } }>(
+      `/api/v1/properties/simulations/${simulationId}/share`,
+      {
+        method: 'POST',
+        body: JSON.stringify(opts ?? {}),
+        token,
+        tenantId,
+      }
+    );
+    return response.data;
+  },
 };

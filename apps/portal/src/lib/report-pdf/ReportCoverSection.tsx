@@ -1,4 +1,4 @@
-const BRAND = 'IATax Soluções Inteligentes';
+const DEFAULT_BRAND = 'IATax Soluções Inteligentes';
 
 type CoverDetail = { label: string; value: string };
 
@@ -13,14 +13,16 @@ type ReportCoverSectionProps = {
   details?: CoverDetail[];
   /** Variante de exibição — 'printSheet' fica oculto na tela; 'previewModal' sempre visível */
   variant: 'printSheet' | 'previewModal';
+  brandName?: string | null;
 };
 
 /**
  * Seção de capa institucional exibida na primeira página do relatório.
  * No modo `printSheet`, fica `hidden` na tela e `block` ao imprimir.
  */
-export function ReportCoverSection({ title, clientName, subtitle, details, variant }: ReportCoverSectionProps) {
+export function ReportCoverSection({ title, clientName, subtitle, details, variant, brandName }: ReportCoverSectionProps) {
   const visibilityCls = variant === 'printSheet' ? 'hidden print:block' : 'block';
+  const brand = brandName || DEFAULT_BRAND;
 
   return (
     <section
@@ -53,7 +55,7 @@ export function ReportCoverSection({ title, clientName, subtitle, details, varia
           </div>
         )}
 
-        <p className="text-[10px] text-slate-400 mt-3">{BRAND}</p>
+        <p className="text-[10px] text-slate-400 mt-3">{brand}</p>
       </div>
     </section>
   );

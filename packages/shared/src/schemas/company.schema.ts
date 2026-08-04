@@ -30,6 +30,8 @@ export const CompanySchema = z.object({
   address_city: z.string().optional(),
   address_state: z.string().optional(),
   notes: z.string().optional(),
+  report_logo_url: z.string().optional(),
+  report_brand_name: z.string().optional(),
   created_at: z.date(),
   updated_at: z.date(),
 });
@@ -59,6 +61,13 @@ export const CreateCompanySchema = z.object({
   address_city: z.string().optional(),
   address_state: z.string().max(2).optional(),
   notes: z.string().optional(),
+  report_logo_url: z.string().optional(),
+  report_brand_name: z.string().max(255).optional(),
+});
+
+export const UpdateCompanyBrandingSchema = z.object({
+  report_logo_url: z.string().optional(),
+  report_brand_name: z.string().max(255).optional(),
 });
 
 export const UpdateCompanySchema = CreateCompanySchema.partial();

@@ -39,6 +39,8 @@ export type Company = {
   address_city?: string;
   address_state?: string;
   notes?: string;
+  report_logo_url?: string;
+  report_brand_name?: string;
   created_at: Date;
   updated_at: Date;
 };

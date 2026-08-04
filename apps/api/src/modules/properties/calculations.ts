@@ -479,6 +479,55 @@ export function calcularPJ(
   };
 }
 
+// ── IRRF sobre Dividendos (Lei 15.270/2025, art. 6-A da Lei 9.250/95) ──
+const IRRF_DIVIDENDOS_ALIQUOTA = 0.10;
+const IRRF_DIVIDENDOS_THRESHOLD_MENSAL = 50_000;
+
+export interface IRRFDividendosResult {
+  lucro_distribuivel: number;
+  irrf_total: number;
+  lucro_liquido_socio: number;
+  cenarios_parcelamento: Array<{
+    parcelas: number;
+    valor_parcela: number;
+    parcela_excede_threshold: boolean;
+    irrf: number;
+    liquido: number;
+  }>;
+}
+
+/**
+ * Calcula IRRF 10% sobre dividendos distribuídos acima de R$ 50k/mês.
+ * Lei 15.270/2025, vigente desde 01/01/2026.
+ * Art. 6-A, § 1º: alíquota incide sobre o total quando a parcela mensal excede o threshold.
+ */
+export function calcularIRRFDividendos(
+  lucroDistribuivel: number,
+  parcelamentos: number[] = [1, 3, 12],
+): IRRFDividendosResult {
+  const cenarios = parcelamentos.map((parcelas) => {
+    const valorParcela = round2(lucroDistribuivel / parcelas);
+    const excedeThreshold = valorParcela > IRRF_DIVIDENDOS_THRESHOLD_MENSAL;
+    const irrf = excedeThreshold ? round2(lucroDistribuivel * IRRF_DIVIDENDOS_ALIQUOTA) : 0;
+    return {
+      parcelas,
+      valor_parcela: valorParcela,
+      parcela_excede_threshold: excedeThreshold,
+      irrf,
+      liquido: round2(lucroDistribuivel - irrf),
+    };
+  });
+
+  const defaultCenario = cenarios.find((c) => c.parcelas === 1) ?? cenarios[0]!;
+
+  return {
+    lucro_distribuivel: round2(lucroDistribuivel),
+    irrf_total: defaultCenario.irrf,
+    lucro_liquido_socio: defaultCenario.liquido,
+    cenarios_parcelamento: cenarios,
+  };
+}
+
 /** Alíquota IBS fixa em 2027/2028 – Transição Reforma (LC 214/2025) */
 const ALIQUOTA_IBS_2027_2028 = 0.1;
 /** Alíquota CBS default em 2027/2028 quando não informada */
@@ -908,4 +957,110 @@ export function calcularTributacaoAnoAno(
   }
 
   return results;
+}
+
+export interface ProjecaoReformaAno {
+  ano: number;
+  ibs_pct: number;
+  icms_iss_pct: number;
+  cbs_efetiva: number;
+  ibs_efetivo: number;
+  imposto_pj_reforma: number;
+  imposto_pj_atual: number;
+  imposto_pf: number;
+  aliquota_efetiva_reforma: number;
+}
+
+/**
+ * Projeção multi-ano 2026-2034 comparando regime atual (PF e PJ) com reforma.
+ * 2026: somente tributação atual (sem IBS/CBS)
+ * 2027-2033: transição
+ * 2034: reforma plena
+ */
+export function calcularProjecaoReforma(
+  aggregated: AggregatedYear,
+  opcoes: {
+    aliquotaIbsPlena?: number;
+    aliquotaCBS?: number;
+    redutorLocacao?: number;
+    aplicar_equiparacao_hospitalar?: boolean;
+  } = {}
+): ProjecaoReformaAno[] {
+  const aliquotaIbsPlena = opcoes.aliquotaIbsPlena ?? 19;
+  const aliquotaCBS = opcoes.aliquotaCBS ?? 9;
+  const redutor = opcoes.redutorLocacao ?? 70;
+  const fatorReducao = 1 - redutor / 100;
+
+  const cenarioPF = calcularPF(aggregated);
+  const cenarioPJAtual = calcularPJ(aggregated, undefined, {
+    aplicar_equiparacao_hospitalar: opcoes.aplicar_equiparacao_hospitalar,
+  });
+
+  const anos = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034];
+  const receitaAnual = aggregated.receita_total;
+  const custosOperacionais = aggregated.custos_operacionais_total;
+
+  return anos.map((ano) => {
+    if (ano === 2026) {
+      return {
+        ano,
+        ibs_pct: 0,
+        icms_iss_pct: 100,
+        cbs_efetiva: 0,
+        ibs_efetivo: 0,
+        imposto_pj_reforma: cenarioPJAtual.imposto_total,
+        imposto_pj_atual: cenarioPJAtual.imposto_total,
+        imposto_pf: cenarioPF.imposto_total,
+        aliquota_efetiva_reforma: cenarioPJAtual.aliquota_efetiva,
+      };
+    }
+
+    let ibsNominal: number;
+    let ibsPct: number;
+    let icmsIssPct: number;
+
+    if (ano <= 2028) {
+      ibsNominal = 0.1;
+      ibsPct = 0;
+      icmsIssPct = 100;
+    } else if (ano >= 2034) {
+      ibsNominal = aliquotaIbsPlena;
+      ibsPct = 100;
+      icmsIssPct = 0;
+    } else {
+      const transicao = TRANSICAO_IBS_ANOS[ano];
+      ibsNominal = transicao ? round2((aliquotaIbsPlena * transicao.ibsPct) / 100) : aliquotaIbsPlena;
+      ibsPct = transicao?.ibsPct ?? 100;
+      icmsIssPct = transicao?.icmsIssPct ?? 0;
+    }
+
+    const cbsEfetiva = round2(aliquotaCBS * fatorReducao);
+    const ibsEfetivo = round2(ibsNominal * fatorReducao);
+    const cbsValor = round2((receitaAnual * cbsEfetiva) / 100);
+    const ibsValor = round2((receitaAnual * ibsEfetivo) / 100);
+    const ibsCbsTotal = round2(cbsValor + ibsValor);
+    const aliquotaEfetivaCombinada = cbsEfetiva + ibsEfetivo;
+    const creditos = round2((custosOperacionais * aliquotaEfetivaCombinada) / 100);
+    const ibsCbsLiquido = Math.max(0, round2(ibsCbsTotal - creditos));
+
+    // PJ reforma: IBS/CBS replace PIS/COFINS, keep IRPJ + CSLL
+    const irpjCsll = cenarioPJAtual.irpj +
+      (cenarioPJAtual.irpj_adicional ?? 0) +
+      (cenarioPJAtual.irpj_postergado ?? 0) +
+      cenarioPJAtual.csll;
+    const totalReforma = round2(ibsCbsLiquido + irpjCsll);
+    const aliquotaEfetiva = receitaAnual > 0 ? round2((totalReforma / receitaAnual) * 100) : 0;
+
+    return {
+      ano,
+      ibs_pct: ibsPct,
+      icms_iss_pct: icmsIssPct,
+      cbs_efetiva: cbsEfetiva,
+      ibs_efetivo: ibsEfetivo,
+      imposto_pj_reforma: totalReforma,
+      imposto_pj_atual: cenarioPJAtual.imposto_total,
+      imposto_pf: cenarioPF.imposto_total,
+      aliquota_efetiva_reforma: aliquotaEfetiva,
+    };
+  });
 }

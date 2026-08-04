@@ -11,6 +11,7 @@ import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-repo
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import {
   calcularFatorIpcaAcumuladoLc214,
   type FiscalIndicesIpcaSeriesResponse,
@@ -145,6 +146,36 @@ function calcIRPF(gc: number): { f1: number; f2: number; f3: number; f4: number;
   const f3 = Math.max(0, Math.min(gc - 10_000_000, 20_000_000)) * 0.2;
   const f4 = Math.max(0, gc - 30_000_000) * 0.225;
   return { f1, f2, f3, f4, total: f1 + f2 + f3 + f4 };
+}
+
+const IRRF_DIVIDENDOS_THRESHOLD = 50_000;
+const IRRF_DIVIDENDOS_ALIQUOTA = 0.10;
+
+function calcIRRFDividendos(lucroDistribuivel: number) {
+  const parcela1 = lucroDistribuivel;
+  const excede1 = parcela1 > IRRF_DIVIDENDOS_THRESHOLD;
+  const irrf1 = excede1 ? lucroDistribuivel * IRRF_DIVIDENDOS_ALIQUOTA : 0;
+
+  const parcela3 = lucroDistribuivel / 3;
+  const excede3 = parcela3 > IRRF_DIVIDENDOS_THRESHOLD;
+  const irrf3 = excede3 ? lucroDistribuivel * IRRF_DIVIDENDOS_ALIQUOTA : 0;
+
+  const parcela12 = lucroDistribuivel / 12;
+  const excede12 = parcela12 > IRRF_DIVIDENDOS_THRESHOLD;
+  const irrf12 = excede12 ? lucroDistribuivel * IRRF_DIVIDENDOS_ALIQUOTA : 0;
+
+  return {
+    lucro_distribuivel: lucroDistribuivel,
+    irrf_unica: irrf1,
+    irrf_3x: irrf3,
+    irrf_12x: irrf12,
+    liquido_unica: lucroDistribuivel - irrf1,
+    liquido_3x: lucroDistribuivel - irrf3,
+    liquido_12x: lucroDistribuivel - irrf12,
+    excede_unica: excede1,
+    excede_3x: excede3,
+    excede_12x: excede12,
+  };
 }
 
 /** Lei 8.023/1990 — atividade rural (benfeitorias deduzidas): tabela progressiva anual (referência HTML) */
@@ -535,6 +566,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
 
 export default function SimuladorGanhoCapitalImovel() {
   const { success, error: showError, ToastContainer } = useToast();
+  const branding = useBranding();
   const isPaymentRequiredError = (err: unknown): boolean => {
     const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
     return (
@@ -928,7 +960,8 @@ export default function SimuladorGanhoCapitalImovel() {
     if (!el) return;
     const clone = el.cloneNode(true) as HTMLElement;
     stripReportExcludedFromClone(clone, 'preview');
-    clone.querySelectorAll('details').forEach((d) => d.remove());
+    clone.querySelectorAll('details[data-report-include="pdf"]').forEach((d) => d.setAttribute('open', ''));
+    clone.querySelectorAll('details[data-report-exclude="pdf"]').forEach((d) => d.remove());
     printPreviewContentRef.current.innerHTML = '';
     printPreviewContentRef.current.appendChild(clone);
   }, [
@@ -1393,16 +1426,23 @@ export default function SimuladorGanhoCapitalImovel() {
             const pfTotal = r?.ir.total ?? 0;
             const mercTotal = pj.merc.total;
             const ativoTotal = pj.ativo.total;
+
+            const lucroMerc = Math.max(0, venda - mercTotal - custoPJ);
+            const lucroAtivo = Math.max(0, venda - ativoTotal - custoPJ);
+            const irrfMerc = calcIRRFDividendos(lucroMerc);
+            const irrfAtivo = calcIRRFDividendos(lucroAtivo);
+
             const rows = [
-              { key: 'pf', label: 'PF — ganho de capital', total: pfTotal },
-              { key: 'merc', label: 'PJ LP — mercadoria / estoque', total: mercTotal },
-              { key: 'ativo', label: 'PJ LP — ativo imobilizado', total: ativoTotal },
+              { key: 'pf', label: 'PF — ganho de capital', total: pfTotal, irrf: 0, liquidoSocio: venda - pfTotal - (custo + despesas) },
+              { key: 'merc', label: 'PJ LP — mercadoria / estoque', total: mercTotal, irrf: irrfMerc.irrf_unica, liquidoSocio: irrfMerc.liquido_unica },
+              { key: 'ativo', label: 'PJ LP — ativo imobilizado', total: ativoTotal, irrf: irrfAtivo.irrf_unica, liquidoSocio: irrfAtivo.liquido_unica },
             ];
-            const melhor = [...rows].sort((a, b) => a.total - b.total)[0]!;
+            const custoTotalComIRRF = rows.map((r) => ({ ...r, custoTotal: r.total + r.irrf }));
+            const melhor = [...custoTotalComIRRF].sort((a, b) => a.custoTotal - b.custoTotal)[0]!;
             return (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                  {rows.map((row) => (
+                  {custoTotalComIRRF.map((row) => (
                     <div
                       key={row.key}
                       className={`rounded-lg border p-3 ${row.key === melhor.key ? 'border-brand bg-brand/5' : 'border-slate-200 bg-slate-50'}`}
@@ -1411,14 +1451,22 @@ export default function SimuladorGanhoCapitalImovel() {
                       <div className={`text-lg font-semibold ${row.key === melhor.key ? 'text-brand' : 'text-rose-700'}`}>
                         {fmtBRL(row.total)}
                       </div>
+                      {row.irrf > 0 && (
+                        <div className="text-xs text-violet-600 mt-0.5">
+                          + IRRF dividendos: {fmtBRL(row.irrf)}
+                        </div>
+                      )}
                       <div className="text-xs text-slate-500 mt-1">
-                        {venda > 0 ? `${fmtPct((row.total / venda) * 100)} sobre venda` : '—'}
+                        {venda > 0 ? `${fmtPct((row.custoTotal / venda) * 100)} custo total` : '—'}
+                      </div>
+                      <div className="text-xs text-emerald-600 font-medium mt-0.5">
+                        Líquido: {fmtBRL(row.liquidoSocio)}
                       </div>
                     </div>
                   ))}
                 </div>
                 <Metric
-                  label="Regime mais vantajoso (menor total)"
+                  label="Regime mais vantajoso (menor custo total incl. IRRF)"
                   value={melhor.label}
                   color="blue"
                 />
@@ -1564,6 +1612,24 @@ export default function SimuladorGanhoCapitalImovel() {
               </>
             )}
           </div>
+          {(() => {
+            const lucro = Math.max(0, venda - pj.merc.total - custoPJ);
+            const d = calcIRRFDividendos(lucro);
+            if (d.irrf_unica <= 0 && d.irrf_12x <= 0) return null;
+            return (
+              <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                <p className="text-xs font-semibold text-violet-800">IRRF sobre dividendos (Lei 15.270/2025)</p>
+                <p className="text-[10px] text-violet-700 mt-1">
+                  Lucro distribuível: {fmtBRL(d.lucro_distribuivel)} — Parcela única excede R$ 50k → IRRF 10%: {fmtBRL(d.irrf_unica)} → Líquido ao sócio: {fmtBRL(d.liquido_unica)}
+                </p>
+                {!d.excede_12x && (
+                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                    Distribuindo em 12 parcelas de {fmtBRL(d.lucro_distribuivel / 12)}: sem IRRF
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Resultado PJ — Ativo imobilizado */}
@@ -1609,11 +1675,29 @@ export default function SimuladorGanhoCapitalImovel() {
               </>
             )}
           </div>
+          {(() => {
+            const lucro = Math.max(0, venda - pj.ativo.total - custoPJ);
+            const d = calcIRRFDividendos(lucro);
+            if (d.irrf_unica <= 0 && d.irrf_12x <= 0) return null;
+            return (
+              <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                <p className="text-xs font-semibold text-violet-800">IRRF sobre dividendos (Lei 15.270/2025)</p>
+                <p className="text-[10px] text-violet-700 mt-1">
+                  Lucro distribuível: {fmtBRL(d.lucro_distribuivel)} — Parcela única excede R$ 50k → IRRF 10%: {fmtBRL(d.irrf_unica)} → Líquido ao sócio: {fmtBRL(d.liquido_unica)}
+                </p>
+                {!d.excede_12x && (
+                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                    Distribuindo em 12 parcelas de {fmtBRL(d.lucro_distribuivel / 12)}: sem IRRF
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Memória de cálculo — recolhida por padrão */}
         {r && (r.gcBruto > 0 || tipoImovel === 'imovel_rural') && (
-          <details className={`${sectionCardClass} group p-0 overflow-hidden`}>
+          <details className={`${sectionCardClass} group p-0 overflow-hidden`} data-report-include="pdf">
             <summary className="cursor-pointer list-none px-5 sm:px-6 py-4 flex items-center gap-2 select-none [&::-webkit-details-marker]:hidden">
               <span className="text-slate-400 text-xs group-open:rotate-90 transition-transform" aria-hidden>
                 ▶
@@ -1975,6 +2059,55 @@ export default function SimuladorGanhoCapitalImovel() {
           </div>
         </div>
 
+        {/* Projeção multi-ano 2026–2033 */}
+        <div className={sectionCardClass}>
+          <h3 className="text-base font-semibold text-slate-800 mb-1">Projeção Reforma Tributária — 2026 a 2033</h3>
+          <p className="text-xs text-slate-500 mb-4">Carga tributária PJ (mercadoria e ativo imobilizado) ao longo da transição LC 214/2025</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500">Ano</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">CBS %</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">IBS %</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ merc. reforma</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ ativo reforma</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ merc. atual</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PJ ativo atual</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500">PF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(IBS_TRANSICAO).map(([anoStr, trans]) => {
+                  const ano = Number(anoStr);
+                  const cbsY = CBS_PLENA_PCT * trans.cbs;
+                  const ibsY = trans.ibsEfetivaPct ?? (IBS_PLENA_PCT * trans.ibs);
+                  const mercY = calcPJMercadoriaReforma(venda, faturamentoTrimestreAnterior, cbsY, ibsY);
+                  const ativoY = calcPJAtivoReforma(venda, custoPJ, cbsY, ibsY);
+                  const isCurrentYear = ano === new Date().getFullYear();
+                  return (
+                    <tr key={ano} className={`border-b border-slate-100 ${isCurrentYear ? 'bg-brand/5 font-semibold' : ''}`}>
+                      <td className="py-1.5 px-2 font-medium text-slate-700">{ano}{trans.teste ? ' *' : ''}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600">{cbsY.toFixed(2)}%</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600">{ibsY.toFixed(2)}%</td>
+                      <td className={`py-1.5 px-2 text-right font-medium ${mercY.total < mercAntes.total ? 'text-emerald-700' : mercY.total > mercAntes.total ? 'text-rose-700' : 'text-slate-600'}`}>
+                        {fmtBRL(mercY.total)}
+                      </td>
+                      <td className={`py-1.5 px-2 text-right font-medium ${ativoY.total < ativoAntes.total ? 'text-emerald-700' : ativoY.total > ativoAntes.total ? 'text-rose-700' : 'text-slate-600'}`}>
+                        {fmtBRL(ativoY.total)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right text-slate-600">{fmtBRL(mercAntes.total)}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600">{fmtBRL(ativoAntes.total)}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-600">{fmtBRL(irpfTotal)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 text-xs text-slate-400">* 2026: alíquota teste — sem impacto financeiro real</div>
+        </div>
+
         {/* Nota legal */}
         <div className={`${sectionCardClass} border-l-4 border-l-amber-500`}>
           <h3 className="text-base font-semibold text-amber-800 mb-2">Atenção — vigência e aspectos em aberto</h3>
@@ -2304,6 +2437,7 @@ COFINS = Receita × 3%`}</FormulaBox>
                       title="Simulador — Ganho de capital na venda de imóvel"
                       clientName={effectiveClientName || undefined}
                       subtitle="Comparativo PF × PJ — Reforma LC 214/2025"
+                      brandName={branding?.report_brand_name}
                       details={[
                         { label: 'Ano (alienação)', value: String(coverAno) },
                         { label: 'Valor de alienação', value: fmtBRL(venda) },
@@ -2522,19 +2656,22 @@ COFINS = Receita × 3%`}</FormulaBox>
                 variant="previewModal"
                 reportTitle={effectiveReportTitle}
                 metaLine={`Emissão ${reportEmissionDateStr}`}
+                logoUrl={branding?.report_logo_url}
+                brandName={branding?.report_brand_name}
               />
               <ReportCoverSection
                 variant="previewModal"
                 title="Simulador — Ganho de capital na venda de imóvel"
                 clientName={effectiveClientName || undefined}
                 subtitle="Comparativo PF × PJ — Reforma LC 214/2025"
+                brandName={branding?.report_brand_name}
                 details={[
                   { label: 'Ano (alienação)', value: String(coverAno) },
                   { label: 'Valor de alienação', value: fmtBRL(venda) },
                 ]}
               />
               <div ref={printPreviewContentRef} className="report-preview-content" />
-              <ReportPrintFooter variant="previewModal" />
+              <ReportPrintFooter variant="previewModal" brandName={branding?.report_brand_name} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

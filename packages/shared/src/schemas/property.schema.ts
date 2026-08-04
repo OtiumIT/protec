@@ -306,6 +306,21 @@ export const CenarioPFDirpfSimplificadoSchema = z.object({
   ajuste_estimado: z.number(),
 });
 
+export const DividendosCenarioParcelamentoSchema = z.object({
+  parcelas: z.number(),
+  valor_parcela: z.number(),
+  parcela_excede_threshold: z.boolean(),
+  irrf: z.number(),
+  liquido: z.number(),
+});
+
+export const DividendosSchema = z.object({
+  lucro_distribuivel: z.number(),
+  irrf_total: z.number(),
+  lucro_liquido_socio: z.number(),
+  cenarios_parcelamento: z.array(DividendosCenarioParcelamentoSchema),
+});
+
 export const CenarioPJSchema = z.object({
   receita_bruta_total: z.number(),
   base_presumida_irpj: z.number(),
@@ -320,6 +335,7 @@ export const CenarioPJSchema = z.object({
   aliquota_efetiva: z.number(),
   aplicou_in_2306: z.boolean(),
   aplicou_presuncao_16: z.boolean().optional(),
+  dividendos: DividendosSchema.optional(),
   trimestres: z.array(z.object({
     trimestre: z.number(),
     receita: z.number(),
@@ -464,6 +480,18 @@ export const PropertyTaxSimulationResponseSchema = z.object({
   indices_lc214: IndicesLc214Schema.optional(),
   /** Embasamentos legais por cenário (PF, PJ, Reforma 2027) */
   embasamentos_legais: z.array(EmbasamentoLegalSchema).optional(),
+  /** Projeção multi-ano da reforma tributária (2026-2034) */
+  projecao_reforma: z.array(z.object({
+    ano: z.number(),
+    ibs_pct: z.number(),
+    icms_iss_pct: z.number(),
+    cbs_efetiva: z.number(),
+    ibs_efetivo: z.number(),
+    imposto_pj_reforma: z.number(),
+    imposto_pj_atual: z.number(),
+    imposto_pf: z.number(),
+    aliquota_efetiva_reforma: z.number(),
+  })).optional(),
 });
 
 export const FiscalIndicesIpcaQuerySchema = z.object({
@@ -658,6 +686,7 @@ export type PropertyTaxSimulationResponse = z.infer<typeof PropertyTaxSimulation
 export type CenarioPF = z.infer<typeof CenarioPFSchema>;
 export type CenarioPFDirpfSimplificado = z.infer<typeof CenarioPFDirpfSimplificadoSchema>;
 export type CenarioPJ = z.infer<typeof CenarioPJSchema>;
+export type Dividendos = z.infer<typeof DividendosSchema>;
 export type CenarioReforma2027 = z.infer<typeof CenarioReforma2027Schema>;
 export type BreakEven = z.infer<typeof BreakEvenSchema>;
 export type FluxoCaixa = z.infer<typeof FluxoCaixaSchema>;
