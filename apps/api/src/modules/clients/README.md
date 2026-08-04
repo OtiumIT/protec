@@ -14,13 +14,13 @@ Gerencia clientes/empresas dos tenants. Cada tenant pode ter múltiplos clientes
 - **Quando aplicar**: Endpoint `POST /clients`
 - **Validação**:
   - Nome: mínimo 3 caracteres
-  - CNPJ: formato válido e único por tenant
-  - Email: formato válido
+  - CPF/CNPJ: opcionais; se informados, formato válido e único por tenant
+  - Email: formato válido (opcional)
   - Limite do plano: `count(clients) < subscription.plan.max_clients` quando `max_clients > 0`
 - **Processo**:
   1. Validar dados de entrada (Zod)
   2. Verificar limite de clientes do plano
-  3. Verificar se CNPJ já existe no tenant
+  3. Se CPF/CNPJ informado, verificar unicidade no tenant
   4. Criar cliente no banco
   5. Retornar cliente criado
 

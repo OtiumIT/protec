@@ -84,7 +84,18 @@ export abstract class BaseRepository {
 const tenantTables = ['clients', 'fiscal_files', 'extracted_fiscal_data',
                          'rating_validations', 'tax_simulations', 'edicts', 'opportunities',
                          'in_2306_simulations', 'irpf_alta_renda', 'properties', 'property_transactions', 'property_monthly_totals', 'property_simulations',
-                         'distribuicao_lucros_simulations'];
+                         'distribuicao_lucros_simulations',
+                         // Gestão Imobiliária Contábil (069)
+                         'property_tenants', 'property_leases', 'property_lease_amendments', 'property_guarantees',
+                         'property_ledger_entries', 'property_recurring_rules', 'property_documents',
+                         'property_statement_shares', 'property_ownership_shares', 'property_vendors',
+                         'property_maintenance_tickets', 'property_inspections', 'property_inventory_items',
+                         'property_payment_charges', 'property_bank_import_batches', 'property_bank_import_lines',
+                         'property_communications',
+                         // Mapeamento de Despesas PF->PJ (071)
+                         'expense_mapping_catalog_versions', 'expense_mapping_diagnoses', 'expense_mapping_answers',
+                         'expense_mapping_items', 'expense_mapping_pendencies', 'expense_mapping_action_steps',
+                         'expense_mapping_evidence', 'expense_mapping_audit_events', 'expense_mapping_import_batches'];
     
     // Se a query acessa tabelas de tenant (isoladas por schema), NÃO requer company_id
     if (tenantTables.some(table => lowerSql.includes(table))) {

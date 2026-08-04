@@ -19,6 +19,8 @@ import { simuladorIN2306Routes } from './simulador-in-2306/simulador-in-2306.rou
 import { irpfAltaRendaRoutes } from './irpf-alta-renda/irpf-alta-renda.routes';
 import { propertyRoutes } from './properties/property.routes';
 import { distribuicaoLucrosSimulationsRoutes } from './distribuicao-lucros-simulations/distribuicao-lucros-simulations.routes';
+import { gestaoImobiliariaRoutes, gestaoImobiliariaPublicRoutes } from './gestao-imobiliaria/gestao-imobiliaria.routes';
+import { mapeamentoDespesasPjRoutes } from './mapeamento-despesas-pj/mapeamento-despesas-pj.routes';
 import { accessListRoutes } from './access-list/access-list.routes';
 import { feedbackRoutes } from './feedback/feedback.routes';
 import { FeedbackService } from './feedback/feedback.service';
@@ -312,6 +314,10 @@ app.route('/api/v1/simulador-in-2306', simuladorIN2306Routes);
 app.route('/api/v1/irpf-alta-renda', irpfAltaRendaRoutes);
 app.route('/api/v1/properties', propertyRoutes);
 app.route('/api/v1/distribuicao-lucros-simulations', distribuicaoLucrosSimulationsRoutes);
+// Público (read-only) deve ser registrado ANTES da versão autenticada para não herdar middleware de auth/tenant.
+app.route('/api/v1/gestao-imobiliaria/public', gestaoImobiliariaPublicRoutes);
+app.route('/api/v1/gestao-imobiliaria', gestaoImobiliariaRoutes);
+app.route('/api/v1/mapeamento-despesas-pj', mapeamentoDespesasPjRoutes);
 app.route('/api/v1/access-list', accessListRoutes);
 
 /** Thread de feedback no router raiz (evita 404 se o merge do sub-app não expuser GET /thread/:id). */

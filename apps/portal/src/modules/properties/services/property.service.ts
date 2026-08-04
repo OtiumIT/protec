@@ -12,6 +12,30 @@ import type {
 } from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
+export interface IrpfPropertyCandidate {
+  temp_id: string;
+  identificador: string;
+  descricao: string;
+  grupo?: string;
+  codigo?: string;
+  valor_declarado?: number;
+  natureza_locacao: 'residencial' | 'nao_residencial';
+  tipo_locacao: 'fixa';
+  cidade?: string;
+  uf?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  selected_default: boolean;
+}
+
+export interface IrpfPropertyImportResult {
+  source: 'pdf' | 'dec_dbk';
+  contribuinte?: { nome?: string; cpf?: string };
+  candidates: IrpfPropertyCandidate[];
+  avisos: string[];
+}
+
 export interface PropertyWithClient extends Property {
   client_name?: string;
 }
@@ -205,6 +229,17 @@ export const propertyService = {
       token,
       tenantId,
     });
+    return response.data;
+  },
+  async importFromIrpf(file: File, clientId: string): Promise<IrpfPropertyImportResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('client_id', clientId);
+    const response = await apiRequest<{ data: IrpfPropertyImportResult }>(
+      '/api/v1/properties/import-from-irpf',
+      { method: 'POST', body: formData, token, tenantId }
+    );
     return response.data;
   },
   async list(params?: {

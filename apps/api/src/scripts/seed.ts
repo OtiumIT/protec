@@ -73,6 +73,8 @@ async function seed() {
       { name: 'Tributação da alta renda/dividendos - IRPFM - Lei 12.570/2025', key: 'IRPF_ALTA_RENDA', description: 'Análise da declaração do IR do contribuinte e simulação da nova tributação da alta renda, com a indicação da alíquota aplicável e o valor a ser pago, comparando os cenários antes e depois da nova legislação, apontando possíveis soluções para redução (ex.: constituição de holding, segregação da renda com cônjuge/filhos).' },
       { name: 'Reports', key: 'REPORTS', description: 'Relatórios e análises' },
       { name: 'Analytics', key: 'ANALYTICS', description: 'Analytics avançado' },
+      { name: 'Gestão Imobiliária', key: 'GESTAO_IMOVEIS', description: 'Gestão patrimonial e planejamento tributário imobiliário (PF vs PJ vs Reforma), contratos, ledger, extratos e operação.' },
+      { name: 'Mapeamento de Despesas PF → PJ', key: 'MAPEAMENTO_DESPESAS_PJ', description: 'Diagnóstico guiado para o contador identificar despesas mantidas na pessoa física, avaliar vínculo com a atividade, uso pessoal, documentação e organização para a PJ.' },
     ];
 
     for (const module of modules) {

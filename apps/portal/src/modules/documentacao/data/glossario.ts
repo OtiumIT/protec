@@ -2,6 +2,34 @@ import type { GlossarioTermo } from '@shared/types/documentation';
 
 export const glossarioTermos: GlossarioTermo[] = [
   {
+    sigla: 'Pejotizacao',
+    nome_completo: 'Organizacao de despesas PF para PJ',
+    descricao:
+      'Processo de avaliar despesas hoje mantidas na pessoa fisica e organizar, com evidencia e documentacao, o que pertence a operacao da empresa. No iaTax e um diagnostico orientativo (nao parecer), com duas lentes independentes: organizacao PF->PJ e potencial de credito IBS/CBS. Beneficio pessoal ao socio e tratado como risco, nao oportunidade.',
+    categoria: 'conceito',
+  },
+  {
+    sigla: 'Uso e consumo pessoal',
+    nome_completo: 'Bens e servicos de uso ou consumo pessoal (LC 214/2025, art. 57)',
+    descricao:
+      'Categoria da Reforma que veda a apropriacao de credito de IBS/CBS quando o bem/servico e destinado ao uso pessoal do contribuinte, socios, empregados ou parentes (ex.: veiculo, imovel residencial, combustivel), salvo quando utilizado preponderantemente na atividade economica.',
+    categoria: 'conceito',
+  },
+  {
+    sigla: 'Ledger imobiliario',
+    nome_completo: 'Livro financeiro operacional por imovel',
+    descricao:
+      'Contas a receber/pagar por imovel, com competencia, vencimento e ciclo de pagamento (previsto, confirmado, pago, atrasado, cancelado). E distinto do diario tributario usado nos simuladores de IR: um cuida do caixa/operacao, o outro da apuracao fiscal.',
+    categoria: 'conceito',
+  },
+  {
+    sigla: 'Prestacao de contas',
+    nome_completo: 'Extrato read-only ao proprietario',
+    descricao:
+      'Relatorio (DRE simplificada) por cliente, imovel e periodo, compartilhavel por link somente leitura com prazo e revogacao. Nao permite edicao e nao expoe a operacao do escritorio.',
+    categoria: 'conceito',
+  },
+  {
     sigla: 'BCC',
     nome_completo: 'Base de Calculo Combinada',
     descricao:

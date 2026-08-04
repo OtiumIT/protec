@@ -23,13 +23,15 @@ export const CreateClientSchema = z
   .superRefine((data, ctx) => {
     const cnpjDigits = (data.cnpj || '').replace(/\D/g, '');
     const cpfDigits = (data.cpf || '').replace(/\D/g, '');
-    if (data.person_type === 'pj') {
+    // CPF/CNPJ são opcionais; só valida formato quando informados
+    if (data.person_type === 'pj' && cnpjDigits) {
       if (cnpjDigits.length !== 14) {
         ctx.addIssue({ code: 'custom', message: 'CNPJ deve ter 14 dígitos', path: ['cnpj'] });
       } else if (!isValidCnpj(cnpjDigits)) {
         ctx.addIssue({ code: 'custom', message: 'CNPJ inválido', path: ['cnpj'] });
       }
-    } else {
+    }
+    if (data.person_type === 'pf' && cpfDigits) {
       if (cpfDigits.length !== 11) {
         ctx.addIssue({ code: 'custom', message: 'CPF deve ter 11 dígitos', path: ['cpf'] });
       } else if (!isValidCpf(cpfDigits)) {

@@ -33,6 +33,9 @@ import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
 import SimuladorGanhoCapitalImovel from './modules/properties/pages/SimuladorGanhoCapitalImovel';
 import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
+import { GestaoImobiliaria } from './modules/gestao-imobiliaria/pages/GestaoImobiliaria';
+import { PrestacaoContasPublica } from './modules/gestao-imobiliaria/pages/PrestacaoContasPublica';
+import { MapeamentoDespesasPj } from './modules/mapeamento-despesas-pj/pages/MapeamentoDespesasPj';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
 import { AccessList } from './modules/access-list/pages/AccessList';
@@ -148,6 +151,7 @@ function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/EPS" element={<EPSLanding />} />
         <Route path="/PabloArruda" element={<PabloArrudaLanding />} />
+        <Route path="/prestacao-de-contas" element={<PrestacaoContasPublica />} />
         <Route path="/pabloarruda" element={<Navigate to="/PabloArruda" replace />} />
         <Route path="/pablo-arruda" element={<Navigate to="/PabloArruda" replace />} />
         <Route
@@ -190,6 +194,9 @@ function AppRoutes() {
           <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
           <Route path="/properties/:id" element={<PropertyDetail />} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/gestao-imobiliaria" element={<GestaoImobiliaria />} />
+          <Route path="/gestao-imobiliaria/:section" element={<GestaoImobiliaria />} />
+          <Route path="/mapeamento-despesas-pj" element={<MapeamentoDespesasPj />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/documentacao/glossario" element={<Glossario />} />
           <Route path="/access-list" element={<AccessList />} />

@@ -259,10 +259,10 @@ export function Clients() {
           onClose={handleCloseModal}
           title={editingClient ? 'Editar Cliente' : 'Novo Cliente'}
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pessoa</label>
-              <div className="flex gap-4">
+          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+            <div className="text-left">
+              <label className="block text-sm font-medium text-slate-700 mb-2 text-left">Tipo de pessoa</label>
+              <div className="flex gap-4 justify-start">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -295,31 +295,29 @@ export function Clients() {
             />
             {formData.person_type === 'pj' ? (
               <Input
-                label="CNPJ"
+                label="CNPJ (opcional)"
                 value={formatCnpj(formData.cnpj ?? '')}
                 onChange={(e) => {
                   const raw = parseDigits(e.target.value);
                   if (raw.length <= 14) setFormData({ ...formData, cnpj: raw });
                 }}
                 placeholder="00.000.000/0001-00"
-                required
                 maxLength={18}
               />
             ) : (
               <Input
-                label="CPF"
+                label="CPF (opcional)"
                 value={formatCpf(formData.cpf ?? '')}
                 onChange={(e) => {
                   const raw = parseDigits(e.target.value);
                   if (raw.length <= 11) setFormData({ ...formData, cpf: raw });
                 }}
                 placeholder="000.000.000-00"
-                required
                 maxLength={14}
               />
             )}
             <Input
-              label="Email"
+              label="Email (opcional)"
               type="email"
               value={formData.email || ''}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}

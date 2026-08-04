@@ -1,0 +1,2950 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Visão de produto do módulo de Gestão Imobiliária Contábil do iaTax."
+    />
+    <title>iaTax — Gestão Imobiliária Contábil</title>
+    <style>
+      :root {
+        --navy: #0f172a;
+        --navy-soft: #1e293b;
+        --blue: #4f46e5;
+        --blue-dark: #4338ca;
+        --blue-soft: #eef2ff;
+        --orange: #ea580c;
+        --green: #059669;
+        --green-soft: #ecfdf5;
+        --amber: #d97706;
+        --amber-soft: #fffbeb;
+        --red: #dc2626;
+        --red-soft: #fef2f2;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --white: #ffffff;
+        --shadow: 0 16px 40px -24px rgb(15 23 42 / 0.25);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--navy);
+        background: var(--slate-50);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.55;
+      }
+
+      button,
+      a {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .container {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 30;
+        top: 0;
+        border-bottom: 1px solid rgb(255 255 255 / 0.1);
+        color: var(--white);
+        background: rgb(15 23 42 / 0.94);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar-inner {
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--blue), #818cf8);
+        box-shadow: 0 8px 20px rgb(79 70 229 / 0.35);
+      }
+
+      .brand small {
+        color: var(--slate-400);
+        font-weight: 500;
+      }
+
+      .topnav {
+        display: flex;
+        gap: 6px;
+      }
+
+      .topnav a {
+        padding: 8px 11px;
+        border-radius: 8px;
+        color: #cbd5e1;
+        font-size: 0.86rem;
+      }
+
+      .topnav a:hover {
+        color: var(--white);
+        background: rgb(255 255 255 / 0.08);
+      }
+
+      .hero {
+        overflow: hidden;
+        position: relative;
+        color: var(--white);
+        background:
+          radial-gradient(
+            circle at 78% 25%,
+            rgb(79 70 229 / 0.35),
+            transparent 28rem
+          ),
+          linear-gradient(145deg, var(--navy) 0%, #18233a 100%);
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.2;
+        background-image:
+          linear-gradient(rgb(255 255 255 / 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(255 255 255 / 0.08) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to bottom, black, transparent);
+      }
+
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 60px;
+        align-items: center;
+        padding: 84px 0 94px;
+      }
+
+      .eyebrow,
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 750;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        padding: 7px 11px;
+        color: #c7d2fe;
+        border: 1px solid rgb(129 140 248 / 0.28);
+        background: rgb(79 70 229 / 0.13);
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 20px 0 20px;
+        font-size: clamp(2.6rem, 6vw, 5rem);
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      .hero-copy {
+        max-width: 680px;
+        margin: 0;
+        color: #cbd5e1;
+        font-size: clamp(1rem, 2vw, 1.2rem);
+      }
+
+      .hero-actions {
+        margin-top: 30px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .btn {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 17px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 750;
+      }
+
+      .btn-primary {
+        color: var(--white);
+        background: var(--blue);
+        box-shadow: 0 10px 28px rgb(79 70 229 / 0.3);
+      }
+
+      .btn-primary:hover {
+        background: var(--blue-dark);
+      }
+
+      .btn-ghost {
+        color: #e2e8f0;
+        border: 1px solid rgb(255 255 255 / 0.16);
+        background: rgb(255 255 255 / 0.06);
+      }
+
+      .hero-card {
+        padding: 22px;
+        border: 1px solid rgb(255 255 255 / 0.12);
+        border-radius: 22px;
+        background: rgb(255 255 255 / 0.07);
+        box-shadow: 0 30px 80px rgb(0 0 0 / 0.26);
+        backdrop-filter: blur(12px);
+      }
+
+      .hero-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .status-dot {
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+        background: #34d399;
+        box-shadow: 0 0 0 5px rgb(52 211 153 / 0.13);
+      }
+
+      .mini-kpis {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .mini-kpi {
+        padding: 16px;
+        border-radius: 13px;
+        background: rgb(15 23 42 / 0.48);
+      }
+
+      .mini-kpi span {
+        display: block;
+        color: #94a3b8;
+        font-size: 0.75rem;
+      }
+
+      .mini-kpi strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1.15rem;
+      }
+
+      .mini-bar {
+        margin-top: 18px;
+        height: 9px;
+        overflow: hidden;
+        display: flex;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+      }
+
+      .mini-bar i:nth-child(1) {
+        width: 66%;
+        background: #6366f1;
+      }
+
+      .mini-bar i:nth-child(2) {
+        width: 19%;
+        background: #34d399;
+      }
+
+      .mini-bar i:nth-child(3) {
+        width: 15%;
+        background: #fb923c;
+      }
+
+      section {
+        padding: 84px 0;
+      }
+
+      .section-alt {
+        background: var(--white);
+        border-block: 1px solid var(--slate-200);
+      }
+
+      .section-head {
+        max-width: 780px;
+        margin-bottom: 38px;
+      }
+
+      .section-kicker {
+        margin-bottom: 8px;
+        color: var(--blue);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 13px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.12rem;
+        letter-spacing: -0.015em;
+      }
+
+      .lead,
+      .muted {
+        color: var(--slate-600);
+      }
+
+      .lead {
+        margin: 0;
+        font-size: 1.08rem;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .card {
+        padding: 24px;
+        border: 1px solid var(--slate-200);
+        border-radius: 17px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+
+      .card-icon {
+        width: 42px;
+        height: 42px;
+        margin-bottom: 17px;
+        display: grid;
+        place-items: center;
+        border-radius: 11px;
+        color: var(--blue);
+        background: var(--blue-soft);
+        font-size: 1.2rem;
+      }
+
+      .card p {
+        margin: 8px 0 0;
+        color: var(--slate-600);
+        font-size: 0.92rem;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 22px;
+      }
+
+      .persona {
+        overflow: hidden;
+        border: 1px solid var(--slate-200);
+        border-radius: 18px;
+        background: var(--white);
+      }
+
+      .persona-head {
+        padding: 24px;
+        border-bottom: 1px solid var(--slate-200);
+        background: var(--slate-50);
+      }
+
+      .persona-body {
+        padding: 22px 24px;
+      }
+
+      .checklist {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .checklist li {
+        position: relative;
+        padding: 9px 0 9px 29px;
+        color: var(--slate-700);
+      }
+
+      .checklist li::before {
+        content: "✓";
+        position: absolute;
+        top: 9px;
+        left: 0;
+        width: 20px;
+        height: 20px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: var(--green);
+        background: var(--green-soft);
+        font-size: 0.72rem;
+        font-weight: 900;
+      }
+
+      .tabs {
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tab {
+        padding: 10px 14px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        color: var(--slate-600);
+        background: var(--white);
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .tab.active {
+        color: var(--white);
+        border-color: var(--blue);
+        background: var(--blue);
+      }
+
+      .feature-panel {
+        display: none;
+      }
+
+      .feature-panel.active {
+        display: block;
+        animation: enter 180ms ease-out;
+      }
+
+      @keyframes enter {
+        from {
+          transform: translateY(4px);
+          opacity: 0;
+        }
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+      }
+
+      .feature {
+        padding: 18px;
+        border: 1px solid var(--slate-200);
+        border-radius: 13px;
+        background: var(--white);
+      }
+
+      .feature-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .feature p {
+        margin: 8px 0 0;
+        color: var(--slate-600);
+        font-size: 0.9rem;
+      }
+
+      .badge {
+        flex: 0 0 auto;
+        padding: 5px 8px;
+      }
+
+      .badge-mvp {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .badge-next {
+        color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .badge-future {
+        color: var(--slate-600);
+        background: var(--slate-100);
+      }
+
+      .dashboard {
+        overflow: hidden;
+        border: 1px solid var(--slate-200);
+        border-radius: 20px;
+        background: var(--slate-100);
+        box-shadow: 0 30px 70px -36px rgb(15 23 42 / 0.45);
+      }
+
+      .dash-bar {
+        min-height: 54px;
+        padding: 0 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        color: var(--white);
+        background: var(--navy);
+      }
+
+      .dash-body {
+        padding: 20px;
+      }
+
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+      }
+
+      .kpi {
+        padding: 15px;
+        border: 1px solid var(--slate-200);
+        border-radius: 12px;
+        background: var(--white);
+      }
+
+      .kpi span {
+        display: block;
+        color: var(--slate-500);
+        font-size: 0.71rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .kpi strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 1.08rem;
+      }
+
+      .dash-lower {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1.35fr 0.65fr;
+        gap: 12px;
+      }
+
+      .chart,
+      .alerts {
+        min-height: 240px;
+        padding: 18px;
+        border: 1px solid var(--slate-200);
+        border-radius: 12px;
+        background: var(--white);
+      }
+
+      .bars {
+        height: 150px;
+        margin-top: 18px;
+        display: flex;
+        align-items: end;
+        justify-content: space-around;
+        gap: 14px;
+        border-bottom: 1px solid var(--slate-200);
+      }
+
+      .bar {
+        width: 9%;
+        min-width: 24px;
+        border-radius: 7px 7px 0 0;
+        background: linear-gradient(to top, var(--blue), #818cf8);
+      }
+
+      .alert {
+        margin-top: 10px;
+        padding: 10px 11px;
+        border-radius: 9px;
+        font-size: 0.82rem;
+      }
+
+      .alert-red {
+        color: #991b1b;
+        background: var(--red-soft);
+      }
+
+      .alert-amber {
+        color: #92400e;
+        background: var(--amber-soft);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+      }
+
+      .flow-step {
+        position: relative;
+        padding: 18px;
+        border: 1px solid var(--slate-200);
+        border-radius: 14px;
+        background: var(--white);
+      }
+
+      .flow-step:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        right: -20px;
+        transform: translateY(-50%);
+        color: var(--slate-400);
+        font-weight: 900;
+      }
+
+      .flow-number {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--white);
+        background: var(--blue);
+        font-weight: 800;
+      }
+
+      .flow-step p {
+        margin: 6px 0 0;
+        color: var(--slate-600);
+        font-size: 0.82rem;
+      }
+
+      .statement {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 34px;
+        align-items: center;
+      }
+
+      .paper {
+        padding: 34px;
+        border: 1px solid var(--slate-200);
+        border-radius: 6px;
+        background: var(--white);
+        box-shadow: 0 28px 60px -30px rgb(15 23 42 / 0.38);
+      }
+
+      .paper-head {
+        padding-bottom: 18px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 2px solid var(--navy);
+      }
+
+      .paper-row {
+        padding: 11px 0;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        border-bottom: 1px solid var(--slate-200);
+        font-size: 0.88rem;
+      }
+
+      .paper-total {
+        margin-top: 16px;
+        padding: 14px;
+        display: flex;
+        justify-content: space-between;
+        border-radius: 9px;
+        color: var(--white);
+        background: var(--navy);
+        font-weight: 800;
+      }
+
+      .timeline {
+        position: relative;
+        margin: 0;
+        padding: 0 0 0 25px;
+        list-style: none;
+      }
+
+      .timeline::before {
+        content: "";
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        left: 6px;
+        width: 2px;
+        background: var(--slate-200);
+      }
+
+      .timeline li {
+        position: relative;
+        padding: 0 0 26px 18px;
+      }
+
+      .timeline li::before {
+        content: "";
+        position: absolute;
+        top: 5px;
+        left: -24px;
+        width: 12px;
+        height: 12px;
+        border: 3px solid var(--blue-soft);
+        border-radius: 50%;
+        background: var(--blue);
+      }
+
+      .timeline p {
+        margin: 5px 0 0;
+        color: var(--slate-600);
+      }
+
+      .guardrails {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .guardrail {
+        padding: 18px;
+        border-left: 4px solid var(--blue);
+        border-radius: 7px 13px 13px 7px;
+        background: var(--white);
+      }
+
+      .prototype-note {
+        margin-bottom: 18px;
+        padding: 12px 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border: 1px solid #c7d2fe;
+        border-radius: 12px;
+        color: #3730a3;
+        background: var(--blue-soft);
+        font-size: 0.88rem;
+      }
+
+      .prototype-shell {
+        min-height: 690px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr);
+        border: 1px solid var(--slate-200);
+        border-radius: 20px;
+        background: var(--white);
+        box-shadow: 0 34px 80px -42px rgb(15 23 42 / 0.55);
+      }
+
+      .proto-sidebar {
+        padding: 18px 12px;
+        color: #cbd5e1;
+        background: var(--navy);
+      }
+
+      .proto-brand {
+        margin-bottom: 20px;
+        padding: 3px 10px 17px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid rgb(255 255 255 / 0.1);
+        color: var(--white);
+        font-weight: 800;
+      }
+
+      .proto-brand .brand-mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+      }
+
+      .proto-group-label {
+        margin: 17px 10px 7px;
+        color: #64748b;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .proto-nav {
+        display: grid;
+        gap: 3px;
+      }
+
+      .proto-nav button {
+        width: 100%;
+        padding: 9px 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 0;
+        border-radius: 9px;
+        color: #cbd5e1;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        font-size: 0.82rem;
+      }
+
+      .proto-nav button:hover {
+        color: var(--white);
+        background: rgb(255 255 255 / 0.07);
+      }
+
+      .proto-nav button.active {
+        color: var(--white);
+        background: var(--blue);
+      }
+
+      .proto-nav-icon {
+        width: 25px;
+        height: 25px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 7px;
+        background: rgb(255 255 255 / 0.08);
+        font-size: 0.74rem;
+      }
+
+      .proto-main {
+        min-width: 0;
+        background: var(--slate-50);
+      }
+
+      .proto-topbar {
+        min-height: 62px;
+        padding: 0 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--slate-200);
+        background: var(--white);
+      }
+
+      .proto-client {
+        padding: 7px 11px;
+        border: 1px solid var(--slate-200);
+        border-radius: 9px;
+        color: var(--slate-700);
+        background: var(--white);
+        font-size: 0.78rem;
+      }
+
+      .proto-user {
+        width: 31px;
+        height: 31px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: var(--white);
+        background: var(--navy-soft);
+        font-size: 0.72rem;
+        font-weight: 800;
+      }
+
+      .proto-screen {
+        display: none;
+        padding: 23px;
+      }
+
+      .proto-screen.active {
+        display: block;
+        animation: enter 180ms ease-out;
+      }
+
+      .proto-screen-head {
+        margin-bottom: 18px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .proto-screen-head h3 {
+        font-size: 1.35rem;
+      }
+
+      .proto-screen-head p {
+        margin: 4px 0 0;
+        color: var(--slate-500);
+        font-size: 0.82rem;
+      }
+
+      .proto-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .proto-btn {
+        min-height: 34px;
+        padding: 0 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        color: var(--slate-700);
+        background: var(--white);
+        font-size: 0.76rem;
+        font-weight: 750;
+      }
+
+      .proto-btn.primary {
+        color: var(--white);
+        border-color: var(--blue);
+        background: var(--blue);
+      }
+
+      .proto-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .proto-kpi {
+        padding: 14px;
+        border: 1px solid var(--slate-200);
+        border-radius: 11px;
+        background: var(--white);
+      }
+
+      .proto-kpi span {
+        display: block;
+        color: var(--slate-500);
+        font-size: 0.67rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .proto-kpi strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1.02rem;
+      }
+
+      .proto-grid {
+        margin-top: 11px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+        gap: 11px;
+      }
+
+      .proto-panel {
+        padding: 15px;
+        border: 1px solid var(--slate-200);
+        border-radius: 11px;
+        background: var(--white);
+      }
+
+      .proto-panel-head {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .proto-panel-head strong {
+        font-size: 0.84rem;
+      }
+
+      .proto-link {
+        color: var(--blue);
+        font-size: 0.71rem;
+        font-weight: 750;
+      }
+
+      .proto-chart {
+        height: 165px;
+        padding: 12px 8px 0;
+        display: flex;
+        align-items: end;
+        justify-content: space-around;
+        gap: 10px;
+        border-bottom: 1px solid var(--slate-200);
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 39px,
+          var(--slate-100) 40px
+        );
+      }
+
+      .proto-chart span {
+        width: 10%;
+        min-width: 20px;
+        border-radius: 6px 6px 0 0;
+        background: linear-gradient(to top, var(--blue), #818cf8);
+      }
+
+      .proto-alert-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .proto-alert {
+        padding: 10px;
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 9px;
+        border-radius: 9px;
+        background: var(--slate-50);
+        font-size: 0.74rem;
+      }
+
+      .proto-alert i {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--amber);
+        background: var(--amber-soft);
+        font-style: normal;
+      }
+
+      .proto-alert strong,
+      .proto-alert small {
+        display: block;
+      }
+
+      .proto-alert small {
+        margin-top: 2px;
+        color: var(--slate-500);
+      }
+
+      .proto-filters {
+        margin-bottom: 11px;
+        padding: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .proto-filter {
+        min-height: 31px;
+        padding: 0 10px;
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--slate-200);
+        border-radius: 7px;
+        color: var(--slate-600);
+        background: var(--slate-50);
+        font-size: 0.72rem;
+      }
+
+      .property-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .property-card {
+        overflow: hidden;
+        border: 1px solid var(--slate-200);
+        border-radius: 11px;
+        background: var(--white);
+      }
+
+      .property-image {
+        height: 76px;
+        display: grid;
+        place-items: center;
+        color: #6366f1;
+        background:
+          linear-gradient(
+            135deg,
+            rgb(79 70 229 / 0.12),
+            rgb(14 165 233 / 0.08)
+          ),
+          var(--slate-100);
+        font-size: 1.7rem;
+      }
+
+      .property-body {
+        padding: 11px;
+      }
+
+      .property-body p {
+        margin: 4px 0 9px;
+        color: var(--slate-500);
+        font-size: 0.7rem;
+      }
+
+      .property-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.69rem;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        padding: 4px 7px;
+        border-radius: 999px;
+        font-size: 0.63rem;
+        font-weight: 800;
+      }
+
+      .status-green {
+        color: #047857;
+        background: var(--green-soft);
+      }
+
+      .status-red {
+        color: #b91c1c;
+        background: var(--red-soft);
+      }
+
+      .status-amber {
+        color: #b45309;
+        background: var(--amber-soft);
+      }
+
+      .status-gray {
+        color: var(--slate-600);
+        background: var(--slate-100);
+      }
+
+      .proto-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .proto-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.72rem;
+      }
+
+      .proto-table th,
+      .proto-table td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--slate-200);
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      .proto-table th {
+        color: var(--slate-500);
+        background: var(--slate-50);
+        font-size: 0.64rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .proto-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .money-positive {
+        color: var(--green);
+        font-weight: 800;
+      }
+
+      .money-negative {
+        color: var(--red);
+        font-weight: 800;
+      }
+
+      .contract-summary {
+        margin-bottom: 11px;
+        padding: 15px;
+        display: grid;
+        grid-template-columns: 1.15fr repeat(4, 0.7fr);
+        gap: 12px;
+        align-items: center;
+        border: 1px solid var(--slate-200);
+        border-radius: 11px;
+        background: var(--white);
+      }
+
+      .contract-summary small,
+      .contract-summary strong {
+        display: block;
+      }
+
+      .contract-summary small {
+        color: var(--slate-500);
+        font-size: 0.64rem;
+      }
+
+      .contract-summary strong {
+        margin-top: 2px;
+        font-size: 0.77rem;
+      }
+
+      .statement-builder {
+        display: grid;
+        grid-template-columns: 0.65fr 1.35fr;
+        gap: 11px;
+      }
+
+      .statement-config {
+        padding: 15px;
+        border: 1px solid var(--slate-200);
+        border-radius: 11px;
+        background: var(--white);
+      }
+
+      .form-row {
+        margin-top: 12px;
+      }
+
+      .form-row label {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--slate-600);
+        font-size: 0.66rem;
+        font-weight: 750;
+      }
+
+      .fake-input {
+        min-height: 34px;
+        padding: 7px 9px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border: 1px solid var(--slate-200);
+        border-radius: 7px;
+        color: var(--slate-700);
+        background: var(--white);
+        font-size: 0.72rem;
+      }
+
+      .proto-paper {
+        padding: 23px;
+        border: 1px solid var(--slate-200);
+        border-radius: 5px;
+        background: var(--white);
+        box-shadow: 0 16px 35px -28px rgb(15 23 42 / 0.5);
+      }
+
+      .proto-timeline {
+        display: grid;
+        gap: 9px;
+      }
+
+      .proto-timeline-item {
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 44px 1fr auto;
+        gap: 11px;
+        align-items: center;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+        font-size: 0.74rem;
+      }
+
+      .date-box {
+        padding: 5px;
+        border-radius: 7px;
+        color: var(--blue);
+        background: var(--blue-soft);
+        text-align: center;
+        font-weight: 800;
+      }
+
+      .date-box small {
+        display: block;
+        font-size: 0.56rem;
+        text-transform: uppercase;
+      }
+
+      .simulator-cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .simulator-card {
+        padding: 20px;
+        border: 1px solid var(--slate-200);
+        border-radius: 12px;
+        background: var(--white);
+      }
+
+      .simulator-card .card-icon {
+        margin-bottom: 12px;
+      }
+
+      footer {
+        padding: 42px 0;
+        color: #94a3b8;
+        background: var(--navy);
+      }
+
+      .footer-inner {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      @media (max-width: 900px) {
+        .topnav {
+          display: none;
+        }
+
+        .hero-inner,
+        .statement {
+          grid-template-columns: 1fr;
+        }
+
+        .cards,
+        .guardrails {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .kpi-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .dash-lower {
+          grid-template-columns: 1fr;
+        }
+
+        .flow {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .flow-step::after {
+          display: none;
+        }
+
+        .prototype-shell {
+          grid-template-columns: 76px minmax(0, 1fr);
+        }
+
+        .proto-brand span:last-child,
+        .proto-nav button span:last-child,
+        .proto-group-label {
+          display: none;
+        }
+
+        .proto-nav button {
+          justify-content: center;
+        }
+
+        .proto-kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .property-cards,
+        .contract-summary {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .statement-builder {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .container {
+          width: min(100% - 24px, 1180px);
+        }
+
+        section {
+          padding: 62px 0;
+        }
+
+        .hero-inner {
+          padding: 58px 0 70px;
+        }
+
+        .cards,
+        .split,
+        .feature-grid,
+        .guardrails,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .mini-kpis,
+        .kpi-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .paper {
+          padding: 22px;
+        }
+
+        .prototype-note,
+        .proto-screen-head,
+        .proto-topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .prototype-shell {
+          min-height: 0;
+          display: block;
+        }
+
+        .proto-sidebar {
+          padding: 10px;
+        }
+
+        .proto-brand {
+          display: none;
+        }
+
+        .proto-group-label {
+          display: none;
+        }
+
+        .proto-nav {
+          display: flex;
+          overflow-x: auto;
+        }
+
+        .proto-nav button {
+          width: auto;
+          flex: 0 0 auto;
+        }
+
+        .proto-nav button span:last-child {
+          display: inline;
+        }
+
+        .proto-nav-icon {
+          display: none;
+        }
+
+        .proto-screen {
+          padding: 14px;
+        }
+
+        .proto-grid,
+        .property-cards,
+        .contract-summary,
+        .simulator-cards {
+          grid-template-columns: 1fr;
+        }
+
+        .proto-timeline-item {
+          grid-template-columns: 42px 1fr;
+        }
+
+        .proto-timeline-item > :last-child {
+          grid-column: 2;
+        }
+
+        .footer-inner {
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        .topbar,
+        .hero-actions,
+        .tabs {
+          display: none;
+        }
+
+        .hero,
+        footer {
+          color: var(--navy);
+          background: var(--white);
+        }
+
+        .hero-card {
+          color: var(--navy);
+          border-color: var(--slate-200);
+          box-shadow: none;
+        }
+
+        .feature-panel {
+          display: block;
+          margin-bottom: 20px;
+        }
+
+        section {
+          padding: 36px 0;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <a class="brand" href="#inicio" aria-label="Voltar ao início">
+          <span class="brand-mark">i</span>
+          <span>iaTax <small>/ Gestão Imobiliária</small></span>
+        </a>
+        <nav class="topnav" aria-label="Navegação da proposta">
+          <a href="#visao">Visão</a>
+          <a href="#funcionalidades">Funcionalidades</a>
+          <a href="#experiencia">Protótipo</a>
+          <a href="#extrato">Prestação de contas</a>
+          <a href="#roadmap">Roadmap</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div class="container hero-inner">
+          <div>
+            <span class="eyebrow">Proposta de produto · MVP contábil</span>
+            <h1>Gestão imobiliária sem a imobiliária.</h1>
+            <p class="hero-copy">
+              Um centro contábil para o contador administrar imóveis, contratos,
+              receitas e despesas — enquanto o proprietário acompanha tudo em
+              uma prestação de contas clara e profissional.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#funcionalidades"
+                >Ver funcionalidades</a
+              >
+              <a class="btn btn-ghost" href="#experiencia"
+                >Conhecer a experiência</a
+              >
+            </div>
+          </div>
+
+          <aside class="hero-card" aria-label="Resumo visual do portfólio">
+            <div class="hero-card-head">
+              <div>
+                <small style="color: #94a3b8">Portfólio · julho/2026</small>
+                <strong style="display: block; margin-top: 3px"
+                  >Visão consolidada</strong
+                >
+              </div>
+              <span><i class="status-dot"></i></span>
+            </div>
+            <div class="mini-kpis">
+              <div class="mini-kpi">
+                <span>Receita</span>
+                <strong>R$ 42.850</strong>
+              </div>
+              <div class="mini-kpi">
+                <span>Resultado líquido</span>
+                <strong style="color: #6ee7b7">R$ 35.210</strong>
+              </div>
+              <div class="mini-kpi">
+                <span>Ocupação</span>
+                <strong>91,7%</strong>
+              </div>
+              <div class="mini-kpi">
+                <span>Em atraso</span>
+                <strong style="color: #fdba74">R$ 2.400</strong>
+              </div>
+            </div>
+            <div class="mini-bar" aria-label="Composição financeira">
+              <i></i><i></i><i></i>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="visao">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">A proposta</div>
+            <h2>Da simulação tributária à gestão do patrimônio</h2>
+            <p class="lead">
+              O iaTax já calcula aluguel PF × PJ e ganho de capital. O novo
+              módulo conecta esses cálculos à rotina real do imóvel: contrato,
+              competência, recebimento, despesa, resultado e prestação de
+              contas.
+            </p>
+          </div>
+
+          <div class="cards">
+            <article class="card">
+              <div class="card-icon">⌂</div>
+              <h3>Um portfólio organizado</h3>
+              <p>
+                Todos os imóveis dos clientes em um único painel, com situação
+                contratual, financeira e fiscal.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">↗</div>
+              <h3>Contabilidade por imóvel</h3>
+              <p>
+                Receitas, despesas, resultado e pendências separados por imóvel,
+                cliente e competência.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon">✓</div>
+              <h3>Transparência para o dono</h3>
+              <p>
+                Extrato profissional, compartilhável e somente leitura, sem
+                expor a área operacional do escritório.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt" id="personas">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Quem usa</div>
+            <h2>Duas experiências, uma fonte de verdade</h2>
+          </div>
+          <div class="split">
+            <article class="persona">
+              <div class="persona-head">
+                <span class="badge badge-mvp">Operação</span>
+                <h3 style="margin-top: 10px">Contador / escritório</h3>
+                <p class="muted" style="margin-bottom: 0">
+                  Controla o patrimônio e prepara a informação contábil.
+                </p>
+              </div>
+              <div class="persona-body">
+                <ul class="checklist">
+                  <li>Cadastra imóveis, inquilinos e contratos</li>
+                  <li>Registra receitas e despesas por competência</li>
+                  <li>Confirma pagamentos e acompanha atrasos</li>
+                  <li>Visualiza DRE e resultado por imóvel</li>
+                  <li>Gera e revoga links de prestação de contas</li>
+                  <li>Usa os simuladores tributários já existentes</li>
+                </ul>
+              </div>
+            </article>
+            <article class="persona">
+              <div class="persona-head">
+                <span class="badge badge-mvp">Visualização</span>
+                <h3 style="margin-top: 10px">Cliente / proprietário</h3>
+                <p class="muted" style="margin-bottom: 0">
+                  Acompanha seus números sem operar o sistema.
+                </p>
+              </div>
+              <div class="persona-body">
+                <ul class="checklist">
+                  <li>Acessa link protegido e com validade definida</li>
+                  <li>Vê receitas, despesas e resultado líquido</li>
+                  <li>Filtra período e imóveis autorizados</li>
+                  <li>Consulta lançamentos detalhados</li>
+                  <li>Imprime ou salva a prestação em PDF</li>
+                  <li>Não altera dados e não acessa outros clientes</li>
+                </ul>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="funcionalidades">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Mapa funcional</div>
+            <h2>Tudo que o módulo deverá oferecer</h2>
+            <p class="lead">
+              Navegue pelas áreas. Cada item indica se entra no MVP, na próxima
+              evolução ou no roadmap futuro.
+            </p>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Áreas funcionais">
+            <button class="tab active" data-tab="portfolio" role="tab">
+              Portfólio
+            </button>
+            <button class="tab" data-tab="contratos" role="tab">
+              Contratos
+            </button>
+            <button class="tab" data-tab="financeiro" role="tab">
+              Financeiro
+            </button>
+            <button class="tab" data-tab="relatorios" role="tab">
+              Relatórios
+            </button>
+            <button class="tab" data-tab="operacao" role="tab">
+              Operação futura
+            </button>
+          </div>
+
+          <div class="feature-panel active" data-panel="portfolio">
+            <div class="feature-grid">
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Dashboard consolidado</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Receita, despesa, resultado, ocupação, atrasos e próximos
+                  vencimentos.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Cadastro patrimonial</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Imóveis por cliente, endereço, matrícula, IPTU, tipo e
+                  natureza da locação.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Visão por cliente</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Consolidado de todos os imóveis de um proprietário e
+                  drill-down individual.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Indicadores de rentabilidade</h3>
+                  <span class="badge badge-next">Evolução</span>
+                </div>
+                <p>
+                  Yield, retorno sobre custo, vacância, comparativo entre
+                  imóveis e tendências.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Documentos do imóvel</h3>
+                  <span class="badge badge-next">Evolução</span>
+                </div>
+                <p>
+                  Matrícula, IPTU, seguro, laudos e comprovantes organizados por
+                  imóvel.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Propriedade fracionada</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Múltiplos proprietários e rateio de receitas e despesas por
+                  participação.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="feature-panel" data-panel="contratos">
+            <div class="feature-grid">
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Cadastro de inquilinos</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Nome, documento, contatos e vínculo com o cliente e imóvel
+                  corretos.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Contrato de locação</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Vigência, aluguel, vencimento, índice de reajuste e situação
+                  do contrato.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Alertas de vencimento</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Contratos próximos do fim, aluguéis vencidos e eventos
+                  importantes.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Reajustes e aditivos</h3>
+                  <span class="badge badge-next">Evolução</span>
+                </div>
+                <p>
+                  Histórico de índices, novo valor, renovação e aditivos
+                  contratuais.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Garantias e depósitos</h3>
+                  <span class="badge badge-next">Evolução</span>
+                </div>
+                <p>
+                  Caução, fiador, seguro-fiança e controle da devolução da
+                  garantia.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Assinatura eletrônica</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Geração, envio e assinatura de contratos por integração
+                  especializada.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="feature-panel" data-panel="financeiro">
+            <div class="feature-grid">
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Livro financeiro por imóvel</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Receitas e despesas com competência, vencimento, categoria e
+                  observação.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Status e quitação</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Previsto, confirmado, pago, atrasado ou cancelado, com data de
+                  pagamento.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Inadimplência simples</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Identificação automática de valores vencidos ainda não
+                  quitados.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Contas recorrentes</h3>
+                  <span class="badge badge-next">Evolução</span>
+                </div>
+                <p>
+                  Geração mensal de aluguel, condomínio, IPTU, seguro e despesas
+                  fixas.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Conciliação bancária</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Importação de extrato e correspondência com receitas e
+                  pagamentos.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Boleto e PIX</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Cobrança bancária, baixa automática, multa, juros e régua de
+                  cobrança.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="feature-panel" data-panel="relatorios">
+            <div class="feature-grid">
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>DRE por imóvel</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Receita, despesas por categoria e resultado líquido mensal e
+                  acumulado.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Prestação de contas</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Extrato por cliente, imóvel e período, pronto para impressão
+                  ou PDF.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Link read-only</h3>
+                  <span class="badge badge-mvp">MVP</span>
+                </div>
+                <p>
+                  Compartilhamento seguro com expiração, escopo definido e
+                  revogação.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Simulação PF × PJ</h3>
+                  <span class="badge badge-mvp">Já existe</span>
+                </div>
+                <p>
+                  Comparação tributária de locação, alimentada pelos dados do
+                  patrimônio.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Ganho de capital</h3>
+                  <span class="badge badge-mvp">Já existe</span>
+                </div>
+                <p>
+                  Simulação da venda de imóvel para PF e diferentes modelos de
+                  PJ.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Fiscal automatizado</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Base para Carnê-Leão, DIRPF e DIMOB derivada dos lançamentos
+                  validados.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="feature-panel" data-panel="operacao">
+            <div class="feature-grid">
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Manutenções</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Chamados, fornecedores, orçamentos, aprovações e histórico por
+                  imóvel.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Vistorias</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Entrada e saída, fotos, laudos, checklist e assinatura das
+                  partes.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Comunicação</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Avisos de vencimento e envio de extratos por e-mail ou
+                  WhatsApp.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Portal com login</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Área permanente para proprietário e inquilino, com histórico e
+                  documentos.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Fornecedores</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>
+                  Cadastro, documentos, serviços prestados e despesas
+                  associadas.
+                </p>
+              </article>
+              <article class="feature">
+                <div class="feature-top">
+                  <h3>Inventário do imóvel</h3>
+                  <span class="badge badge-future">Futuro</span>
+                </div>
+                <p>Móveis, equipamentos, estado de conservação e vida útil.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt" id="experiencia">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Protótipo navegável</div>
+            <h2>Explore a estrutura proposta do módulo</h2>
+            <p class="lead">
+              Clique nos itens do menu para conhecer cada tela. Este protótipo
+              define arquitetura de navegação, prioridades e conteúdo — ainda
+              não é o sistema implementado.
+            </p>
+          </div>
+
+          <div class="prototype-note">
+            <span
+              ><strong>Como usar:</strong> navegue pelo menu lateral e compare
+              os fluxos do contador.</span
+            >
+            <span class="badge badge-mvp">Protótipo funcional</span>
+          </div>
+
+          <div class="prototype-shell">
+            <aside class="proto-sidebar" aria-label="Menu do protótipo">
+              <div class="proto-brand">
+                <span class="brand-mark">i</span>
+                <span>iaTax</span>
+              </div>
+
+              <div class="proto-group-label">Gestão Imobiliária</div>
+              <nav class="proto-nav">
+                <button class="active" data-proto-target="portfolio">
+                  <span class="proto-nav-icon">▦</span>
+                  <span>Portfólio</span>
+                </button>
+                <button data-proto-target="properties">
+                  <span class="proto-nav-icon">⌂</span>
+                  <span>Imóveis</span>
+                </button>
+                <button data-proto-target="contracts">
+                  <span class="proto-nav-icon">▤</span>
+                  <span>Contratos</span>
+                </button>
+                <button data-proto-target="ledger">
+                  <span class="proto-nav-icon">R$</span>
+                  <span>Financeiro</span>
+                </button>
+                <button data-proto-target="statements">
+                  <span class="proto-nav-icon">≡</span>
+                  <span>Extratos</span>
+                </button>
+                <button data-proto-target="alerts">
+                  <span class="proto-nav-icon">!</span>
+                  <span>Alertas</span>
+                </button>
+              </nav>
+
+              <div class="proto-group-label">Planejamento tributário</div>
+              <nav class="proto-nav">
+                <button data-proto-target="simulators">
+                  <span class="proto-nav-icon">∑</span>
+                  <span>Simuladores</span>
+                </button>
+              </nav>
+            </aside>
+
+            <div class="proto-main">
+              <div class="proto-topbar">
+                <div>
+                  <strong style="font-size: 0.82rem">Escritório Andrade</strong>
+                  <span
+                    style="
+                      display: block;
+                      color: var(--slate-500);
+                      font-size: 0.66rem;
+                    "
+                    >Ambiente do contador</span
+                  >
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <span class="proto-client">Cliente: Família Andrade ▾</span>
+                  <span class="proto-user">JC</span>
+                </div>
+              </div>
+
+              <div class="proto-screen active" data-proto-screen="portfolio">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Portfólio</h3>
+                    <p>Resumo financeiro e operacional · julho de 2026</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Período: jul/2026 ▾</span>
+                    <span class="proto-btn primary">+ Novo lançamento</span>
+                  </div>
+                </div>
+
+                <div class="proto-kpis">
+                  <div class="proto-kpi">
+                    <span>Receita recebida</span>
+                    <strong>R$ 42.850</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Despesas pagas</span>
+                    <strong>R$ 7.640</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Resultado líquido</span>
+                    <strong class="money-positive">R$ 35.210</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Pendências</span>
+                    <strong class="money-negative">R$ 2.400</strong>
+                  </div>
+                </div>
+
+                <div class="proto-grid">
+                  <div class="proto-panel">
+                    <div class="proto-panel-head">
+                      <strong>Resultado dos últimos 6 meses</strong>
+                      <span class="proto-link">Ver DRE completa →</span>
+                    </div>
+                    <div class="proto-chart" aria-label="Gráfico ilustrativo">
+                      <span style="height: 54%"></span>
+                      <span style="height: 68%"></span>
+                      <span style="height: 61%"></span>
+                      <span style="height: 78%"></span>
+                      <span style="height: 72%"></span>
+                      <span style="height: 91%"></span>
+                    </div>
+                  </div>
+                  <div class="proto-panel">
+                    <div class="proto-panel-head">
+                      <strong>Requer atenção</strong>
+                      <span class="status-pill status-red">3 itens</span>
+                    </div>
+                    <div class="proto-alert-list">
+                      <div class="proto-alert">
+                        <i>!</i>
+                        <div>
+                          <strong>Aluguel em atraso</strong>
+                          <small>Apto 804 · vencido há 6 dias</small>
+                        </div>
+                      </div>
+                      <div class="proto-alert">
+                        <i>↻</i>
+                        <div>
+                          <strong>Contrato próximo do fim</strong>
+                          <small>Sala 1203 · encerra em 28 dias</small>
+                        </div>
+                      </div>
+                      <div class="proto-alert">
+                        <i>R$</i>
+                        <div>
+                          <strong>IPTU a vencer</strong>
+                          <small>Casa Jardins · vence em 5 dias</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="proto-panel" style="margin-top: 11px">
+                  <div class="proto-panel-head">
+                    <strong>Desempenho dos imóveis</strong>
+                    <span class="proto-link">Ver todos os imóveis →</span>
+                  </div>
+                  <div class="proto-table-wrap">
+                    <table class="proto-table">
+                      <thead>
+                        <tr>
+                          <th>Imóvel</th>
+                          <th>Situação</th>
+                          <th>Receita</th>
+                          <th>Despesas</th>
+                          <th>Resultado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>Apartamento 804</strong></td>
+                          <td>
+                            <span class="status-pill status-red"
+                              >Em atraso</span
+                            >
+                          </td>
+                          <td>R$ 4.800</td>
+                          <td>R$ 895</td>
+                          <td class="money-positive">R$ 3.905</td>
+                        </tr>
+                        <tr>
+                          <td><strong>Sala comercial 1203</strong></td>
+                          <td>
+                            <span class="status-pill status-green">Em dia</span>
+                          </td>
+                          <td>R$ 7.500</td>
+                          <td>R$ 1.240</td>
+                          <td class="money-positive">R$ 6.260</td>
+                        </tr>
+                        <tr>
+                          <td><strong>Casa Jardins</strong></td>
+                          <td>
+                            <span class="status-pill status-green">Em dia</span>
+                          </td>
+                          <td>R$ 6.200</td>
+                          <td>R$ 980</td>
+                          <td class="money-positive">R$ 5.220</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="properties">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Imóveis</h3>
+                    <p>Cadastro e situação do patrimônio do cliente</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Importar planilha</span>
+                    <span class="proto-btn primary">+ Cadastrar imóvel</span>
+                  </div>
+                </div>
+
+                <div class="proto-filters">
+                  <span class="proto-filter">Buscar imóvel...</span>
+                  <span class="proto-filter">Situação: todos ▾</span>
+                  <span class="proto-filter">Tipo: todos ▾</span>
+                  <span class="proto-filter">3 imóveis encontrados</span>
+                </div>
+
+                <div class="property-cards">
+                  <article class="property-card">
+                    <div class="property-image">⌂</div>
+                    <div class="property-body">
+                      <strong>Apartamento 804</strong>
+                      <p>Residencial Aurora · São Paulo/SP</p>
+                      <div class="property-meta">
+                        <span>R$ 4.800/mês</span>
+                        <span class="status-pill status-red">Atrasado</span>
+                      </div>
+                    </div>
+                  </article>
+                  <article class="property-card">
+                    <div class="property-image">▥</div>
+                    <div class="property-body">
+                      <strong>Sala comercial 1203</strong>
+                      <p>Business Center · São Paulo/SP</p>
+                      <div class="property-meta">
+                        <span>R$ 7.500/mês</span>
+                        <span class="status-pill status-green">Ocupado</span>
+                      </div>
+                    </div>
+                  </article>
+                  <article class="property-card">
+                    <div class="property-image">⌂</div>
+                    <div class="property-body">
+                      <strong>Casa Jardins</strong>
+                      <p>Alameda Santos · São Paulo/SP</p>
+                      <div class="property-meta">
+                        <span>R$ 6.200/mês</span>
+                        <span class="status-pill status-green">Ocupado</span>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+
+                <div class="proto-panel" style="margin-top: 11px">
+                  <div class="proto-panel-head">
+                    <strong>Ao abrir um imóvel</strong>
+                    <span class="status-pill status-gray"
+                      >Workspace individual</span
+                    >
+                  </div>
+                  <div class="proto-filters" style="margin: 0">
+                    <span class="proto-filter">Visão geral</span>
+                    <span class="proto-filter">Contrato</span>
+                    <span class="proto-filter">Lançamentos</span>
+                    <span class="proto-filter">DRE / Extrato</span>
+                    <span class="proto-filter">Documentos (fase 2)</span>
+                    <span class="proto-filter">Simular imposto</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="contracts">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Contratos</h3>
+                    <p>Locações, vigências, reajustes e inquilinos</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Cadastrar inquilino</span>
+                    <span class="proto-btn primary">+ Novo contrato</span>
+                  </div>
+                </div>
+
+                <div class="proto-kpis">
+                  <div class="proto-kpi">
+                    <span>Contratos ativos</span><strong>11</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Encerram em 60 dias</span><strong>2</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Aluguel contratado</span><strong>R$ 48.900</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Imóveis vagos</span><strong>1</strong>
+                  </div>
+                </div>
+
+                <div style="margin-top: 11px">
+                  <article class="contract-summary">
+                    <div>
+                      <small>Imóvel / inquilino</small>
+                      <strong>Apartamento 804 · Lucas Ferreira</strong>
+                    </div>
+                    <div>
+                      <small>Vigência</small><strong>01/03/25–28/02/27</strong>
+                    </div>
+                    <div><small>Aluguel</small><strong>R$ 4.800</strong></div>
+                    <div><small>Vencimento</small><strong>Dia 10</strong></div>
+                    <div>
+                      <span class="status-pill status-green">Ativo</span>
+                    </div>
+                  </article>
+                  <article class="contract-summary">
+                    <div>
+                      <small>Imóvel / inquilino</small>
+                      <strong>Sala 1203 · Clínica Horizonte Ltda.</strong>
+                    </div>
+                    <div>
+                      <small>Vigência</small><strong>01/09/23–31/08/26</strong>
+                    </div>
+                    <div><small>Aluguel</small><strong>R$ 7.500</strong></div>
+                    <div>
+                      <small>Reajuste</small><strong>IPCA · set/26</strong>
+                    </div>
+                    <div>
+                      <span class="status-pill status-amber">Renovar</span>
+                    </div>
+                  </article>
+                  <article class="contract-summary">
+                    <div>
+                      <small>Imóvel / inquilino</small>
+                      <strong>Casa Jardins · Marina Oliveira</strong>
+                    </div>
+                    <div>
+                      <small>Vigência</small><strong>15/01/26–14/01/28</strong>
+                    </div>
+                    <div><small>Aluguel</small><strong>R$ 6.200</strong></div>
+                    <div><small>Vencimento</small><strong>Dia 15</strong></div>
+                    <div>
+                      <span class="status-pill status-green">Ativo</span>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="ledger">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Financeiro</h3>
+                    <p>Livro de receitas e despesas por competência</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Fechar competência</span>
+                    <span class="proto-btn primary">+ Novo lançamento</span>
+                  </div>
+                </div>
+
+                <div class="proto-filters">
+                  <span class="proto-filter">Competência: jul/2026 ▾</span>
+                  <span class="proto-filter">Imóvel: todos ▾</span>
+                  <span class="proto-filter">Status: todos ▾</span>
+                  <span class="proto-filter">Categoria: todas ▾</span>
+                </div>
+
+                <div class="proto-table-wrap">
+                  <table class="proto-table">
+                    <thead>
+                      <tr>
+                        <th>Vencimento</th>
+                        <th>Imóvel</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Status</th>
+                        <th>Valor</th>
+                        <th>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>10/07/2026</td>
+                        <td>Apartamento 804</td>
+                        <td>Aluguel julho</td>
+                        <td>Receita de aluguel</td>
+                        <td>
+                          <span class="status-pill status-red">Atrasado</span>
+                        </td>
+                        <td class="money-positive">R$ 4.800</td>
+                        <td><span class="proto-link">Confirmar</span></td>
+                      </tr>
+                      <tr>
+                        <td>10/07/2026</td>
+                        <td>Apartamento 804</td>
+                        <td>Condomínio</td>
+                        <td>Despesa dedutível</td>
+                        <td>
+                          <span class="status-pill status-green">Pago</span>
+                        </td>
+                        <td class="money-negative">− R$ 620</td>
+                        <td><span class="proto-link">Ver</span></td>
+                      </tr>
+                      <tr>
+                        <td>05/07/2026</td>
+                        <td>Sala comercial 1203</td>
+                        <td>Aluguel julho</td>
+                        <td>Receita de aluguel</td>
+                        <td>
+                          <span class="status-pill status-green">Recebido</span>
+                        </td>
+                        <td class="money-positive">R$ 7.500</td>
+                        <td><span class="proto-link">Ver</span></td>
+                      </tr>
+                      <tr>
+                        <td>20/07/2026</td>
+                        <td>Casa Jardins</td>
+                        <td>IPTU mensal</td>
+                        <td>Despesa dedutível</td>
+                        <td>
+                          <span class="status-pill status-amber">Previsto</span>
+                        </td>
+                        <td class="money-negative">− R$ 310</td>
+                        <td><span class="proto-link">Quitar</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="proto-kpis" style="margin-top: 11px">
+                  <div class="proto-kpi">
+                    <span>Receitas</span
+                    ><strong class="money-positive">R$ 42.850</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Despesas</span
+                    ><strong class="money-negative">R$ 7.640</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Resultado caixa</span><strong>R$ 35.210</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>A receber</span><strong>R$ 2.400</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="statements">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Extratos e prestação de contas</h3>
+                    <p>Prepare, revise e compartilhe com o proprietário</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Histórico de links</span>
+                    <span class="proto-btn primary">Gerar PDF</span>
+                  </div>
+                </div>
+
+                <div class="statement-builder">
+                  <aside class="statement-config">
+                    <strong style="font-size: 0.82rem"
+                      >Configurar extrato</strong
+                    >
+                    <div class="form-row">
+                      <label>CLIENTE</label>
+                      <div class="fake-input">
+                        <span>Família Andrade</span><span>⌄</span>
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <label>PERÍODO</label>
+                      <div class="fake-input">
+                        <span>01/07/2026 a 31/07/2026</span><span>⌄</span>
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <label>IMÓVEIS</label>
+                      <div class="fake-input">
+                        <span>Todos os 3 imóveis</span><span>⌄</span>
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <label>VALIDADE DO LINK</label>
+                      <div class="fake-input">
+                        <span>30 dias</span><span>⌄</span>
+                      </div>
+                    </div>
+                    <div class="proto-actions" style="margin-top: 14px">
+                      <span class="proto-btn primary" style="flex: 1"
+                        >Compartilhar link</span
+                      >
+                    </div>
+                    <p
+                      class="muted"
+                      style="font-size: 0.65rem; margin-bottom: 0"
+                    >
+                      O cliente recebe acesso somente leitura. O link pode ser
+                      revogado a qualquer momento.
+                    </p>
+                  </aside>
+
+                  <article class="proto-paper">
+                    <div class="paper-head">
+                      <div>
+                        <strong>Prestação de contas</strong>
+                        <div class="muted" style="font-size: 0.68rem">
+                          Julho de 2026
+                        </div>
+                      </div>
+                      <strong style="color: var(--blue)">iaTax</strong>
+                    </div>
+                    <p style="margin-bottom: 2px">
+                      <strong>Família Andrade</strong>
+                    </p>
+                    <p class="muted" style="margin-top: 0; font-size: 0.69rem">
+                      Consolidado de 3 imóveis
+                    </p>
+                    <div class="paper-row">
+                      <span>Receitas recebidas</span
+                      ><strong>R$ 42.850,00</strong>
+                    </div>
+                    <div class="paper-row">
+                      <span>Despesas dedutíveis</span
+                      ><strong>− R$ 4.890,00</strong>
+                    </div>
+                    <div class="paper-row">
+                      <span>Custos operacionais</span
+                      ><strong>− R$ 2.750,00</strong>
+                    </div>
+                    <div class="paper-total">
+                      <span>Resultado líquido</span><span>R$ 35.210,00</span>
+                    </div>
+                    <div style="margin-top: 15px">
+                      <div class="proto-panel-head">
+                        <strong>Detalhamento por imóvel</strong>
+                        <span class="proto-link">3 imóveis</span>
+                      </div>
+                      <div class="paper-row">
+                        <span>Apartamento 804</span><strong>R$ 3.905,00</strong>
+                      </div>
+                      <div class="paper-row">
+                        <span>Sala comercial 1203</span
+                        ><strong>R$ 6.260,00</strong>
+                      </div>
+                      <div class="paper-row">
+                        <span>Casa Jardins</span><strong>R$ 5.220,00</strong>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="alerts">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Alertas e vencimentos</h3>
+                    <p>Agenda contábil e contratual do portfólio</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Próximos 30 dias ▾</span>
+                  </div>
+                </div>
+
+                <div class="proto-kpis">
+                  <div class="proto-kpi">
+                    <span>Vencidos</span
+                    ><strong class="money-negative">1</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Próximos 7 dias</span><strong>3</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Contratos</span><strong>2</strong>
+                  </div>
+                  <div class="proto-kpi">
+                    <span>Tributos / despesas</span><strong>4</strong>
+                  </div>
+                </div>
+
+                <div class="proto-timeline" style="margin-top: 11px">
+                  <article class="proto-timeline-item">
+                    <div class="date-box">10<small>jul</small></div>
+                    <div>
+                      <strong>Aluguel vencido · Apartamento 804</strong>
+                      <div class="muted">Lucas Ferreira · R$ 4.800,00</div>
+                    </div>
+                    <span class="status-pill status-red">6 dias em atraso</span>
+                  </article>
+                  <article class="proto-timeline-item">
+                    <div class="date-box">20<small>jul</small></div>
+                    <div>
+                      <strong>IPTU · Casa Jardins</strong>
+                      <div class="muted">Despesa prevista · R$ 310,00</div>
+                    </div>
+                    <span class="status-pill status-amber"
+                      >Vence em 4 dias</span
+                    >
+                  </article>
+                  <article class="proto-timeline-item">
+                    <div class="date-box">31<small>ago</small></div>
+                    <div>
+                      <strong>Fim de contrato · Sala comercial 1203</strong>
+                      <div class="muted">
+                        Clínica Horizonte Ltda. · preparar renovação
+                      </div>
+                    </div>
+                    <span class="status-pill status-amber">Em 46 dias</span>
+                  </article>
+                  <article class="proto-timeline-item">
+                    <div class="date-box">01<small>set</small></div>
+                    <div>
+                      <strong>Reajuste contratual · Sala comercial 1203</strong>
+                      <div class="muted">Índice previsto: IPCA</div>
+                    </div>
+                    <span class="status-pill status-gray">Planejado</span>
+                  </article>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="simulators">
+                <div class="proto-screen-head">
+                  <div>
+                    <h3>Planejamento tributário</h3>
+                    <p>
+                      Ferramentas integradas ao patrimônio, fora da operação
+                      diária
+                    </p>
+                  </div>
+                </div>
+
+                <div class="simulator-cards">
+                  <article class="simulator-card">
+                    <div class="card-icon">∑</div>
+                    <span class="badge badge-mvp">Já disponível</span>
+                    <h3 style="margin-top: 12px">Locação: PF × PJ × Reforma</h3>
+                    <p class="muted">
+                      Compara Carnê-Leão, Lucro Presumido e os efeitos de
+                      IBS/CBS usando os imóveis e lançamentos selecionados.
+                    </p>
+                    <span class="proto-btn primary">Abrir simulador →</span>
+                  </article>
+                  <article class="simulator-card">
+                    <div class="card-icon">⌂</div>
+                    <span class="badge badge-mvp">Já disponível</span>
+                    <h3 style="margin-top: 12px">Venda: ganho de capital</h3>
+                    <p class="muted">
+                      Compara a alienação como PF, PJ mercadoria e PJ ativo
+                      imobilizado, com memória de cálculo.
+                    </p>
+                    <span class="proto-btn primary">Abrir simulador →</span>
+                  </article>
+                </div>
+
+                <div class="proto-panel" style="margin-top: 12px">
+                  <strong>Princípio de navegação</strong>
+                  <p class="muted" style="margin-bottom: 0; font-size: 0.78rem">
+                    Os simuladores continuam no módulo, mas não disputam espaço
+                    com a rotina. Eles recebem dados da gestão e ajudam o
+                    contador a tomar decisões.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Fluxo principal</div>
+            <h2>Do cadastro à prestação de contas</h2>
+          </div>
+          <div class="flow">
+            <article class="flow-step">
+              <div class="flow-number">1</div>
+              <h3>Cliente e imóvel</h3>
+              <p>
+                O contador seleciona o proprietário e cadastra o patrimônio.
+              </p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-number">2</div>
+              <h3>Contrato</h3>
+              <p>Registra inquilino, vigência, valor e vencimento.</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-number">3</div>
+              <h3>Lançamentos</h3>
+              <p>Inclui receitas, despesas e confirma os pagamentos.</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-number">4</div>
+              <h3>Fechamento</h3>
+              <p>Confere o resultado e as pendências do período.</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-number">5</div>
+              <h3>Compartilhar</h3>
+              <p>Entrega o extrato por link seguro ou PDF.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt" id="extrato">
+        <div class="container statement">
+          <div>
+            <div class="section-kicker">Entrega ao proprietário</div>
+            <h2>Prestação de contas que transmite confiança</h2>
+            <p class="lead">
+              O cliente vê apenas o que o contador compartilhou. O link possui
+              prazo, pode ser revogado e não permite editar informações.
+            </p>
+            <ul class="checklist" style="margin-top: 24px">
+              <li>Resumo do período e resultado líquido</li>
+              <li>Detalhamento de receitas e despesas</li>
+              <li>Um ou vários imóveis autorizados</li>
+              <li>Impressão e PDF pelo navegador</li>
+              <li>Link protegido, temporário e revogável</li>
+            </ul>
+          </div>
+
+          <article class="paper" aria-label="Exemplo de prestação de contas">
+            <div class="paper-head">
+              <div>
+                <strong style="font-size: 1.1rem">Prestação de contas</strong>
+                <div class="muted" style="font-size: 0.82rem">
+                  Julho de 2026
+                </div>
+              </div>
+              <strong style="color: var(--blue)">iaTax</strong>
+            </div>
+            <p style="margin: 18px 0 6px"><strong>Família Andrade</strong></p>
+            <p class="muted" style="margin: 0 0 16px; font-size: 0.84rem">
+              Apartamento 804 · Residencial Aurora
+            </p>
+            <div class="paper-row">
+              <span>Aluguel recebido</span><strong>R$ 4.800,00</strong>
+            </div>
+            <div class="paper-row">
+              <span>Condomínio (proprietário)</span><strong>− R$ 620,00</strong>
+            </div>
+            <div class="paper-row">
+              <span>IPTU</span><strong>− R$ 180,00</strong>
+            </div>
+            <div class="paper-row">
+              <span>Seguro</span><strong>− R$ 95,00</strong>
+            </div>
+            <div class="paper-total">
+              <span>Resultado líquido</span><span>R$ 3.905,00</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <div class="container statement">
+          <div class="paper" style="order: 1">
+            <ol class="timeline">
+              <li>
+                <span class="badge badge-mvp">Fase 1 · MVP</span>
+                <h3 style="margin-top: 8px">Núcleo contábil</h3>
+                <p>
+                  Hub, contratos, ledger, quitação, DRE, extrato, link read-only
+                  e alertas.
+                </p>
+              </li>
+              <li>
+                <span class="badge badge-next">Fase 2</span>
+                <h3 style="margin-top: 8px">Automação da rotina</h3>
+                <p>
+                  Recorrências, reajustes, documentos, anexos e indicadores de
+                  rentabilidade.
+                </p>
+              </li>
+              <li>
+                <span class="badge badge-future">Fase 3</span>
+                <h3 style="margin-top: 8px">Operação e integrações</h3>
+                <p>
+                  Boletos, PIX, conciliação, manutenção, vistorias, comunicação
+                  e portal completo.
+                </p>
+              </li>
+            </ol>
+          </div>
+          <div style="order: 2">
+            <div class="section-kicker">Roadmap recomendado</div>
+            <h2>Começar pela informação confiável</h2>
+            <p class="lead">
+              Antes de cobrar aluguel ou operar manutenção, o iaTax precisa
+              dominar o dado contábil: quem deve, o que venceu, o que foi pago,
+              quanto o imóvel gerou e o que será informado ao proprietário.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Princípios não negociáveis</div>
+            <h2>Segurança e confiança desde o início</h2>
+          </div>
+          <div class="guardrails">
+            <article class="guardrail">
+              <h3>Isolamento por empresa</h3>
+              <p class="muted">
+                Todo dado permanece no tenant correto e sempre validado no
+                backend.
+              </p>
+            </article>
+            <article class="guardrail">
+              <h3>Acesso mínimo</h3>
+              <p class="muted">
+                O proprietário vê somente o cliente, período e imóveis
+                autorizados.
+              </p>
+            </article>
+            <article class="guardrail">
+              <h3>Rastreabilidade</h3>
+              <p class="muted">
+                Exclusões, cancelamentos e compartilhamentos geram registro de
+                auditoria.
+              </p>
+            </article>
+            <article class="guardrail">
+              <h3>Fonte única</h3>
+              <p class="muted">
+                Extratos e simulações derivam dos mesmos lançamentos validados.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container footer-inner">
+        <div>
+          <strong style="color: var(--white)"
+            >iaTax · Gestão Imobiliária Contábil</strong
+          >
+          <div>
+            Documento de visão do produto — não representa funcionalidade já
+            implementada.
+          </div>
+        </div>
+        <div>Versão proposta · julho de 2026</div>
+      </div>
+    </footer>
+
+    <script>
+      const tabs = document.querySelectorAll("[data-tab]");
+      const panels = document.querySelectorAll("[data-panel]");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.tab;
+          tabs.forEach((item) => item.classList.toggle("active", item === tab));
+          panels.forEach((panel) => {
+            panel.classList.toggle("active", panel.dataset.panel === target);
+          });
+        });
+      });
+
+      const prototypeNavItems = document.querySelectorAll(
+        "[data-proto-target]",
+      );
+      const prototypeScreens = document.querySelectorAll("[data-proto-screen]");
+
+      prototypeNavItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const target = item.dataset.protoTarget;
+          prototypeNavItems.forEach((navItem) => {
+            navItem.classList.toggle("active", navItem === item);
+          });
+          prototypeScreens.forEach((screen) => {
+            screen.classList.toggle(
+              "active",
+              screen.dataset.protoScreen === target,
+            );
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -19,3 +19,5 @@ export * from './property.schema.js';
 export * from './access-list.schema.js';
 export * from './user-feedback.schema.js';
 export * from './distribuicao-lucros-simulations.schema.js';
+export * from './gestao-imobiliaria.schema.js';
+export * from './mapeamento-despesas-pj.schema.js';

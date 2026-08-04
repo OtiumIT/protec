@@ -287,6 +287,25 @@ export const CenarioPFSchema = z.object({
   })),
 });
 
+/**
+ * Cenário paralelo DIRPF com desconto simplificado (20%, teto legal).
+ * Não substitui o carnê-leão (`cenarios.pf`); é estimativa de ajuste anual.
+ */
+export const CenarioPFDirpfSimplificadoSchema = z.object({
+  receita_bruta_total: z.number(),
+  despesas_dedutiveis_total: z.number(),
+  base_antes_desconto: z.number(),
+  desconto_simplificado: z.number(),
+  aliquota_desconto_pct: z.number(),
+  teto_desconto: z.number(),
+  base_calculo_total: z.number(),
+  imposto_total: z.number(),
+  aliquota_efetiva_anual: z.number(),
+  imposto_carne_leao: z.number(),
+  /** Positivo ≈ restituição potencial; negativo ≈ a pagar no ajuste */
+  ajuste_estimado: z.number(),
+});
+
 export const CenarioPJSchema = z.object({
   receita_bruta_total: z.number(),
   base_presumida_irpj: z.number(),
@@ -427,6 +446,8 @@ export const PropertyTaxSimulationResponseSchema = z.object({
   ano: z.number(),
   cenarios: z.object({
     pf: CenarioPFSchema,
+    /** Estimativa DIRPF com desconto simplificado (20%, teto) — não substitui o carnê-leão */
+    pf_dirpf_simplificado: CenarioPFDirpfSimplificadoSchema.optional(),
     pj: CenarioPJSchema,
     /** Reforma 2027 (IBS/CBS) na ótica Pessoa Física – mesma base de cálculo, para comparação */
     reforma_2027_pf: CenarioReforma2027Schema.optional(),
@@ -635,6 +656,7 @@ export interface PropertySimulation {
 }
 export type PropertyTaxSimulationResponse = z.infer<typeof PropertyTaxSimulationResponseSchema>;
 export type CenarioPF = z.infer<typeof CenarioPFSchema>;
+export type CenarioPFDirpfSimplificado = z.infer<typeof CenarioPFDirpfSimplificadoSchema>;
 export type CenarioPJ = z.infer<typeof CenarioPJSchema>;
 export type CenarioReforma2027 = z.infer<typeof CenarioReforma2027Schema>;
 export type BreakEven = z.infer<typeof BreakEvenSchema>;

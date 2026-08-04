@@ -23,7 +23,8 @@
     "cleanup-tenants": "tsx src/scripts/cleanup-tenant.ts",
     "reset-password": "tsx src/scripts/reset-password.ts",
     "validate-db": "tsx src/scripts/validate-db.ts",
-    "test-update-plan": "tsx src/scripts/test-update-plan.ts"
+    "test-update-plan": "tsx src/scripts/test-update-plan.ts",
+    "test-expense-mapping": "tsx src/scripts/test-expense-mapping.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",

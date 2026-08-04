@@ -31,6 +31,21 @@ const FAIXAS_IRPF_2026 = [
   { limite: Infinity, aliquota: 0.275, deducao: 908.73 },
 ];
 
+/**
+ * Desconto simplificado da DIRPF (declaração de ajuste anual).
+ * NÃO se aplica ao carnê-leão mensal — só no ajuste anual se o contribuinte optar pelo modelo simplificado.
+ * Ano-calendário 2026+: teto R$ 17.640; até 2025: R$ 16.754,34.
+ */
+export const DESCONTO_SIMPLIFICADO_DIRPF_ALIQUOTA = 0.2;
+export const DESCONTO_SIMPLIFICADO_DIRPF_TETO_ATE_2025 = 16_754.34;
+export const DESCONTO_SIMPLIFICADO_DIRPF_TETO_A_PARTIR_2026 = 17_640;
+
+export function tetoDescontoSimplificadoDirpf(ano: number): number {
+  return ano >= 2026
+    ? DESCONTO_SIMPLIFICADO_DIRPF_TETO_A_PARTIR_2026
+    : DESCONTO_SIMPLIFICADO_DIRPF_TETO_ATE_2025;
+}
+
 /** Lucro Presumido - locação de imóveis */
 const PRESUNCAO_IRPJ = 0.32;
 const PRESUNCAO_CSLL = 0.32;
@@ -115,6 +130,22 @@ export function impostoIRPFMensal(baseCalculo: number): number {
   return round2(baseCalculo * 0.275 - 908.73);
 }
 
+/**
+ * IR anual pela tabela progressiva anual (faixas mensais × 12).
+ * Usado na estimativa da DIRPF com desconto simplificado — não substitui o carnê-leão.
+ */
+export function impostoIRPFAnual(baseCalculoAnual: number): number {
+  if (baseCalculoAnual <= 0) return 0;
+  for (const faixa of FAIXAS_IRPF_2026) {
+    const limiteAnual = faixa.limite === Infinity ? Infinity : faixa.limite * 12;
+    const deducaoAnual = faixa.deducao * 12;
+    if (baseCalculoAnual <= limiteAnual) {
+      return round2(Math.max(0, baseCalculoAnual * faixa.aliquota - deducaoAnual));
+    }
+  }
+  return round2(Math.max(0, baseCalculoAnual * 0.275 - 908.73 * 12));
+}
+
 /** Cenário PF: calcular impostos anuais sobre renda de locação */
 export function calcularPF(
   aggregated: AggregatedYear,
@@ -183,6 +214,63 @@ export function calcularPF(
     imposto_total: round2(impostoTotal),
     aliquota_efetiva_anual: round2(aliquotaEfetiva * 100),
     trimestres,
+  };
+}
+
+export type CenarioPFDirpfSimplificado = {
+  receita_bruta_total: number;
+  despesas_dedutiveis_total: number;
+  /** Rendimento tributável antes do desconto simplificado (receita − exclusões art. 14) */
+  base_antes_desconto: number;
+  desconto_simplificado: number;
+  aliquota_desconto_pct: number;
+  teto_desconto: number;
+  base_calculo_total: number;
+  imposto_total: number;
+  aliquota_efetiva_anual: number;
+  /** IR apurado via carnê-leão (mesmo de cenarios.pf) — obrigação mensal */
+  imposto_carne_leao: number;
+  /**
+   * Ajuste estimado na DIRPF: carnê-leão − IR com desconto simplificado.
+   * Positivo ≈ restituição potencial; negativo ≈ imposto a pagar no ajuste.
+   */
+  ajuste_estimado: number;
+};
+
+/**
+ * Cenário paralelo: carga estimada na DIRPF com opção pelo desconto simplificado
+ * (20% dos rendimentos tributáveis, limitado ao teto legal).
+ *
+ * Não altera o carnê-leão mensal. Exclusões da Lei 7.739/1989 (art. 14) continuam
+ * reduzindo o rendimento de aluguel; o desconto simplificado substitui as demais
+ * deduções legais do modelo completo da declaração de ajuste.
+ */
+export function calcularPFDirpfSimplificado(
+  aggregated: AggregatedYear,
+  impostoCarneLeao: number,
+  ano: number
+): CenarioPFDirpfSimplificado {
+  const { receita_total, despesas_dedutiveis_total } = aggregated;
+  const baseAntes = Math.max(0, receita_total - despesas_dedutiveis_total);
+  const teto = tetoDescontoSimplificadoDirpf(ano);
+  const desconto = round2(Math.min(baseAntes * DESCONTO_SIMPLIFICADO_DIRPF_ALIQUOTA, teto));
+  const baseApos = Math.max(0, baseAntes - desconto);
+  const impostoTotal = impostoIRPFAnual(baseApos);
+  const aliquotaEfetiva = baseAntes > 0 ? impostoTotal / baseAntes : 0;
+  const impostoCarne = round2(impostoCarneLeao);
+
+  return {
+    receita_bruta_total: round2(receita_total),
+    despesas_dedutiveis_total: round2(despesas_dedutiveis_total),
+    base_antes_desconto: round2(baseAntes),
+    desconto_simplificado: desconto,
+    aliquota_desconto_pct: DESCONTO_SIMPLIFICADO_DIRPF_ALIQUOTA * 100,
+    teto_desconto: teto,
+    base_calculo_total: round2(baseApos),
+    imposto_total: impostoTotal,
+    aliquota_efetiva_anual: round2(aliquotaEfetiva * 100),
+    imposto_carne_leao: impostoCarne,
+    ajuste_estimado: round2(impostoCarne - impostoTotal),
   };
 }
 

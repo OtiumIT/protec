@@ -4,6 +4,7 @@ import { ClientRepository } from '../clients/client.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import {
   calcularPF,
+  calcularPFDirpfSimplificado,
   calcularPJ,
   calcularReforma2027,
   calcularBreakEven,
@@ -52,6 +53,13 @@ const EMBASAMENTOS_LEGAIS: EmbasamentoLegal[] = [
     cenario: 'pf',
     norma: 'Lei 9.250/95 e legislação do IR',
     descricao: 'Imposto de Renda sobre rendimentos de locação: tabela progressiva mensal (Carnê-Leão), aplicável à base líquida após deduções.',
+  },
+  {
+    cenario: 'pf',
+    norma: 'Lei 9.250/95',
+    artigo: 'Desconto simplificado (DIRPF)',
+    descricao:
+      'Na declaração de ajuste anual, o contribuinte pode optar pelo desconto simplificado de 20% dos rendimentos tributáveis, limitado a R$ 16.754,34 (até ano-calendário 2025) ou R$ 17.640,00 (a partir de 2026). Não se aplica ao carnê-leão mensal; o IR pago no carnê-leão é compensado no ajuste.',
   },
   {
     cenario: 'pf',
@@ -783,6 +791,11 @@ export class PropertyService {
       aggregatedTotal,
       input.aliquota_efetiva_dirpf
     );
+    const cenarioPFDirpfSimplificado = calcularPFDirpfSimplificado(
+      aggregatedTotal,
+      cenarioPF.imposto_total,
+      input.ano
+    );
     const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
       aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
     });
@@ -985,6 +998,7 @@ export class PropertyService {
       ano: input.ano,
       cenarios: {
         pf: cenarioPF,
+        pf_dirpf_simplificado: cenarioPFDirpfSimplificado,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPF,
         reforma_2027_pj: cenarioReformaPJ,
@@ -1012,6 +1026,7 @@ export class PropertyService {
           aliquota_efetiva_anual: cenarioPF.aliquota_efetiva_anual,
           trimestres: cenarioPF.trimestres,
         },
+        detalhe_pf_dirpf_simplificado: cenarioPFDirpfSimplificado,
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
           presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)
@@ -1183,6 +1198,11 @@ export class PropertyService {
         : aggregatedTotal;
 
     const cenarioPF = calcularPF(aggregatedTotal);
+    const cenarioPFDirpfSimplificado = calcularPFDirpfSimplificado(
+      aggregatedTotal,
+      cenarioPF.imposto_total,
+      input.ano
+    );
     const cenarioPJ = calcularPJ(aggregatedTotal, undefined, {
       aplicar_equiparacao_hospitalar: input.aplicar_equiparacao_hospitalar,
     });
@@ -1302,6 +1322,7 @@ export class PropertyService {
       ano: input.ano,
       cenarios: {
         pf: cenarioPF,
+        pf_dirpf_simplificado: cenarioPFDirpfSimplificado,
         pj: cenarioPJ,
         reforma_2027_pf: cenarioReformaPFStandalone,
         reforma_2027_pj: cenarioReformaPJStandalone,
@@ -1346,6 +1367,7 @@ export class PropertyService {
           aliquota_efetiva_anual: cenarioPF.aliquota_efetiva_anual,
           trimestres: cenarioPF.trimestres,
         },
+        detalhe_pf_dirpf_simplificado: cenarioPFDirpfSimplificado,
         detalhe_pj: {
           receita_bruta_total: cenarioPJ.receita_bruta_total,
           presuncao_irpj_pct: (input.aplicar_equiparacao_hospitalar ?? false)

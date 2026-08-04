@@ -1,0 +1,2524 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Proposta e protótipo navegável do módulo iaTax de Mapeamento de Despesas PF para PJ com foco na Reforma Tributária."
+    />
+    <title>iaTax — Mapeamento de Despesas PF → PJ</title>
+    <style>
+      :root {
+        --navy: #0f172a;
+        --navy-2: #172033;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --white: #ffffff;
+        --indigo: #4f46e5;
+        --indigo-dark: #4338ca;
+        --indigo-soft: #eef2ff;
+        --cyan: #0891b2;
+        --cyan-soft: #ecfeff;
+        --green: #047857;
+        --green-soft: #ecfdf5;
+        --amber: #b45309;
+        --amber-soft: #fffbeb;
+        --red: #b91c1c;
+        --red-soft: #fef2f2;
+        --shadow: 0 18px 45px -30px rgb(15 23 42 / 0.36);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--navy);
+        background: var(--slate-50);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.55;
+      }
+
+      button,
+      input,
+      select,
+      a {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .container {
+        width: min(1180px, calc(100% - 40px));
+        margin-inline: auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 50;
+        top: 0;
+        color: var(--white);
+        border-bottom: 1px solid rgb(255 255 255 / 0.1);
+        background: rgb(15 23 42 / 0.95);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar-inner {
+        min-height: 66px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 850;
+        letter-spacing: -0.025em;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: var(--white);
+        background: var(--indigo);
+      }
+
+      .brand small {
+        color: var(--slate-400);
+        font-weight: 550;
+      }
+
+      .topnav {
+        display: flex;
+        gap: 4px;
+      }
+
+      .topnav a {
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: var(--slate-300);
+        font-size: 0.83rem;
+      }
+
+      .topnav a:hover,
+      .topnav a:focus-visible {
+        color: var(--white);
+        background: rgb(255 255 255 / 0.08);
+        outline: none;
+      }
+
+      .hero {
+        overflow: hidden;
+        position: relative;
+        color: var(--white);
+        background: var(--navy);
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.25;
+        background-image:
+          linear-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to right, transparent, black, transparent);
+      }
+
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        min-height: 610px;
+        display: grid;
+        grid-template-columns: 1.08fr 0.92fr;
+        gap: 58px;
+        align-items: center;
+        padding: 82px 0 90px;
+      }
+
+      .eyebrow,
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        padding: 7px 11px;
+        color: #c7d2fe;
+        border: 1px solid rgb(129 140 248 / 0.3);
+        background: rgb(79 70 229 / 0.14);
+      }
+
+      h1 {
+        max-width: 740px;
+        margin: 20px 0;
+        font-size: clamp(2.7rem, 6vw, 5rem);
+        line-height: 0.98;
+        letter-spacing: -0.057em;
+      }
+
+      .hero-copy {
+        max-width: 670px;
+        margin: 0;
+        color: var(--slate-300);
+        font-size: clamp(1rem, 2vw, 1.18rem);
+      }
+
+      .hero-actions {
+        margin-top: 29px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 11px;
+      }
+
+      .btn {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 17px;
+        border: 0;
+        border-radius: 10px;
+        font-weight: 780;
+      }
+
+      .btn-primary {
+        color: var(--white);
+        background: var(--indigo);
+      }
+
+      .btn-primary:hover {
+        background: var(--indigo-dark);
+      }
+
+      .btn-ghost {
+        color: var(--slate-200);
+        border: 1px solid rgb(255 255 255 / 0.18);
+        background: rgb(255 255 255 / 0.06);
+      }
+
+      .hero-card {
+        padding: 22px;
+        border: 1px solid rgb(255 255 255 / 0.13);
+        border-radius: 21px;
+        background: rgb(255 255 255 / 0.07);
+        box-shadow: 0 32px 80px rgb(0 0 0 / 0.26);
+        backdrop-filter: blur(12px);
+      }
+
+      .hero-card-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .hero-card-head small,
+      .hero-card-head strong {
+        display: block;
+      }
+
+      .hero-card-head small {
+        color: var(--slate-400);
+      }
+
+      .status-dot {
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+        background: #34d399;
+        box-shadow: 0 0 0 5px rgb(52 211 153 / 0.14);
+      }
+
+      .hero-kpis {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .hero-kpi {
+        padding: 15px;
+        border-radius: 12px;
+        background: rgb(15 23 42 / 0.5);
+      }
+
+      .hero-kpi span,
+      .hero-kpi strong {
+        display: block;
+      }
+
+      .hero-kpi span {
+        color: var(--slate-400);
+        font-size: 0.72rem;
+      }
+
+      .hero-kpi strong {
+        margin-top: 4px;
+        font-size: 1.05rem;
+      }
+
+      .composition {
+        margin-top: 18px;
+      }
+
+      .composition-bar {
+        height: 9px;
+        overflow: hidden;
+        display: flex;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+      }
+
+      .composition-bar i:nth-child(1) {
+        width: 44%;
+        background: #34d399;
+      }
+
+      .composition-bar i:nth-child(2) {
+        width: 37%;
+        background: #fbbf24;
+      }
+
+      .composition-bar i:nth-child(3) {
+        width: 19%;
+        background: #fb7185;
+      }
+
+      .composition-legend {
+        margin-top: 9px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        color: var(--slate-400);
+        font-size: 0.68rem;
+      }
+
+      section {
+        padding: 82px 0;
+      }
+
+      .section-alt {
+        border-block: 1px solid var(--slate-200);
+        background: var(--white);
+      }
+
+      .section-head {
+        max-width: 810px;
+        margin-bottom: 36px;
+      }
+
+      .section-kicker {
+        margin-bottom: 8px;
+        color: var(--indigo);
+        font-size: 0.76rem;
+        font-weight: 850;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 13px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1.08;
+        letter-spacing: -0.042em;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.08rem;
+        letter-spacing: -0.015em;
+      }
+
+      .lead {
+        margin: 0;
+        color: var(--slate-600);
+        font-size: 1.06rem;
+      }
+
+      .muted {
+        color: var(--slate-600);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 17px;
+      }
+
+      .card {
+        padding: 23px;
+        border: 1px solid var(--slate-200);
+        border-radius: 16px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+
+      .card-number {
+        width: 39px;
+        height: 39px;
+        margin-bottom: 16px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        font-weight: 850;
+      }
+
+      .card p {
+        margin: 8px 0 0;
+        color: var(--slate-600);
+        font-size: 0.91rem;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+
+      .lens {
+        overflow: hidden;
+        border: 1px solid var(--slate-200);
+        border-radius: 17px;
+        background: var(--white);
+      }
+
+      .lens-head {
+        padding: 22px;
+        border-bottom: 1px solid var(--slate-200);
+        background: var(--slate-50);
+      }
+
+      .lens-head strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 1.12rem;
+      }
+
+      .lens-body {
+        padding: 20px 22px;
+      }
+
+      .checklist {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .checklist li {
+        position: relative;
+        padding: 8px 0 8px 27px;
+        color: var(--slate-700);
+      }
+
+      .checklist li::before {
+        content: "✓";
+        position: absolute;
+        top: 8px;
+        left: 0;
+        width: 19px;
+        height: 19px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: var(--green);
+        background: var(--green-soft);
+        font-size: 0.68rem;
+        font-weight: 900;
+      }
+
+      .badge {
+        padding: 5px 8px;
+      }
+
+      .badge-indigo {
+        color: var(--indigo);
+        background: var(--indigo-soft);
+      }
+
+      .badge-green {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .badge-amber {
+        color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .badge-red {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .badge-gray {
+        color: var(--slate-600);
+        background: var(--slate-100);
+      }
+
+      .decision-flow {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+      }
+
+      .decision-step {
+        position: relative;
+        min-height: 158px;
+        padding: 17px;
+        border: 1px solid var(--slate-200);
+        border-radius: 13px;
+        background: var(--white);
+      }
+
+      .decision-step:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        right: -17px;
+        transform: translateY(-50%);
+        color: var(--slate-400);
+        font-weight: 900;
+      }
+
+      .decision-index {
+        color: var(--indigo);
+        font-size: 0.7rem;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+      }
+
+      .decision-step h3 {
+        margin-top: 8px;
+        font-size: 0.93rem;
+      }
+
+      .decision-step p {
+        margin: 7px 0 0;
+        color: var(--slate-600);
+        font-size: 0.76rem;
+      }
+
+      .reform-timeline {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .reform-phase {
+        padding: 21px;
+        border-top: 4px solid var(--indigo);
+        border-radius: 7px 14px 14px 14px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+
+      .reform-phase small {
+        color: var(--indigo);
+        font-weight: 850;
+      }
+
+      .reform-phase h3 {
+        margin-top: 7px;
+      }
+
+      .reform-phase p {
+        margin: 8px 0 0;
+        color: var(--slate-600);
+        font-size: 0.86rem;
+      }
+
+      .tabs {
+        margin-bottom: 23px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tab {
+        padding: 9px 13px;
+        border: 1px solid var(--slate-200);
+        border-radius: 9px;
+        color: var(--slate-600);
+        background: var(--white);
+        font-size: 0.86rem;
+        font-weight: 750;
+      }
+
+      .tab.active,
+      .tab:hover {
+        color: var(--white);
+        border-color: var(--indigo);
+        background: var(--indigo);
+      }
+
+      .category-panel {
+        display: none;
+      }
+
+      .category-panel.active {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 18px;
+        animation: enter 170ms ease-out;
+      }
+
+      @keyframes enter {
+        from {
+          transform: translateY(4px);
+          opacity: 0;
+        }
+      }
+
+      .category-summary,
+      .question-map {
+        padding: 22px;
+        border: 1px solid var(--slate-200);
+        border-radius: 15px;
+        background: var(--white);
+      }
+
+      .category-summary p {
+        color: var(--slate-600);
+      }
+
+      .question-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .question {
+        padding: 13px 14px;
+        display: grid;
+        grid-template-columns: 27px 1fr;
+        gap: 10px;
+        border-radius: 10px;
+        background: var(--slate-50);
+      }
+
+      .question i {
+        width: 27px;
+        height: 27px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        font-style: normal;
+        font-size: 0.72rem;
+        font-weight: 850;
+      }
+
+      .question strong,
+      .question small {
+        display: block;
+      }
+
+      .question strong {
+        font-size: 0.84rem;
+      }
+
+      .question small {
+        margin-top: 2px;
+        color: var(--slate-500);
+      }
+
+      .prototype-note {
+        margin-bottom: 17px;
+        padding: 12px 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+        border-radius: 11px;
+        background: var(--indigo-soft);
+        font-size: 0.86rem;
+      }
+
+      .prototype-shell {
+        min-height: 760px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        border: 1px solid var(--slate-200);
+        border-radius: 19px;
+        background: var(--white);
+        box-shadow: 0 36px 85px -45px rgb(15 23 42 / 0.55);
+      }
+
+      .proto-sidebar {
+        padding: 18px 12px;
+        color: var(--slate-300);
+        background: var(--navy);
+      }
+
+      .proto-brand {
+        margin-bottom: 18px;
+        padding: 2px 9px 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--white);
+        border-bottom: 1px solid rgb(255 255 255 / 0.1);
+        font-weight: 850;
+      }
+
+      .proto-brand .brand-mark {
+        width: 29px;
+        height: 29px;
+        border-radius: 8px;
+      }
+
+      .proto-group {
+        margin: 16px 9px 7px;
+        color: var(--slate-500);
+        font-size: 0.62rem;
+        font-weight: 850;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .proto-nav {
+        display: grid;
+        gap: 3px;
+      }
+
+      .proto-nav button {
+        width: 100%;
+        padding: 9px 10px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--slate-300);
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        text-align: left;
+        font-size: 0.78rem;
+      }
+
+      .proto-nav button:hover,
+      .proto-nav button.active {
+        color: var(--white);
+        background: var(--indigo);
+      }
+
+      .proto-icon {
+        width: 24px;
+        height: 24px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 7px;
+        background: rgb(255 255 255 / 0.09);
+        font-size: 0.67rem;
+        font-weight: 850;
+      }
+
+      .proto-main {
+        min-width: 0;
+        background: var(--slate-50);
+      }
+
+      .proto-topbar {
+        min-height: 60px;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        border-bottom: 1px solid var(--slate-200);
+        background: var(--white);
+      }
+
+      .proto-topbar small,
+      .proto-topbar strong {
+        display: block;
+      }
+
+      .proto-topbar small {
+        color: var(--slate-500);
+        font-size: 0.64rem;
+      }
+
+      .proto-user-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .proto-client {
+        padding: 7px 10px;
+        color: var(--slate-700);
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        background: var(--white);
+        font-size: 0.72rem;
+      }
+
+      .proto-avatar {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        color: var(--white);
+        border-radius: 50%;
+        background: var(--navy-2);
+        font-size: 0.68rem;
+        font-weight: 850;
+      }
+
+      .proto-screen {
+        display: none;
+        padding: 21px;
+      }
+
+      .proto-screen.active {
+        display: block;
+        animation: enter 170ms ease-out;
+      }
+
+      .proto-head {
+        margin-bottom: 17px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .proto-head h3 {
+        font-size: 1.26rem;
+      }
+
+      .proto-head p {
+        margin: 3px 0 0;
+        color: var(--slate-500);
+        font-size: 0.76rem;
+      }
+
+      .proto-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .proto-btn {
+        min-height: 33px;
+        padding: 0 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        color: var(--slate-700);
+        border: 1px solid var(--slate-200);
+        border-radius: 7px;
+        background: var(--white);
+        font-size: 0.7rem;
+        font-weight: 750;
+      }
+
+      button.proto-btn.primary,
+      .proto-btn.primary {
+        color: var(--white);
+        border-color: var(--indigo);
+        background: var(--indigo);
+      }
+
+      .proto-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 9px;
+      }
+
+      .proto-kpi {
+        padding: 13px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .proto-kpi span,
+      .proto-kpi strong {
+        display: block;
+      }
+
+      .proto-kpi span {
+        color: var(--slate-500);
+        font-size: 0.62rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .proto-kpi strong {
+        margin-top: 4px;
+        font-size: 0.98rem;
+      }
+
+      .text-green {
+        color: var(--green);
+      }
+
+      .text-amber {
+        color: var(--amber);
+      }
+
+      .text-red {
+        color: var(--red);
+      }
+
+      .proto-grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 10px;
+      }
+
+      .proto-panel {
+        padding: 14px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .proto-panel-head {
+        margin-bottom: 11px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .proto-panel-head strong {
+        font-size: 0.78rem;
+      }
+
+      .proto-link {
+        color: var(--indigo);
+        font-size: 0.67rem;
+        font-weight: 780;
+      }
+
+      .analysis-list {
+        display: grid;
+        gap: 7px;
+      }
+
+      .analysis-row {
+        padding: 10px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+        border-radius: 8px;
+        background: var(--slate-50);
+        font-size: 0.7rem;
+      }
+
+      .analysis-row strong,
+      .analysis-row small {
+        display: block;
+      }
+
+      .analysis-row small {
+        margin-top: 2px;
+        color: var(--slate-500);
+      }
+
+      .progress-track {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--slate-100);
+      }
+
+      .progress-track i {
+        height: 100%;
+        display: block;
+        border-radius: inherit;
+        background: var(--indigo);
+      }
+
+      .history-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--slate-200);
+        border-radius: 9px;
+        background: var(--white);
+      }
+
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.69rem;
+      }
+
+      .history-table th,
+      .history-table td {
+        padding: 10px 11px;
+        border-bottom: 1px solid var(--slate-200);
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      .history-table th {
+        color: var(--slate-500);
+        background: var(--slate-50);
+        font-size: 0.61rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .history-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .stepper {
+        margin-bottom: 16px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 5px;
+      }
+
+      .step {
+        position: relative;
+        padding-top: 9px;
+        color: var(--slate-400);
+        border-top: 3px solid var(--slate-200);
+        font-size: 0.61rem;
+        font-weight: 750;
+      }
+
+      .step.done,
+      .step.current {
+        color: var(--indigo);
+        border-color: var(--indigo);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 11px;
+      }
+
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      .field label {
+        color: var(--slate-600);
+        font-size: 0.63rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .fake-input,
+      .fake-select {
+        min-height: 37px;
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--slate-700);
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        background: var(--white);
+        font-size: 0.72rem;
+      }
+
+      .form-help {
+        color: var(--slate-500);
+        font-size: 0.62rem;
+      }
+
+      .info-box {
+        margin-top: 11px;
+        padding: 12px;
+        color: #155e75;
+        border: 1px solid #a5f3fc;
+        border-radius: 9px;
+        background: var(--cyan-soft);
+        font-size: 0.7rem;
+      }
+
+      .category-select-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 9px;
+      }
+
+      .select-card {
+        min-height: 105px;
+        padding: 13px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .select-card.selected {
+        border-color: #a5b4fc;
+        background: var(--indigo-soft);
+      }
+
+      .select-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .select-card h4 {
+        margin: 0;
+        font-size: 0.78rem;
+      }
+
+      .select-card p {
+        margin: 6px 0 0;
+        color: var(--slate-500);
+        font-size: 0.63rem;
+      }
+
+      .checkbox {
+        width: 18px;
+        height: 18px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        color: var(--white);
+        border: 1px solid var(--slate-300);
+        border-radius: 5px;
+        background: var(--white);
+        font-size: 0.62rem;
+      }
+
+      .selected .checkbox {
+        border-color: var(--indigo);
+        background: var(--indigo);
+      }
+
+      .question-card {
+        padding: 15px;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .question-card + .question-card {
+        margin-top: 8px;
+      }
+
+      .question-card-title {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .question-card h4 {
+        margin: 0;
+        font-size: 0.78rem;
+      }
+
+      .question-card p {
+        margin: 4px 0 10px;
+        color: var(--slate-500);
+        font-size: 0.65rem;
+      }
+
+      .choice-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .choice {
+        padding: 7px 10px;
+        color: var(--slate-600);
+        border: 1px solid var(--slate-200);
+        border-radius: 7px;
+        background: var(--white);
+        font-size: 0.68rem;
+      }
+
+      .choice.selected {
+        color: var(--indigo);
+        border-color: #a5b4fc;
+        background: var(--indigo-soft);
+        font-weight: 750;
+      }
+
+      .reform-callout {
+        margin-bottom: 11px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 10px;
+        color: #3730a3;
+        border-radius: 9px;
+        background: var(--indigo-soft);
+        font-size: 0.68rem;
+      }
+
+      .reform-callout i {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        background: #c7d2fe;
+        font-style: normal;
+        font-weight: 850;
+      }
+
+      .review-category {
+        margin-bottom: 8px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid var(--slate-200);
+        border-radius: 9px;
+        background: var(--white);
+        font-size: 0.7rem;
+      }
+
+      .review-category strong,
+      .review-category small {
+        display: block;
+      }
+
+      .review-category small {
+        color: var(--slate-500);
+      }
+
+      .matrix {
+        display: grid;
+        grid-template-columns: 105px repeat(2, 1fr);
+        gap: 5px;
+        font-size: 0.63rem;
+      }
+
+      .matrix > div {
+        min-height: 52px;
+        padding: 8px;
+        border-radius: 7px;
+        background: var(--slate-50);
+      }
+
+      .matrix .matrix-head {
+        min-height: auto;
+        color: var(--slate-500);
+        background: transparent;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .matrix .axis {
+        display: flex;
+        align-items: center;
+        color: var(--slate-500);
+        background: transparent;
+        font-weight: 800;
+      }
+
+      .matrix .good {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .matrix .warn {
+        color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .matrix .risk {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .detail-header {
+        margin-bottom: 11px;
+        padding: 14px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 15px;
+        border-radius: 10px;
+        color: var(--white);
+        background: var(--navy);
+      }
+
+      .detail-header p {
+        margin: 4px 0 0;
+        color: var(--slate-300);
+        font-size: 0.68rem;
+      }
+
+      .criteria {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+
+      .criterion {
+        padding: 11px;
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        background: var(--white);
+        font-size: 0.67rem;
+      }
+
+      .criterion strong,
+      .criterion small {
+        display: block;
+      }
+
+      .criterion small {
+        margin-top: 3px;
+        color: var(--slate-500);
+      }
+
+      .report-layout {
+        display: grid;
+        grid-template-columns: 0.58fr 1.42fr;
+        gap: 10px;
+      }
+
+      .report-config {
+        padding: 14px;
+        border: 1px solid var(--slate-200);
+        border-radius: 9px;
+        background: var(--white);
+      }
+
+      .report-paper {
+        padding: 23px;
+        border: 1px solid var(--slate-200);
+        border-radius: 4px;
+        background: var(--white);
+        box-shadow: 0 18px 38px -30px rgb(15 23 42 / 0.55);
+      }
+
+      .report-head {
+        padding-bottom: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        border-bottom: 2px solid var(--navy);
+      }
+
+      .report-row {
+        padding: 8px 0;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        border-bottom: 1px solid var(--slate-200);
+        font-size: 0.68rem;
+      }
+
+      .report-disclaimer {
+        margin-top: 12px;
+        padding: 9px;
+        color: var(--slate-600);
+        background: var(--slate-50);
+        font-size: 0.58rem;
+      }
+
+      .roadmap {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .roadmap-card {
+        padding: 22px;
+        border: 1px solid var(--slate-200);
+        border-radius: 15px;
+        background: var(--white);
+      }
+
+      .roadmap-card h3 {
+        margin-top: 11px;
+      }
+
+      .roadmap-card p {
+        color: var(--slate-600);
+      }
+
+      .guardrails {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 13px;
+      }
+
+      .guardrail {
+        padding: 18px;
+        border-left: 4px solid var(--indigo);
+        border-radius: 7px 12px 12px 7px;
+        background: var(--white);
+      }
+
+      .guardrail p {
+        margin: 7px 0 0;
+        color: var(--slate-600);
+        font-size: 0.86rem;
+      }
+
+      .sources {
+        display: grid;
+        gap: 9px;
+      }
+
+      .source {
+        padding: 14px 16px;
+        display: grid;
+        grid-template-columns: 90px 1fr auto;
+        gap: 13px;
+        align-items: center;
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        background: var(--white);
+      }
+
+      .source p {
+        margin: 3px 0 0;
+        color: var(--slate-600);
+        font-size: 0.8rem;
+      }
+
+      .source a {
+        color: var(--indigo);
+        font-size: 0.76rem;
+        font-weight: 780;
+      }
+
+      footer {
+        padding: 40px 0;
+        color: var(--slate-400);
+        background: var(--navy);
+      }
+
+      .footer-inner {
+        display: flex;
+        justify-content: space-between;
+        gap: 22px;
+      }
+
+      .footer-inner strong {
+        color: var(--white);
+      }
+
+      @media (max-width: 980px) {
+        .topnav {
+          display: none;
+        }
+
+        .hero-inner {
+          grid-template-columns: 1fr;
+        }
+
+        .decision-flow {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .decision-step::after {
+          display: none;
+        }
+
+        .reform-timeline,
+        .guardrails {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .prototype-shell {
+          grid-template-columns: 74px minmax(0, 1fr);
+        }
+
+        .proto-brand span:last-child,
+        .proto-nav button span:last-child,
+        .proto-group {
+          display: none;
+        }
+
+        .proto-nav button {
+          justify-content: center;
+        }
+
+        .proto-kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 700px) {
+        .container {
+          width: min(100% - 24px, 1180px);
+        }
+
+        section {
+          padding: 60px 0;
+        }
+
+        .hero-inner {
+          min-height: 0;
+          padding: 58px 0 68px;
+        }
+
+        .cards,
+        .split,
+        .roadmap,
+        .category-panel.active,
+        .reform-timeline,
+        .guardrails,
+        .decision-flow {
+          grid-template-columns: 1fr;
+        }
+
+        .prototype-note,
+        .proto-topbar,
+        .proto-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .prototype-shell {
+          min-height: 0;
+          display: block;
+        }
+
+        .proto-sidebar {
+          padding: 9px;
+        }
+
+        .proto-brand,
+        .proto-group {
+          display: none;
+        }
+
+        .proto-nav {
+          display: flex;
+          overflow-x: auto;
+        }
+
+        .proto-nav button {
+          width: auto;
+          flex: 0 0 auto;
+        }
+
+        .proto-nav button span:last-child {
+          display: inline;
+        }
+
+        .proto-icon {
+          display: none;
+        }
+
+        .proto-screen {
+          padding: 14px;
+        }
+
+        .proto-grid,
+        .form-grid,
+        .criteria,
+        .report-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .category-select-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .review-category {
+          grid-template-columns: 1fr auto;
+        }
+
+        .review-category > :last-child {
+          grid-column: 1 / -1;
+        }
+
+        .source {
+          grid-template-columns: 1fr;
+        }
+
+        .footer-inner {
+          flex-direction: column;
+        }
+      }
+
+      @media (max-width: 470px) {
+        .hero-kpis,
+        .proto-kpis,
+        .category-select-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stepper {
+          grid-template-columns: 1fr;
+        }
+
+        .step {
+          padding: 7px 0 7px 9px;
+          border-top: 0;
+          border-left: 3px solid var(--slate-200);
+        }
+
+        .matrix {
+          grid-template-columns: 80px repeat(2, 1fr);
+        }
+      }
+
+      @media print {
+        .topbar,
+        .hero-actions,
+        .tabs,
+        .prototype-note,
+        .proto-sidebar,
+        .proto-topbar,
+        .proto-actions {
+          display: none !important;
+        }
+
+        body,
+        .hero,
+        footer {
+          color: var(--navy);
+          background: var(--white);
+        }
+
+        .hero-inner {
+          min-height: 0;
+          padding: 35px 0;
+        }
+
+        .hero-card {
+          color: var(--navy);
+          border-color: var(--slate-200);
+          box-shadow: none;
+        }
+
+        section {
+          padding: 30px 0;
+        }
+
+        .category-panel,
+        .proto-screen {
+          display: block !important;
+          break-inside: avoid;
+        }
+
+        .prototype-shell {
+          display: block;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .proto-screen {
+          margin-bottom: 20px;
+          border: 1px solid var(--slate-200);
+        }
+
+        .card,
+        .reform-phase {
+          box-shadow: none;
+        }
+
+        a {
+          text-decoration: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <a class="brand" href="#inicio" aria-label="Voltar ao início">
+          <span class="brand-mark">i</span>
+          <span>iaTax <small>/ Despesas PF → PJ</small></span>
+        </a>
+        <nav class="topnav" aria-label="Navegação da proposta">
+          <a href="#proposta">Proposta</a>
+          <a href="#reforma">Reforma</a>
+          <a href="#categorias">Questionário</a>
+          <a href="#prototipo">Protótipo</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#fontes">Fontes</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div class="container hero-inner">
+          <div>
+            <span class="eyebrow">Ferramenta para contadores e advogados</span>
+            <h1>Da despesa pessoal à decisão empresarial.</h1>
+            <p class="hero-copy">
+              Um diagnóstico guiado para o contador identificar gastos hoje
+              mantidos na pessoa física, avaliar se pertencem à operação da
+              empresa e preparar cada cliente para a lógica de créditos do IBS e
+              da CBS.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#prototipo">Explorar protótipo</a>
+              <a class="btn btn-ghost" href="#reforma">Entender a Reforma</a>
+            </div>
+          </div>
+
+          <aside class="hero-card" aria-label="Exemplo ilustrativo do diagnóstico">
+            <div class="hero-card-head">
+              <div>
+                <small>Diagnóstico ilustrativo · 2026</small>
+                <strong>Clínica Horizonte Ltda.</strong>
+              </div>
+              <span aria-label="Diagnóstico concluído"><i class="status-dot"></i></span>
+            </div>
+            <div class="hero-kpis">
+              <div class="hero-kpi">
+                <span>Despesas analisadas</span>
+                <strong>R$ 83.400/ano</strong>
+              </div>
+              <div class="hero-kpi">
+                <span>Itens encontrados</span>
+                <strong>14 despesas</strong>
+              </div>
+              <div class="hero-kpi">
+                <span>Potencial operacional</span>
+                <strong style="color: #6ee7b7">R$ 36.600</strong>
+              </div>
+              <div class="hero-kpi">
+                <span>Exigem validação</span>
+                <strong style="color: #fcd34d">R$ 31.200</strong>
+              </div>
+            </div>
+            <div class="composition">
+              <div class="composition-bar" aria-label="Composição do diagnóstico">
+                <i></i><i></i><i></i>
+              </div>
+              <div class="composition-legend">
+                <span>44% potencial</span>
+                <span>37% condicionado</span>
+                <span>19% não recomendado</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="proposta">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">A proposta</div>
+            <h2>Não é “jogar gastos na PJ”. É construir evidência.</h2>
+            <p class="lead">
+              O módulo transforma uma conversa informal sobre combustível,
+              carro, aluguel, telefone e viagens em um processo documentado,
+              consistente e revisável pelo contador.
+            </p>
+          </div>
+
+          <div class="cards">
+            <article class="card">
+              <div class="card-number">01</div>
+              <h3>Encontrar o que está invisível</h3>
+              <p>
+                O cliente responde por categorias e revela despesas ligadas à
+                atividade que continuam contratadas ou pagas na pessoa física.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-number">02</div>
+              <h3>Separar operação de uso pessoal</h3>
+              <p>
+                Cada item passa por vínculo com a atividade, beneficiário, uso
+                empresarial, documentação, titularidade e necessidade de rateio.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-number">03</div>
+              <h3>Preparar a empresa para IBS/CBS</h3>
+              <p>
+                O diagnóstico aponta o que pode integrar uma esteira futura de
+                créditos e quais pendências precisam ser resolvidas antes.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Duas lentes obrigatórias</div>
+            <h2>Migrar o pagamento não significa gerar crédito.</h2>
+            <p class="lead">
+              O produto evita a principal confusão do tema ao mostrar duas
+              conclusões independentes para a mesma despesa.
+            </p>
+          </div>
+
+          <div class="split">
+            <article class="lens">
+              <div class="lens-head">
+                <span class="badge badge-indigo">Lente 1</span>
+                <strong>Organização PF → PJ</strong>
+              </div>
+              <div class="lens-body">
+                <ul class="checklist">
+                  <li>A despesa possui vínculo real com a atividade?</li>
+                  <li>Contrato, titularidade e pagamento podem ir para a PJ?</li>
+                  <li>Existe uso pessoal, benefício ao sócio ou confusão patrimonial?</li>
+                  <li>É necessário rateio ou política interna?</li>
+                  <li>Qual ação o contador recomenda para regularizar?</li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="lens">
+              <div class="lens-head">
+                <span class="badge badge-green">Lente 2</span>
+                <strong>Potencial de crédito IBS/CBS</strong>
+              </div>
+              <div class="lens-body">
+                <ul class="checklist">
+                  <li>A PJ estará no regime regular do IBS/CBS?</li>
+                  <li>Há documento fiscal eletrônico idôneo em nome da empresa?</li>
+                  <li>O tributo foi destacado e o débito foi extinto?</li>
+                  <li>O item escapa da vedação de uso ou consumo pessoal?</li>
+                  <li>Há evidências suficientes para sustentar a apropriação?</li>
+                </ul>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="reforma">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Motor de decisão</div>
+            <h2>Seis perguntas antes de falar em crédito.</h2>
+            <p class="lead">
+              A Reforma amplia a não cumulatividade, mas mantém requisitos e
+              vedações. O módulo organiza a análise sem transformar hipótese em
+              promessa tributária.
+            </p>
+          </div>
+
+          <div class="decision-flow">
+            <article class="decision-step">
+              <span class="decision-index">PASSO 1</span>
+              <h3>Regime</h3>
+              <p>Regular, Simples por dentro ou opção de IBS/CBS por fora?</p>
+            </article>
+            <article class="decision-step">
+              <span class="decision-index">PASSO 2</span>
+              <h3>Atividade</h3>
+              <p>O gasto serve efetivamente à geração ou manutenção da operação?</p>
+            </article>
+            <article class="decision-step">
+              <span class="decision-index">PASSO 3</span>
+              <h3>Destinatário</h3>
+              <p>Quem usa ou recebe o benefício: empresa, sócio, empregado ou família?</p>
+            </article>
+            <article class="decision-step">
+              <span class="decision-index">PASSO 4</span>
+              <h3>Documento</h3>
+              <p>Existe documento fiscal eletrônico correto e emitido para a PJ?</p>
+            </article>
+            <article class="decision-step">
+              <span class="decision-index">PASSO 5</span>
+              <h3>Pagamento</h3>
+              <p>O débito tributário foi extinto ou se enquadra em exceção legal?</p>
+            </article>
+            <article class="decision-step">
+              <span class="decision-index">PASSO 6</span>
+              <h3>Evidência</h3>
+              <p>Há contrato, política, agenda, rota, rateio ou outro controle?</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Janela de oportunidade</div>
+            <h2>A preparação começa antes do crédito relevante.</h2>
+          </div>
+          <div class="reform-timeline">
+            <article class="reform-phase">
+              <small>2026</small>
+              <h3>Ano de teste</h3>
+              <p>
+                Adaptar documentos fiscais, mapear titulares, corrigir contratos
+                e criar controles. O valor está na prontidão do dado.
+              </p>
+            </article>
+            <article class="reform-phase">
+              <small>2027–2028</small>
+              <h3>CBS e IBS inicial</h3>
+              <p>
+                PIS/Cofins são extintos e a CBS entra em operação; o IBS começa
+                com alíquota reduzida durante a transição.
+              </p>
+            </article>
+            <article class="reform-phase">
+              <small>2029–2032</small>
+              <h3>Transição gradual</h3>
+              <p>
+                ICMS e ISS cedem espaço ao IBS. A qualidade cadastral e
+                documental passa a afetar uma parcela crescente da operação.
+              </p>
+            </article>
+            <article class="reform-phase">
+              <small>2033</small>
+              <h3>Novo modelo integral</h3>
+              <p>
+                IBS e CBS operam integralmente. A empresa preparada possui
+                processo, evidência e histórico para sustentar sua apuração.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="categorias">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Mapa do questionário</div>
+            <h2>Perguntas que mudam conforme o tipo de gasto.</h2>
+            <p class="lead">
+              Navegue pelas categorias para visualizar o que será investigado e
+              por que a informação importa.
+            </p>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Categorias de despesas">
+            <button class="tab active" data-category-tab="veiculos">Veículos</button>
+            <button class="tab" data-category-tab="imovel">Imóvel</button>
+            <button class="tab" data-category-tab="tecnologia">Tecnologia</button>
+            <button class="tab" data-category-tab="viagens">Viagens</button>
+            <button class="tab" data-category-tab="servicos">Serviços</button>
+          </div>
+
+          <div class="category-panel active" data-category-panel="veiculos">
+            <article class="category-summary">
+              <span class="badge badge-amber">Atenção elevada</span>
+              <h3 style="margin-top: 12px">Veículos e mobilidade</h3>
+              <p>
+                Aquisição, financiamento, aluguel, combustível, manutenção,
+                seguro, estacionamento, pedágio e tributos do veículo.
+              </p>
+              <p>
+                Veículo disponibilizado ao sócio e seus custos podem caracterizar
+                uso pessoal. O diagnóstico exige finalidade, rotas, percentual de
+                uso e controles — não basta a nota estar no CNPJ.
+              </p>
+            </article>
+            <article class="question-map">
+              <div class="question-list">
+                <div class="question"><i>1</i><div><strong>Quem é proprietário e quem paga?</strong><small>Identifica a migração contratual necessária.</small></div></div>
+                <div class="question"><i>2</i><div><strong>Quem utiliza e para qual finalidade?</strong><small>Separa operação, deslocamento e benefício pessoal.</small></div></div>
+                <div class="question"><i>3</i><div><strong>Qual percentual de uso empresarial?</strong><small>Indica necessidade de rateio e controle de rotas.</small></div></div>
+                <div class="question"><i>4</i><div><strong>Há NF-e e comprovante em nome da PJ?</strong><small>Testa requisito documental do potencial crédito.</small></div></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="category-panel" data-category-panel="imovel">
+            <article class="category-summary">
+              <span class="badge badge-amber">Uso misto frequente</span>
+              <h3 style="margin-top: 12px">Imóvel e home office</h3>
+              <p>
+                Aluguel, condomínio, energia, internet, manutenção, mobiliário e
+                estrutura usada para trabalhar.
+              </p>
+              <p>
+                Imóvel residencial e gastos relacionados exigem cuidado quando
+                beneficiam sócio ou familiares. Endereço, contrato, espaço
+                exclusivo e critério de rateio são centrais.
+              </p>
+            </article>
+            <article class="question-map">
+              <div class="question-list">
+                <div class="question"><i>1</i><div><strong>O endereço é residencial ou comercial?</strong><small>Define o risco inicial de uso pessoal.</small></div></div>
+                <div class="question"><i>2</i><div><strong>Há ambiente exclusivo para a atividade?</strong><small>Documenta a ocupação empresarial.</small></div></div>
+                <div class="question"><i>3</i><div><strong>Existe contrato ou cessão formal?</strong><small>Evita pagamento sem fundamento jurídico.</small></div></div>
+                <div class="question"><i>4</i><div><strong>Como água, energia e internet serão rateadas?</strong><small>Exige critério objetivo e recorrente.</small></div></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="category-panel" data-category-panel="tecnologia">
+            <article class="category-summary">
+              <span class="badge badge-green">Potencial recorrente</span>
+              <h3 style="margin-top: 12px">Tecnologia e telecom</h3>
+              <p>
+                Celular, notebook, software, armazenamento, assinatura, internet,
+                equipamentos e serviços de comunicação.
+              </p>
+              <p>
+                A vinculação tende a ser mais demonstrável, mas titularidade,
+                quantidade, perfil do usuário e finalidade continuam relevantes.
+              </p>
+            </article>
+            <article class="question-map">
+              <div class="question-list">
+                <div class="question"><i>1</i><div><strong>A assinatura está no CPF ou no CNPJ?</strong><small>Mapeia troca de titular e fornecedor.</small></div></div>
+                <div class="question"><i>2</i><div><strong>O equipamento é compatível com a função?</strong><small>Compara necessidade, perfil e quantidade.</small></div></div>
+                <div class="question"><i>3</i><div><strong>Existe uso por familiar ou uso particular relevante?</strong><small>Identifica consumo pessoal.</small></div></div>
+                <div class="question"><i>4</i><div><strong>Há inventário ou termo de responsabilidade?</strong><small>Cria evidência e rastreabilidade.</small></div></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="category-panel" data-category-panel="viagens">
+            <article class="category-summary">
+              <span class="badge badge-amber">Evidência obrigatória</span>
+              <h3 style="margin-top: 12px">Viagens e representação</h3>
+              <p>
+                Passagens, hospedagem, transporte, alimentação, congressos e
+                deslocamentos vinculados a clientes ou eventos.
+              </p>
+              <p>
+                Agenda, convite, cliente visitado, participantes e separação de
+                acompanhantes são essenciais para afastar benefício pessoal.
+              </p>
+            </article>
+            <article class="question-map">
+              <div class="question-list">
+                <div class="question"><i>1</i><div><strong>Qual foi o objetivo empresarial?</strong><small>Relaciona a viagem a cliente, evento ou operação.</small></div></div>
+                <div class="question"><i>2</i><div><strong>Quem viajou e quem foi beneficiado?</strong><small>Separa equipe, sócio e acompanhantes.</small></div></div>
+                <div class="question"><i>3</i><div><strong>Há agenda, convite ou relatório?</strong><small>Forma o conjunto mínimo de evidências.</small></div></div>
+                <div class="question"><i>4</i><div><strong>A compra foi faturada para a PJ?</strong><small>Verifica documentação e pagamento.</small></div></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="category-panel" data-category-panel="servicos">
+            <article class="category-summary">
+              <span class="badge badge-green">Operação empresarial</span>
+              <h3 style="margin-top: 12px">Serviços e estrutura</h3>
+              <p>
+                Contabilidade, jurídico, marketing, consultoria, cursos,
+                associações, limpeza, segurança e outros prestadores.
+              </p>
+              <p>
+                O diagnóstico diferencia serviço contratado para a empresa de
+                atendimento pessoal ao sócio, além de validar contrato, nota e
+                entregável.
+              </p>
+            </article>
+            <article class="question-map">
+              <div class="question-list">
+                <div class="question"><i>1</i><div><strong>Quem contratou e recebeu o serviço?</strong><small>Identifica o beneficiário econômico.</small></div></div>
+                <div class="question"><i>2</i><div><strong>Qual entregável atende à atividade?</strong><small>Conecta o custo à operação real.</small></div></div>
+                <div class="question"><i>3</i><div><strong>Há contrato e documento fiscal?</strong><small>Verifica forma e materialidade.</small></div></div>
+                <div class="question"><i>4</i><div><strong>É recorrente ou pontual?</strong><small>Define controle e revisão futura.</small></div></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt" id="prototipo">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Protótipo navegável</div>
+            <h2>Explore a experiência proposta.</h2>
+            <p class="lead">
+              O exemplo abaixo usa dados fictícios e demonstra navegação,
+              conteúdo e hierarquia. Não representa cálculo tributário definitivo.
+            </p>
+          </div>
+
+          <div class="prototype-note">
+            <span><strong>Como usar:</strong> navegue pelo menu lateral ou pelos botões de avanço.</span>
+            <span class="badge badge-indigo">Protótipo funcional</span>
+          </div>
+
+          <div class="prototype-shell">
+            <aside class="proto-sidebar" aria-label="Menu do protótipo">
+              <div class="proto-brand">
+                <span class="brand-mark">i</span>
+                <span>iaTax</span>
+              </div>
+              <div class="proto-group">Mapeamento PF → PJ</div>
+              <nav class="proto-nav">
+                <button class="active" data-proto-target="dashboard"><span class="proto-icon">01</span><span>Visão geral</span></button>
+                <button data-proto-target="context"><span class="proto-icon">02</span><span>Contexto da PJ</span></button>
+                <button data-proto-target="categories"><span class="proto-icon">03</span><span>Categorias</span></button>
+                <button data-proto-target="questions"><span class="proto-icon">04</span><span>Questionário</span></button>
+                <button data-proto-target="review"><span class="proto-icon">05</span><span>Revisão</span></button>
+                <button data-proto-target="diagnosis"><span class="proto-icon">06</span><span>Diagnóstico</span></button>
+                <button data-proto-target="detail"><span class="proto-icon">07</span><span>Detalhe</span></button>
+                <button data-proto-target="report"><span class="proto-icon">08</span><span>Relatório</span></button>
+              </nav>
+            </aside>
+
+            <div class="proto-main">
+              <div class="proto-topbar">
+                <div>
+                  <strong style="font-size: 0.78rem">Escritório Andrade</strong>
+                  <small>Ambiente do contador · dados fictícios</small>
+                </div>
+                <div class="proto-user-row">
+                  <span class="proto-client">Cliente: Clínica Horizonte ▾</span>
+                  <span class="proto-avatar">JC</span>
+                </div>
+              </div>
+
+              <div class="proto-screen active" data-proto-screen="dashboard">
+                <div class="proto-head">
+                  <div>
+                    <h3>Mapeamento de despesas</h3>
+                    <p>Diagnósticos, pendências e prontidão para IBS/CBS</p>
+                  </div>
+                  <div class="proto-actions">
+                    <span class="proto-btn">Filtrar clientes</span>
+                    <button class="proto-btn primary" data-go="context">+ Novo diagnóstico</button>
+                  </div>
+                </div>
+
+                <div class="proto-kpis">
+                  <div class="proto-kpi"><span>Clientes mapeados</span><strong>18</strong></div>
+                  <div class="proto-kpi"><span>Base anual analisada</span><strong>R$ 1,24 mi</strong></div>
+                  <div class="proto-kpi"><span>Potencial operacional</span><strong class="text-green">R$ 486 mil</strong></div>
+                  <div class="proto-kpi"><span>Pendências abertas</span><strong class="text-amber">37</strong></div>
+                </div>
+
+                <div class="proto-grid">
+                  <div class="proto-panel">
+                    <div class="proto-panel-head">
+                      <strong>Diagnósticos recentes</strong>
+                      <span class="proto-link">Ver histórico completo →</span>
+                    </div>
+                    <div class="history-table-wrap">
+                      <table class="history-table">
+                        <thead><tr><th>Cliente</th><th>Ano</th><th>Mapeado</th><th>Status</th><th>Ação</th></tr></thead>
+                        <tbody>
+                          <tr><td><strong>Clínica Horizonte</strong></td><td>2026</td><td>R$ 83.400</td><td><span class="badge badge-green">Concluído</span></td><td><button class="proto-link" data-go="diagnosis">Abrir</button></td></tr>
+                          <tr><td><strong>Almeida Consultoria</strong></td><td>2026</td><td>R$ 46.800</td><td><span class="badge badge-amber">Em revisão</span></td><td><span class="proto-link">Continuar</span></td></tr>
+                          <tr><td><strong>Estúdio Norte</strong></td><td>2026</td><td>R$ 29.200</td><td><span class="badge badge-gray">Rascunho</span></td><td><span class="proto-link">Continuar</span></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <aside class="proto-panel">
+                    <div class="proto-panel-head"><strong>Prontidão da carteira</strong><span class="proto-link">Jul/2026</span></div>
+                    <div class="analysis-list">
+                      <div class="analysis-row"><div><strong>Documentação adequada</strong><small>Notas e contratos</small></div><strong>61%</strong></div>
+                      <div class="progress-track"><i style="width: 61%"></i></div>
+                      <div class="analysis-row"><div><strong>Uso pessoal revisado</strong><small>Sócios e familiares</small></div><strong>48%</strong></div>
+                      <div class="progress-track"><i style="width: 48%"></i></div>
+                      <div class="analysis-row"><div><strong>Regime confirmado</strong><small>IBS/CBS e Simples</small></div><strong>72%</strong></div>
+                      <div class="progress-track"><i style="width: 72%"></i></div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="context">
+                <div class="proto-head">
+                  <div><h3>Novo diagnóstico</h3><p>Etapa 1 de 5 · contexto fiscal e operacional</p></div>
+                  <div class="proto-actions"><span class="proto-btn">Salvar rascunho</span></div>
+                </div>
+                <div class="stepper">
+                  <div class="step current">1. Contexto</div><div class="step">2. Categorias</div><div class="step">3. Perguntas</div><div class="step">4. Revisão</div><div class="step">5. Resultado</div>
+                </div>
+                <div class="proto-panel">
+                  <div class="proto-panel-head"><strong>Empresa analisada</strong><span class="badge badge-indigo">Obrigatório</span></div>
+                  <div class="form-grid">
+                    <div class="field"><label>Cliente</label><div class="fake-select"><span>Clínica Horizonte Ltda.</span><span>⌄</span></div></div>
+                    <div class="field"><label>Ano de referência</label><div class="fake-select"><span>2026</span><span>⌄</span></div></div>
+                    <div class="field"><label>Atividade principal</label><div class="fake-input">Serviços médicos ambulatoriais</div></div>
+                    <div class="field"><label>Regime atual</label><div class="fake-select"><span>Simples Nacional</span><span>⌄</span></div></div>
+                    <div class="field"><label>Tratamento IBS/CBS pretendido</label><div class="fake-select"><span>Avaliar regime regular por fora</span><span>⌄</span></div><span class="form-help">A opção altera a análise de potencial de crédito.</span></div>
+                    <div class="field"><label>Responsável pela revisão</label><div class="fake-select"><span>José Correa · Contador</span><span>⌄</span></div></div>
+                    <div class="field full"><label>Objetivo do diagnóstico</label><div class="fake-input">Organizar despesas operacionais e preparar documentação para IBS/CBS</div></div>
+                  </div>
+                  <div class="info-box"><strong>Por que perguntamos o regime?</strong> Optantes do Simples seguem as regras do regime favorecido, salvo opção de apurar IBS/CBS pelo regime regular. O relatório não deve apresentar potencial de crédito sem essa distinção.</div>
+                </div>
+                <div class="proto-actions" style="justify-content: flex-end; margin-top: 11px"><button class="proto-btn primary" data-go="categories">Continuar para categorias →</button></div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="categories">
+                <div class="proto-head"><div><h3>Quais despesas existem hoje na PF?</h3><p>Etapa 2 de 5 · selecione todas as categorias aplicáveis</p></div><span class="badge badge-indigo">6 selecionadas</span></div>
+                <div class="stepper">
+                  <div class="step done">1. Contexto</div><div class="step current">2. Categorias</div><div class="step">3. Perguntas</div><div class="step">4. Revisão</div><div class="step">5. Resultado</div>
+                </div>
+                <div class="category-select-grid">
+                  <article class="select-card selected"><div class="select-card-head"><h4>Veículos e mobilidade</h4><span class="checkbox">✓</span></div><p>Carro, aluguel, combustível, seguro, manutenção e pedágio.</p></article>
+                  <article class="select-card selected"><div class="select-card-head"><h4>Imóvel e home office</h4><span class="checkbox">✓</span></div><p>Aluguel, condomínio, energia, estrutura e manutenção.</p></article>
+                  <article class="select-card selected"><div class="select-card-head"><h4>Tecnologia e telecom</h4><span class="checkbox">✓</span></div><p>Celular, internet, notebook, software e assinaturas.</p></article>
+                  <article class="select-card selected"><div class="select-card-head"><h4>Viagens e representação</h4><span class="checkbox">✓</span></div><p>Passagens, hotel, transporte, alimentação e eventos.</p></article>
+                  <article class="select-card selected"><div class="select-card-head"><h4>Serviços profissionais</h4><span class="checkbox">✓</span></div><p>Contabilidade, jurídico, marketing e consultorias.</p></article>
+                  <article class="select-card selected"><div class="select-card-head"><h4>Capacitação</h4><span class="checkbox">✓</span></div><p>Cursos, congressos, livros e associações profissionais.</p></article>
+                  <article class="select-card"><div class="select-card-head"><h4>Saúde e benefícios</h4><span class="checkbox"></span></div><p>Plano, alimentação, transporte e benefícios de equipe.</p></article>
+                  <article class="select-card"><div class="select-card-head"><h4>Outras despesas</h4><span class="checkbox"></span></div><p>Itens não contemplados nas categorias anteriores.</p></article>
+                </div>
+                <div class="proto-actions" style="justify-content: space-between; margin-top: 11px"><button class="proto-btn" data-go="context">← Voltar</button><button class="proto-btn primary" data-go="questions">Responder 24 perguntas →</button></div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="questions">
+                <div class="proto-head"><div><h3>Veículos e mobilidade</h3><p>Etapa 3 de 5 · categoria 1 de 6</p></div><span class="badge badge-amber">Uso pessoal deve ser validado</span></div>
+                <div class="stepper">
+                  <div class="step done">1. Contexto</div><div class="step done">2. Categorias</div><div class="step current">3. Perguntas</div><div class="step">4. Revisão</div><div class="step">5. Resultado</div>
+                </div>
+                <div class="reform-callout"><i>RT</i><div><strong>Impacto da Reforma</strong><br />Veículo, locação, manutenção, seguro e combustível fornecidos ao sócio podem ser classificados como uso ou consumo pessoal. Informe finalidade e controles reais.</div></div>
+                <div class="question-card">
+                  <div class="question-card-title"><h4>1. A clínica utiliza veículo nas atividades?</h4><span class="badge badge-green">Respondido</span></div>
+                  <p>Considere visitas, unidades, fornecedores e deslocamentos operacionais.</p>
+                  <div class="choice-row"><span class="choice selected">Sim</span><span class="choice">Não</span></div>
+                </div>
+                <div class="question-card">
+                  <div class="question-card-title"><h4>2. Como o veículo é mantido atualmente?</h4><span class="badge badge-green">Respondido</span></div>
+                  <p>A titularidade determina quais contratos precisariam ser revistos.</p>
+                  <div class="choice-row"><span class="choice selected">Próprio no CPF</span><span class="choice">Financiado no CPF</span><span class="choice">Alugado no CPF</span><span class="choice">Já está na PJ</span></div>
+                </div>
+                <div class="question-card">
+                  <div class="question-card-title"><h4>3. Qual o gasto médio mensal relacionado?</h4><span class="badge badge-green">Respondido</span></div>
+                  <div class="form-grid">
+                    <div class="field"><label>Parcela ou aluguel</label><div class="fake-input">R$ 2.200,00</div></div>
+                    <div class="field"><label>Combustível</label><div class="fake-input">R$ 950,00</div></div>
+                    <div class="field"><label>Seguro e manutenção</label><div class="fake-input">R$ 540,00</div></div>
+                    <div class="field"><label>IPVA e taxas — média</label><div class="fake-input">R$ 310,00</div></div>
+                  </div>
+                </div>
+                <div class="question-card">
+                  <div class="question-card-title"><h4>4. Qual percentual é comprovadamente empresarial?</h4><span class="badge badge-amber">Requer evidência</span></div>
+                  <p>O veículo também é usado à noite, em fins de semana ou por familiares?</p>
+                  <div class="choice-row"><span class="choice">Até 25%</span><span class="choice selected">26% a 50%</span><span class="choice">51% a 75%</span><span class="choice">Acima de 75%</span><span class="choice">Exclusivo</span></div>
+                </div>
+                <div class="proto-actions" style="justify-content: space-between; margin-top: 11px"><button class="proto-btn" data-go="categories">← Categorias</button><button class="proto-btn primary" data-go="review">Revisar respostas →</button></div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="review">
+                <div class="proto-head"><div><h3>Revise antes de diagnosticar</h3><p>Etapa 4 de 5 · 14 despesas identificadas</p></div><span class="badge badge-amber">2 pendências</span></div>
+                <div class="stepper">
+                  <div class="step done">1. Contexto</div><div class="step done">2. Categorias</div><div class="step done">3. Perguntas</div><div class="step current">4. Revisão</div><div class="step">5. Resultado</div>
+                </div>
+                <div class="review-category"><div><strong>Veículos e mobilidade</strong><small>4 despesas · uso empresarial informado em 50%</small></div><strong>R$ 48.000/ano</strong><span class="badge badge-amber">Validar rotas</span></div>
+                <div class="review-category"><div><strong>Imóvel e home office</strong><small>3 despesas · endereço residencial</small></div><strong>R$ 14.400/ano</strong><span class="badge badge-amber">Definir rateio</span></div>
+                <div class="review-category"><div><strong>Tecnologia e telecom</strong><small>3 despesas · contratos no CPF</small></div><strong>R$ 9.600/ano</strong><span class="badge badge-green">Completo</span></div>
+                <div class="review-category"><div><strong>Viagens e representação</strong><small>2 despesas · agenda e notas anexadas</small></div><strong>R$ 6.200/ano</strong><span class="badge badge-green">Completo</span></div>
+                <div class="review-category"><div><strong>Serviços e capacitação</strong><small>2 despesas · vínculo profissional informado</small></div><strong>R$ 5.200/ano</strong><span class="badge badge-green">Completo</span></div>
+                <div class="info-box"><strong>Antes de concluir:</strong> o sistema classificará potencial e pendências. A decisão contábil continua sob responsabilidade do profissional revisor.</div>
+                <div class="proto-actions" style="justify-content: space-between; margin-top: 11px"><button class="proto-btn" data-go="questions">← Ajustar respostas</button><button class="proto-btn primary" data-go="diagnosis">Gerar diagnóstico →</button></div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="diagnosis">
+                <div class="proto-head">
+                  <div><h3>Diagnóstico concluído</h3><p>Clínica Horizonte · ano-base 2026 · regras v1.0</p></div>
+                  <div class="proto-actions"><button class="proto-btn" data-go="report">Prévia do relatório</button><span class="proto-btn primary">Exportar PDF</span></div>
+                </div>
+                <div class="proto-kpis">
+                  <div class="proto-kpi"><span>Total analisado</span><strong>R$ 83.400</strong></div>
+                  <div class="proto-kpi"><span>Potencial operacional</span><strong class="text-green">R$ 36.600</strong></div>
+                  <div class="proto-kpi"><span>Condicionado / rateio</span><strong class="text-amber">R$ 31.200</strong></div>
+                  <div class="proto-kpi"><span>Não recomendado</span><strong class="text-red">R$ 15.600</strong></div>
+                </div>
+                <div class="proto-grid">
+                  <div class="proto-panel">
+                    <div class="proto-panel-head"><strong>Despesas classificadas</strong><span class="proto-link">14 itens</span></div>
+                    <div class="analysis-list">
+                      <button class="analysis-row" data-go="detail" style="width: 100%; border: 0; text-align: left"><div><strong>Combustível</strong><small>Vínculo parcial · faltam notas no CNPJ e controle de rotas</small></div><span class="badge badge-amber">Condicionado</span></button>
+                      <div class="analysis-row"><div><strong>Software de gestão</strong><small>Uso empresarial · migrar assinatura e faturamento</small></div><span class="badge badge-green">Potencial</span></div>
+                      <div class="analysis-row"><div><strong>Internet do consultório</strong><small>Endereço e contrato empresariais</small></div><span class="badge badge-green">Potencial</span></div>
+                      <div class="analysis-row"><div><strong>Parcela principal do veículo</strong><small>Não tratar como crédito IBS/CBS mensal automático</small></div><span class="badge badge-red">Não recomendado</span></div>
+                      <div class="analysis-row"><div><strong>Home office residencial</strong><small>Uso misto · formalizar espaço e critério</small></div><span class="badge badge-amber">Rateio</span></div>
+                    </div>
+                  </div>
+                  <aside class="proto-panel">
+                    <div class="proto-panel-head"><strong>Matriz de decisão</strong><span class="proto-link">PF → PJ × IBS/CBS</span></div>
+                    <div class="matrix">
+                      <div></div><div class="matrix-head">Crédito potencial</div><div class="matrix-head">Sem crédito indicado</div>
+                      <div class="axis">Migrar para PJ</div><div class="good"><strong>Priorizar</strong><br />Software, internet, contabilidade</div><div class="warn"><strong>Organizar</strong><br />IPVA, itens sem débito tributário</div>
+                      <div class="axis">Não migrar agora</div><div class="warn"><strong>Corrigir antes</strong><br />Combustível sem controle</div><div class="risk"><strong>Evitar</strong><br />Uso pessoal do sócio</div>
+                    </div>
+                    <div class="info-box"><strong>Regime informado:</strong> Simples Nacional com avaliação de IBS/CBS por fora. O potencial depende da opção efetiva e da validação do contador.</div>
+                  </aside>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="detail">
+                <div class="proto-head"><div><h3>Detalhe da despesa</h3><p>Combustível · veículo no CPF do sócio</p></div><button class="proto-btn" data-go="diagnosis">← Voltar ao diagnóstico</button></div>
+                <div class="detail-header">
+                  <div><strong>R$ 11.400 por ano</strong><p>R$ 950/mês · 50% de uso empresarial informado</p></div>
+                  <span class="badge badge-amber">Condicionado</span>
+                </div>
+                <div class="criteria">
+                  <article class="criterion"><strong class="text-green">Vínculo com a atividade</strong><small>Há deslocamentos entre unidades e visitas a fornecedores.</small></article>
+                  <article class="criterion"><strong class="text-amber">Uso pessoal relevante</strong><small>Veículo também fica disponível ao sócio e à família.</small></article>
+                  <article class="criterion"><strong class="text-red">Documento inadequado</strong><small>Abastecimentos atuais são emitidos no CPF ou sem identificação.</small></article>
+                  <article class="criterion"><strong class="text-amber">Controle insuficiente</strong><small>Não existe diário de rotas, política ou quilometragem registrada.</small></article>
+                </div>
+                <div class="proto-grid">
+                  <div class="proto-panel">
+                    <div class="proto-panel-head"><strong>Plano de ação sugerido</strong><span class="badge badge-indigo">4 passos</span></div>
+                    <div class="analysis-list">
+                      <div class="analysis-row"><div><strong>1. Definir política de uso</strong><small>Condutor, finalidade, horários e uso particular.</small></div><span class="badge badge-gray">Pendente</span></div>
+                      <div class="analysis-row"><div><strong>2. Implantar controle de rotas</strong><small>Data, origem, destino, cliente e quilometragem.</small></div><span class="badge badge-gray">Pendente</span></div>
+                      <div class="analysis-row"><div><strong>3. Solicitar documento fiscal para a PJ</strong><small>CNPJ e identificação compatível com a operação.</small></div><span class="badge badge-gray">Pendente</span></div>
+                      <div class="analysis-row"><div><strong>4. Revisar o percentual trimestralmente</strong><small>Ajustar uso empresarial conforme evidências.</small></div><span class="badge badge-gray">Pendente</span></div>
+                    </div>
+                  </div>
+                  <aside class="proto-panel">
+                    <div class="proto-panel-head"><strong>Fundamento considerado</strong></div>
+                    <p class="muted" style="font-size: 0.68rem">LC 214/2025, arts. 47 e 57, com alterações da LC 227/2026; Decreto 12.955/2026, arts. 47 e 62–64.</p>
+                    <p class="muted" style="font-size: 0.68rem">Combustível possui regra específica de crédito, mas a vedação de uso pessoal e o requisito documental permanecem relevantes.</p>
+                    <span class="badge badge-red">Não é parecer fiscal</span>
+                  </aside>
+                </div>
+              </div>
+
+              <div class="proto-screen" data-proto-screen="report">
+                <div class="proto-head"><div><h3>Relatório do diagnóstico</h3><p>Configure a entrega ao cliente</p></div><div class="proto-actions"><button class="proto-btn" data-go="diagnosis">Voltar</button><span class="proto-btn primary">Gerar PDF</span></div></div>
+                <div class="report-layout">
+                  <aside class="report-config">
+                    <strong style="font-size: 0.76rem">Conteúdo do relatório</strong>
+                    <div class="field" style="margin-top: 11px"><label>Formato</label><div class="fake-select"><span>Executivo + detalhado</span><span>⌄</span></div></div>
+                    <div class="field" style="margin-top: 9px"><label>Responsável</label><div class="fake-select"><span>José Correa</span><span>⌄</span></div></div>
+                    <div class="field" style="margin-top: 9px"><label>Exibir valores</label><div class="fake-select"><span>Sim, anualizados</span><span>⌄</span></div></div>
+                    <div class="analysis-list" style="margin-top: 11px">
+                      <div class="analysis-row"><span>Resumo executivo</span><span class="checkbox" style="background: var(--indigo); border-color: var(--indigo)">✓</span></div>
+                      <div class="analysis-row"><span>Plano de ação</span><span class="checkbox" style="background: var(--indigo); border-color: var(--indigo)">✓</span></div>
+                      <div class="analysis-row"><span>Fundamentos</span><span class="checkbox" style="background: var(--indigo); border-color: var(--indigo)">✓</span></div>
+                    </div>
+                  </aside>
+                  <article class="report-paper">
+                    <div class="report-head">
+                      <div><strong>Mapeamento de Despesas PF → PJ</strong><div class="muted" style="font-size: 0.64rem">Diagnóstico de prontidão · Reforma Tributária</div></div>
+                      <strong style="color: var(--indigo)">iaTax</strong>
+                    </div>
+                    <p style="margin-bottom: 2px; font-size: 0.75rem"><strong>Clínica Horizonte Ltda.</strong></p>
+                    <p class="muted" style="margin-top: 0; font-size: 0.62rem">Ano-base 2026 · concluído em 17/07/2026 · regras v1.0</p>
+                    <div class="report-row"><span>Total anual analisado</span><strong>R$ 83.400,00</strong></div>
+                    <div class="report-row"><span>Potencial operacional</span><strong class="text-green">R$ 36.600,00</strong></div>
+                    <div class="report-row"><span>Condicionado ou sujeito a rateio</span><strong class="text-amber">R$ 31.200,00</strong></div>
+                    <div class="report-row"><span>Não recomendado no cenário informado</span><strong class="text-red">R$ 15.600,00</strong></div>
+                    <h4 style="margin: 14px 0 6px; font-size: 0.74rem">Prioridades</h4>
+                    <div class="report-row"><span>1. Migrar software e internet do consultório</span><strong>Curto prazo</strong></div>
+                    <div class="report-row"><span>2. Formalizar e controlar o uso do veículo</span><strong>Antes de migrar</strong></div>
+                    <div class="report-row"><span>3. Definir rateio do home office</span><strong>Validar</strong></div>
+                    <div class="report-disclaimer">Este documento é um diagnóstico orientativo baseado nas informações fornecidas. Não constitui parecer jurídico, contábil ou fiscal, não confirma dedutibilidade e não autoriza automaticamente a apropriação de créditos de IBS/CBS. A aplicação depende do regime efetivo, da operação, dos documentos e da validação do profissional responsável.</div>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Roadmap recomendado</div>
+            <h2>Começar pelo diagnóstico. Evoluir com evidência.</h2>
+          </div>
+          <div class="roadmap">
+            <article class="roadmap-card">
+              <span class="badge badge-green">Fase 1 · MVP</span>
+              <h3>Mapear e orientar</h3>
+              <p>Questionário, classificação, histórico por cliente, pendências, plano de ação e relatório PDF.</p>
+              <ul class="checklist">
+                <li>Catálogo versionado</li>
+                <li>Diagnóstico por categoria</li>
+                <li>Revisão do contador</li>
+              </ul>
+            </article>
+            <article class="roadmap-card">
+              <span class="badge badge-amber">Fase 2 · Evolução</span>
+              <h3>Validar e acompanhar</h3>
+              <p>Importação documental, conferência de titularidade, anexos, checklist recorrente e atualização normativa.</p>
+              <ul class="checklist">
+                <li>Notas e extratos</li>
+                <li>Gestão de evidências</li>
+                <li>Alertas de pendência</li>
+              </ul>
+            </article>
+            <article class="roadmap-card">
+              <span class="badge badge-gray">Fase 3 · Futuro</span>
+              <h3>Projetar impacto</h3>
+              <p>Estimativa financeira de IBS/CBS somente com parâmetros validados, integração fiscal e regras homologadas.</p>
+              <ul class="checklist">
+                <li>Créditos por cenário</li>
+                <li>Conciliação fiscal</li>
+                <li>Monitoramento contínuo</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-alt">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Princípios não negociáveis</div>
+            <h2>O produto orienta sem prometer.</h2>
+          </div>
+          <div class="guardrails">
+            <article class="guardrail"><h3>Sem crédito automático</h3><p>Nota no CNPJ, isoladamente, não resolve finalidade, regime, uso pessoal ou pagamento.</p></article>
+            <article class="guardrail"><h3>Sem confusão patrimonial</h3><p>Benefício pessoal ao sócio é tratado como risco, não como oportunidade.</p></article>
+            <article class="guardrail"><h3>Regras versionadas</h3><p>Cada relatório registra premissas e versão normativa usada no diagnóstico.</p></article>
+            <article class="guardrail"><h3>Decisão profissional</h3><p>O contador revisa, conclui e assume a recomendação entregue ao cliente.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="fontes">
+        <div class="container">
+          <div class="section-head">
+            <div class="section-kicker">Base normativa consultada</div>
+            <h2>Fontes oficiais para validação do produto.</h2>
+            <p class="lead">
+              Os textos e exemplos devem passar por revisão tributária antes da
+              publicação comercial do módulo.
+            </p>
+          </div>
+          <div class="sources">
+            <article class="source">
+              <span class="badge badge-indigo">Lei</span>
+              <div><strong>Lei Complementar 214/2025 — texto compilado</strong><p>Regime regular, não cumulatividade, documento fiscal, créditos e uso ou consumo pessoal, com alterações posteriores.</p></div>
+              <a href="https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214compilado.htm" target="_blank" rel="noreferrer">Abrir fonte ↗</a>
+            </article>
+            <article class="source">
+              <span class="badge badge-indigo">Lei</span>
+              <div><strong>Lei Complementar 227/2026</strong><p>Institui o CGIBS e altera dispositivos da LC 214, inclusive regras relevantes de uso pessoal e operacionalização.</p></div>
+              <a href="https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm" target="_blank" rel="noreferrer">Abrir fonte ↗</a>
+            </article>
+            <article class="source">
+              <span class="badge badge-indigo">Decreto</span>
+              <div><strong>Decreto 12.955/2026</strong><p>Regulamenta a CBS e detalha documento idôneo, uso pessoal, veículos, telecomunicações, controles e estorno.</p></div>
+              <a href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/decreto/d12955.htm" target="_blank" rel="noreferrer">Abrir fonte ↗</a>
+            </article>
+            <article class="source">
+              <span class="badge badge-indigo">RFB</span>
+              <div><strong>Orientações da Reforma Tributária para 2026</strong><p>Ano de teste, obrigações acessórias e documentos fiscais eletrônicos com destaque de IBS e CBS.</p></div>
+              <a href="https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/acoes-e-programas/programas-e-atividades/reforma-tributaria-do-consumo/orientacoes-2026" target="_blank" rel="noreferrer">Abrir fonte ↗</a>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container footer-inner">
+        <div>
+          <strong>iaTax · Mapeamento de Despesas PF → PJ</strong>
+          <div>Documento de visão e protótipo — não representa funcionalidade já implementada.</div>
+        </div>
+        <div>Versão proposta · julho de 2026</div>
+      </div>
+    </footer>
+
+    <script>
+      const categoryTabs = document.querySelectorAll("[data-category-tab]");
+      const categoryPanels = document.querySelectorAll("[data-category-panel]");
+
+      categoryTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.categoryTab;
+          categoryTabs.forEach((item) => item.classList.toggle("active", item === tab));
+          categoryPanels.forEach((panel) => {
+            panel.classList.toggle("active", panel.dataset.categoryPanel === target);
+          });
+        });
+      });
+
+      const protoNavItems = document.querySelectorAll("[data-proto-target]");
+      const protoScreens = document.querySelectorAll("[data-proto-screen]");
+
+      function showPrototypeScreen(target) {
+        protoNavItems.forEach((item) => {
+          item.classList.toggle("active", item.dataset.protoTarget === target);
+        });
+        protoScreens.forEach((screen) => {
+          screen.classList.toggle("active", screen.dataset.protoScreen === target);
+        });
+        const shell = document.querySelector(".prototype-shell");
+        if (shell && window.innerWidth < 701) {
+          shell.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      protoNavItems.forEach((item) => {
+        item.addEventListener("click", () => showPrototypeScreen(item.dataset.protoTarget));
+      });
+
+      document.querySelectorAll("[data-go]").forEach((item) => {
+        item.addEventListener("click", () => showPrototypeScreen(item.dataset.go));
+      });
+
+      document.querySelectorAll(".select-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          card.classList.toggle("selected");
+          const checkbox = card.querySelector(".checkbox");
+          if (checkbox) checkbox.textContent = card.classList.contains("selected") ? "✓" : "";
+        });
+      });
+
+      document.querySelectorAll(".choice-row").forEach((row) => {
+        row.querySelectorAll(".choice").forEach((choice) => {
+          choice.addEventListener("click", () => {
+            row.querySelectorAll(".choice").forEach((item) => item.classList.remove("selected"));
+            choice.classList.add("selected");
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

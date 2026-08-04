@@ -142,6 +142,16 @@ Aplicada de forma automática (modo standalone e modo imóveis):
 
 **Leis/normas consideradas:** Lei 7.739/1989 (art. 14 — exclusões da receita de aluguel: IPTU, taxas, despesas de cobrança/recebimento, condomínio pago pelo locador etc.; tratamento no art. 42 do RIR/2018), Lei 9.250/95 e legislação do IR (tabela progressiva, Carnê-Leão).
 
+### 3.3.1 Cenário paralelo – DIRPF com desconto simplificado
+
+Cenário **opcional/paralelo** (`cenarios.pf_dirpf_simplificado`), que **não substitui** o carnê-leão:
+
+- **Não se aplica ao carnê-leão mensal.** Representa a carga estimada na declaração de ajuste anual se o contribuinte optar pelo desconto simplificado.
+- Desconto = mín(20% × base tributável, teto). Base tributável = receita − exclusões art. 14.
+- Teto: R$ 16.754,34 (até ano-calendário 2025) ou **R$ 17.640,00** (a partir de 2026).
+- Imposto = tabela progressiva **anual** (limites e parcelas a deduzir = valores mensais × 12).
+- `ajuste_estimado` = IR carnê-leão − IR DIRPF simplificado (positivo ≈ restituição potencial).
+
 ### 3.4 Cenário B – Pessoa Jurídica (Lucro Presumido)
 
 **Presunções de lucro:**
@@ -247,6 +257,20 @@ Por item (imóvel ou “Simulação” no standalone):
 | **imposto_total** | IR total anual (soma dos IR mensais). |
 | **aliquota_efetiva_anual** | (imposto_total / base_calculo_total) × 100 ou valor informado. |
 | **trimestres** | Array de 4 itens: trimestre (1–4), receita, despesas_dedutiveis, base_calculo, imposto. |
+
+### 4.4.1 cenarios.pf_dirpf_simplificado (DIRPF – desconto simplificado)
+
+Cenário paralelo opcional; **não substitui** `cenarios.pf`.
+
+| Campo | Descrição |
+|-------|------------|
+| **base_antes_desconto** | Rendimento tributável (receita − exclusões art. 14). |
+| **desconto_simplificado** | mín(20% × base_antes_desconto, teto). |
+| **teto_desconto** | R$ 16.754,34 (≤2025) ou R$ 17.640 (≥2026). |
+| **base_calculo_total** | Base após o desconto simplificado. |
+| **imposto_total** | IR estimado pela tabela progressiva anual. |
+| **imposto_carne_leao** | Mesmo valor de `cenarios.pf.imposto_total`. |
+| **ajuste_estimado** | carnê-leão − imposto DIRPF (positivo ≈ restituição potencial). |
 
 ### 4.5 cenarios.pj (Pessoa Jurídica – Lucro Presumido)
 

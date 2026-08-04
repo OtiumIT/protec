@@ -100,6 +100,16 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - Tabela progressiva mensal 2026 (0% a 27,5%)
 - `aliquota_efetiva_dirpf` opcional (entrada manual do usuário) para simular impacto na renda global
 
+### Regra 6.1: Cenário paralelo DIRPF com desconto simplificado
+
+- Sempre calculado e retornado em `cenarios.pf_dirpf_simplificado` (não substitui `cenarios.pf`).
+- **Não se aplica ao carnê-leão mensal.** É estimativa da declaração de ajuste anual se o contribuinte optar pelo modelo simplificado.
+- Desconto = `min(20% × base_tributável, teto)`, onde base_tributável = receita − exclusões art. 14 (Lei 7.739/1989).
+- Teto: R$ 16.754,34 até ano-calendário 2025; **R$ 17.640,00 a partir de 2026**.
+- IR estimado pela tabela progressiva **anual** (faixas mensais × 12).
+- `ajuste_estimado` = imposto carnê-leão − IR com desconto simplificado (positivo ≈ restituição potencial).
+- No portal: toggle “Exibir cenário DIRPF com desconto simplificado” (padrão ligado).
+
 ### Regra 7: Cenário PJ (Lucro Presumido)
 
 - Presunção 32% IRPJ e CSLL (locação de imóveis) – Lei 9.249/95, Art. 15
@@ -212,6 +222,23 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
   - `document_type` (`matricula` | `iptu`)
 - Resposta: `{ data: { document_type, pages_estimated, suggested_fields, warnings } }`
 - Resposta: `{ data: { property } }`
+
+### POST /properties/import-from-irpf
+
+- Extrai candidatos de imóveis a partir de declaração IRPF (PDF escaneado/texto, .dec ou .dbk).
+- Body `multipart/form-data`:
+  - `file` (PDF, .dec ou .dbk, até 15 MB)
+  - `client_id` (UUID do cliente vinculado)
+- Fluxo:
+  1. DEC/DBK: parser tipo 27 com discriminação completa, filtrando por grupos imobiliários (11, 12, 13) e heurística textual.
+  2. PDF: reutiliza `extractIrpfFromPdf` (OCR via OpenAI Files API p/ PDFs escaneados) e filtra `bens_direitos`.
+- Resposta (preview, sem persistir):
+  ```json
+  { "data": { "source": "dec_dbk|pdf", "contribuinte": {...}, "candidates": [...], "avisos": [...] } }
+  ```
+- Cada candidato: `temp_id`, `identificador`, `descricao`, `grupo`, `valor_declarado`, `natureza_locacao`, `cidade`, `uf`, `selected_default`.
+- Frontend exibe preview checkável, permite editar identificador inline e cadastrar via `POST /properties/batch`.
+- Dedupe: frontend compara identificador com imóveis existentes do cliente; sinaliza "já cadastrado".
 
 ### DELETE /properties/:id
 

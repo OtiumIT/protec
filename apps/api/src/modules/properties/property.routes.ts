@@ -38,6 +38,11 @@ import {
   getIpcaSerieDetalhadaParaAno,
 } from '../fiscal-indices/bcb-ipca.service';
 import { errorHandler } from '../../shared/utils/error-handler';
+import {
+  extractPropertiesFromDecDbk,
+  extractPropertiesFromPdfResult,
+  type IrpfPropertyImportResult,
+} from './import-irpf-properties';
 
 const propertyRoutes = new Hono();
 
@@ -127,6 +132,48 @@ propertyRoutes.post('/extract-property-doc', async (c) => {
         warnings,
       },
     });
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/** POST /properties/import-from-irpf — Extrai candidatos de imóveis de PDF/.dec/.dbk para preview */
+propertyRoutes.post('/import-from-irpf', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    const clientId = (formData.get('client_id') as string | null)?.trim();
+
+    if (!(file instanceof File)) {
+      return c.json({ error: { message: 'Arquivo é obrigatório', code: 'FILE_REQUIRED' } }, 400);
+    }
+    if (!clientId) {
+      return c.json({ error: { message: 'client_id é obrigatório', code: 'CLIENT_REQUIRED' } }, 400);
+    }
+
+    const ext = file.name.toLowerCase().split('.').pop() ?? '';
+    if (!['pdf', 'dec', 'dbk'].includes(ext)) {
+      return c.json({ error: { message: 'Extensão inválida. Aceito: .pdf, .dec, .dbk', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const maxBytes = 15 * 1024 * 1024;
+    if (buffer.length > maxBytes) {
+      return c.json({ error: { message: 'Arquivo acima de 15MB.', code: 'FILE_TOO_LARGE' } }, 400);
+    }
+
+    let result: IrpfPropertyImportResult;
+
+    if (ext === 'dec' || ext === 'dbk') {
+      const content = buffer.toString('latin1');
+      result = extractPropertiesFromDecDbk(content, file.name);
+    } else {
+      const { extractIrpfFromPdf } = await import('../irpf-alta-renda/extract-from-pdf');
+      const pdfResult = await extractIrpfFromPdf(buffer);
+      result = extractPropertiesFromPdfResult(pdfResult);
+    }
+
+    return c.json({ data: result });
   } catch (err) {
     return errorHandler(err, c);
   }

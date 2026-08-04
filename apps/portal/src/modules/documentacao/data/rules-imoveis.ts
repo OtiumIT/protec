@@ -118,6 +118,117 @@ export const rulesImoveis: RuleDocumentation[] = [
     ],
   },
   {
+    id: 'imoveis-dirpf-desconto-simplificado',
+    modulo: 'simulador-imoveis',
+    nome: 'DIRPF — Desconto Simplificado (cenario paralelo)',
+    descricao:
+      'Cenario paralelo a carga do Carne-Leao: estima o IR na declaracao de ajuste anual se o contribuinte optar pelo desconto simplificado (20% dos rendimentos tributaveis, limitado ao teto legal). Nao se aplica ao carne-leao mensal; o IR pago no carne-leao e compensado no ajuste.',
+    formula:
+      'Desconto = \\min(0{,}20 \\times Base_{trib}, Teto)\\\\ Base_{DIRPF} = Base_{trib} - Desconto\\\\ IR = (Base_{DIRPF} \\times Aliquota) - Deducao_{anual}',
+    formula_explicada:
+      'Parte da base tributaria de aluguel (receita menos exclusoes do art. 14). Aplica o desconto simplificado de 20% limitado ao teto. Calcula o IR pela tabela progressiva anual. Compara com o carne-leao pago no ano (ajuste estimado).',
+    embasamento_legal: [
+      {
+        norma: 'Lei n. 9.250/1995',
+        artigo: 'Desconto simplificado (DIRPF)',
+        descricao:
+          'Na declaracao de ajuste anual, opcao pelo desconto de 20% dos rendimentos tributaveis, em substituicao as demais deducoes legais do modelo completo. Teto: R$ 16.754,34 ate ano-calendario 2025; R$ 17.640,00 a partir de 2026.',
+        url: 'https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/perguntas-frequentes/imposto-de-renda/dirpf/declaracao/deducoes',
+      },
+      {
+        norma: 'Lei n. 7.739/1989',
+        artigo: 'Art. 14',
+        descricao:
+          'Exclusoes da receita de aluguel (IPTU, taxas, condominio pago pelo locador etc.) reduzem o rendimento tributavel antes do desconto simplificado.',
+        url: 'https://www.planalto.gov.br/ccivil_03/leis/l7739.htm',
+      },
+    ],
+    variaveis: [
+      {
+        nome: 'Base_tributavel',
+        descricao: 'Receita de aluguel menos exclusoes art. 14',
+        tipo: 'moeda',
+        exemplo: 'R$ 360.000,00',
+      },
+      {
+        nome: 'Teto_desconto',
+        descricao: 'Limite do desconto simplificado (R$ 17.640 a partir de 2026)',
+        tipo: 'moeda',
+        exemplo: 'R$ 17.640,00',
+      },
+      {
+        nome: 'Ajuste_estimado',
+        descricao: 'Carne-leao anual menos IR DIRPF simplificado (positivo = restituicao potencial)',
+        tipo: 'moeda',
+      },
+    ],
+    exemplo_numerico: {
+      titulo: 'Aluguel R$ 30.000/mes (R$ 360.000/ano), sem despesas dedutiveis — ano 2026',
+      dados_entrada: {
+        receita_anual: 360000,
+        despesas: 0,
+        ano: 2026,
+      },
+      passos: [
+        {
+          ordem: 1,
+          descricao: 'Desconto simplificado',
+          formula: 'min(20% x 360.000, 17.640)',
+          calculo: 'min(72.000, 17.640)',
+          resultado: 'R$ 17.640,00',
+        },
+        {
+          ordem: 2,
+          descricao: 'Base DIRPF',
+          calculo: '360.000 - 17.640',
+          resultado: 'R$ 342.360,00',
+        },
+        {
+          ordem: 3,
+          descricao: 'IR tabela anual (27,5% - parcela a deduzir anual)',
+          calculo: '342.360 x 27,5% - 10.904,76',
+          resultado: 'R$ 83.244,24',
+        },
+        {
+          ordem: 4,
+          descricao: 'Comparar com carne-leao (R$ 88.095,24)',
+          calculo: '88.095,24 - 83.244,24',
+          resultado: 'Ajuste estimado R$ 4.851,00 (restituicao potencial)',
+        },
+      ],
+      resultado_final: {
+        ir_dirpf_simplificado: 83244.24,
+        ajuste_estimado: 4851,
+      },
+    },
+    observacoes: [
+      'O desconto simplificado NAO reduz o DARF do carne-leao mes a mes.',
+      'Nao confundir com o desconto simplificado mensal de R$ 607,20 (IRRF de rendimento do trabalho) — tese fragil se aplicada a alugueis no carne-leao.',
+      'Se as deducoes legais do modelo completo (saude, educacao etc.) superarem o teto, o modelo completo pode ser mais vantajoso.',
+      'Cenario retornado em cenarios.pf_dirpf_simplificado; cenarios.pf permanece o carne-leao puro.',
+    ],
+    ultima_atualizacao: '2026-08-04',
+    tags: ['pf', 'dirpf', 'desconto-simplificado', 'aluguel'],
+    vigencia: {
+      inicio: '2026-01-01',
+      observacao: 'Teto R$ 17.640 a partir do ano-calendario 2026',
+    },
+    alertas: [
+      {
+        tipo: 'importante',
+        mensagem:
+          'Este cenario e estimativa de ajuste anual. O carne-leao continua sendo a obrigacao mensal corrente.',
+      },
+    ],
+    historico: [
+      {
+        data: '2026-08-04',
+        versao: '1.0',
+        descricao: 'Inclusao do cenario paralelo DIRPF com desconto simplificado',
+      },
+    ],
+  },
+  {
     id: 'imoveis-lucro-presumido',
     modulo: 'simulador-imoveis',
     nome: 'Lucro Presumido PJ (Locacao de Imoveis)',

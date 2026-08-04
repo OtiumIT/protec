@@ -302,6 +302,8 @@ export function SimuladorImoveis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
+  /** Exibe cenário paralelo DIRPF com desconto simplificado (não altera o carnê-leão) */
+  const [exibirDirpfSimplificado, setExibirDirpfSimplificado] = useState(true);
   const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
@@ -1919,6 +1921,20 @@ export function SimuladorImoveis() {
               />
               <span className="text-sm text-slate-700">Contrato firmado antes de 16/01/2025? (Regime de Transição Art. 487 LC 214/25)</span>
             </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={exibirDirpfSimplificado}
+                onChange={(e) => setExibirDirpfSimplificado(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">
+                Exibir cenário DIRPF com desconto simplificado (20%, teto R$ 17.640)
+                <span className="block text-xs text-slate-500 mt-0.5">
+                  Ajuste anual estimado — não reduz o carnê-leão mensal. Útil para comparar a carga líquida se o contribuinte optar pelo modelo simplificado na declaração.
+                </span>
+              </span>
+            </label>
             <div className={`grid grid-cols-1 ${perfilLocacao === 'ambos' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
               {perfilLocacao === 'ambos' ? (
                 <>
@@ -2760,6 +2776,64 @@ export function SimuladorImoveis() {
               </div>
             </details>
           </Card>
+          {exibirDirpfSimplificado && result.cenarios.pf_dirpf_simplificado && (
+            <Card className="border-dashed border-slate-300">
+              <h3 className="font-semibold text-slate-700 mb-1">
+                PF — DIRPF com desconto simplificado
+              </h3>
+              <p className="text-xs text-slate-500 mb-2">
+                Estimativa de ajuste anual (opção pelo modelo simplificado). Não substitui o carnê-leão mensal.
+              </p>
+              <p className="text-2xl font-bold text-slate-800">
+                {formatMoney(result.cenarios.pf_dirpf_simplificado.imposto_total)}
+              </p>
+              <p className="text-sm text-slate-600 mt-1">
+                Alíquota efetiva: {result.cenarios.pf_dirpf_simplificado.aliquota_efetiva_anual.toFixed(2)}%
+              </p>
+              {result.cenarios.pf_dirpf_simplificado.ajuste_estimado !== 0 && (
+                <p
+                  className={`text-sm mt-1 font-medium ${
+                    result.cenarios.pf_dirpf_simplificado.ajuste_estimado > 0
+                      ? 'text-emerald-700'
+                      : 'text-amber-700'
+                  }`}
+                >
+                  {result.cenarios.pf_dirpf_simplificado.ajuste_estimado > 0
+                    ? `Ajuste estimado (restituição potencial): ${formatMoney(result.cenarios.pf_dirpf_simplificado.ajuste_estimado)}`
+                    : `Ajuste estimado (a pagar): ${formatMoney(Math.abs(result.cenarios.pf_dirpf_simplificado.ajuste_estimado))}`}
+                </p>
+              )}
+              <details className="mt-3">
+                <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Ver cálculo</summary>
+                <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
+                  <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">
+                    Desconto simplificado DIRPF ({result.cenarios.pf_dirpf_simplificado.aliquota_desconto_pct}% · teto{' '}
+                    {formatMoney(result.cenarios.pf_dirpf_simplificado.teto_desconto)})
+                  </p>
+                  <p>
+                    Base antes do desconto:{' '}
+                    <span className="font-semibold">{formatMoney(result.cenarios.pf_dirpf_simplificado.base_antes_desconto)}</span>
+                  </p>
+                  <p>
+                    − Desconto simplificado:{' '}
+                    <span>{formatMoney(result.cenarios.pf_dirpf_simplificado.desconto_simplificado)}</span>
+                  </p>
+                  <p className="border-t border-slate-200 pt-1">
+                    = Base DIRPF:{' '}
+                    <span className="font-semibold">{formatMoney(result.cenarios.pf_dirpf_simplificado.base_calculo_total)}</span>
+                  </p>
+                  <p className="text-slate-500 text-[10px]">Tabela progressiva anual (faixas mensais × 12)</p>
+                  <p className="border-t border-slate-200 pt-1 mt-1">
+                    = IR estimado:{' '}
+                    <span className="font-bold">{formatMoney(result.cenarios.pf_dirpf_simplificado.imposto_total)}</span>
+                  </p>
+                  <p className="text-slate-500 text-[10px] mt-1">
+                    Carnê-leão pago no ano: {formatMoney(result.cenarios.pf_dirpf_simplificado.imposto_carne_leao)}
+                  </p>
+                </div>
+              </details>
+            </Card>
+          )}
           <Card>
             <h3 className="font-semibold text-slate-700 mb-2">Pessoa Jurídica (Lucro Presumido)</h3>
             <p className="text-2xl font-bold text-slate-800">
@@ -3914,6 +3988,38 @@ export function SimuladorImoveis() {
                 })()}
               </div>
             </details>
+            {exibirDirpfSimplificado && result.cenarios.pf_dirpf_simplificado && (
+              <details className="border border-slate-200 rounded-lg overflow-hidden">
+                <summary className="p-3 bg-slate-50 font-medium cursor-pointer">
+                  PF — DIRPF com desconto simplificado (ajuste anual)
+                </summary>
+                <div className="p-3 pt-0 space-y-1 font-mono text-xs">
+                  {(() => {
+                    const d = result.cenarios.pf_dirpf_simplificado!;
+                    return (
+                      <>
+                        <p className="text-slate-500 font-sans text-[11px] mb-1">
+                          Não se aplica ao carnê-leão. Opção na declaração de ajuste se o contribuinte escolher o modelo simplificado.
+                        </p>
+                        <p>
+                          Base antes do desconto: {formatMoney(d.base_antes_desconto)} | Desconto ({d.aliquota_desconto_pct}%, teto{' '}
+                          {formatMoney(d.teto_desconto)}): {formatMoney(d.desconto_simplificado)}
+                        </p>
+                        <p>
+                          Base DIRPF: {formatMoney(d.base_calculo_total)} | IR estimado: {formatMoney(d.imposto_total)} | Alíquota efetiva:{' '}
+                          {d.aliquota_efetiva_anual.toFixed(2)}%
+                        </p>
+                        <p>
+                          Carnê-leão no ano: {formatMoney(d.imposto_carne_leao)} | Ajuste estimado:{' '}
+                          {formatMoney(d.ajuste_estimado)}
+                          {d.ajuste_estimado > 0 ? ' (restituição potencial)' : d.ajuste_estimado < 0 ? ' (a pagar)' : ''}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              </details>
+            )}
             <details className="border border-slate-200 rounded-lg overflow-hidden">
               <summary className="p-3 bg-slate-50 font-medium cursor-pointer">Pessoa Jurídica (Lucro Presumido)</summary>
               <div className="p-3 pt-0 space-y-1 font-mono text-xs">

@@ -54,11 +54,7 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
       setFormError('Informe o nome do cliente.');
       return;
     }
-    if (formData.person_type === 'pj') {
-      if (!cnpjDigits) {
-        setFormError('Informe o CNPJ.');
-        return;
-      }
+    if (formData.person_type === 'pj' && cnpjDigits) {
       if (cnpjDigits.length !== 14) {
         setFormError('CNPJ deve ter 14 dígitos.');
         return;
@@ -68,11 +64,7 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
         return;
       }
     }
-    if (formData.person_type === 'pf') {
-      if (!cpfDigits) {
-        setFormError('Informe o CPF.');
-        return;
-      }
+    if (formData.person_type === 'pf' && cpfDigits) {
       if (cpfDigits.length !== 11) {
         setFormError('CPF deve ter 11 dígitos.');
         return;
@@ -88,8 +80,8 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
       const payload = {
         ...formData,
         name: formData.name.trim(),
-        cnpj: formData.person_type === 'pj' ? cnpjDigits : undefined,
-        cpf: formData.person_type === 'pf' ? cpfDigits : undefined,
+        cnpj: formData.person_type === 'pj' ? (cnpjDigits || undefined) : undefined,
+        cpf: formData.person_type === 'pf' ? (cpfDigits || undefined) : undefined,
         email: formData.email?.trim() || undefined,
       };
       const client = await clientService.create(payload);
@@ -107,18 +99,18 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Novo cliente">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {formError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 text-left"
           >
             {formError}
           </div>
         )}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pessoa</label>
-          <div className="flex gap-4">
+        <div className="text-left">
+          <label className="block text-sm font-medium text-slate-700 mb-2 text-left">Tipo de pessoa</label>
+          <div className="flex gap-4 justify-start">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -163,7 +155,7 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
         />
         {formData.person_type === 'pj' ? (
           <Input
-            label="CNPJ"
+            label="CNPJ (opcional)"
             value={formatCnpj(formData.cnpj ?? '')}
             onChange={(e) => {
               const raw = parseDigits(e.target.value);
@@ -173,13 +165,12 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
               }
             }}
             placeholder="00.000.000/0001-00"
-            required
             maxLength={18}
             disabled={isSubmitting}
           />
         ) : (
           <Input
-            label="CPF"
+            label="CPF (opcional)"
             value={formatCpf(formData.cpf ?? '')}
             onChange={(e) => {
               const raw = parseDigits(e.target.value);
@@ -189,13 +180,12 @@ export function ClientFormModal({ isOpen, onClose, onSuccess }: ClientFormModalP
               }
             }}
             placeholder="000.000.000-00"
-            required
             maxLength={14}
             disabled={isSubmitting}
           />
         )}
         <Input
-          label="Email"
+          label="Email (opcional)"
           type="email"
           value={formData.email || ''}
           onChange={(e) => {

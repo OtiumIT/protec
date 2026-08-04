@@ -705,6 +705,29 @@ export function PropertyDetail() {
                       Alíquota efetiva: {simulation.cenarios.pf.aliquota_efetiva_anual.toFixed(1)}%
                     </p>
                   </div>
+                  {simulation.cenarios.pf_dirpf_simplificado && (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                      <h3 className="font-semibold text-slate-700 mb-1">
+                        PF — DIRPF simplificado
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-2">
+                        Ajuste anual estimado (20%, teto{' '}
+                        {formatCurrency(simulation.cenarios.pf_dirpf_simplificado.teto_desconto)}). Não altera o carnê-leão.
+                      </p>
+                      <p className="text-2xl font-bold text-slate-800">
+                        {formatCurrency(simulation.cenarios.pf_dirpf_simplificado.imposto_total)}
+                      </p>
+                      <p className="text-sm text-slate-600 mt-1">
+                        Alíquota efetiva: {simulation.cenarios.pf_dirpf_simplificado.aliquota_efetiva_anual.toFixed(1)}%
+                      </p>
+                      {simulation.cenarios.pf_dirpf_simplificado.ajuste_estimado !== 0 && (
+                        <p className={`text-xs mt-1 font-medium ${simulation.cenarios.pf_dirpf_simplificado.ajuste_estimado > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          Ajuste estimado: {formatCurrency(simulation.cenarios.pf_dirpf_simplificado.ajuste_estimado)}
+                          {simulation.cenarios.pf_dirpf_simplificado.ajuste_estimado > 0 ? ' (restituição potencial)' : ' (a pagar)'}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="p-4 bg-slate-50 rounded-lg">
                     <h3 className="font-semibold text-slate-700 mb-2">
                       Pessoa Jurídica (Lucro Presumido)

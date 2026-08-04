@@ -52,12 +52,12 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
 
         {/* Modal - z-10 para receber cliques (inputs e botões) */}
         <div
-          className={`relative z-10 inline-block align-bottom bg-white rounded-2xl shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} w-full border border-brand/20`}
+          className={`relative z-10 inline-block align-bottom bg-white rounded-2xl text-left shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} w-full border border-brand/20`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-brand/5">
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 text-left">{title}</h3>
             <button
               type="button"
               onClick={onClose}
