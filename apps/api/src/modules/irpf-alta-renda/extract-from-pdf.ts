@@ -243,8 +243,9 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
       result = await parser.getText();
     }
     text = typeof result?.text === 'string' ? result.text : String(result ?? '');
-  } catch {
-    throw new Error('Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido.');
+  } catch (pdfErr: any) {
+    console.error('[extractIrpfFromPdf] pdf-parse falhou:', pdfErr?.message || pdfErr, pdfErr?.stack);
+    throw new Error(`Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido. (${pdfErr?.message || 'unknown'})`);
   }
 
   const openai = new OpenAI({ apiKey });
