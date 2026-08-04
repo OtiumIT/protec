@@ -107,7 +107,7 @@ export async function processExtractionJobHandler(jobId: string, storagePath: st
     await supabase.storage.from(UPLOAD_BUCKET).upload(
       `jobs/${jobId}.json`,
       JSON.stringify(result),
-      { contentType: 'application/json', upsert: true }
+      { contentType: 'text/plain', upsert: true }
     );
   }
 
