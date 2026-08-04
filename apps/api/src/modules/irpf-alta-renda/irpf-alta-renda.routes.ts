@@ -103,16 +103,28 @@ export async function processExtractionJobHandler(jobId: string, storagePath: st
     return;
   }
 
+  async function saveJobResult(result: Record<string, unknown>) {
+    await supabase.storage.from(UPLOAD_BUCKET).upload(
+      `jobs/${jobId}.json`,
+      JSON.stringify(result),
+      { contentType: 'application/json', upsert: true }
+    );
+  }
+
+  // Safety timeout: save error 10s before Lambda hard-kill (use AWS_LAMBDA_FUNCTION_TIMEOUT or fallback to 280s)
+  const safetyMs = 280_000;
+  const safetyTimer = setTimeout(async () => {
+    console.error(`[extraction-job:${jobId}] Safety timeout reached, saving error`);
+    await saveJobResult({ status: 'error', error: 'Tempo limite excedido na extração. O PDF pode ser muito grande ou complexo.' }).catch(() => {});
+  }, safetyMs);
+
   try {
     console.log(`[extraction-job:${jobId}] Downloading from storage: ${storagePath}`);
     const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(storagePath);
     if (error || !data) {
       console.error(`[extraction-job:${jobId}] Download error:`, error);
-      await supabase.storage.from(UPLOAD_BUCKET).upload(
-        `jobs/${jobId}.json`,
-        JSON.stringify({ status: 'error', error: 'Falha ao baixar arquivo do storage.' }),
-        { contentType: 'application/json', upsert: true }
-      );
+      clearTimeout(safetyTimer);
+      await saveJobResult({ status: 'error', error: 'Falha ao baixar arquivo do storage.' });
       return;
     }
 
@@ -121,20 +133,14 @@ export async function processExtractionJobHandler(jobId: string, storagePath: st
     supabase.storage.from(UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
 
     const result = await extractIrpfFromPdf(buffer);
+    clearTimeout(safetyTimer);
     console.log(`[extraction-job:${jobId}] Extraction completed, saving result...`);
-    await supabase.storage.from(UPLOAD_BUCKET).upload(
-      `jobs/${jobId}.json`,
-      JSON.stringify({ status: 'completed', data: { ...result, arquivo_nome: fileName } }),
-      { contentType: 'application/json', upsert: true }
-    );
+    await saveJobResult({ status: 'completed', data: { ...result, arquivo_nome: fileName } });
     console.log(`[extraction-job:${jobId}] Done.`);
   } catch (err: any) {
+    clearTimeout(safetyTimer);
     console.error(`[extraction-job:${jobId}] Error:`, err?.message);
-    await supabase.storage.from(UPLOAD_BUCKET).upload(
-      `jobs/${jobId}.json`,
-      JSON.stringify({ status: 'error', error: err?.message || 'Erro desconhecido na extração.' }),
-      { contentType: 'application/json', upsert: true }
-    ).catch(() => {});
+    await saveJobResult({ status: 'error', error: err?.message || 'Erro desconhecido na extração.' }).catch(() => {});
   }
 }
 

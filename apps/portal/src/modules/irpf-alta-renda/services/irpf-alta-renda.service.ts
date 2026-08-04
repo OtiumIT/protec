@@ -208,8 +208,8 @@ export const irpfAltaRendaService = {
     // If response has job_id, poll for result (async pattern)
     if (extractBody.data?.job_id) {
       const jobId = extractBody.data.job_id;
-      const MAX_POLLS = 40; // 40 * 3s = 120s max
-      const POLL_INTERVAL = 3000;
+      const MAX_POLLS = 60; // 60 * 5s = 300s max
+      const POLL_INTERVAL = 5000;
 
       for (let i = 0; i < MAX_POLLS; i++) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL));
