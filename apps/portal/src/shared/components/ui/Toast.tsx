@@ -101,7 +101,7 @@ function ToastItem({
 }) {
   const handleClose = useCallback(() => onRemove(id), [id, onRemove]);
   return (
-    <div style={{ top: `${top}px` }} className="fixed right-4 z-[100]">
+    <div style={{ top: `${top}px` }} className="fixed right-4 z-[9999]">
       <Toast message={message} type={type} onClose={handleClose} />
     </div>
   );

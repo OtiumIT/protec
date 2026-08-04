@@ -216,7 +216,18 @@ export async function processPropertyImportJobHandler(jobId: string, storagePath
 
     const { extractIrpfFromPdf } = await import('../irpf-alta-renda/extract-from-pdf');
     const pdfResult = await extractIrpfFromPdf(buffer);
+    const bensCount = pdfResult.declaracao_completa?.bens_direitos?.itens?.length ?? 0;
+    const patrimonioCount = pdfResult.dados?.patrimonio_imobiliario?.length ?? 0;
+    console.log(`[processPropertyImportJob] extractIrpfFromPdf done. bens_direitos.itens: ${bensCount}, patrimonio_imobiliario: ${patrimonioCount}`);
+    if (bensCount > 0) {
+      console.log('[processPropertyImportJob] bens sample:', JSON.stringify(
+        (pdfResult.declaracao_completa?.bens_direitos?.itens ?? []).slice(0, 3).map((b: any) => ({
+          codigo: b.codigo, descricao: String(b.descricao ?? '').substring(0, 80), valor_atual: b.valor_atual,
+        }))
+      ));
+    }
     const result = extractPropertiesFromPdfResult(pdfResult);
+    console.log(`[processPropertyImportJob] extractPropertiesFromPdfResult: ${result.candidates.length} candidates, avisos: ${result.avisos}`);
     clearTimeout(safetyTimer);
     await saveResult({ status: 'completed', data: result });
   } catch (err: any) {

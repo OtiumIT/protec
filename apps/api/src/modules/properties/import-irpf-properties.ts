@@ -208,8 +208,20 @@ export function extractPropertiesFromDecDbk(content: string, _filename: string):
 /**
  * Extrai candidatos de imóveis a partir da saída do extractIrpfFromPdf (bens_direitos + patrimonio_imobiliario).
  */
+const CODIGOS_IMOVEIS_PDF = new Set([
+  '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+  '11', '12', '13', '14', '15', '16', '17', '18', '19',
+]);
+
+function normalizeCodigoImovel(raw: string): string {
+  const cleaned = raw.replace(/[^0-9]/g, '');
+  if (cleaned.length === 0) return '00';
+  if (cleaned.length <= 2) return cleaned.padStart(2, '0');
+  return cleaned.substring(0, 2);
+}
+
 export function extractPropertiesFromPdfResult(pdfResult: {
-  declaracao_completa?: { bens_direitos?: { itens?: Array<{ codigo?: string; descricao?: string; valor_atual?: number }> } };
+  declaracao_completa?: { bens_direitos?: { itens?: Array<Record<string, unknown>> } };
   dados?: { patrimonio_imobiliario?: Array<{ descricao?: string; valor_atual?: number }> };
   ano?: number;
 }): IrpfPropertyImportResult {
@@ -219,29 +231,52 @@ export function extractPropertiesFromPdfResult(pdfResult: {
   const bens = pdfResult.declaracao_completa?.bens_direitos?.itens ?? [];
   const patrimonio = pdfResult.dados?.patrimonio_imobiliario ?? [];
 
-  const allItems = bens.length > 0 ? bens : patrimonio.map((p) => ({ codigo: '01', descricao: p.descricao, valor_atual: p.valor_atual }));
+  console.log(`[extractPropertiesFromPdfResult] bens_direitos.itens: ${bens.length}, patrimonio_imobiliario: ${patrimonio.length}`);
+  if (bens.length > 0) {
+    console.log('[extractPropertiesFromPdfResult] Amostra bens_direitos (até 5):', JSON.stringify(bens.slice(0, 5).map((b) => ({
+      codigo: b.codigo, grupo: b.grupo, descricao: String(b.descricao ?? '').substring(0, 80), valor_atual: b.valor_atual,
+    }))));
+  }
+
+  const allItems = bens.length > 0
+    ? bens.map((b) => ({
+        codigo: String(b.codigo ?? b.grupo ?? ''),
+        grupo: String(b.grupo ?? b.codigo ?? ''),
+        descricao: String(b.descricao ?? ''),
+        valor_atual: Number(b.valor_atual ?? b.valor ?? b.situacao_31dez ?? 0) || 0,
+      }))
+    : patrimonio.map((p) => ({ codigo: '01', grupo: '01', descricao: p.descricao ?? '', valor_atual: p.valor_atual ?? 0 }));
+
+  console.log(`[extractPropertiesFromPdfResult] allItems total: ${allItems.length}`);
 
   for (const item of allItems) {
-    const codigo = String(item.codigo ?? '').padStart(2, '0');
-    const desc = (item.descricao ?? '').trim();
+    const codigoNorm = normalizeCodigoImovel(item.codigo);
+    const grupoNorm = normalizeCodigoImovel(item.grupo);
+    const desc = item.descricao.trim();
     if (!desc) continue;
 
-    const isImovelByCodigo = ['01', '11', '12', '13', '14', '15', '16'].includes(codigo);
+    const isImovelByCodigo = CODIGOS_IMOVEIS_PDF.has(codigoNorm) || CODIGOS_IMOVEIS_PDF.has(grupoNorm);
     const isImovelByKeyword = isRealEstateByDescription(desc);
 
-    if (!isImovelByCodigo && !isImovelByKeyword) continue;
-    if (NOT_IMOVEL_KEYWORDS.test(desc)) continue;
+    if (!isImovelByCodigo && !isImovelByKeyword) {
+      console.log(`[extractPropertiesFromPdfResult] SKIP (no match): codigo=${item.codigo} grupo=${item.grupo} desc="${desc.substring(0, 60)}"`);
+      continue;
+    }
+    if (NOT_IMOVEL_KEYWORDS.test(desc)) {
+      console.log(`[extractPropertiesFromPdfResult] SKIP (not imovel keywords): desc="${desc.substring(0, 60)}"`);
+      continue;
+    }
 
     const address = extractAddress(desc);
     const identificador = generateIdentificador(desc);
-    const valor = round2(item.valor_atual ?? 0);
+    const valor = round2(item.valor_atual);
 
     candidates.push({
       temp_id: randomUUID(),
       identificador,
       descricao: desc,
-      grupo: codigo,
-      codigo,
+      grupo: codigoNorm,
+      codigo: codigoNorm,
       valor_declarado: valor > 0 ? valor : undefined,
       natureza_locacao: inferNatureza(desc),
       tipo_locacao: 'fixa',
@@ -250,14 +285,30 @@ export function extractPropertiesFromPdfResult(pdfResult: {
     });
   }
 
-  if (candidates.length === 0) {
-    avisos.push('Nenhum imóvel encontrado no PDF. Verifique se a declaração contém a seção "Bens e Direitos".');
+  console.log(`[extractPropertiesFromPdfResult] candidates found: ${candidates.length}`);
+
+  if (candidates.length === 0 && allItems.length > 0) {
+    avisos.push(`Nenhum imóvel identificado entre os ${allItems.length} bens extraídos do PDF. Verifique se a declaração contém imóveis na seção "Bens e Direitos".`);
+  } else if (candidates.length === 0) {
+    avisos.push('Nenhum bem encontrado no PDF. Verifique se a declaração contém a seção "Bens e Direitos".');
   }
+
+  const contribuinte = pdfResult.declaracao_completa
+    ? extractContribuinteFromDeclaracao(pdfResult.declaracao_completa)
+    : undefined;
 
   return {
     source: 'pdf',
-    contribuinte: undefined,
+    contribuinte,
     candidates,
     avisos,
   };
+}
+
+function extractContribuinteFromDeclaracao(dc: Record<string, unknown>): { nome?: string; cpf?: string } | undefined {
+  const ident = (dc as any).identificacao ?? (dc as any).contribuinte;
+  if (!ident) return undefined;
+  const nome = String(ident.nome ?? '').trim() || undefined;
+  const cpf = String(ident.cpf ?? '').replace(/\D/g, '') || undefined;
+  return (nome || cpf) ? { nome, cpf } : undefined;
 }
