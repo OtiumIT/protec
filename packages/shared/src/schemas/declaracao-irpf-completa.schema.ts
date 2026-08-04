@@ -10,24 +10,24 @@ const valorMonetario = z.number().nonnegative().default(0);
 
 // ── 1. Identificação do Declarante ───────────────────────────────────────────
 export const IdentificacaoDeclaranteSchema = z.object({
-  nome: z.string().default(''),
-  cpf: z.string().default(''),
-  data_nascimento: z.string().optional(),
-  titulo_eleitor: z.string().optional(),
+  nome: z.string().nullable().default('').transform(v => v ?? ''),
+  cpf: z.string().nullable().default('').transform(v => v ?? ''),
+  data_nascimento: z.string().nullable().optional().transform(v => v ?? undefined),
+  titulo_eleitor: z.string().nullable().optional().transform(v => v ?? undefined),
   exercicio: z.number().int().min(2020).max(2035).default(new Date().getFullYear()),
   ano_calendario: z.number().int().min(2020).max(2035).default(new Date().getFullYear()),
-  tipo_declaracao: z.enum(['completa', 'simplificada']).optional(),
-  cnpj_empresa_optante_simples: z.string().optional(),
-  codigo_receita: z.string().optional(),
-  situacao_final: z.string().optional(),
+  tipo_declaracao: z.enum(['completa', 'simplificada']).nullable().optional().transform(v => v ?? undefined),
+  cnpj_empresa_optante_simples: z.string().nullable().optional().transform(v => v ?? undefined),
+  codigo_receita: z.string().nullable().optional().transform(v => v ?? undefined),
+  situacao_final: z.string().nullable().optional().transform(v => v ?? undefined),
 });
 
 // ── 2. Dependentes ─────────────────────────────────────────────────────────────
 export const DependenteSchema = z.object({
-  nome: z.string().default(''),
-  cpf: z.string().default(''),
-  parentesco: z.string().optional(),
-  data_nascimento: z.string().optional(),
+  nome: z.string().nullable().default('').transform(v => v ?? ''),
+  cpf: z.string().nullable().default('').transform(v => v ?? ''),
+  parentesco: z.string().nullable().optional().transform(v => v ?? undefined),
+  data_nascimento: z.string().nullable().optional().transform(v => v ?? undefined),
 });
 
 // ── 3. Rendimentos Tributáveis de Pessoa Jurídica ─────────────────────────────────
