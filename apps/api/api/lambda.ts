@@ -38,4 +38,13 @@ if (!process.env.DATABASE_URL) {
   config({ path: path.resolve(process.cwd(), '../../.env') });
 }
 
-export const handler = handle(app);
+const honoHandler = handle(app);
+
+// Callback-style handler: keeps Lambda alive for background work (fire-and-forget promises)
+// after sending the response. API Gateway gets 202 immediately while extraction continues.
+export const handler = (event: any, context: any, callback: any) => {
+  context.callbackWaitsForEmptyEventLoop = true;
+  honoHandler(event, context)
+    .then((response: any) => callback(null, response))
+    .catch((err: any) => callback(err));
+};

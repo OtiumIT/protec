@@ -81,65 +81,130 @@ irpfAltaRendaRoutes.post('/upload-url', async (c) => {
 
 /**
  * POST /irpf-alta-renda/extract-from-pdf
- * Extrai dados de IRPF de um PDF (ex.: DAA) via OpenAI e retorna ano + dados para preencher o formulário.
- * Aceita:
- *   - multipart/form-data com campo "file" (< 5MB, via Lambda direto)
- *   - JSON com { storage_path } (qualquer tamanho, arquivo já no Supabase Storage)
+ * Extrai dados de IRPF de um PDF (ex.: DAA) via OpenAI.
+ * Para arquivos grandes (via storage_path), usa padrão async:
+ *   retorna { job_id } e processa em background; frontend faz polling em GET /extract-job/:job_id.
+ * Para arquivos pequenos (< 5MB via multipart), tenta síncrono.
  */
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
+function createSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey);
+}
+
+async function processExtractionJob(jobId: string, storagePath: string, fileName: string) {
+  const supabase = createSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(storagePath);
+    if (error || !data) {
+      await supabase.storage.from(UPLOAD_BUCKET).upload(
+        `jobs/${jobId}.json`,
+        JSON.stringify({ status: 'error', error: 'Falha ao baixar arquivo do storage.' }),
+        { contentType: 'application/json', upsert: true }
+      );
+      return;
+    }
+
+    const buffer = Buffer.from(await data.arrayBuffer());
+    supabase.storage.from(UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
+
+    const result = await extractIrpfFromPdf(buffer);
+    await supabase.storage.from(UPLOAD_BUCKET).upload(
+      `jobs/${jobId}.json`,
+      JSON.stringify({ status: 'completed', data: { ...result, arquivo_nome: fileName } }),
+      { contentType: 'application/json', upsert: true }
+    );
+  } catch (err: any) {
+    console.error('[processExtractionJob] Error:', err?.message);
+    await supabase.storage.from(UPLOAD_BUCKET).upload(
+      `jobs/${jobId}.json`,
+      JSON.stringify({ status: 'error', error: err?.message || 'Erro desconhecido na extração.' }),
+      { contentType: 'application/json', upsert: true }
+    ).catch(() => {});
+  }
+}
 
 irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
   try {
     const contentType = c.req.header('content-type') || '';
 
-    let buffer: Buffer;
-    let fileName = 'upload.pdf';
-
     if (contentType.includes('application/json')) {
       const body = await c.req.json();
       const storagePath = body.storage_path as string;
-      fileName = body.filename || storagePath.split('/').pop() || 'upload.pdf';
+      const fileName = body.filename || storagePath?.split('/').pop() || 'upload.pdf';
 
       if (!storagePath) {
         return c.json({ error: { message: 'Campo storage_path obrigatório.', code: 'STORAGE_PATH_REQUIRED' } }, 400);
       }
 
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-      if (!supabaseUrl || !supabaseKey) {
-        return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
-      }
+      const jobId = randomBytes(16).toString('hex');
 
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(storagePath);
+      // Fire-and-forget: processa em background (Lambda continua executando até 120s)
+      processExtractionJob(jobId, storagePath, fileName).catch((err) => {
+        console.error('[extract-from-pdf] Background job failed:', err);
+      });
 
-      if (error || !data) {
-        console.error('[extract-from-pdf] Storage download error:', error);
-        return c.json({ error: { message: 'Falha ao baixar arquivo do storage.', code: 'STORAGE_DOWNLOAD_ERROR' } }, 500);
-      }
-
-      buffer = Buffer.from(await data.arrayBuffer());
-
-      supabase.storage.from(UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
-    } else {
-      const formData = await c.req.formData();
-      const file = formData.get('file') as File | null;
-      if (!file || !(file instanceof File)) {
-        return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
-      }
-      if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
-        return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
-      }
-      if (file.size > MAX_PDF_SIZE_BYTES) {
-        return c.json({ error: { message: 'O arquivo PDF deve ter no máximo 10MB.', code: 'FILE_TOO_LARGE' } }, 400);
-      }
-      fileName = file.name;
-      const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
+      return c.json({ data: { job_id: jobId, status: 'processing' } }, 202);
     }
 
+    // Upload direto via multipart (arquivos pequenos < 5MB)
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
+    }
+    if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
+      return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
+    }
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      return c.json({ error: { message: 'O arquivo PDF deve ter no máximo 10MB.', code: 'FILE_TOO_LARGE' } }, 400);
+    }
+    const fileName = file.name;
+    const buffer = Buffer.from(await file.arrayBuffer());
     const result = await extractIrpfFromPdf(buffer);
     return c.json({ data: { ...result, arquivo_nome: fileName } }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/**
+ * GET /irpf-alta-renda/extract-job/:jobId
+ * Polling para verificar status de extração assíncrona.
+ * Retorna: { status: 'processing' } ou { status: 'completed', data: ... } ou { status: 'error', error: ... }
+ */
+irpfAltaRendaRoutes.get('/extract-job/:jobId', async (c) => {
+  try {
+    const jobId = c.req.param('jobId');
+    if (!jobId || !/^[a-f0-9]{32}$/.test(jobId)) {
+      return c.json({ error: { message: 'Job ID inválido.', code: 'INVALID_JOB_ID' } }, 400);
+    }
+
+    const supabase = createSupabaseClient();
+    if (!supabase) {
+      return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
+    }
+
+    const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(`jobs/${jobId}.json`);
+    if (error || !data) {
+      return c.json({ data: { status: 'processing' } }, 200);
+    }
+
+    const result = JSON.parse(await data.text());
+
+    // Limpar arquivo de resultado após leitura bem-sucedida
+    supabase.storage.from(UPLOAD_BUCKET).remove([`jobs/${jobId}.json`]).catch(() => {});
+
+    if (result.status === 'error') {
+      return c.json({ error: { message: result.error, code: 'EXTRACTION_ERROR' } }, 500);
+    }
+
+    return c.json({ data: result.data }, 200);
   } catch (err) {
     return errorHandler(err, c);
   }
