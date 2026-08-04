@@ -262,9 +262,29 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
     rawContent = await extractSinglePassFromText(openai, cleanText);
   } else {
     console.log('[extractIrpfFromPdf] PDF escaneado, usando Files API');
+
+    // Limitar a 20 páginas para evitar rate limit de tokens (TPM) do OpenAI
+    let pdfToUpload = pdfBuffer;
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const srcDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      const totalPages = srcDoc.getPageCount();
+      const MAX_PAGES = 20;
+      if (totalPages > MAX_PAGES) {
+        console.log(`[extractIrpfFromPdf] PDF tem ${totalPages} páginas, limitando a ${MAX_PAGES}`);
+        const trimmedDoc = await PDFDocument.create();
+        const pages = await trimmedDoc.copyPages(srcDoc, Array.from({ length: MAX_PAGES }, (_, i) => i));
+        for (const page of pages) trimmedDoc.addPage(page);
+        pdfToUpload = Buffer.from(await trimmedDoc.save());
+        console.log(`[extractIrpfFromPdf] PDF trimmed: ${pdfBuffer.length} -> ${pdfToUpload.length} bytes`);
+      }
+    } catch (trimErr: any) {
+      console.warn('[extractIrpfFromPdf] Falha ao limitar páginas do PDF:', trimErr?.message);
+    }
+
     const { toFile } = await import('openai');
     const uploadedFile = await openai.files.create({
-      file: await toFile(pdfBuffer, 'declaracao_irpf.pdf', { type: 'application/pdf' }),
+      file: await toFile(pdfToUpload, 'declaracao_irpf.pdf', { type: 'application/pdf' }),
       purpose: 'user_data',
     });
     try {
