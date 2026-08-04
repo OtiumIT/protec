@@ -119,10 +119,15 @@ propertyRoutes.post('/extract-property-doc', async (c) => {
       return c.json({ error: { message: 'Documento com mais de 10 páginas. Envie versão resumida.', code: 'TOO_MANY_PAGES' } }, 400);
     }
 
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText().catch(() => ({ text: '' }));
-    const text = typeof result?.text === 'string' ? result.text : '';
+    let text = '';
+    try {
+      const { PDFParse } = await import('pdf-parse');
+      const parser = new PDFParse({ data: buffer });
+      const result = await parser.getText().catch(() => ({ text: '' }));
+      text = typeof result?.text === 'string' ? result.text : '';
+    } catch (pdfErr: any) {
+      console.warn('[property-routes] pdf-parse falhou:', pdfErr?.message);
+    }
 
     const { suggested, warnings } = extractSuggestedFieldsFromText(text, documentType);
 

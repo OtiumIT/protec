@@ -231,21 +231,20 @@ export async function extractIrpfFromPdf(pdfBuffer: Buffer): Promise<ExtractIrpf
     throw new Error('OPENAI_API_KEY não configurada. Não é possível extrair dados do PDF.');
   }
 
-  let text: string;
+  let text: string = '';
   try {
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: pdfBuffer });
     let result: any;
     try {
-      // Tentativa de preservar estrutura de colunas para melhorar leitura tabular pelo modelo.
       result = await (parser as any).getText({ preserveStructure: true });
     } catch {
       result = await parser.getText();
     }
     text = typeof result?.text === 'string' ? result.text : String(result ?? '');
   } catch (pdfErr: any) {
-    console.error('[extractIrpfFromPdf] pdf-parse falhou:', pdfErr?.message || pdfErr, pdfErr?.stack);
-    throw new Error(`Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido. (${pdfErr?.message || 'unknown'})`);
+    console.warn('[extractIrpfFromPdf] pdf-parse falhou, tratando como PDF escaneado:', pdfErr?.message);
+    text = '';
   }
 
   const openai = new OpenAI({ apiKey });
