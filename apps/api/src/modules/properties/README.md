@@ -319,3 +319,15 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
   - **Custos operacionais**: reformas_melhorias, mobilia_equipamentos, limpeza_higienizacao, comissao_corretagem, taxa_plataforma, outros_custos
 - Alíquota PF e presunção PJ são definidas automaticamente pelos dados.
 - Resposta: `{ data: PropertyTaxSimulationResponse }`
+
+### POST /properties/:id/quick-simulate
+
+- Simulação rápida PF vs PJ para o imóvel cadastrado, usando `valor_aluguel_mensal` e custos padrão (`*_mensal_padrao`).
+- Monta 12 meses iguais e chama `calcularPF()` + `calcularPJ()`.
+- Salva o resultado em `properties.ultimo_resultado_simulacao` (JSONB).
+- Resposta: `{ data: QuickSimulationResult }` (pf, pj, recomendacao, economia_anual).
+
+### PATCH /properties/:id/regime
+
+- Salva o regime tributário escolhido (`pf` ou `pj`) no campo `properties.regime_tributario`.
+- Body: `{ regime: 'pf' | 'pj' }`

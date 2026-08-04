@@ -62,6 +62,8 @@ export interface UpdatePropertyData {
   tarifas_bancarias_mensal_padrao?: number;
   vacancia_mensal_padrao?: number;
   inadimplencia_mensal_padrao?: number;
+  regime_tributario?: string | null;
+  ultimo_resultado_simulacao?: Record<string, unknown> | null;
 }
 
 export interface CreateTransactionData {
@@ -202,6 +204,8 @@ export class PropertyRepository extends BaseRepository {
     if (data.tarifas_bancarias_mensal_padrao !== undefined) { updates.push(`tarifas_bancarias_mensal_padrao = $${idx++}`); params.push(data.tarifas_bancarias_mensal_padrao); }
     if (data.vacancia_mensal_padrao !== undefined) { updates.push(`vacancia_mensal_padrao = $${idx++}`); params.push(data.vacancia_mensal_padrao); }
     if (data.inadimplencia_mensal_padrao !== undefined) { updates.push(`inadimplencia_mensal_padrao = $${idx++}`); params.push(data.inadimplencia_mensal_padrao); }
+    if (data.regime_tributario !== undefined) { updates.push(`regime_tributario = $${idx++}`); params.push(data.regime_tributario); }
+    if (data.ultimo_resultado_simulacao !== undefined) { updates.push(`ultimo_resultado_simulacao = $${idx++}`); params.push(JSON.stringify(data.ultimo_resultado_simulacao)); }
 
     if (updates.length === 0) {
       const existing = await this.findById(id);

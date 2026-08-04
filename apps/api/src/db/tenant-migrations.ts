@@ -31,6 +31,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '069_gestao_imobiliaria_contabil.sql',
   '071_expense_mapping.sql',
   '074_simulation_share_tokens.sql',
+  '076_properties_regime_tributario.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {

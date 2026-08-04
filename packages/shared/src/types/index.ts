@@ -296,6 +296,15 @@ export type Property = {
   tarifas_bancarias_mensal_padrao?: number;
   vacancia_mensal_padrao?: number;
   inadimplencia_mensal_padrao?: number;
+  regime_tributario?: 'pf' | 'pj' | null;
+  ultimo_resultado_simulacao?: {
+    pf: { imposto_anual: number; aliquota_efetiva: number };
+    pj: { imposto_anual: number; aliquota_efetiva: number };
+    recomendacao: 'pf' | 'pj';
+    economia_anual: number;
+    receita_anual: number;
+    custos_anual: number;
+  } | null;
   created_at: Date | string;
   updated_at: Date | string;
 };

@@ -8,11 +8,21 @@ simuladores tributários existentes (`properties`), sem alterá-los.
 
 Chave do módulo: `GESTAO_IMOVEIS` (mesma dos simuladores). Base: `/api/v1/gestao-imobiliaria`.
 
-UI (portal): abas/menu ativos — Portfólio, Imóveis, Contratos, Extratos, Alertas.
-Financeiro, Operação e Integrações estão ocultos no menu (código/API mantidos; Categoria do ledger já é combo).
+UI (portal): abas/menu ativos — Portfólio, Imóveis, Contratos, Custos, Extratos.
+Alertas, Financeiro, Operação e Integrações estão ocultos no menu (código/API mantidos).
 
 Aba Imóveis: inclui botão **Importar do IRPF** (PDF/.dec/.dbk) que chama `POST /properties/import-from-irpf`,
 exibe preview checkável dos bens imóveis e cadastra em lote via `POST /properties/batch`.
+
+## Integração com Simulador de Locação
+- **Simulação automática**: ao salvar um imóvel (com aluguel e custos), o sistema executa uma simulação
+  rápida PF vs PJ (`POST /properties/:id/quick-simulate`), usando `calcularPF()` e `calcularPJ()`.
+- **Regime tributário**: o usuário escolhe PF ou PJ; a escolha é salva no campo `properties.regime_tributario`
+  via `PATCH /properties/:id/regime`. O resultado é cacheado em `properties.ultimo_resultado_simulacao` (JSONB).
+- **Herança no contrato**: ao criar um contrato, o regime tributário do imóvel é exibido como badge readonly.
+- **Portfólio**: calcula receita (aluguel), custos (campos `*_mensal_padrao`), imposto estimado (do cache,
+  cenário selecionado) e líquido = receita - custos - imposto.
+- **Tab Custos**: edição inline de todos os 12 campos de custo por imóvel; ao salvar, re-executa `quick-simulate`.
 
 ## Regras de Negócio
 - **Tenant**: todas as tabelas vivem no schema do tenant (`tenant_{company_id}`); nenhuma query

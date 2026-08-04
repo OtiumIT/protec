@@ -11,20 +11,20 @@ import { propertyService, type PropertyWithClient } from '../../properties/servi
 import type { IrpfPropertyCandidate, IrpfPropertyImportResult } from '../../properties/services/property.service';
 import {
   gestaoImobiliariaService as svc,
-  type DashboardData, type StatementData, type AlertItem,
+  type StatementData, type AlertItem,
 } from '../services/gestao-imobiliaria.service';
-import type { PropertyLease, PropertyLedgerEntry } from '@shared/core';
+import type { PropertyLease, PropertyLedgerEntry, QuickSimulationResult } from '@shared/core';
 
 const TABS = [
   { key: 'portfolio', label: 'Portfólio' },
   { key: 'imoveis', label: 'Imóveis' },
   { key: 'contratos', label: 'Contratos' },
+  { key: 'custos', label: 'Custos' },
   { key: 'extratos', label: 'Extratos' },
-  { key: 'alertas', label: 'Alertas' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 /** Telas ocultas no menu (código mantido para reativação). */
-const HIDDEN_SECTIONS = new Set(['financeiro', 'operacao', 'integracoes']);
+const HIDDEN_SECTIONS = new Set(['financeiro', 'operacao', 'integracoes', 'alertas']);
 
 /** Categorias do livro operacional (combo — alinhado aos lançamentos tributários). */
 const LEDGER_CATEGORIAS: { value: string; label: string }[] = [
@@ -147,57 +147,141 @@ export function GestaoImobiliaria() {
         ))}
       </nav>
 
-      {tab === 'portfolio' && <PortfolioTab clientId={clientId} competencia={competencia} onError={showError} />}
+      {tab === 'portfolio' && <PortfolioTab clientId={clientId} properties={properties} />}
       {tab === 'imoveis' && <ImoveisTab clients={clients} clientId={clientId} properties={properties} onChanged={() => { reloadProperties(); }} onClientsChanged={reloadClients} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'contratos' && <ContratosTab clientId={clientId} properties={properties} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
+      {tab === 'custos' && <CustosTab clientId={clientId} properties={properties} onChanged={reloadProperties} onError={showError} onSuccess={success} />}
       {tab === 'extratos' && <ExtratosTab clients={clients} clientId={clientId} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
-      {tab === 'alertas' && <AlertasTab clientId={clientId} onError={showError} />}
     </div>
   );
 }
 
 // ---------------- Portfólio ----------------
-function PortfolioTab({ clientId, competencia, onError }: { clientId: string; competencia: string; onError: (m: string) => void }) {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    setLoading(true);
-    svc.getDashboard({ client_id: clientId || undefined, competencia })
-      .then(setData).catch(() => onError('Falha ao carregar o painel')).finally(() => setLoading(false));
-  }, [clientId, competencia, onError]);
 
-  if (loading) return <Card>Carregando…</Card>;
-  if (!data) return <Card>Sem dados para a competência.</Card>;
-  const k = data.kpis;
+type CostKey = 'iptu_mensal_padrao' | 'condominio_mensal_padrao' | 'seguro_mensal_padrao' | 'camareira_mensal_padrao' |
+  'seguranca_mensal_padrao' | 'material_limpeza_mensal_padrao' | 'lavanderia_enxoval_mensal_padrao' |
+  'checkin_checkout_mensal_padrao' | 'taxas_pagamento_mensal_padrao' | 'tarifas_bancarias_mensal_padrao' |
+  'vacancia_mensal_padrao' | 'inadimplencia_mensal_padrao';
+
+const COST_FIELDS: { key: CostKey; label: string }[] = [
+  { key: 'iptu_mensal_padrao', label: 'IPTU' },
+  { key: 'condominio_mensal_padrao', label: 'Condomínio' },
+  { key: 'seguro_mensal_padrao', label: 'Seguro' },
+  { key: 'camareira_mensal_padrao', label: 'Camareira' },
+  { key: 'seguranca_mensal_padrao', label: 'Segurança' },
+  { key: 'material_limpeza_mensal_padrao', label: 'Material limpeza' },
+  { key: 'lavanderia_enxoval_mensal_padrao', label: 'Lavanderia/enxoval' },
+  { key: 'checkin_checkout_mensal_padrao', label: 'Check-in/out' },
+  { key: 'taxas_pagamento_mensal_padrao', label: 'Taxas pagamento' },
+  { key: 'tarifas_bancarias_mensal_padrao', label: 'Tarifas bancárias' },
+  { key: 'vacancia_mensal_padrao', label: 'Vacância' },
+  { key: 'inadimplencia_mensal_padrao', label: 'Inadimplência' },
+];
+
+function getPropertyCosts(p: PropertyWithClient): number {
+  const a = p as any;
+  return COST_FIELDS.reduce((sum, f) => sum + (Number(a[f.key]) || 0), 0);
+}
+
+function PortfolioTab({ clientId, properties }: { clientId: string; properties: PropertyWithClient[] }) {
+  const filtered = useMemo(() => clientId ? properties.filter((p) => p.client_id === clientId) : properties, [clientId, properties]);
+
+  const rows = useMemo(() => filtered.map((p) => {
+    const a = p as any;
+    const aluguel = Number(a.valor_aluguel_mensal) || 0;
+    const custos = getPropertyCosts(p);
+    const sim = p.ultimo_resultado_simulacao as any;
+    const regime = p.regime_tributario as 'pf' | 'pj' | null | undefined;
+    let impostoMensal = 0;
+    if (sim && regime && sim[regime]) {
+      impostoMensal = (sim[regime].imposto_anual || 0) / 12;
+    }
+    const liquido = aluguel - custos - impostoMensal;
+    return { id: p.id, identificador: p.identificador, clientName: p.client_name ?? '—', aluguel, custos, impostoMensal, liquido, regime };
+  }), [filtered]);
+
+  const totalAluguel = rows.reduce((s, r) => s + r.aluguel, 0);
+  const totalCustos = rows.reduce((s, r) => s + r.custos, 0);
+  const totalImposto = rows.reduce((s, r) => s + r.impostoMensal, 0);
+  const totalLiquido = totalAluguel - totalCustos - totalImposto;
+  const countPf = rows.filter((r) => r.regime === 'pf').length;
+  const countPj = rows.filter((r) => r.regime === 'pj').length;
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Receita recebida" value={brl(k.receita_recebida)} />
-        <Kpi label="Despesas pagas" value={brl(k.despesa_paga)} />
-        <Kpi label="Resultado líquido" value={brl(k.resultado_liquido)} tone="pos" />
-        <Kpi label="Em atraso" value={brl(k.pendencias)} tone="neg" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Kpi label="Receita mensal" value={brl(totalAluguel)} />
+        <Kpi label="Custos mensais" value={brl(totalCustos)} />
+        <Kpi label="Imposto estimado" value={brl(totalImposto)} />
+        <Kpi label="Líquido mensal" value={brl(totalLiquido)} tone={totalLiquido >= 0 ? 'pos' : 'neg'} />
+        <Kpi label="Imóveis" value={`${rows.length} (${countPf} PF · ${countPj} PJ)`} />
       </div>
-      <Card title="Desempenho por imóvel">
+      <Card title="Desempenho mensal por imóvel">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-slate-500 text-xs uppercase">
-              <th className="py-2">Imóvel</th><th>Receita</th><th>Despesa</th><th>Resultado</th><th>Atrasado</th>
+              <th className="py-2">Imóvel</th><th>Cliente</th><th>Regime</th><th className="text-right">Receita</th><th className="text-right">Custos</th><th className="text-right">Imposto</th><th className="text-right">Líquido</th>
             </tr></thead>
             <tbody>
-              {data.imoveis.map((i) => (
-                <tr key={i.property_id} className="border-t border-slate-100">
-                  <td className="py-2 font-medium">{i.identificador}</td>
-                  <td className="text-emerald-700">{brl(i.receita)}</td>
-                  <td className="text-red-700">{brl(i.despesa)}</td>
-                  <td className="font-semibold">{brl(i.resultado)}</td>
-                  <td>{i.atrasado > 0 ? <span className="text-red-700">{brl(i.atrasado)}</span> : '—'}</td>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-slate-100">
+                  <td className="py-2 font-medium">{r.identificador}</td>
+                  <td className="text-slate-500">{r.clientName}</td>
+                  <td>{r.regime ? <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${r.regime === 'pf' ? 'bg-violet-100 text-violet-800' : 'bg-cyan-100 text-cyan-800'}`}>{r.regime.toUpperCase()}</span> : <span className="text-slate-400 text-xs">—</span>}</td>
+                  <td className="text-right text-emerald-700">{brl(r.aluguel)}</td>
+                  <td className="text-right text-red-700">{r.custos > 0 ? brl(r.custos) : '—'}</td>
+                  <td className="text-right text-amber-700">{r.impostoMensal > 0 ? brl(r.impostoMensal) : '—'}</td>
+                  <td className={`text-right font-semibold ${r.liquido >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{brl(r.liquido)}</td>
                 </tr>
               ))}
-              {data.imoveis.length === 0 && <tr><td colSpan={5} className="py-4 text-slate-400 text-center">Nenhum imóvel com lançamentos.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={7} className="py-4 text-slate-400 text-center">Nenhum imóvel cadastrado.</td></tr>}
             </tbody>
+            {rows.length > 1 && (
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 font-bold">
+                  <td className="py-2" colSpan={3}>Total</td>
+                  <td className="text-right text-emerald-700">{brl(totalAluguel)}</td>
+                  <td className="text-right text-red-700">{totalCustos > 0 ? brl(totalCustos) : '—'}</td>
+                  <td className="text-right text-amber-700">{totalImposto > 0 ? brl(totalImposto) : '—'}</td>
+                  <td className={`text-right ${totalLiquido >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{brl(totalLiquido)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </Card>
+      {rows.some((r) => r.custos > 0) && (
+        <Card title="Detalhamento de custos mensais">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 text-xs uppercase">
+                  <th className="py-2 sticky left-0 bg-white">Imóvel</th>
+                  {COST_FIELDS.map((f) => <th key={f.key} className="text-right px-2 whitespace-nowrap">{f.label}</th>)}
+                  <th className="text-right px-2">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => {
+                  const a = p as any;
+                  const total = getPropertyCosts(p);
+                  if (total === 0) return null;
+                  return (
+                    <tr key={p.id} className="border-t border-slate-100">
+                      <td className="py-2 font-medium sticky left-0 bg-white">{p.identificador}</td>
+                      {COST_FIELDS.map((f) => {
+                        const v = Number(a[f.key]) || 0;
+                        return <td key={f.key} className="text-right px-2 text-slate-600">{v > 0 ? brl(v) : '—'}</td>;
+                      })}
+                      <td className="text-right px-2 font-semibold text-red-700">{brl(total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
@@ -217,11 +301,28 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
   clientId: string; properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void; isAdmin: boolean;
 }) {
   const [leases, setLeases] = useState<PropertyLease[]>([]);
+  const [tenants, setTenants] = useState<{ id: string; nome: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ property_id: '', data_inicio: today(), data_fim: '', valor_aluguel: '', dia_vencimento: '10', indice_reajuste: 'IPCA', status: 'ativo' });
+  const [form, setForm] = useState({ property_id: '', tenant_id: '', data_inicio: today(), data_fim: '', valor_aluguel: '', dia_vencimento: '10', indice_reajuste: 'IPCA', status: 'ativo', observacao: '' });
+  const [newTenantName, setNewTenantName] = useState('');
 
   const reload = () => svc.listLeases(clientId ? { client_id: clientId } : undefined).then(setLeases).catch(() => onError('Falha ao listar contratos'));
-  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [clientId]);
+  const reloadTenants = () => svc.listTenants(clientId || undefined).then(setTenants).catch(() => {});
+  useEffect(() => { reload(); reloadTenants(); /* eslint-disable-next-line */ }, [clientId]);
+
+  const selectedProperty = properties.find((p) => p.id === form.property_id);
+  const selectedRegime = selectedProperty?.regime_tributario as string | null | undefined;
+
+  const createTenantInline = async () => {
+    if (!newTenantName.trim()) return;
+    try {
+      const t = await svc.createTenant({ nome: newTenantName.trim(), tipo_pessoa: 'pf', client_id: clientId || null });
+      setForm({ ...form, tenant_id: t.id });
+      setNewTenantName('');
+      reloadTenants();
+      onSuccess('Inquilino criado');
+    } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao criar inquilino'); }
+  };
 
   const create = async () => {
     if (!form.property_id) return onError('Selecione o imóvel');
@@ -230,6 +331,7 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
         property_id: form.property_id, data_inicio: form.data_inicio,
         data_fim: form.data_fim || null, valor_aluguel: Number(form.valor_aluguel) || 0,
         dia_vencimento: Number(form.dia_vencimento) || 10, indice_reajuste: form.indice_reajuste, status: form.status,
+        tenant_id: form.tenant_id || null, observacao: form.observacao || null,
       });
       onSuccess('Contrato criado'); setShowForm(false); reload();
     } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao criar contrato'); }
@@ -246,12 +348,31 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
       {showForm && (
         <Card title="Novo contrato">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="Imóvel"><select value={form.property_id} onChange={(e) => setForm({ ...form, property_id: e.target.value })} className={inputCls}><option value="">Selecione…</option>{properties.map((p) => <option key={p.id} value={p.id}>{p.identificador}</option>)}</select></Field>
+            <Field label="Imóvel">
+              <select value={form.property_id} onChange={(e) => setForm({ ...form, property_id: e.target.value })} className={inputCls}>
+                <option value="">Selecione…</option>{properties.map((p) => <option key={p.id} value={p.id}>{p.identificador}</option>)}
+              </select>
+              {selectedRegime && (
+                <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${selectedRegime === 'pf' ? 'bg-violet-100 text-violet-800' : 'bg-cyan-100 text-cyan-800'}`}>
+                  Regime: {selectedRegime.toUpperCase()}
+                </span>
+              )}
+            </Field>
+            <Field label="Inquilino">
+              <select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })} className={inputCls}>
+                <option value="">Sem inquilino</option>{tenants.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+              </select>
+              <div className="flex gap-1 mt-1">
+                <input value={newTenantName} onChange={(e) => setNewTenantName(e.target.value)} placeholder="Criar novo…" className={`${inputCls} text-xs`} />
+                <Button size="sm" variant="secondary" onClick={createTenantInline} disabled={!newTenantName.trim()}>+</Button>
+              </div>
+            </Field>
             <Field label="Início"><input type="date" value={form.data_inicio} onChange={(e) => setForm({ ...form, data_inicio: e.target.value })} className={inputCls} /></Field>
             <Field label="Fim"><input type="date" value={form.data_fim} onChange={(e) => setForm({ ...form, data_fim: e.target.value })} className={inputCls} /></Field>
             <Field label="Aluguel"><input type="number" value={form.valor_aluguel} onChange={(e) => setForm({ ...form, valor_aluguel: e.target.value })} className={inputCls} /></Field>
             <Field label="Dia venc."><input type="number" min={1} max={31} value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} className={inputCls} /></Field>
             <Field label="Índice"><select value={form.indice_reajuste} onChange={(e) => setForm({ ...form, indice_reajuste: e.target.value })} className={inputCls}>{['IPCA', 'IGPM', 'INPC', 'OUTRO', 'NENHUM'].map((i) => <option key={i}>{i}</option>)}</select></Field>
+            <div className="md:col-span-2"><Field label="Observação"><input value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} className={inputCls} placeholder="Anotações sobre o contrato…" /></Field></div>
           </div>
           <div className="mt-4 flex justify-end"><Button size="sm" onClick={create}>Salvar</Button></div>
         </Card>
@@ -259,19 +380,116 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
       <Card title="Contratos">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-slate-500 text-xs uppercase"><th className="py-2">Imóvel</th><th>Inquilino</th><th>Vigência</th><th>Aluguel</th><th>Status</th><th></th></tr></thead>
+            <thead><tr className="text-left text-slate-500 text-xs uppercase"><th className="py-2">Imóvel</th><th>Regime</th><th>Inquilino</th><th>Vigência</th><th>Aluguel</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {leases.map((l) => (
-                <tr key={l.id} className="border-t border-slate-100">
-                  <td className="py-2 font-medium">{l.property_identificador ?? '—'}</td>
-                  <td>{l.tenant_nome ?? '—'}</td>
-                  <td className="text-slate-500">{l.data_inicio}{l.data_fim ? ` → ${l.data_fim}` : ''}</td>
-                  <td>{brl(Number(l.valor_aluguel))}</td>
-                  <td><Badge status={l.status} /></td>
-                  <td className="text-right">{isAdmin && <button onClick={() => remove(l.id)} className="text-red-600 text-xs">Excluir</button>}</td>
-                </tr>
-              ))}
-              {leases.length === 0 && <tr><td colSpan={6} className="py-4 text-slate-400 text-center">Nenhum contrato.</td></tr>}
+              {leases.map((l) => {
+                const prop = properties.find((p) => p.id === l.property_id);
+                const regime = prop?.regime_tributario as string | null | undefined;
+                return (
+                  <tr key={l.id} className="border-t border-slate-100">
+                    <td className="py-2 font-medium">{l.property_identificador ?? '—'}</td>
+                    <td>{regime ? <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${regime === 'pf' ? 'bg-violet-100 text-violet-800' : 'bg-cyan-100 text-cyan-800'}`}>{regime.toUpperCase()}</span> : '—'}</td>
+                    <td>{l.tenant_nome ?? '—'}</td>
+                    <td className="text-slate-500">{l.data_inicio}{l.data_fim ? ` → ${l.data_fim}` : ''}</td>
+                    <td>{brl(Number(l.valor_aluguel))}</td>
+                    <td><Badge status={l.status} /></td>
+                    <td className="text-right">{isAdmin && <button onClick={() => remove(l.id)} className="text-red-600 text-xs">Excluir</button>}</td>
+                  </tr>
+                );
+              })}
+              {leases.length === 0 && <tr><td colSpan={7} className="py-4 text-slate-400 text-center">Nenhum contrato.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------- Custos (edição inline) ----------------
+function CustosTab({ clientId, properties, onChanged, onError, onSuccess }: {
+  clientId: string; properties: PropertyWithClient[]; onChanged: () => void; onError: (m: string) => void; onSuccess: (m: string) => void;
+}) {
+  const filtered = useMemo(() => clientId ? properties.filter((p) => p.client_id === clientId) : properties, [clientId, properties]);
+  const [editRows, setEditRows] = useState<Record<string, Record<string, string>>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const getEditVal = (propId: string, key: string, original: number) => {
+    return editRows[propId]?.[key] ?? String(original || '');
+  };
+  const setEditVal = (propId: string, key: string, val: string) => {
+    setEditRows((prev) => ({ ...prev, [propId]: { ...(prev[propId] ?? {}), [key]: val } }));
+  };
+
+  const saveCosts = async (propId: string) => {
+    const row = editRows[propId];
+    if (!row) return;
+    setSavingId(propId);
+    try {
+      const payload: Record<string, number | undefined> = {};
+      for (const f of COST_FIELDS) {
+        if (row[f.key] !== undefined) {
+          payload[f.key] = Number(row[f.key]) || 0;
+        }
+      }
+      await propertyService.update(propId, payload);
+      onSuccess('Custos atualizados');
+      setEditRows((prev) => { const next = { ...prev }; delete next[propId]; return next; });
+      onChanged();
+      try { await propertyService.quickSimulate(propId); } catch { /* re-sim silently */ }
+    } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao salvar custos'); }
+    finally { setSavingId(null); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card title="Custos mensais padrão por imóvel">
+        <p className="text-xs text-slate-500 mb-3">Edite os valores diretamente e clique em Salvar. Ao alterar custos, a simulação tributária é recalculada automaticamente.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 text-xs uppercase">
+                <th className="py-2 sticky left-0 bg-white min-w-[140px]">Imóvel</th>
+                {COST_FIELDS.map((f) => <th key={f.key} className="text-right px-2 whitespace-nowrap min-w-[90px]">{f.label}</th>)}
+                <th className="text-right px-2 min-w-[90px]">Total</th>
+                <th className="px-2 w-20"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => {
+                const a = p as any;
+                const isDirty = !!editRows[p.id];
+                const total = COST_FIELDS.reduce((sum, f) => sum + (Number(getEditVal(p.id, f.key, Number(a[f.key]) || 0)) || 0), 0);
+                return (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="py-2 font-medium sticky left-0 bg-white">
+                      <div>{p.identificador}</div>
+                      <div className="text-xs text-slate-400">{p.client_name ?? ''}</div>
+                    </td>
+                    {COST_FIELDS.map((f) => (
+                      <td key={f.key} className="px-1">
+                        <input
+                          type="number"
+                          value={getEditVal(p.id, f.key, Number(a[f.key]) || 0)}
+                          onChange={(e) => setEditVal(p.id, f.key, e.target.value)}
+                          className="w-full text-right rounded border border-slate-200 px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                          step="0.01"
+                          min="0"
+                        />
+                      </td>
+                    ))}
+                    <td className="text-right px-2 font-semibold text-red-700 text-xs">{total > 0 ? brl(total) : '—'}</td>
+                    <td className="px-2">
+                      {isDirty && (
+                        <Button size="sm" onClick={() => saveCosts(p.id)} disabled={savingId === p.id}>
+                          {savingId === p.id ? '…' : 'Salvar'}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && <tr><td colSpan={COST_FIELDS.length + 3} className="py-4 text-slate-400 text-center">Nenhum imóvel cadastrado.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -450,7 +668,7 @@ function ExtratosTab({ clients, clientId, onError, onSuccess, isAdmin }: {
 }
 
 // ---------------- Alertas ----------------
-function AlertasTab({ clientId, onError }: { clientId: string; onError: (m: string) => void }) {
+export function AlertasTab({ clientId, onError }: { clientId: string; onError: (m: string) => void }) {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   useEffect(() => { svc.getAlerts({ client_id: clientId || undefined, dias: 30 }).then(setAlerts).catch(() => onError('Falha ao carregar alertas')); }, [clientId, onError]);
   const label: Record<string, string> = {
@@ -626,6 +844,8 @@ function ImoveisTab({ clients, clientId, properties, onChanged, onClientsChanged
             const uf = (p as any).uf as string | undefined;
             const aluguel = Number((p as any).valor_aluguel_mensal ?? 0);
             const natureza = (p as any).natureza_locacao === 'nao_residencial' ? 'Não residencial' : 'Residencial';
+            const regime = p.regime_tributario as 'pf' | 'pj' | null | undefined;
+            const sim = p.ultimo_resultado_simulacao as any;
             return (
               <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
@@ -633,9 +853,16 @@ function ImoveisTab({ clients, clientId, properties, onChanged, onClientsChanged
                     <div className="font-semibold text-slate-900 truncate">{p.identificador}</div>
                     <div className="text-xs text-slate-500 truncate">{p.client_name ?? '—'}{cidade ? ` · ${cidade}${uf ? `/${uf}` : ''}` : ''}</div>
                   </div>
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.tipo_locacao === 'flexivel' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
-                    {p.tipo_locacao === 'flexivel' ? 'Airbnb' : 'Fixa'}
-                  </span>
+                  <div className="flex gap-1">
+                    {regime && (
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${regime === 'pf' ? 'bg-violet-100 text-violet-800' : 'bg-cyan-100 text-cyan-800'}`}>
+                        {regime.toUpperCase()}{sim?.[regime]?.aliquota_efetiva != null ? ` ${(sim[regime].aliquota_efetiva * 100).toFixed(1)}%` : ''}
+                      </span>
+                    )}
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.tipo_locacao === 'flexivel' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                      {p.tipo_locacao === 'flexivel' ? 'Airbnb' : 'Fixa'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{natureza}</span>
@@ -714,6 +941,9 @@ function PropertyFormModal({ clients, defaultClientId, editing, onClose, onSaved
   });
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [simResult, setSimResult] = useState<QuickSimulationResult | null>(null);
+  const [savingRegime, setSavingRegime] = useState(false);
+  const [savedPropertyId, setSavedPropertyId] = useState<string | null>(editing?.id ?? null);
   const set = (patch: Partial<PropertyForm>) => setForm((f) => ({ ...f, ...patch }));
 
   const lookupCep = async () => {
@@ -747,15 +977,77 @@ function PropertyFormModal({ clients, defaultClientId, editing, onClose, onSaved
       seguro_mensal_padrao: Number(form.seguro_mensal_padrao) || undefined,
     };
     try {
-      if (editing) await propertyService.update(editing.id, payload);
-      else await propertyService.create(payload);
+      let propId = editing?.id;
+      if (editing) {
+        await propertyService.update(editing.id, payload);
+      } else {
+        const created = await propertyService.create(payload);
+        propId = created.id;
+      }
       onSuccess(editing ? 'Imóvel atualizado' : 'Imóvel cadastrado');
-      onSaved();
+      setSavedPropertyId(propId ?? null);
+
+      if (propId && (Number(form.valor_aluguel_mensal) || 0) > 0) {
+        try {
+          const sim = await propertyService.quickSimulate(propId);
+          setSimResult(sim);
+        } catch { /* sim failed silently */ }
+      } else {
+        onSaved();
+      }
     } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao salvar imóvel'); }
     finally { setSaving(false); }
   };
 
+  const chooseRegime = async (regime: 'pf' | 'pj') => {
+    if (!savedPropertyId) return;
+    setSavingRegime(true);
+    try {
+      await propertyService.saveRegime(savedPropertyId, regime);
+      onSuccess(`Regime ${regime.toUpperCase()} salvo`);
+      onSaved();
+    } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao salvar regime'); }
+    finally { setSavingRegime(false); }
+  };
+
+  const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const sectionTitle = 'text-xs font-bold uppercase tracking-wide text-slate-500 mt-2 mb-1';
+
+  if (simResult) {
+    return (
+      <Modal isOpen onClose={() => onSaved()} title="Simulação tributária — PF vs PJ" size="lg">
+        <div className="space-y-4 p-2">
+          <p className="text-sm text-slate-600">Com base no aluguel e custos cadastrados, o sistema calculou a carga tributária estimada para este imóvel.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className={`rounded-xl border-2 p-4 ${simResult.recomendacao === 'pf' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-slate-900">PF — Carnê-Leão</span>
+                {simResult.recomendacao === 'pf' && <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Recomendado</span>}
+              </div>
+              <div className="text-2xl font-bold text-slate-900">{brl(simResult.pf.imposto_anual)}<span className="text-sm font-normal text-slate-500">/ano</span></div>
+              <div className="text-sm text-slate-500 mt-1">Alíquota efetiva: {pct(simResult.pf.aliquota_efetiva)}</div>
+            </div>
+            <div className={`rounded-xl border-2 p-4 ${simResult.recomendacao === 'pj' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-slate-900">PJ — Lucro Presumido</span>
+                {simResult.recomendacao === 'pj' && <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Recomendado</span>}
+              </div>
+              <div className="text-2xl font-bold text-slate-900">{brl(simResult.pj.imposto_anual)}<span className="text-sm font-normal text-slate-500">/ano</span></div>
+              <div className="text-sm text-slate-500 mt-1">Alíquota efetiva: {pct(simResult.pj.aliquota_efetiva)}</div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
+            Economia de <strong>{brl(simResult.economia_anual)}/ano</strong> optando por <strong>{simResult.recomendacao.toUpperCase()}</strong>.
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <Button size="sm" variant="secondary" onClick={() => onSaved()}>Decidir depois</Button>
+            <Button size="sm" variant={simResult.recomendacao === 'pf' ? 'primary' : 'secondary'} onClick={() => chooseRegime('pf')} disabled={savingRegime}>Usar PF</Button>
+            <Button size="sm" variant={simResult.recomendacao === 'pj' ? 'primary' : 'secondary'} onClick={() => chooseRegime('pj')} disabled={savingRegime}>Usar PJ</Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen onClose={onClose} title={editing ? 'Editar imóvel' : 'Cadastrar imóvel'} size="xl">

@@ -7,6 +7,19 @@ export type TipoLocacao = z.infer<typeof TipoLocacaoSchema>;
 export const NaturezaLocacaoSchema = z.enum(['residencial', 'nao_residencial']);
 export type NaturezaLocacao = z.infer<typeof NaturezaLocacaoSchema>;
 
+export const RegimeTributarioSchema = z.enum(['pf', 'pj']);
+export type RegimeTributario = z.infer<typeof RegimeTributarioSchema>;
+
+export const QuickSimulationResultSchema = z.object({
+  pf: z.object({ imposto_anual: z.number(), aliquota_efetiva: z.number() }),
+  pj: z.object({ imposto_anual: z.number(), aliquota_efetiva: z.number() }),
+  recomendacao: RegimeTributarioSchema,
+  economia_anual: z.number(),
+  receita_anual: z.number(),
+  custos_anual: z.number(),
+});
+export type QuickSimulationResult = z.infer<typeof QuickSimulationResultSchema>;
+
 export const TransactionTipoSchema = z.enum([
   'receita',
   'despesa_dedutivel',
@@ -116,6 +129,8 @@ export const UpdatePropertySchema = z.object({
   tarifas_bancarias_mensal_padrao: monetaryValue.optional(),
   vacancia_mensal_padrao: monetaryValue.optional(),
   inadimplencia_mensal_padrao: monetaryValue.optional(),
+  regime_tributario: RegimeTributarioSchema.nullable().optional(),
+  ultimo_resultado_simulacao: QuickSimulationResultSchema.nullable().optional(),
 });
 
 /** Modo reduzido: totais mensais (locação longa + short) */

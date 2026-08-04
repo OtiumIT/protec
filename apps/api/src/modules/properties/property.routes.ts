@@ -844,4 +844,36 @@ propertyPublicRoutes.get('/simulation/:token', async (c) => {
   }
 });
 
+/** POST /properties/:id/quick-simulate — simulação rápida PF vs PJ */
+propertyRoutes.post(
+  '/:id/quick-simulate',
+  zValidator('param', PropertyIdParamSchema),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const resultado = await propertyService.quickSimulate(id);
+      return c.json({ data: resultado }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** PATCH /properties/:id/regime — salvar regime tributário escolhido */
+propertyRoutes.patch(
+  '/:id/regime',
+  zValidator('param', PropertyIdParamSchema),
+  zValidator('json', z.object({ regime: z.enum(['pf', 'pj']) })),
+  async (c) => {
+    try {
+      const { id } = c.req.valid('param');
+      const { regime } = c.req.valid('json');
+      const result = await propertyService.saveRegime(id, regime);
+      return c.json({ data: result }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
 export { propertyRoutes, propertyPublicRoutes };

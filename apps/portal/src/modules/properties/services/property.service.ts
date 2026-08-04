@@ -9,6 +9,7 @@ import type {
   SaveGanhoCapitalSimulationInput,
   UpdateGanhoCapitalSimulationInput,
   SimulationKind,
+  QuickSimulationResult,
 } from '@shared/core';
 import type { PropertyTaxSimulationResponse } from '@shared/core';
 
@@ -939,6 +940,24 @@ export const propertyService = {
         token,
         tenantId,
       }
+    );
+    return response.data;
+  },
+
+  async quickSimulate(propertyId: string): Promise<QuickSimulationResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: QuickSimulationResult }>(
+      `/api/v1/properties/${propertyId}/quick-simulate`,
+      { method: 'POST', token, tenantId }
+    );
+    return response.data;
+  },
+
+  async saveRegime(propertyId: string, regime: 'pf' | 'pj'): Promise<{ regime_tributario: string }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: { regime_tributario: string } }>(
+      `/api/v1/properties/${propertyId}/regime`,
+      { method: 'PATCH', body: JSON.stringify({ regime }), token, tenantId }
     );
     return response.data;
   },

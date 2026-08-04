@@ -1684,4 +1684,68 @@ export class PropertyService {
       branding: { report_brand_name: null },
     };
   }
+
+  async quickSimulate(propertyId: string) {
+    const prop = await this.repo.findById(propertyId);
+    if (!prop) throw new AppError('Imóvel não encontrado', 'PROPERTY_NOT_FOUND', 404);
+
+    const aluguel = Number(prop.valor_aluguel_mensal) || 0;
+    if (aluguel <= 0) {
+      throw new AppError('Imóvel sem valor de aluguel definido', 'NO_RENT_VALUE', 400);
+    }
+
+    const despesas = (Number(prop.iptu_mensal_padrao) || 0)
+      + (Number(prop.condominio_mensal_padrao) || 0)
+      + (Number(prop.seguro_mensal_padrao) || 0);
+
+    const custos = (Number(prop.camareira_mensal_padrao) || 0)
+      + (Number(prop.seguranca_mensal_padrao) || 0)
+      + (Number(prop.material_limpeza_mensal_padrao) || 0)
+      + (Number(prop.lavanderia_enxoval_mensal_padrao) || 0)
+      + (Number(prop.checkin_checkout_mensal_padrao) || 0)
+      + (Number(prop.taxas_pagamento_mensal_padrao) || 0)
+      + (Number(prop.tarifas_bancarias_mensal_padrao) || 0)
+      + (Number(prop.vacancia_mensal_padrao) || 0)
+      + (Number(prop.inadimplencia_mensal_padrao) || 0);
+
+    const ano = new Date().getFullYear();
+    const meses = Array.from({ length: 12 }, (_, i) => ({
+      mes: `${ano}-${String(i + 1).padStart(2, '0')}`,
+      receita: aluguel,
+      despesas_dedutiveis: despesas,
+      custos_operacionais: custos,
+    }));
+
+    const aggregated = {
+      ano,
+      receita_total: aluguel * 12,
+      despesas_dedutiveis_total: despesas * 12,
+      custos_operacionais_total: custos * 12,
+      meses,
+    };
+
+    const resPF = calcularPF(aggregated);
+    const resPJ = calcularPJ(aggregated);
+
+    const resultado = {
+      pf: { imposto_anual: resPF.imposto_total, aliquota_efetiva: resPF.aliquota_efetiva_anual },
+      pj: { imposto_anual: resPJ.imposto_total, aliquota_efetiva: resPJ.aliquota_efetiva },
+      recomendacao: (resPF.imposto_total <= resPJ.imposto_total ? 'pf' : 'pj') as 'pf' | 'pj',
+      economia_anual: Math.abs(resPF.imposto_total - resPJ.imposto_total),
+      receita_anual: aluguel * 12,
+      custos_anual: (despesas + custos) * 12,
+    };
+
+    await this.repo.update(propertyId, { ultimo_resultado_simulacao: resultado });
+
+    return resultado;
+  }
+
+  async saveRegime(propertyId: string, regime: 'pf' | 'pj') {
+    const prop = await this.repo.findById(propertyId);
+    if (!prop) throw new AppError('Imóvel não encontrado', 'PROPERTY_NOT_FOUND', 404);
+
+    await this.repo.update(propertyId, { regime_tributario: regime });
+    return { regime_tributario: regime };
+  }
 }
