@@ -991,7 +991,9 @@ function PropertyFormModal({ clients, defaultClientId, editing, onClose, onSaved
         try {
           const sim = await propertyService.quickSimulate(propId);
           setSimResult(sim);
-        } catch { /* sim failed silently */ }
+        } catch {
+          onSaved();
+        }
       } else {
         onSaved();
       }

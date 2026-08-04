@@ -1,6 +1,9 @@
 import { Context, Next } from 'hono';
 import { query, runWithTenantClient } from '../db/client';
 import { verifyAccessToken } from '../shared/utils/jwt';
+import { applyTenantMigrations } from '../db/schema-manager';
+
+const migratedTenants = new Set<string>();
 
 /**
  * Middleware de Tenant
@@ -93,6 +96,14 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
           404
         );
       }
+      if (!migratedTenants.has(companyId)) {
+        try {
+          await applyTenantMigrations(companyId);
+          migratedTenants.add(companyId);
+        } catch (e) {
+          console.error(`[tenant-middleware] migration error for ${companyId}:`, e);
+        }
+      }
       return runWithTenantClient(companyId, () => next());
     }
     await next();
@@ -146,6 +157,15 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
 
   // Setar companyId no context
   c.set('companyId', companyId);
+
+  if (!migratedTenants.has(companyId)) {
+    try {
+      await applyTenantMigrations(companyId);
+      migratedTenants.add(companyId);
+    } catch (e) {
+      console.error(`[tenant-middleware] migration error for ${companyId}:`, e);
+    }
+  }
 
   // Usar uma conexão por requisição com search_path do tenant (evita "tabela não encontrada")
   return runWithTenantClient(companyId, () => next());
