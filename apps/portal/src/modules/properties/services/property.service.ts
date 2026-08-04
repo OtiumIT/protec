@@ -1,4 +1,4 @@
-import apiRequest from '../../../shared/services/api';
+import apiRequest, { getApiUrl } from '../../../shared/services/api';
 import type {
   Property,
   PropertyTransaction,
@@ -233,14 +233,75 @@ export const propertyService = {
   },
   async importFromIrpf(file: File, clientId: string): Promise<IrpfPropertyImportResult> {
     const { token, tenantId } = getAuthHeaders();
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('client_id', clientId);
-    const response = await apiRequest<{ data: IrpfPropertyImportResult }>(
-      '/api/v1/properties/import-from-irpf',
-      { method: 'POST', body: formData, token, tenantId }
-    );
-    return response.data;
+    const ext = file.name.toLowerCase().split('.').pop() ?? '';
+
+    // .dec/.dbk: send directly (small files, no OpenAI processing)
+    if (ext === 'dec' || ext === 'dbk') {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('client_id', clientId);
+      const response = await apiRequest<{ data: IrpfPropertyImportResult }>(
+        '/api/v1/properties/import-from-irpf',
+        { method: 'POST', body: formData, token, tenantId }
+      );
+      return response.data;
+    }
+
+    // PDF: upload to Storage + async extraction (bypasses Lambda 6MB limit + 29s timeout)
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': tenantId ?? '',
+    };
+
+    const uploadUrlRes = await fetch(`${baseUrl}/api/v1/properties/upload-url`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_type: file.type }),
+    });
+    if (!uploadUrlRes.ok) {
+      const err = await uploadUrlRes.json().catch(() => ({ error: { message: 'Falha ao gerar URL de upload' } }));
+      throw new Error(err.error?.message || 'Falha ao gerar URL de upload');
+    }
+    const { data: uploadData } = await uploadUrlRes.json();
+
+    const uploadRes = await fetch(uploadData.upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/pdf' },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error('Falha ao enviar arquivo para o storage');
+
+    const extractRes = await fetch(`${baseUrl}/api/v1/properties/import-from-irpf`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage_path: uploadData.storage_path, filename: file.name }),
+    });
+    if (!extractRes.ok) {
+      const err = await extractRes.json().catch(() => ({ error: { message: 'Falha na extração' } }));
+      throw new Error(err.error?.message || 'Falha na importação do PDF');
+    }
+    const extractBody = await extractRes.json();
+
+    if (extractBody.data?.job_id) {
+      const jobId = extractBody.data.job_id;
+      const MAX_POLLS = 60;
+      const POLL_INTERVAL = 5000;
+      for (let i = 0; i < MAX_POLLS; i++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+        const pollRes = await fetch(`${baseUrl}/api/v1/properties/import-job/${jobId}`, { headers });
+        if (!pollRes.ok) {
+          const err = await pollRes.json().catch(() => ({ error: { message: 'Falha ao verificar status' } }));
+          throw new Error(err.error?.message || 'Falha na importação do PDF');
+        }
+        const pollBody = await pollRes.json();
+        if (pollBody.data?.status === 'processing') continue;
+        return pollBody.data;
+      }
+      throw new Error('A importação demorou mais do que o esperado. Tente novamente.');
+    }
+
+    return extractBody.data;
   },
   async list(params?: {
     client_id?: string;

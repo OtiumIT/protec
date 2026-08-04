@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { PropertyService } from './property.service';
 import { PropertyRepository } from './property.repository';
 import { PropertySimulationRepository } from './property-simulation.repository';
@@ -144,9 +146,133 @@ propertyRoutes.post('/extract-property-doc', async (c) => {
   }
 });
 
+const PROPERTY_UPLOAD_BUCKET = 'fiscal-files';
+
+function createPropertySupabaseClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+/** POST /properties/upload-url — Signed URL for large file upload to Storage */
+propertyRoutes.post('/upload-url', async (c) => {
+  try {
+    const body = await c.req.json();
+    const filename = body.filename as string;
+    if (!filename) {
+      return c.json({ error: { message: 'Campo filename obrigatório.', code: 'FILENAME_REQUIRED' } }, 400);
+    }
+    const supabase = createPropertySupabaseClient();
+    if (!supabase) {
+      return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
+    }
+    const companyId = c.get('companyId') as string;
+    const uid = randomBytes(8).toString('hex');
+    const storagePath = `${companyId}/property-temp/${uid}-${filename}`;
+    const { data, error } = await supabase.storage.from(PROPERTY_UPLOAD_BUCKET).createSignedUploadUrl(storagePath);
+    if (error) {
+      return c.json({ error: { message: 'Falha ao gerar URL de upload.', code: 'UPLOAD_URL_ERROR' } }, 500);
+    }
+    return c.json({ data: { upload_url: data.signedUrl, storage_path: storagePath, token: data.token, expires_in: 600 } }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/** Background handler for property PDF import (called via Lambda self-invocation) */
+export async function processPropertyImportJobHandler(jobId: string, storagePath: string, fileName: string) {
+  const supabase = createPropertySupabaseClient();
+  if (!supabase) return;
+
+  async function saveResult(result: Record<string, unknown>) {
+    await supabase.storage.from(PROPERTY_UPLOAD_BUCKET).upload(
+      `jobs/${jobId}.json`,
+      JSON.stringify(result),
+      { contentType: 'text/plain', upsert: true }
+    );
+  }
+
+  const safetyTimer = setTimeout(async () => {
+    await saveResult({ status: 'error', error: 'Tempo limite excedido na importação.' }).catch(() => {});
+  }, 280_000);
+
+  try {
+    const { data, error } = await supabase.storage.from(PROPERTY_UPLOAD_BUCKET).download(storagePath);
+    if (error || !data) {
+      clearTimeout(safetyTimer);
+      await saveResult({ status: 'error', error: 'Falha ao baixar arquivo do storage.' });
+      return;
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    supabase.storage.from(PROPERTY_UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
+
+    const { extractIrpfFromPdf } = await import('../irpf-alta-renda/extract-from-pdf');
+    const pdfResult = await extractIrpfFromPdf(buffer);
+    const result = extractPropertiesFromPdfResult(pdfResult);
+    clearTimeout(safetyTimer);
+    await saveResult({ status: 'completed', data: result });
+  } catch (err: any) {
+    clearTimeout(safetyTimer);
+    await saveResult({ status: 'error', error: err?.message || 'Erro desconhecido.' }).catch(() => {});
+  }
+}
+
+/** GET /properties/import-job/:jobId — Poll async import result */
+propertyRoutes.get('/import-job/:jobId', async (c) => {
+  try {
+    const jobId = c.req.param('jobId');
+    if (!jobId || !/^[a-f0-9]{32}$/.test(jobId)) {
+      return c.json({ error: { message: 'Job ID inválido.', code: 'INVALID_JOB_ID' } }, 400);
+    }
+    const supabase = createPropertySupabaseClient();
+    if (!supabase) {
+      return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
+    }
+    const { data, error } = await supabase.storage.from(PROPERTY_UPLOAD_BUCKET).download(`jobs/${jobId}.json`);
+    if (error || !data) {
+      return c.json({ data: { status: 'processing' } }, 200);
+    }
+    const result = JSON.parse(await data.text());
+    supabase.storage.from(PROPERTY_UPLOAD_BUCKET).remove([`jobs/${jobId}.json`]).catch(() => {});
+    if (result.status === 'error') {
+      return c.json({ error: { message: result.error, code: 'IMPORT_ERROR' } }, 500);
+    }
+    return c.json({ data: result.data }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
 /** POST /properties/import-from-irpf — Extrai candidatos de imóveis de PDF/.dec/.dbk para preview */
 propertyRoutes.post('/import-from-irpf', async (c) => {
   try {
+    const contentType = c.req.header('content-type') || '';
+
+    // Async path: PDF already uploaded to Storage
+    if (contentType.includes('application/json')) {
+      const body = await c.req.json();
+      const storagePath = body.storage_path as string;
+      const fileName = body.filename || storagePath?.split('/').pop() || 'upload.pdf';
+
+      if (!storagePath) {
+        return c.json({ error: { message: 'Campo storage_path obrigatório.', code: 'STORAGE_PATH_REQUIRED' } }, 400);
+      }
+
+      const jobId = randomBytes(16).toString('hex');
+      const functionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+      if (functionName) {
+        const client = new LambdaClient({});
+        await client.send(new InvokeCommand({
+          FunctionName: functionName,
+          InvocationType: 'Event',
+          Payload: Buffer.from(JSON.stringify({ __propertyImportJob: { jobId, storagePath, fileName } })),
+        }));
+      }
+      return c.json({ data: { job_id: jobId, status: 'processing' } }, 202);
+    }
+
+    // Direct path: small files / .dec / .dbk
     const formData = await c.req.formData();
     const file = formData.get('file');
     const clientId = (formData.get('client_id') as string | null)?.trim();

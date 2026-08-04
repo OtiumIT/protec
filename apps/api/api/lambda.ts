@@ -34,6 +34,7 @@ import { config } from 'dotenv';
 import { handle } from 'hono/aws-lambda';
 import app from '../src/modules/index';
 import { processExtractionJobHandler } from '../src/modules/irpf-alta-renda/irpf-alta-renda.routes';
+import { processPropertyImportJobHandler } from '../src/modules/properties/property.routes';
 
 if (!process.env.DATABASE_URL) {
   config({ path: path.resolve(process.cwd(), '../../.env') });
@@ -42,10 +43,15 @@ if (!process.env.DATABASE_URL) {
 const honoHandler = handle(app);
 
 export const handler = async (event: any, context: any) => {
-  // Internal async invocation for background PDF extraction
+  // Internal async invocations for background processing
   if (event.__extractionJob) {
     const { jobId, storagePath, fileName } = event.__extractionJob;
     await processExtractionJobHandler(jobId, storagePath, fileName);
+    return { statusCode: 200 };
+  }
+  if (event.__propertyImportJob) {
+    const { jobId, storagePath, fileName } = event.__propertyImportJob;
+    await processPropertyImportJobHandler(jobId, storagePath, fileName);
     return { statusCode: 200 };
   }
 
