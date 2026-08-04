@@ -19,6 +19,7 @@ import { extractIrpfFromPdf } from './extract-from-pdf';
 import { parseDecDbk } from './parse-dec-dbk';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 const irpfAltaRendaRoutes = new Hono();
 
@@ -95,13 +96,18 @@ function createSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-async function processExtractionJob(jobId: string, storagePath: string, fileName: string) {
+export async function processExtractionJobHandler(jobId: string, storagePath: string, fileName: string) {
   const supabase = createSupabaseClient();
-  if (!supabase) return;
+  if (!supabase) {
+    console.error('[processExtractionJobHandler] Supabase not configured');
+    return;
+  }
 
   try {
+    console.log(`[extraction-job:${jobId}] Downloading from storage: ${storagePath}`);
     const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(storagePath);
     if (error || !data) {
+      console.error(`[extraction-job:${jobId}] Download error:`, error);
       await supabase.storage.from(UPLOAD_BUCKET).upload(
         `jobs/${jobId}.json`,
         JSON.stringify({ status: 'error', error: 'Falha ao baixar arquivo do storage.' }),
@@ -111,22 +117,39 @@ async function processExtractionJob(jobId: string, storagePath: string, fileName
     }
 
     const buffer = Buffer.from(await data.arrayBuffer());
+    console.log(`[extraction-job:${jobId}] Downloaded ${buffer.length} bytes, starting extraction...`);
     supabase.storage.from(UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
 
     const result = await extractIrpfFromPdf(buffer);
+    console.log(`[extraction-job:${jobId}] Extraction completed, saving result...`);
     await supabase.storage.from(UPLOAD_BUCKET).upload(
       `jobs/${jobId}.json`,
       JSON.stringify({ status: 'completed', data: { ...result, arquivo_nome: fileName } }),
       { contentType: 'application/json', upsert: true }
     );
+    console.log(`[extraction-job:${jobId}] Done.`);
   } catch (err: any) {
-    console.error('[processExtractionJob] Error:', err?.message);
+    console.error(`[extraction-job:${jobId}] Error:`, err?.message);
     await supabase.storage.from(UPLOAD_BUCKET).upload(
       `jobs/${jobId}.json`,
       JSON.stringify({ status: 'error', error: err?.message || 'Erro desconhecido na extração.' }),
       { contentType: 'application/json', upsert: true }
     ).catch(() => {});
   }
+}
+
+async function invokeSelfAsync(payload: Record<string, unknown>) {
+  const functionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (!functionName) {
+    console.error('[invokeSelfAsync] AWS_LAMBDA_FUNCTION_NAME not set');
+    return;
+  }
+  const client = new LambdaClient({});
+  await client.send(new InvokeCommand({
+    FunctionName: functionName,
+    InvocationType: 'Event',
+    Payload: Buffer.from(JSON.stringify(payload)),
+  }));
 }
 
 irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
@@ -144,15 +167,15 @@ irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
 
       const jobId = randomBytes(16).toString('hex');
 
-      // Fire-and-forget: processa em background (Lambda continua executando até 120s)
-      processExtractionJob(jobId, storagePath, fileName).catch((err) => {
-        console.error('[extract-from-pdf] Background job failed:', err);
+      // Invoke a separate Lambda execution for the heavy PDF extraction
+      await invokeSelfAsync({
+        __extractionJob: { jobId, storagePath, fileName },
       });
 
       return c.json({ data: { job_id: jobId, status: 'processing' } }, 202);
     }
 
-    // Upload direto via multipart (arquivos pequenos < 5MB)
+    // Upload direto via multipart (arquivos pequenos — fallback)
     const formData = await c.req.formData();
     const file = formData.get('file') as File | null;
     if (!file || !(file instanceof File)) {

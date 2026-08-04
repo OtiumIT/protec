@@ -33,6 +33,7 @@ import path from 'path';
 import { config } from 'dotenv';
 import { handle } from 'hono/aws-lambda';
 import app from '../src/modules/index';
+import { processExtractionJobHandler } from '../src/modules/irpf-alta-renda/irpf-alta-renda.routes';
 
 if (!process.env.DATABASE_URL) {
   config({ path: path.resolve(process.cwd(), '../../.env') });
@@ -40,11 +41,13 @@ if (!process.env.DATABASE_URL) {
 
 const honoHandler = handle(app);
 
-// Callback-style handler: keeps Lambda alive for background work (fire-and-forget promises)
-// after sending the response. API Gateway gets 202 immediately while extraction continues.
-export const handler = (event: any, context: any, callback: any) => {
-  context.callbackWaitsForEmptyEventLoop = true;
-  honoHandler(event, context)
-    .then((response: any) => callback(null, response))
-    .catch((err: any) => callback(err));
+export const handler = async (event: any, context: any) => {
+  // Internal async invocation for background PDF extraction
+  if (event.__extractionJob) {
+    const { jobId, storagePath, fileName } = event.__extractionJob;
+    await processExtractionJobHandler(jobId, storagePath, fileName);
+    return { statusCode: 200 };
+  }
+
+  return honoHandler(event, context);
 };

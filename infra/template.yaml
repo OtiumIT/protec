@@ -42,6 +42,12 @@ Resources:
         CORSRefresh: '2026-03-25'
       Handler: index.handler
       CodeUri: ../apps/api/dist-lambda
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
       Events:
         RootRoute:
           Type: HttpApi

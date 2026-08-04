@@ -47,8 +47,8 @@ export const EMBEDDED_TENANT_MIGRATIONS: Record<string, string> = ${JSON.stringi
 const outputDir = join(root, 'dist-lambda');
 mkdirSync(outputDir, { recursive: true });
 
-// Nenhum módulo externo: tudo bundlado (bcryptjs é pure JS)
-const external = [];
+// AWS SDK v3 is provided by the Lambda runtime — no need to bundle
+const external = ['@aws-sdk/*'];
 
 // 1. Bundle (inclui pg, supabase, stripe, openai, jsonwebtoken, pdf-parse, pdfjs-dist, dotenv)
 await esbuild.build({
