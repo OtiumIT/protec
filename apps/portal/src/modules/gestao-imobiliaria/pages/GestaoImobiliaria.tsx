@@ -281,7 +281,7 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
 }
 
 // ---------------- Financeiro (Ledger) ----------------
-function FinanceiroTab({ clientId, properties, onError, onSuccess, isAdmin }: {
+export function FinanceiroTab({ clientId, properties, onError, onSuccess, isAdmin }: {
   clientId: string; properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void; isAdmin: boolean;
 }) {
   const [entries, setEntries] = useState<PropertyLedgerEntry[]>([]);
@@ -473,7 +473,7 @@ function AlertasTab({ clientId, onError }: { clientId: string; onError: (m: stri
 }
 
 // ---------------- Operação ----------------
-function OperacaoTab({ properties, onError, onSuccess }: { properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void }) {
+export function OperacaoTab({ properties, onError, onSuccess }: { properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void }) {
   const [vendors, setVendors] = useState<any[]>([]);
   const [maintenance, setMaintenance] = useState<any[]>([]);
   const [vendorName, setVendorName] = useState('');
@@ -513,7 +513,7 @@ function OperacaoTab({ properties, onError, onSuccess }: { properties: PropertyW
 }
 
 // ---------------- Integrações (stubs em criação) ----------------
-function IntegracoesTab({ clientId, properties, onError, onSuccess }: { clientId: string; properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void }) {
+export function IntegracoesTab({ clientId, properties, onError, onSuccess }: { clientId: string; properties: PropertyWithClient[]; onError: (m: string) => void; onSuccess: (m: string) => void }) {
   const [charges, setCharges] = useState<any[]>([]);
   const [form, setForm] = useState({ property_id: '', metodo: 'boleto', valor: '', vencimento: today() });
   useEffect(() => { svc.listPaymentCharges().then(setCharges).catch(() => {}); }, []);
