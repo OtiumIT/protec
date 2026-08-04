@@ -67,7 +67,15 @@ await esbuild.build({
   logLevel: 'info',
 }).catch(() => process.exit(1));
 
-// 2. package.json mínimo para Lambda
+// 2. Copiar pdf.worker.mjs (pdfjs-dist precisa dele como arquivo separado no fake worker mode)
+import { copyFileSync } from 'fs';
+const pdfWorkerSrc = join(root, 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs');
+if (existsSync(pdfWorkerSrc)) {
+  copyFileSync(pdfWorkerSrc, join(outputDir, 'pdf.worker.mjs'));
+  console.log('Copied pdf.worker.mjs to dist-lambda');
+}
+
+// 3. package.json mínimo para Lambda
 writeFileSync(join(outputDir, 'package.json'), JSON.stringify({
   name: 'protec-api-lambda',
   version: version,
