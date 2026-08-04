@@ -17,6 +17,8 @@ import {
 import { errorHandler } from '../../shared/utils/error-handler';
 import { extractIrpfFromPdf } from './extract-from-pdf';
 import { parseDecDbk } from './parse-dec-dbk';
+import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'crypto';
 
 const irpfAltaRendaRoutes = new Hono();
 
@@ -29,29 +31,115 @@ const companyRepo = new CompanyRepository();
 const service = new IrpfAltaRendaService(repo, companyRepo);
 
 /**
+ * POST /irpf-alta-renda/upload-url
+ * Gera signed URL para upload direto ao Supabase Storage (para arquivos > 5MB que excedem o limite do Lambda).
+ * Body JSON: { filename: string, content_type: string }
+ * Retorna: { upload_url, storage_path, expires_in }
+ */
+const UPLOAD_BUCKET = 'fiscal-files';
+
+irpfAltaRendaRoutes.post('/upload-url', async (c) => {
+  try {
+    const body = await c.req.json();
+    const filename = body.filename as string;
+    if (!filename) {
+      return c.json({ error: { message: 'Campo filename obrigatório.', code: 'FILENAME_REQUIRED' } }, 400);
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
+    }
+
+    const companyId = c.get('companyId') as string;
+    const uid = randomBytes(8).toString('hex');
+    const storagePath = `${companyId}/irpf-temp/${uid}-${filename}`;
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase.storage
+      .from(UPLOAD_BUCKET)
+      .createSignedUploadUrl(storagePath);
+
+    if (error) {
+      console.error('[upload-url] Supabase error:', error);
+      return c.json({ error: { message: 'Falha ao gerar URL de upload.', code: 'UPLOAD_URL_ERROR' } }, 500);
+    }
+
+    return c.json({
+      data: {
+        upload_url: data.signedUrl,
+        storage_path: storagePath,
+        token: data.token,
+        expires_in: 600,
+      },
+    }, 200);
+  } catch (err) {
+    return errorHandler(err, c);
+  }
+});
+
+/**
  * POST /irpf-alta-renda/extract-from-pdf
  * Extrai dados de IRPF de um PDF (ex.: DAA) via OpenAI e retorna ano + dados para preencher o formulário.
- * Body: multipart/form-data com campo "file" (arquivo PDF).
+ * Aceita:
+ *   - multipart/form-data com campo "file" (< 5MB, via Lambda direto)
+ *   - JSON com { storage_path } (qualquer tamanho, arquivo já no Supabase Storage)
  */
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 irpfAltaRendaRoutes.post('/extract-from-pdf', async (c) => {
   try {
-    const formData = await c.req.formData();
-    const file = formData.get('file') as File | null;
-    if (!file || !(file instanceof File)) {
-      return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
+    const contentType = c.req.header('content-type') || '';
+
+    let buffer: Buffer;
+    let fileName = 'upload.pdf';
+
+    if (contentType.includes('application/json')) {
+      const body = await c.req.json();
+      const storagePath = body.storage_path as string;
+      fileName = body.filename || storagePath.split('/').pop() || 'upload.pdf';
+
+      if (!storagePath) {
+        return c.json({ error: { message: 'Campo storage_path obrigatório.', code: 'STORAGE_PATH_REQUIRED' } }, 400);
+      }
+
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        return c.json({ error: { message: 'Storage não configurado.', code: 'STORAGE_NOT_CONFIGURED' } }, 500);
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).download(storagePath);
+
+      if (error || !data) {
+        console.error('[extract-from-pdf] Storage download error:', error);
+        return c.json({ error: { message: 'Falha ao baixar arquivo do storage.', code: 'STORAGE_DOWNLOAD_ERROR' } }, 500);
+      }
+
+      buffer = Buffer.from(await data.arrayBuffer());
+
+      supabase.storage.from(UPLOAD_BUCKET).remove([storagePath]).catch(() => {});
+    } else {
+      const formData = await c.req.formData();
+      const file = formData.get('file') as File | null;
+      if (!file || !(file instanceof File)) {
+        return c.json({ error: { message: 'Envie um arquivo PDF (campo file).', code: 'FILE_REQUIRED' } }, 400);
+      }
+      if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
+        return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
+      }
+      if (file.size > MAX_PDF_SIZE_BYTES) {
+        return c.json({ error: { message: 'O arquivo PDF deve ter no máximo 10MB.', code: 'FILE_TOO_LARGE' } }, 400);
+      }
+      fileName = file.name;
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
     }
-    if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
-      return c.json({ error: { message: 'O arquivo deve ser um PDF.', code: 'INVALID_FILE_TYPE' } }, 400);
-    }
-    if (file.size > MAX_PDF_SIZE_BYTES) {
-      return c.json({ error: { message: 'O arquivo PDF deve ter no máximo 10MB.', code: 'FILE_TOO_LARGE' } }, 400);
-    }
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+
     const result = await extractIrpfFromPdf(buffer);
-    return c.json({ data: { ...result, arquivo_nome: file.name } }, 200);
+    return c.json({ data: { ...result, arquivo_nome: fileName } }, 200);
   } catch (err) {
     return errorHandler(err, c);
   }

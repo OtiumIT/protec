@@ -161,12 +161,57 @@ export const irpfAltaRendaService = {
 
   /**
    * Envia um PDF (ex.: DAA) para extração de dados via OpenAI e retorna ano + dados para preencher o formulário.
+   * Arquivos > 5MB são enviados via Supabase Storage para contornar o limite de 6MB do Lambda.
    */
   async extractFromPdf(file: File): Promise<ExtractFromPdfResult> {
     const { token, tenantId } = getAuthHeaders();
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const LAMBDA_SAFE_SIZE = 5 * 1024 * 1024; // 5MB
+
+    if (file.size > LAMBDA_SAFE_SIZE) {
+      const uploadUrlRes = await fetch(`${baseUrl}/api/v1/irpf-alta-renda/upload-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-ID': tenantId ?? '',
+        },
+        body: JSON.stringify({ filename: file.name, content_type: file.type }),
+      });
+      if (!uploadUrlRes.ok) {
+        const err = await uploadUrlRes.json().catch(() => ({ error: { message: 'Falha ao gerar URL de upload' } }));
+        throw new Error(err.error?.message || 'Falha ao gerar URL de upload');
+      }
+      const { data: uploadData } = await uploadUrlRes.json();
+
+      const uploadRes = await fetch(uploadData.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/pdf' },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Falha ao enviar arquivo para o storage');
+      }
+
+      const extractRes = await fetch(`${baseUrl}/api/v1/irpf-alta-renda/extract-from-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-ID': tenantId ?? '',
+        },
+        body: JSON.stringify({ storage_path: uploadData.storage_path, filename: file.name }),
+      });
+      if (!extractRes.ok) {
+        const err = await extractRes.json().catch(() => ({ error: { message: 'Falha na extração do PDF' } }));
+        throw new Error(err.error?.message || 'Falha na extração do PDF');
+      }
+      const result = await extractRes.json();
+      return result.data;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
-    const baseUrl = getApiUrl().replace(/\/$/, '');
     const response = await fetch(`${baseUrl}/api/v1/irpf-alta-renda/extract-from-pdf`, {
       method: 'POST',
       headers: {
