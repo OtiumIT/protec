@@ -34,6 +34,8 @@ export const UpdatePropertyTenantSchema = CreatePropertyTenantSchema.partial().r
 export const LeaseStatusEnum = z.enum(['ativo', 'encerrado', 'rascunho', 'inadimplente']);
 export const IndiceReajusteEnum = z.enum(['IPCA', 'IGPM', 'INPC', 'OUTRO', 'NENHUM']);
 
+export const ImobiliariaTipoEnum = z.enum(['percentual', 'fixo']);
+
 export const CreatePropertyLeaseSchema = z.object({
   property_id: uuid,
   tenant_id: uuid.optional().nullable(),
@@ -44,6 +46,10 @@ export const CreatePropertyLeaseSchema = z.object({
   indice_reajuste: IndiceReajusteEnum.default('IPCA'),
   status: LeaseStatusEnum.default('ativo'),
   observacao: z.string().optional().nullable(),
+  regime_tributario: z.enum(['pf', 'pj']).optional().nullable(),
+  tem_imobiliaria: z.boolean().default(false),
+  imobiliaria_tipo: ImobiliariaTipoEnum.optional().nullable(),
+  imobiliaria_valor: money.default(0),
 });
 
 export const UpdatePropertyLeaseSchema = CreatePropertyLeaseSchema.partial()
@@ -349,6 +355,18 @@ export interface PropertyLease {
   indice_reajuste: string;
   status: string;
   observacao: string | null;
+  regime_tributario: 'pf' | 'pj' | null;
+  ultimo_resultado_simulacao: {
+    pf: { imposto_anual: number; aliquota_efetiva: number };
+    pj: { imposto_anual: number; aliquota_efetiva: number };
+    recomendacao: 'pf' | 'pj';
+    economia_anual: number;
+    receita_anual: number;
+    custos_anual: number;
+  } | null;
+  tem_imobiliaria: boolean;
+  imobiliaria_tipo: 'percentual' | 'fixo' | null;
+  imobiliaria_valor: number;
   created_at: string;
   updated_at: string;
   tenant_nome?: string;

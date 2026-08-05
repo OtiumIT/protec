@@ -75,11 +75,13 @@ export class GestaoImobiliariaRepository extends BaseRepository {
   async createLease(data: Record<string, unknown>, createdBy?: string | null): Promise<PropertyLease> {
     const r = await this.query<PropertyLease>(
       `INSERT INTO property_leases
-        (property_id, tenant_id, data_inicio, data_fim, valor_aluguel, dia_vencimento, indice_reajuste, status, observacao, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        (property_id, tenant_id, data_inicio, data_fim, valor_aluguel, dia_vencimento, indice_reajuste, status, observacao, created_by,
+         tem_imobiliaria, imobiliaria_tipo, imobiliaria_valor)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [data.property_id, data.tenant_id ?? null, data.data_inicio, data.data_fim ?? null,
        data.valor_aluguel ?? 0, data.dia_vencimento ?? 10, data.indice_reajuste ?? 'IPCA',
-       data.status ?? 'ativo', data.observacao ?? null, createdBy ?? null],
+       data.status ?? 'ativo', data.observacao ?? null, createdBy ?? null,
+       data.tem_imobiliaria ?? false, data.imobiliaria_tipo ?? null, data.imobiliaria_valor ?? 0],
       false
     );
     return r.rows[0];
@@ -709,5 +711,10 @@ export class GestaoImobiliariaRepository extends BaseRepository {
   async propertyBelongsToClient(propertyId: string): Promise<string | null> {
     const r = await this.query<{ client_id: string }>('SELECT client_id FROM properties WHERE id = $1', [propertyId], false);
     return r.rows[0]?.client_id ?? null;
+  }
+
+  async getPropertyById(propertyId: string): Promise<any | null> {
+    const r = await this.query<any>('SELECT * FROM properties WHERE id = $1', [propertyId], false);
+    return r.rows[0] ?? null;
   }
 }

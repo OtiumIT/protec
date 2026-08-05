@@ -170,6 +170,15 @@ routes.delete('/leases/:id', zValidator('param', idParam), async (c) => {
   try { requireAdmin(c); await service.deleteLease(c.req.valid('param').id); return c.json({ data: { success: true } }); }
   catch (err) { return errorHandler(err, c); }
 });
+routes.post('/leases/:id/quick-simulate', zValidator('param', idParam), async (c) => {
+  try { return c.json({ data: await service.quickSimulateLease(c.req.valid('param').id) }); }
+  catch (err) { return errorHandler(err, c); }
+});
+routes.patch('/leases/:id/regime', zValidator('param', idParam), zValidator('json', z.object({ regime: z.enum(['pf', 'pj']) })), async (c) => {
+  try { return c.json({ data: await service.saveLeaseRegime(c.req.valid('param').id, c.req.valid('json').regime) }); }
+  catch (err) { return errorHandler(err, c); }
+});
+
 routes.post('/leases/:id/amendments', zValidator('param', idParam), zValidator('json', CreateLeaseAmendmentSchema.omit({ lease_id: true })), async (c) => {
   try { return c.json({ data: await service.createAmendment({ ...c.req.valid('json'), lease_id: c.req.valid('param').id }, uid(c)) }, 201); }
   catch (err) { return errorHandler(err, c); }

@@ -3,6 +3,7 @@ import { GestaoImobiliariaRepository } from './gestao-imobiliaria.repository';
 import { ClientRepository } from '../clients/client.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import { query } from '../../db/client';
+import { calcularPF, calcularPJ } from '../properties/calculations';
 
 /** Erro padronizado para funcionalidades que dependem de integração externa (em criação). */
 export function integrationNotReady(nome: string): AppError {
@@ -320,6 +321,73 @@ export class GestaoImobiliariaService {
     const revoked = await this.repo.revokeStatementShare(id);
     await query(`UPDATE public.statement_share_tokens SET revoked_at = NOW() WHERE token_hash = $1`, [(share as any).token_hash]);
     return revoked;
+  }
+
+  async quickSimulateLease(leaseId: string) {
+    const lease = await this.getLease(leaseId);
+    const aluguel = Number(lease.valor_aluguel) || 0;
+    if (aluguel <= 0) throw new AppError('Contrato sem valor de aluguel', 'NO_RENT_VALUE', 400);
+
+    const prop = await this.repo.getPropertyById(lease.property_id);
+    if (!prop) throw new AppError('Imóvel do contrato não encontrado', 'PROPERTY_NOT_FOUND', 404);
+
+    const despesas = (Number(prop.iptu_mensal_padrao) || 0)
+      + (Number(prop.condominio_mensal_padrao) || 0)
+      + (Number(prop.seguro_mensal_padrao) || 0);
+
+    let taxaImobiliaria = 0;
+    if (lease.tem_imobiliaria && lease.imobiliaria_valor) {
+      taxaImobiliaria = lease.imobiliaria_tipo === 'percentual'
+        ? aluguel * (Number(lease.imobiliaria_valor) / 100)
+        : Number(lease.imobiliaria_valor);
+    }
+
+    const custos = (Number(prop.camareira_mensal_padrao) || 0)
+      + (Number(prop.seguranca_mensal_padrao) || 0)
+      + (Number(prop.material_limpeza_mensal_padrao) || 0)
+      + (Number(prop.lavanderia_enxoval_mensal_padrao) || 0)
+      + (Number(prop.checkin_checkout_mensal_padrao) || 0)
+      + (Number(prop.taxas_pagamento_mensal_padrao) || 0)
+      + (Number(prop.tarifas_bancarias_mensal_padrao) || 0)
+      + (Number(prop.vacancia_mensal_padrao) || 0)
+      + (Number(prop.inadimplencia_mensal_padrao) || 0)
+      + taxaImobiliaria;
+
+    const ano = new Date().getFullYear();
+    const meses = Array.from({ length: 12 }, (_, i) => ({
+      mes: `${ano}-${String(i + 1).padStart(2, '0')}`,
+      receita: aluguel,
+      despesas_dedutiveis: despesas,
+      custos_operacionais: custos,
+    }));
+    const aggregated = {
+      ano,
+      receita_total: aluguel * 12,
+      despesas_dedutiveis_total: despesas * 12,
+      custos_operacionais_total: custos * 12,
+      meses,
+    };
+
+    const resPF = calcularPF(aggregated);
+    const resPJ = calcularPJ(aggregated);
+
+    const resultado = {
+      pf: { imposto_anual: resPF.imposto_total, aliquota_efetiva: resPF.aliquota_efetiva_anual },
+      pj: { imposto_anual: resPJ.imposto_total, aliquota_efetiva: resPJ.aliquota_efetiva },
+      recomendacao: (resPF.imposto_total <= resPJ.imposto_total ? 'pf' : 'pj') as 'pf' | 'pj',
+      economia_anual: Math.abs(resPF.imposto_total - resPJ.imposto_total),
+      receita_anual: aluguel * 12,
+      custos_anual: (despesas + custos) * 12,
+    };
+
+    await this.repo.updateLease(leaseId, { ultimo_resultado_simulacao: JSON.stringify(resultado) });
+    return resultado;
+  }
+
+  async saveLeaseRegime(leaseId: string, regime: 'pf' | 'pj') {
+    await this.getLease(leaseId);
+    await this.repo.updateLease(leaseId, { regime_tributario: regime });
+    return { regime_tributario: regime };
   }
 
   /** Consome um link read-only (token bruto), valida e devolve o extrato. */

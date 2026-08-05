@@ -14,15 +14,20 @@ Alertas, Financeiro, Operação e Integrações estão ocultos no menu (código/
 Aba Imóveis: inclui botão **Importar do IRPF** (PDF/.dec/.dbk) que chama `POST /properties/import-from-irpf`,
 exibe preview checkável dos bens imóveis e cadastra em lote via `POST /properties/batch`.
 
-## Integração com Simulador de Locação
-- **Simulação automática**: ao salvar um imóvel (com aluguel e custos), o sistema executa uma simulação
-  rápida PF vs PJ (`POST /properties/:id/quick-simulate`), usando `calcularPF()` e `calcularPJ()`.
-- **Regime tributário**: o usuário escolhe PF ou PJ; a escolha é salva no campo `properties.regime_tributario`
-  via `PATCH /properties/:id/regime`. O resultado é cacheado em `properties.ultimo_resultado_simulacao` (JSONB).
-- **Herança no contrato**: ao criar um contrato, o regime tributário do imóvel é exibido como badge readonly.
-- **Portfólio**: calcula receita (aluguel), custos (campos `*_mensal_padrao`), imposto estimado (do cache,
-  cenário selecionado) e líquido = receita - custos - imposto.
-- **Tab Custos**: edição inline de todos os 12 campos de custo por imóvel; ao salvar, re-executa `quick-simulate`.
+## Integração com Simulador de Locação (Contrato como Centro)
+- **Simulação automática**: ao salvar um **contrato** (com aluguel > 0), o sistema executa uma simulação
+  rápida PF vs PJ (`POST /leases/:id/quick-simulate`), usando `calcularPF()` e `calcularPJ()`.
+  Custos dedutiveis e operacionais vêm do imóvel vinculado; taxa imobiliária vem do contrato.
+- **Regime tributário**: o usuário escolhe PF ou PJ; a escolha é salva no campo `property_leases.regime_tributario`
+  via `PATCH /leases/:id/regime`. O resultado é cacheado em `property_leases.ultimo_resultado_simulacao` (JSONB).
+- **Imobiliária**: cada contrato pode indicar se possui imobiliária (`tem_imobiliaria`), tipo da taxa
+  (`imobiliaria_tipo`: percentual ou fixo) e valor (`imobiliaria_valor`). O custo da imobiliária é
+  considerado como custo operacional na simulação tributária.
+- **Portfólio**: receita = aluguel do contrato ativo (imóveis sem contrato mostram receita zero);
+  custos = campos `*_mensal_padrao` do imóvel; imposto = cache do contrato/regime selecionado.
+- **Tab Custos**: edição inline de todos os 12 campos de custo por imóvel.
+- **Contratos**: incluem botão Editar, badge de regime tributário (PF/PJ) e exibição do resultado
+  da simulação pós-save com opção de escolha de regime.
 
 ## Regras de Negócio
 - **Tenant**: todas as tabelas vivem no schema do tenant (`tenant_{company_id}`); nenhuma query
@@ -57,7 +62,8 @@ exibe preview checkável dos bens imóveis e cadastra em lote via `POST /propert
 - Extrato/DRE: `GET /statement`; compartilhamento: `POST/GET /statement-shares`,
   `POST /statement-shares/:id/revoke`; público: `GET /public/statement/:token`.
 - Inquilinos: `POST/GET/PATCH/DELETE /tenants`.
-- Contratos: `POST/GET/PATCH/DELETE /leases`, aditivos `.../amendments`, garantias `.../guarantees`.
+- Contratos: `POST/GET/PATCH/DELETE /leases`, simulação `POST /leases/:id/quick-simulate`,
+  regime `PATCH /leases/:id/regime`, aditivos `.../amendments`, garantias `.../guarantees`.
 - Ledger: `POST/GET/PATCH/DELETE /ledger`, `POST /ledger/:id/settle`, `.../cancel`, `.../mark-overdue`.
 - Recorrências: `POST/GET/PATCH/DELETE /recurring`, `POST /recurring/generate`.
 - Documentos, fracionada, fornecedores, manutenções, vistorias, inventário: CRUD dedicado.
