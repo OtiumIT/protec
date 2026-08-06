@@ -322,9 +322,14 @@ type LeaseFormState = {
 function emptyLeaseForm(): LeaseFormState {
   return { property_id: '', tenant_id: '', data_inicio: today(), data_fim: '', valor_aluguel: '', dia_vencimento: '10', indice_reajuste: 'IPCA', status: 'ativo', observacao: '', tem_imobiliaria: false, imobiliaria_tipo: 'percentual', imobiliaria_valor: '' };
 }
+function toDateInput(v: string | null | undefined): string {
+  if (!v) return '';
+  return v.slice(0, 10);
+}
 function leaseToForm(l: PropertyLease): LeaseFormState {
   return {
-    property_id: l.property_id, tenant_id: l.tenant_id ?? '', data_inicio: l.data_inicio, data_fim: l.data_fim ?? '',
+    property_id: l.property_id, tenant_id: l.tenant_id ?? '',
+    data_inicio: toDateInput(l.data_inicio), data_fim: toDateInput(l.data_fim),
     valor_aluguel: String(l.valor_aluguel ?? ''), dia_vencimento: String(l.dia_vencimento ?? '10'),
     indice_reajuste: l.indice_reajuste ?? 'IPCA', status: l.status ?? 'ativo', observacao: l.observacao ?? '',
     tem_imobiliaria: !!l.tem_imobiliaria, imobiliaria_tipo: l.imobiliaria_tipo ?? 'percentual', imobiliaria_valor: String(l.imobiliaria_valor ?? ''),
@@ -366,6 +371,7 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
 
   const submit = async () => {
     if (!form.property_id) return onError('Selecione o imóvel');
+    if (!form.data_inicio) return onError('Informe a data de início do contrato');
     setSaving(true);
     const payload: Record<string, unknown> = {
       property_id: form.property_id, data_inicio: form.data_inicio,
@@ -467,8 +473,8 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
       {showForm && (
         <Card title={editingLease ? 'Editar contrato' : 'Novo contrato'}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="Imóvel">
-              <select value={form.property_id} onChange={(e) => setForm({ ...form, property_id: e.target.value })} className={inputCls} disabled={!!editingLease}>
+            <Field label="Imóvel *">
+              <select value={form.property_id} onChange={(e) => setForm({ ...form, property_id: e.target.value })} className={inputCls} disabled={!!editingLease} required>
                 <option value="">Selecione…</option>{properties.map((p) => <option key={p.id} value={p.id}>{p.identificador}</option>)}
               </select>
             </Field>
@@ -482,7 +488,7 @@ function ContratosTab({ clientId, properties, onError, onSuccess, isAdmin }: {
               </div>
             </Field>
             <Field label="Aluguel (R$)"><input type="number" value={form.valor_aluguel} onChange={(e) => setForm({ ...form, valor_aluguel: e.target.value })} className={inputCls} /></Field>
-            <Field label="Início"><input type="date" value={form.data_inicio} onChange={(e) => setForm({ ...form, data_inicio: e.target.value })} className={inputCls} /></Field>
+            <Field label="Início *"><input type="date" value={form.data_inicio} onChange={(e) => setForm({ ...form, data_inicio: e.target.value })} className={inputCls} required /></Field>
             <Field label="Fim"><input type="date" value={form.data_fim} onChange={(e) => setForm({ ...form, data_fim: e.target.value })} className={inputCls} /></Field>
             <Field label="Dia venc."><input type="number" min={1} max={31} value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} className={inputCls} /></Field>
             <Field label="Índice"><select value={form.indice_reajuste} onChange={(e) => setForm({ ...form, indice_reajuste: e.target.value })} className={inputCls}>{['IPCA', 'IGPM', 'INPC', 'OUTRO', 'NENHUM'].map((i) => <option key={i}>{i}</option>)}</select></Field>
