@@ -575,9 +575,25 @@ function CustosTab({ clientId, properties, onChanged, onError, onSuccess }: {
         }
       }
       await propertyService.update(propId, payload);
-      onSuccess('Custos atualizados');
       setEditRows((prev) => { const next = { ...prev }; delete next[propId]; return next; });
       onChanged();
+
+      // Re-simular contratos ativos deste imóvel para refletir novos custos
+      try {
+        const leases = await svc.listLeases({ property_id: propId, status: 'ativo' });
+        let resimulated = 0;
+        for (const l of leases) {
+          if (Number(l.valor_aluguel) > 0) {
+            await svc.quickSimulateLease(l.id);
+            resimulated++;
+          }
+        }
+        onSuccess(resimulated > 0
+          ? `Custos atualizados — ${resimulated} contrato(s) re-simulado(s)`
+          : 'Custos atualizados');
+      } catch {
+        onSuccess('Custos atualizados (simulação não re-executada)');
+      }
     } catch (e) { onError(e instanceof Error ? e.message : 'Erro ao salvar custos'); }
     finally { setSavingId(null); }
   };
