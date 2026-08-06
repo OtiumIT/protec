@@ -5,7 +5,8 @@ import { CompanyRepository } from './company.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 import { UpdateCompanySchema, CreateCompanySchema, UpdateCompanyBrandingSchema } from '@shared/core';
-import { errorHandler } from '../../shared/utils/error-handler';
+import { errorHandler, AppError } from '../../shared/utils/error-handler';
+import { uploadBrandingLogo } from '../../shared/services/storage.service';
 
 const companyRoutes = new Hono();
 
@@ -256,6 +257,50 @@ companyRoutes.patch(
       const company = await companyService.update(id, data);
 
       return c.json({ data: { company } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
+
+/**
+ * POST /companies/:id/branding/logo
+ * Upload de logo da empresa (max 2MB, png/jpg/webp/svg)
+ */
+companyRoutes.post(
+  '/:id/branding/logo',
+  async (c) => {
+    try {
+      const companyId = c.get('companyId');
+      const id = c.req.param('id');
+      const currentUser = c.get('user');
+
+      if (id !== companyId) {
+        return c.json({ error: { message: 'Cannot access other companies', code: 'FORBIDDEN' } }, 403);
+      }
+      if (currentUser.role !== 'admin') {
+        return c.json({ error: { message: 'Insufficient permissions', code: 'FORBIDDEN' } }, 403);
+      }
+
+      const formData = await c.req.formData();
+      const file = formData.get('file') as File | null;
+      if (!file || !(file instanceof File)) {
+        throw new AppError('File is required', 'VALIDATION_ERROR', 400);
+      }
+
+      const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+      if (!ALLOWED.includes(file.type)) {
+        throw new AppError('Only PNG, JPEG, WebP and SVG are allowed', 'VALIDATION_ERROR', 400);
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        throw new AppError('File too large (max 2MB)', 'VALIDATION_ERROR', 400);
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const publicUrl = await uploadBrandingLogo(companyId, buffer, file.type);
+      await companyService.update(companyId, { report_logo_url: publicUrl });
+
+      return c.json({ data: { report_logo_url: publicUrl } });
     } catch (error) {
       return errorHandler(error, c);
     }

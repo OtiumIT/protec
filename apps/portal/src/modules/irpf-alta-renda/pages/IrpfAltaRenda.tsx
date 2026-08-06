@@ -10,6 +10,7 @@ import { companyService } from '../../companies/services/company.service';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
+import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
@@ -2535,6 +2536,7 @@ export function IrpfAltaRenda() {
                                 <Button type="button" variant="secondary" size="sm" onClick={() => handleOpenEditar(item, true)}>
                                   Duplicar
                                 </Button>
+                                <ShareSimulationButton simulationId={item.id} simulationType="irpf_alta_renda" title={item.title ?? `IRPF ${item.ano} - ${item.contribuinte_nome}`} />
                                 <Button type="button" variant="secondary" size="sm" onClick={() => handleDeleteClick(item)}>
                                   Excluir
                                 </Button>

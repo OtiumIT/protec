@@ -42,6 +42,7 @@ import { Glossario } from './modules/documentacao/pages/Glossario';
 import { AccessList } from './modules/access-list/pages/AccessList';
 import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
+import { WhiteLabelSettings } from './modules/settings/pages/WhiteLabelSettings';
 import { EPSLanding } from './landing/pages/EPSLanding';
 import { PabloArrudaLanding } from './landing/pages/PabloArrudaLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
@@ -199,6 +200,7 @@ function AppRoutes() {
           <Route path="/gestao-imobiliaria" element={<GestaoImobiliaria />} />
           <Route path="/gestao-imobiliaria/:section" element={<GestaoImobiliaria />} />
           <Route path="/mapeamento-despesas-pj" element={<MapeamentoDespesasPj />} />
+          <Route path="/configuracoes" element={<WhiteLabelSettings />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/documentacao/glossario" element={<Glossario />} />
           <Route path="/access-list" element={<AccessList />} />

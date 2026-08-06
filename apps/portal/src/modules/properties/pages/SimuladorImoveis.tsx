@@ -17,6 +17,7 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { formatCnpj, formatCpf } from '../../../shared/utils/masks';
 import { useBranding } from '../../../shared/hooks/useBranding';
+import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { spreadsheetTableNavCapture } from '../../../shared/utils/gridKeyboardNav';
 import { InfoHint } from '../../../shared/components/InfoHint';
 import {
@@ -4369,6 +4370,7 @@ export function SimuladorImoveis() {
                 <div className="flex flex-wrap gap-1">
                   <Button variant="secondary" size="sm" onClick={() => handleView(s.id)}>Visualizar</Button>
                   <Button variant="secondary" size="sm" onClick={() => handleEdit(s.id)}>Editar</Button>
+                  <ShareSimulationButton simulationId={s.id} simulationType="locacao_pf_pj" title={s.title ?? undefined} usePropertyEndpoint />
                   <Button
                     variant="tertiary"
                     size="sm"

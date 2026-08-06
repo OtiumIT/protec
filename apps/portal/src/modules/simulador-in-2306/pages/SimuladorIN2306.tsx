@@ -13,6 +13,7 @@ import {
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
+import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
@@ -2140,6 +2141,7 @@ export function SimuladorIN2306() {
                   >
                     Editar
                   </Button>
+                  <ShareSimulationButton simulationId={s.id} simulationType="in_2306" title={s.title ?? undefined} />
                   <Button variant="tertiary" size="sm" onClick={() => handleDelete(s.id)} className="text-red-600 border-red-200 hover:bg-red-50">
                     Excluir
                   </Button>

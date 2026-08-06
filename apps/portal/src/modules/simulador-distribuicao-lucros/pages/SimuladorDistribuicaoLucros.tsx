@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
+import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { Input } from '../../../shared/components/ui/Input';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
@@ -887,6 +888,7 @@ export function SimuladorDistribuicaoLucros() {
                       <Button type="button" variant="secondary" className="text-xs py-1.5" onClick={() => handleLoadSimulation(s)}>
                         Carregar
                       </Button>
+                      <ShareSimulationButton simulationId={s.id} simulationType="distribuicao_lucros" title={s.title ?? undefined} />
                       <Button
                         type="button"
                         variant="secondary"

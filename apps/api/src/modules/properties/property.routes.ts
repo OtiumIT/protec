@@ -830,12 +830,15 @@ propertyPublicRoutes.get('/simulation/:token', async (c) => {
     );
 
     // Add branding from company
-    const companyResult = await query<{ report_brand_name: string | null }>(
-      `SELECT report_brand_name FROM public.companies WHERE id = $1`,
+    const companyResult = await query<{ report_brand_name: string | null; report_logo_url: string | null }>(
+      `SELECT report_brand_name, report_logo_url FROM public.companies WHERE id = $1`,
       [row.company_id]
     );
     if (companyResult.rows[0]) {
-      data.branding = { report_brand_name: companyResult.rows[0].report_brand_name };
+      data.branding = {
+        report_brand_name: companyResult.rows[0].report_brand_name,
+        report_logo_url: companyResult.rows[0].report_logo_url,
+      };
     }
 
     return c.json({ data });

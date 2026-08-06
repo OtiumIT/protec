@@ -22,6 +22,7 @@ import { distribuicaoLucrosSimulationsRoutes } from './distribuicao-lucros-simul
 import { gestaoImobiliariaRoutes, gestaoImobiliariaPublicRoutes } from './gestao-imobiliaria/gestao-imobiliaria.routes';
 import { mapeamentoDespesasPjRoutes } from './mapeamento-despesas-pj/mapeamento-despesas-pj.routes';
 import { accessListRoutes } from './access-list/access-list.routes';
+import { simulationSharesRoutes, simulationSharesPublicRoutes } from './simulation-shares/simulation-shares.routes';
 import { feedbackRoutes } from './feedback/feedback.routes';
 import { FeedbackService } from './feedback/feedback.service';
 import { debugRoutes } from './debug/debug.routes';
@@ -319,6 +320,8 @@ app.route('/api/v1/distribuicao-lucros-simulations', distribuicaoLucrosSimulatio
 app.route('/api/v1/gestao-imobiliaria/public', gestaoImobiliariaPublicRoutes);
 app.route('/api/v1/gestao-imobiliaria', gestaoImobiliariaRoutes);
 app.route('/api/v1/mapeamento-despesas-pj', mapeamentoDespesasPjRoutes);
+app.route('/api/v1/simulation-shares/public', simulationSharesPublicRoutes);
+app.route('/api/v1/simulation-shares', simulationSharesRoutes);
 app.route('/api/v1/access-list', accessListRoutes);
 
 /** Thread de feedback no router raiz (evita 404 se o merge do sub-app não expuser GET /thread/:id). */

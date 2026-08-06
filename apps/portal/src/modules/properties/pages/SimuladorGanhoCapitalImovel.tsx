@@ -12,6 +12,7 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
+import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import {
   calcularFatorIpcaAcumuladoLc214,
   type FiscalIndicesIpcaSeriesResponse,
@@ -2577,6 +2578,7 @@ COFINS = Receita × 3%`}</FormulaBox>
                     <Button variant="secondary" size="sm" disabled={saving} onClick={() => void handleLoadSimulation(s.id)}>
                       Abrir
                     </Button>
+                    <ShareSimulationButton simulationId={s.id} simulationType="ganho_capital_imovel" title={s.title ?? undefined} usePropertyEndpoint />
                     <Button
                       variant="tertiary"
                       size="sm"

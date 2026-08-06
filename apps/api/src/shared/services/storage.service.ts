@@ -66,6 +66,11 @@ function getSupabaseClient(): SupabaseClient {
 const FISCAL_FILES_BUCKET = 'fiscal-files';
 
 /**
+ * Bucket público para logos e branding de tenants
+ */
+const BRANDING_BUCKET = 'branding';
+
+/**
  * Cache para verificar se já garantimos que o bucket existe nesta execução
  */
 let bucketChecked = false;
@@ -403,4 +408,61 @@ export async function getFileMetadata(filePath: string): Promise<{
     mimeType: file.metadata?.mimetype || 'application/octet-stream',
     lastModified: new Date(file.updated_at || file.created_at),
   };
+}
+
+// ---- Branding bucket (public) ----
+
+let brandingBucketChecked = false;
+
+async function ensureBrandingBucketExists(): Promise<void> {
+  if (brandingBucketChecked) return;
+  const supabase = getSupabaseClient();
+  const { data: buckets } = await supabase.storage.listBuckets();
+  if (buckets?.some((b) => b.name === BRANDING_BUCKET)) {
+    brandingBucketChecked = true;
+    return;
+  }
+  const { error } = await supabase.storage.createBucket(BRANDING_BUCKET, {
+    public: true,
+    fileSizeLimit: 2097152, // 2 MB
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'],
+  });
+  if (error && !error.message?.includes('already exists')) {
+    throw new AppError(`Failed to create branding bucket: ${error.message}`, 'BUCKET_CREATE_ERROR', 500);
+  }
+  brandingBucketChecked = true;
+}
+
+/**
+ * Upload branding logo for a tenant.
+ * Overwrites any existing logo. Returns the public URL.
+ */
+export async function uploadBrandingLogo(
+  companyId: string,
+  file: Buffer,
+  mimeType: string,
+): Promise<string> {
+  const supabase = getSupabaseClient();
+  await ensureBrandingBucketExists();
+
+  const ext = mimeType.split('/')[1]?.replace('svg+xml', 'svg') || 'png';
+  const filePath = `${companyId}/logo.${ext}`;
+
+  // Remove previous logos with different extensions
+  const { data: existing } = await supabase.storage.from(BRANDING_BUCKET).list(companyId);
+  if (existing?.length) {
+    const toRemove = existing.filter((f) => f.name.startsWith('logo.')).map((f) => `${companyId}/${f.name}`);
+    if (toRemove.length) await supabase.storage.from(BRANDING_BUCKET).remove(toRemove);
+  }
+
+  const { error } = await supabase.storage
+    .from(BRANDING_BUCKET)
+    .upload(filePath, file, { contentType: mimeType, upsert: true });
+
+  if (error) {
+    throw new AppError(`Error uploading branding logo: ${error.message}`, 'STORAGE_UPLOAD_ERROR', 500);
+  }
+
+  const { data } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(filePath);
+  return data.publicUrl;
 }
