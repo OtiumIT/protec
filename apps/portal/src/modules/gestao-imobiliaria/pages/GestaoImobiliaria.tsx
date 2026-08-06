@@ -20,7 +20,6 @@ const TABS = [
   { key: 'imoveis', label: 'Imóveis' },
   { key: 'contratos', label: 'Contratos' },
   { key: 'custos', label: 'Custos' },
-  { key: 'extratos', label: 'Extratos' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 /** Telas ocultas no menu (código mantido para reativação). */
@@ -151,7 +150,6 @@ export function GestaoImobiliaria() {
       {tab === 'imoveis' && <ImoveisTab clients={clients} clientId={clientId} properties={properties} onChanged={() => { reloadProperties(); }} onClientsChanged={reloadClients} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'contratos' && <ContratosTab clientId={clientId} properties={properties} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'custos' && <CustosTab clientId={clientId} properties={properties} onChanged={reloadProperties} onError={showError} onSuccess={success} />}
-      {tab === 'extratos' && <ExtratosTab clients={clients} clientId={clientId} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
     </div>
   );
 }
