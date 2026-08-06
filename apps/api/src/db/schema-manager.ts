@@ -48,14 +48,12 @@ export async function createTenantSchema(companyId: string, client?: PoolClient)
  * @param client - Client opcional para usar em transação
  */
 export async function applyTenantMigrations(companyId: string, client?: PoolClient): Promise<void> {
-  // Substituir hífens por underscores (PostgreSQL não aceita hífens em nomes de schema)
   const schemaName = `tenant_${companyId.replace(/-/g, '_')}`;
   
   const useClient = client || await getClient();
   const shouldRelease = !client;
   
   try {
-    // Criar tabela de controle de migrations no schema do tenant
     await useClient.query(`
       CREATE TABLE IF NOT EXISTS "${schemaName}".schema_migrations (
         version INTEGER PRIMARY KEY,
@@ -64,14 +62,12 @@ export async function applyTenantMigrations(companyId: string, client?: PoolClie
       )
     `);
 
-    // Buscar migrations já executadas neste schema
     const executedMigrations = await useClient.query<{ version: number }>(
       `SELECT version FROM "${schemaName}".schema_migrations ORDER BY version`
     );
 
     const executedVersions = new Set(executedMigrations.rows.map(m => m.version));
 
-    // Usar lista única de migrations de tenant (mesma do migrate.ts)
     const tenantMigrations: Array<{ filename: string; version: number; sql: string }> = [];
     for (const file of TENANT_MIGRATION_FILES) {
       const version = getTenantMigrationVersion(file);
@@ -88,20 +84,15 @@ export async function applyTenantMigrations(companyId: string, client?: PoolClie
 
     console.log(`📦 ${tenantMigrations.length} migration(s) de tenant pendente(s) para ${schemaName}`);
 
-    // Se não foi passado client, iniciar transação
     if (!client) {
       await useClient.query('BEGIN');
     }
     
     try {
-      // Setar search_path para o schema do tenant
       await useClient.query(`SET search_path TO "${schemaName}", public`);
 
-      // Executar todas as migrations em uma única query batch para minimizar
-      // round-trips ao banco (de N*2 chamadas para 1 chamada)
       const batchParts: string[] = [];
       for (const migration of tenantMigrations) {
-        // Garantir que o SQL termine com ponto-e-vírgula
         const sql = migration.sql.trimEnd().replace(/;?\s*$/, ';');
         const escapedFilename = migration.filename.replace(/'/g, "''");
         batchParts.push(
@@ -120,17 +111,17 @@ export async function applyTenantMigrations(companyId: string, client?: PoolClie
       console.log(`✅ Todas as migrations de tenant foram aplicadas no schema ${schemaName}`);
     } catch (error) {
       if (!client) {
-        await useClient.query('ROLLBACK');
+        await useClient.query('ROLLBACK').catch(() => {});
       }
       throw error;
-    } finally {
-      if (shouldRelease) {
-        useClient.release();
-      }
     }
   } catch (error) {
     console.error(`❌ Erro ao aplicar migrations de tenant no schema ${schemaName}:`, error);
     throw error;
+  } finally {
+    if (shouldRelease) {
+      useClient.release();
+    }
   }
 }
 
