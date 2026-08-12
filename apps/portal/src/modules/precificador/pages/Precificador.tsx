@@ -17,6 +17,9 @@ import { useToast } from '../../../shared/components/ui/Toast';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
+import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import { precificadorService } from '../services/precificador.service';
 import {
   simularPrecificador,
@@ -115,6 +118,8 @@ function RegimeCard({
 
 export function Precificador() {
   const { success, error: showError, ToastContainer } = useToast();
+  const branding = useBranding();
+  const { print: doPrint } = useReportPrint('precificador-print-wrapper');
 
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -255,6 +260,26 @@ export function Precificador() {
           <p className="text-sm sm:text-base text-slate-600 mt-2">
             Calcule o preço de venda ideal em cada regime, considerando custo + impostos + margem desejada
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              Lei 9.718/98
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              LC 123/2006
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              LC 214/2025
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              RIR/2018
+            </span>
+          </div>
+        </div>
+
+        <div className="border-l-4 border-[#1351b4] bg-[#ebf5ff] rounded-r-md py-2.5 px-3.5 text-sm leading-relaxed text-slate-800">
+          <strong>Como funciona:</strong> O preço sugerido é calculado pela fórmula{' '}
+          <code className="bg-white/60 px-1 rounded text-xs font-mono">Preço = (Custo + Margem) / (1 - Alíquota Efetiva)</code>,
+          onde a alíquota efetiva varia conforme o regime tributário, garantindo que a margem desejada seja preservada após o pagamento dos impostos.
         </div>
 
         <Card>
@@ -361,11 +386,73 @@ export function Precificador() {
           </div>
         </Card>
 
+        <div id="precificador-print-wrapper" className="report-print-wrapper space-y-5">
+          <ReportPrintHeader
+            variant="printSheet"
+            reportTitle="Precificador com Custo Tributário"
+            metaLine={`Custo: ${fmt(custoServico)} · Margem: ${margemDesejada}${margemTipo === 'percentual' ? '%' : ' R$'} · Faturamento: ${fmt(faturamentoMensal)}/mês · ISS: ${fmtPct(issAliquota)}`}
+            logoUrl={branding?.report_logo_url}
+            brandName={branding?.report_brand_name}
+          />
+
+          <div className="flex justify-end print:hidden" data-report-exclude="preview">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => doPrint()}
+              className="shrink-0 inline-flex items-center gap-2"
+              aria-label="Exportar resultado para PDF"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exportar para PDF
+            </Button>
+          </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {regimes.map((r) => (
             <RegimeCard key={r.regime} regime={r} isBest={r.regime === result.melhor_regime} />
           ))}
         </div>
+
+        {/* Price difference comparison */}
+        <Card title="Diferença de preço entre regimes">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-2 px-3 font-semibold text-slate-700">Regime</th>
+                  <th className="py-2 px-3 font-semibold text-slate-700 text-right">Preço sugerido</th>
+                  <th className="py-2 px-3 font-semibold text-slate-700 text-right">Diferença vs melhor</th>
+                  <th className="py-2 px-3 font-semibold text-slate-700 text-right">Margem líquida</th>
+                </tr>
+              </thead>
+              <tbody>
+                {regimes.map((r) => {
+                  const best = regimes.find((x) => x.regime === result.melhor_regime)!;
+                  const diff = r.preco_sugerido - best.preco_sugerido;
+                  const isBest = r.regime === result.melhor_regime;
+                  return (
+                    <tr key={r.regime} className={`border-b border-slate-100 ${isBest ? 'bg-emerald-50/50' : ''}`}>
+                      <td className="py-2 px-3 font-medium text-slate-800">
+                        {r.regime}
+                        {isBest && <span className="ml-2 text-[10px] font-bold uppercase text-emerald-700">Melhor</span>}
+                      </td>
+                      <td className="py-2 px-3 text-right font-semibold text-slate-900">{fmt(r.preco_sugerido)}</td>
+                      <td className={`py-2 px-3 text-right font-medium ${diff > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {diff === 0 ? '—' : `+${fmt(diff)}`}
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-700">
+                        {fmt(r.margem_liquida_resultante)} ({fmtPct(r.margem_liquida_percentual)})
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
 
         <Card title="Composição do preço por regime (Custo + Impostos + Margem)">
           <div className="h-[350px] w-full">
@@ -393,6 +480,9 @@ export function Precificador() {
             </ResponsiveContainer>
           </div>
         </Card>
+
+          <ReportPrintFooter variant="printSheet" brandName={branding?.report_brand_name} />
+        </div>
 
         <Card title="Salvar simulação no histórico">
           <p className="text-sm text-slate-600 mb-4">

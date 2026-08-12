@@ -16,6 +16,9 @@ import { useToast } from '../../../shared/components/ui/Toast';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
+import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import { splitPaymentService } from '../services/split-payment.service';
 import { simularSplitPayment } from '@shared/core';
 import type { SplitPaymentInput, SplitPaymentResult, SplitPaymentSimulation } from '@shared/core';
@@ -42,11 +45,21 @@ function fmtPct(v: number): string {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
 }
 
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function KpiCard({ label, value, sub, variant }: { label: string; value: string; sub?: string; variant?: 'negative' | 'warning' | 'neutral' }) {
+  const bgCls = variant === 'negative'
+    ? 'bg-rose-50 border-rose-200'
+    : variant === 'warning'
+      ? 'bg-amber-50 border-amber-200'
+      : 'bg-slate-100 border-slate-200/80';
+  const valueCls = variant === 'negative'
+    ? 'text-rose-700'
+    : variant === 'warning'
+      ? 'text-amber-700'
+      : 'text-slate-900';
   return (
-    <div className="rounded-lg bg-slate-100 border border-slate-200/80 p-3">
+    <div className={`rounded-lg border p-3 ${bgCls}`}>
       <p className="text-xs text-slate-600 mb-1">{label}</p>
-      <p className="text-lg font-semibold text-slate-900 break-words">{value}</p>
+      <p className={`text-lg font-semibold break-words ${valueCls}`}>{value}</p>
       {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
@@ -54,6 +67,8 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 
 export function SplitPaymentSimulador() {
   const { success, error: showError, ToastContainer } = useToast();
+  const branding = useBranding();
+  const { print: doPrint } = useReportPrint('split-payment-print-wrapper');
 
   const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -194,7 +209,36 @@ export function SplitPaymentSimulador() {
           <p className="text-sm sm:text-base text-slate-600 mt-2">
             Reforma Tributária — Retenção automática de IBS/CBS no pagamento eletrônico
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              LC 214/2025
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              PLP 68/2024
+            </span>
+          </div>
         </div>
+
+        {/* Explainer */}
+        <Card>
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-10 h-10 rounded-lg bg-[#ebf5ff] flex items-center justify-center">
+              <svg className="w-5 h-5 text-[#1351b4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 mb-1">O que é o Split Payment?</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                O Split Payment (pagamento dividido) é o mecanismo da Reforma Tributária que retém automaticamente
+                o IBS e a CBS no momento do pagamento eletrônico (cartão, PIX, boleto). Em vez de a empresa receber
+                o valor bruto e recolher os impostos depois, o sistema financeiro já separa a parcela tributária e
+                repassa diretamente ao Fisco. Isso reduz o fluxo de caixa disponível e pode gerar necessidade de
+                capital de giro adicional.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {/* Client selector */}
         <Card>
@@ -320,27 +364,55 @@ export function SplitPaymentSimulador() {
           </div>
         </Card>
 
+        <div id="split-payment-print-wrapper" className="report-print-wrapper space-y-5">
+          <ReportPrintHeader
+            variant="printSheet"
+            reportTitle="Simulador de Impacto do Split Payment"
+            metaLine={`Regime: ${REGIME_OPTIONS.find((o) => o.value === regime)?.label} · Alíquota IBS/CBS: ${fmtPct(aliquotaIbsCbs)} · % eletrônico: ${pctEletronico}%`}
+            logoUrl={branding?.report_logo_url}
+            brandName={branding?.report_brand_name}
+          />
+
+          <div className="flex justify-end print:hidden" data-report-exclude="preview">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => doPrint()}
+              className="shrink-0 inline-flex items-center gap-2"
+              aria-label="Exportar resultado para PDF"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exportar para PDF
+            </Button>
+          </div>
+
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Capital de Giro Necessário"
             value={fmtBRL(result.resumo.capital_giro_necessario)}
             sub="média mensal retida"
+            variant="negative"
           />
           <KpiCard
             label="Custo Financeiro Mensal"
             value={fmtBRL(result.resumo.custo_financeiro_mensal)}
             sub="custo de antecipação"
+            variant="warning"
           />
           <KpiCard
             label="Custo Financeiro Anual"
             value={fmtBRL(result.resumo.custo_financeiro_anual)}
             sub="soma dos 12 meses"
+            variant="warning"
           />
           <KpiCard
             label="Redução no Caixa"
             value={fmtPct(result.resumo.reducao_caixa_percentual)}
             sub="% da receita retida"
+            variant={result.resumo.reducao_caixa_percentual > 15 ? 'negative' : 'neutral'}
           />
         </div>
 
@@ -348,10 +420,18 @@ export function SplitPaymentSimulador() {
         <Card title="Receita líquida: Antes vs Depois do Split Payment">
           <div className="h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 12, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis tickFormatter={yTickFmt} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  label={{ value: 'Mês', position: 'bottom', offset: 5, style: { fontSize: 11, fill: '#64748b' } }}
+                />
+                <YAxis
+                  tickFormatter={yTickFmt}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  label={{ value: 'R$', angle: -90, position: 'insideLeft', offset: -5, style: { fontSize: 11, fill: '#64748b' } }}
+                />
                 <Tooltip
                   formatter={(v: number, name: string) => [
                     fmtBRL(v),
@@ -414,8 +494,8 @@ export function SplitPaymentSimulador() {
                 </tr>
               </thead>
               <tbody>
-                {result.projecao_mensal.map((m) => (
-                  <tr key={m.mes} className="border-b border-slate-100 hover:bg-slate-50/50">
+                {result.projecao_mensal.map((m, idx) => (
+                  <tr key={m.mes} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
                     <td className="py-2 px-3 font-medium text-slate-800">{MESES_LABELS[m.mes - 1]}</td>
                     <td className="py-2 px-3 text-right text-slate-700">{fmtBRL(m.receita_bruta)}</td>
                     <td className="py-2 px-3 text-right text-rose-700 font-medium">{fmtBRL(m.impostos_retidos_split)}</td>
@@ -473,6 +553,42 @@ export function SplitPaymentSimulador() {
             )}
           </div>
         </Card>
+
+        {/* Recommendations */}
+        <Card title="Recomendações">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</span>
+              <div className="text-sm text-slate-700">
+                <strong>Provisione capital de giro:</strong> Mantenha reserva equivalente a pelo menos{' '}
+                {fmtBRL(result.resumo.capital_giro_necessario)} para cobrir o período entre o recebimento líquido e a necessidade operacional.
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</span>
+              <div className="text-sm text-slate-700">
+                <strong>Renegocie prazos com fornecedores:</strong> Alinhe os prazos de pagamento a fornecedores com os novos prazos de recebimento efetivo, minimizando descasamento de caixa.
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</span>
+              <div className="text-sm text-slate-700">
+                <strong>Avalie linhas de crédito:</strong> O custo financeiro anual de {fmtBRL(result.resumo.custo_financeiro_anual)} pode ser mitigado com linhas de antecipação de recebíveis a taxas mais competitivas.
+              </div>
+            </div>
+            {pctEletronico > 60 && (
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">4</span>
+                <div className="text-sm text-slate-700">
+                  <strong>Diversifique meios de recebimento:</strong> Com {pctEletronico}% em meios eletrônicos, explore alternativas como boleto bancário (quando não sujeito ao split) para reduzir o impacto imediato no caixa.
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+          <ReportPrintFooter variant="printSheet" brandName={branding?.report_brand_name} />
+        </div>
 
         <p className="text-xs text-center text-slate-500">
           Simulação para fins ilustrativos. Consulte um contador para orientação específica ao seu caso.

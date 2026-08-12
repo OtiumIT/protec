@@ -1563,10 +1563,16 @@ function NotasFiscaisTab({ clientId, properties }: { clientId: string; propertie
       {showPreview && canPreview && (
         <Card title="Pré-visualização da Nota Fiscal">
           <div className="border border-slate-300 rounded-xl p-6 bg-white space-y-5 print:border-none">
+            {/* NF Header */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3">
               <div>
                 <div className="text-lg font-bold text-slate-900">NOTA FISCAL DE SERVIÇO</div>
                 <div className="text-xs text-slate-500 mt-1">Pré-visualização — documento não fiscal</div>
+                {form.competencia && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Competência: {form.competencia.split('-').reverse().join('/')}
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="text-sm font-bold text-indigo-700">{form.prestadorNome || 'Prestador'}</div>
@@ -1575,44 +1581,55 @@ function NotasFiscaisTab({ clientId, properties }: { clientId: string; propertie
               </div>
             </div>
 
+            {/* Parties section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs font-bold uppercase text-slate-500 mb-1">Prestador</div>
-                <div className="font-medium">{form.prestadorNome || '—'}</div>
-                {form.prestadorCnpj && <div className="text-slate-600">CNPJ: {form.prestadorCnpj}</div>}
-                {form.prestadorEndereco && <div className="text-slate-600">{form.prestadorEndereco}</div>}
+              <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                <div className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  Prestador
+                </div>
+                <div className="font-medium text-slate-800">{form.prestadorNome || '—'}</div>
+                {form.prestadorCnpj && <div className="text-slate-600 mt-0.5">CNPJ: {form.prestadorCnpj}</div>}
+                {form.prestadorEndereco && <div className="text-slate-600 mt-0.5">{form.prestadorEndereco}</div>}
               </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs font-bold uppercase text-slate-500 mb-1">Tomador</div>
-                <div className="font-medium">{form.tomadorNome || '—'}</div>
-                {form.tomadorDocumento && <div className="text-slate-600">{selectedTenant?.tipo_pessoa === 'pf' ? 'CPF' : 'CNPJ'}: {form.tomadorDocumento}</div>}
-                {form.tomadorEndereco && <div className="text-slate-600">{form.tomadorEndereco}</div>}
+              <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                <div className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Tomador
+                </div>
+                <div className="font-medium text-slate-800">{form.tomadorNome || '—'}</div>
+                {form.tomadorDocumento && <div className="text-slate-600 mt-0.5">{selectedTenant?.tipo_pessoa === 'pf' ? 'CPF' : 'CNPJ'}: {form.tomadorDocumento}</div>}
+                {form.tomadorEndereco && <div className="text-slate-600 mt-0.5">{form.tomadorEndereco}</div>}
               </div>
             </div>
 
-            <div>
+            {/* Service description */}
+            <div className="border border-slate-200 rounded-lg p-3">
               <div className="text-xs font-bold uppercase text-slate-500 mb-1">Descrição do Serviço</div>
               <div className="text-sm text-slate-700 whitespace-pre-wrap">{form.descricaoServico || '—'}</div>
             </div>
 
+            {/* Values table */}
             <div className="rounded-lg border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
                 <tbody>
-                  <tr className="border-b border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">Valor do Serviço</td>
-                    <td className="px-4 py-2 text-right font-semibold">{brl(valorServico)}</td>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <td className="px-4 py-2.5 text-slate-600 font-medium">Valor do Serviço</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-slate-900">{brl(valorServico)}</td>
                   </tr>
                   <tr className="border-b border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">Base de Cálculo</td>
-                    <td className="px-4 py-2 text-right font-semibold">{brl(valorServico)}</td>
+                    <td className="px-4 py-2.5 text-slate-600">Base de Cálculo</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-slate-800">{brl(valorServico)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <td className="px-4 py-2.5 text-slate-600">Alíquota ISS</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-slate-800">{issAliquota.toFixed(2)}%</td>
                   </tr>
                   <tr className="border-b border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">Alíquota ISS</td>
-                    <td className="px-4 py-2 text-right font-semibold">{issAliquota.toFixed(2)}%</td>
-                  </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">Valor ISS {form.issRetido ? '(retido na fonte)' : ''}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-amber-700">{brl(valorIss)}</td>
+                    <td className="px-4 py-2.5 text-slate-600">
+                      Valor ISS {form.issRetido ? <span className="text-xs text-amber-600 font-medium ml-1">(retido na fonte)</span> : ''}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-amber-700">{brl(valorIss)}</td>
                   </tr>
                   <tr className="bg-slate-900 text-white">
                     <td className="px-4 py-3 font-bold">Valor Líquido</td>
@@ -1662,11 +1679,16 @@ function NotasFiscaisTab({ clientId, properties }: { clientId: string; propertie
             </thead>
             <tbody>
               <tr>
-                <td colSpan={6} className="py-10 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <svg className="h-10 w-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <p className="text-slate-400 text-sm">Nenhuma nota fiscal gerada.</p>
-                    <p className="text-slate-400 text-xs">A integração com o sistema de emissão será disponibilizada em breve.</p>
+                <td colSpan={6} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                      <svg className="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-slate-600 text-sm font-medium">Nenhuma nota fiscal gerada ainda</p>
+                      <p className="text-slate-400 text-xs mt-1">A integração com o sistema de emissão será disponibilizada em breve.</p>
+                      <p className="text-slate-400 text-xs mt-0.5">Use a pré-visualização acima para preparar os dados da NF.</p>
+                    </div>
                   </div>
                 </td>
               </tr>

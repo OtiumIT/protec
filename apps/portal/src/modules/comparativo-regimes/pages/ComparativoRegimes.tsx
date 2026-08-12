@@ -10,6 +10,9 @@ import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
+import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import {
   BarChart,
   Bar,
@@ -46,6 +49,8 @@ function formatPct(value: number): string {
 
 export function ComparativoRegimes() {
   const { success, error: showError, ToastContainer } = useToast();
+  const branding = useBranding();
+  const { print: doPrint } = useReportPrint('comparativo-regimes-print-wrapper');
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<(ComparativoRegimesResult & { simulation_id?: string }) | null>(null);
@@ -160,16 +165,40 @@ export function ComparativoRegimes() {
       ]
     : [];
 
+  const bestRegime = result?.regime_mais_economico as 'lucro_presumido' | 'lucro_real' | 'simples_nacional' | undefined;
+  const worstRegime = result
+    ? (['lucro_presumido', 'lucro_real', 'simples_nacional'] as const).reduce((worst, key) =>
+        result[key].carga_total_anual > result[worst].carga_total_anual ? key : worst
+      , 'lucro_presumido' as 'lucro_presumido' | 'lucro_real' | 'simples_nacional')
+    : null;
+  const economiaAnual = result && bestRegime && worstRegime
+    ? result[worstRegime].carga_total_anual - result[bestRegime].carga_total_anual
+    : 0;
+
   return (
     <div className="space-y-6">
       <ToastContainer />
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comparativo de Regimes Tributários</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Comparativo de Regimes Tributários</h1>
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">
             Compare a carga tributária entre Lucro Presumido, Lucro Real e Simples Nacional
           </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              Lei 9.718/98
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              RIR/2018
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              LC 123/2006
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              LC 214/2025
+            </span>
+          </div>
         </div>
       </div>
 
@@ -223,7 +252,7 @@ export function ComparativoRegimes() {
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Total anual: {formatCurrency(faturamentoAnual)}
+              Total anual: <strong>{formatCurrency(faturamentoAnual)}</strong>
             </p>
           </div>
 
@@ -259,7 +288,7 @@ export function ComparativoRegimes() {
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Total anual: {formatCurrency(folhaAnual)}
+              Total anual: <strong>{formatCurrency(folhaAnual)}</strong>
               {faturamentoAnual > 0 && (
                 <span className="ml-2">
                   (Fator R: {((folhaAnual / faturamentoAnual) * 100).toFixed(1)}%)
@@ -342,7 +371,30 @@ export function ComparativoRegimes() {
 
       {/* Results */}
       {result && (
-        <>
+        <div id="comparativo-regimes-print-wrapper" className="report-print-wrapper space-y-4">
+          <ReportPrintHeader
+            variant="printSheet"
+            reportTitle="Comparativo de Regimes Tributários"
+            metaLine={`Ano: ${ano} · Faturamento anual: ${formatCurrency(faturamentoAnual)} · Folha anual: ${formatCurrency(folhaAnual)}`}
+            logoUrl={branding?.report_logo_url}
+            brandName={branding?.report_brand_name}
+          />
+
+          <div className="flex justify-end print:hidden" data-report-exclude="preview">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => doPrint()}
+              className="shrink-0 inline-flex items-center gap-2"
+              aria-label="Exportar resultado para PDF"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exportar para PDF
+            </Button>
+          </div>
+
           {/* Comparison Chart */}
           <Card>
             <div className="p-6">
@@ -376,6 +428,7 @@ export function ComparativoRegimes() {
               const regime = result[key];
               const isBest = result.regime_mais_economico === key;
               const isExceedLimit = key === 'simples_nacional' && result.simples_nacional.excede_limite;
+              const diffFromBest = isBest ? 0 : regime.carga_total_anual - (bestRegime ? result[bestRegime].carga_total_anual : 0);
 
               return (
                 <Card
@@ -388,7 +441,8 @@ export function ComparativoRegimes() {
                 >
                   <div className="p-6">
                     {isBest && (
-                      <span className="absolute top-3 right-3 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs font-semibold px-2 py-1 rounded-full">
+                      <span className="absolute top-3 right-3 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                         Mais Econômico
                       </span>
                     )}
@@ -428,6 +482,16 @@ export function ComparativoRegimes() {
                           {formatPct(regime.aliquota_efetiva)}
                         </span>
                       </div>
+                      {!isBest && diffFromBest > 0 && (
+                        <div className="flex justify-between items-baseline text-xs">
+                          <span className="text-rose-600 dark:text-rose-400">
+                            Diferença vs melhor regime
+                          </span>
+                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                            +{formatCurrency(diffFromBest)}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Impostos detalhados */}
@@ -438,7 +502,7 @@ export function ComparativoRegimes() {
                       {regime.impostos_detalhados.map((imp, idx) => (
                         <div
                           key={idx}
-                          className="flex justify-between text-sm"
+                          className="flex justify-between text-sm group relative"
                         >
                           <span className="text-gray-600 dark:text-gray-400">
                             {imp.nome}
@@ -460,20 +524,26 @@ export function ComparativoRegimes() {
             })}
           </div>
 
-          {/* Economia */}
-          {result.economia_vs_atual !== undefined && result.economia_vs_atual > 0 && (
+          {/* Economia anual */}
+          {result && bestRegime && economiaAnual > 0 && (
             <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
               <div className="p-6 text-center">
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  Economia potencial vs regime atual ({REGIME_LABELS[regimeAtual] || 'N/A'})
+                  Economia anual potencial ao optar por {REGIME_LABELS[bestRegime]}
+                  {regimeAtual ? ` vs ${REGIME_LABELS[regimeAtual]}` : ` vs regime mais caro (${REGIME_LABELS[worstRegime!]})`}
                 </p>
                 <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-1">
-                  {formatCurrency(result.economia_vs_atual)}/ano
+                  {formatCurrency(regimeAtual && result.economia_vs_atual ? result.economia_vs_atual : economiaAnual)}/ano
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                  Equivale a {formatCurrency((regimeAtual && result.economia_vs_atual ? result.economia_vs_atual : economiaAnual) / 12)}/mês
                 </p>
               </div>
             </Card>
           )}
-        </>
+
+          <ReportPrintFooter variant="printSheet" brandName={branding?.report_brand_name} />
+        </div>
       )}
 
       {/* History Section */}
