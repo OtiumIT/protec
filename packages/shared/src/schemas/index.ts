@@ -21,3 +21,6 @@ export * from './user-feedback.schema.js';
 export * from './distribuicao-lucros-simulations.schema.js';
 export * from './gestao-imobiliaria.schema.js';
 export * from './mapeamento-despesas-pj.schema.js';
+export * from './precificador.schema.js';
+export * from './split-payment.schema.js';
+export * from './comparativo-regimes.schema.js';

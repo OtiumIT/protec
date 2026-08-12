@@ -23,6 +23,9 @@ import { gestaoImobiliariaRoutes, gestaoImobiliariaPublicRoutes } from './gestao
 import { mapeamentoDespesasPjRoutes } from './mapeamento-despesas-pj/mapeamento-despesas-pj.routes';
 import { accessListRoutes } from './access-list/access-list.routes';
 import { simulationSharesRoutes, simulationSharesPublicRoutes } from './simulation-shares/simulation-shares.routes';
+import { comparativoRegimesRoutes } from './comparativo-regimes/comparativo-regimes.routes';
+import { precificadorRoutes } from './precificador/precificador.routes';
+import { splitPaymentRoutes } from './split-payment/split-payment.routes';
 import { feedbackRoutes } from './feedback/feedback.routes';
 import { FeedbackService } from './feedback/feedback.service';
 import { debugRoutes } from './debug/debug.routes';
@@ -320,6 +323,9 @@ app.route('/api/v1/distribuicao-lucros-simulations', distribuicaoLucrosSimulatio
 app.route('/api/v1/gestao-imobiliaria/public', gestaoImobiliariaPublicRoutes);
 app.route('/api/v1/gestao-imobiliaria', gestaoImobiliariaRoutes);
 app.route('/api/v1/mapeamento-despesas-pj', mapeamentoDespesasPjRoutes);
+app.route('/api/v1/comparativo-regimes', comparativoRegimesRoutes);
+app.route('/api/v1/precificador', precificadorRoutes);
+app.route('/api/v1/split-payment', splitPaymentRoutes);
 app.route('/api/v1/simulation-shares/public', simulationSharesPublicRoutes);
 app.route('/api/v1/simulation-shares', simulationSharesRoutes);
 app.route('/api/v1/access-list', accessListRoutes);

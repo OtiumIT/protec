@@ -39,6 +39,9 @@ import { SimulacaoPublica } from './modules/properties/pages/SimulacaoPublica';
 import { MapeamentoDespesasPj } from './modules/mapeamento-despesas-pj/pages/MapeamentoDespesasPj';
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
+import { ComparativoRegimes } from './modules/comparativo-regimes/pages/ComparativoRegimes';
+import { Precificador } from './modules/precificador/pages/Precificador';
+import { SplitPaymentSimulador } from './modules/split-payment/pages/SplitPaymentSimulador';
 import { AccessList } from './modules/access-list/pages/AccessList';
 import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
@@ -200,6 +203,9 @@ function AppRoutes() {
           <Route path="/gestao-imobiliaria" element={<GestaoImobiliaria />} />
           <Route path="/gestao-imobiliaria/:section" element={<GestaoImobiliaria />} />
           <Route path="/mapeamento-despesas-pj" element={<MapeamentoDespesasPj />} />
+          <Route path="/comparativo-regimes" element={<ComparativoRegimes />} />
+          <Route path="/precificador" element={<Precificador />} />
+          <Route path="/split-payment" element={<SplitPaymentSimulador />} />
           <Route path="/configuracoes" element={<WhiteLabelSettings />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/documentacao/glossario" element={<Glossario />} />

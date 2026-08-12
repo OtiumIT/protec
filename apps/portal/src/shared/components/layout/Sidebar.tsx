@@ -12,6 +12,8 @@ import {
   faClipboardList,
   faLock,
   faCommentDots,
+  faScissors,
+  faChartBar,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
@@ -29,6 +31,7 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   /** Nome do grupo na sidebar; subitens listam cada ferramenta */
   IRPF_ALTA_RENDA: 'IRPF',
   GESTAO_IMOVEIS: 'Gestão Imobiliária',
+  COMPARATIVO_REGIMES: 'Reforma Tributária',
 };
 
 /** Itens do menu que não dependem de módulo ativo no tenant (ex.: promoções pontuais) */
@@ -72,6 +75,8 @@ const CATEGORY_ICONS = {
   cogSliders: <FontAwesomeIcon icon={faGear} className="w-5 h-5" />,
   /** Documentação: livro aberto */
   bookOpen: <FontAwesomeIcon icon={faBookOpen} className="w-5 h-5" />,
+  /** Reforma Tributária: gráfico de barras comparativo */
+  reformaTributaria: <FontAwesomeIcon icon={faChartBar} className="w-5 h-5" />,
 };
 
 // Menu Super Admin (gestão global do sistema)
@@ -366,6 +371,31 @@ const adminMenuItems: MenuItem[] = [
     ],
   },
   {
+    name: 'Reforma Tributária',
+    moduleKey: 'COMPARATIVO_REGIMES',
+    icon: CATEGORY_ICONS.reformaTributaria,
+    children: [
+      {
+        name: 'Comparativo de Regimes',
+        path: '/comparativo-regimes',
+        moduleKey: 'COMPARATIVO_REGIMES',
+        icon: <FontAwesomeIcon icon={faChartBar} className="w-4 h-4" />,
+      },
+      {
+        name: 'Precificador',
+        path: '/precificador',
+        moduleKey: 'PRECIFICADOR',
+        icon: <FontAwesomeIcon icon={faCalculator} className="w-4 h-4" />,
+      },
+      {
+        name: 'Split Payment',
+        path: '/split-payment',
+        moduleKey: 'SPLIT_PAYMENT',
+        icon: <FontAwesomeIcon icon={faScissors} className="w-4 h-4" />,
+      },
+    ],
+  },
+  {
     name: 'Mapeamento PF → PJ',
     moduleKey: 'MAPEAMENTO_DESPESAS_PJ',
     path: '/mapeamento-despesas-pj',
@@ -512,6 +542,8 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       if (pathname === '/irpf-alta-renda' || pathname === '/simulador-distribuicao-lucros-lei-15270')
         return 'irpf_alta_renda';
       if (pathname.startsWith('/properties') || pathname.startsWith('/gestao-imobiliaria')) return 'gestao_imoveis';
+      if (pathname === '/comparativo-regimes' || pathname === '/precificador' || pathname === '/split-payment')
+        return 'comparativo_regimes';
       if (pathname === '/mapeamento-despesas-pj') return 'mapeamento_despesas_pj';
       if (pathname === '/users' || pathname === '/documentacao' || pathname.startsWith('/documentacao')) return 'administracao';
     }
@@ -590,12 +622,14 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const irpf = get(undefined, undefined, 'IRPF_ALTA_RENDA');
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
 
+    const reformaTributaria = get(undefined, undefined, 'COMPARATIVO_REGIMES');
     const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
       { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
       { key: 'FISCAL_FILES', item: fiscalFiles },
       { key: 'RATING_VALIDATOR', item: rating },
       { key: 'SIMULADOR_IN_2306', item: simulador },
       { key: 'IRPF_ALTA_RENDA', item: irpf },
+      { key: 'COMPARATIVO_REGIMES', item: reformaTributaria },
     ];
     const moduleIcons: Record<string, React.ReactNode> = {
       FISCAL_FILES: CATEGORY_ICONS.bookOpen,
@@ -603,6 +637,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       SIMULADOR_IN_2306: CATEGORY_ICONS.chartEasel,
       IRPF_ALTA_RENDA: CATEGORY_ICONS.diamond,
       GESTAO_IMOVEIS: CATEGORY_ICONS.building,
+      COMPARATIVO_REGIMES: CATEGORY_ICONS.reformaTributaria,
     };
     const MODULE_SUBTITLES: Record<string, string> = {
       SIMULADOR_IN_2306: 'aumento lucro presumido',

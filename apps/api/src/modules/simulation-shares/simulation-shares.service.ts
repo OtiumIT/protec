@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { query } from '../../db/client';
 import { AppError } from '../../shared/utils/error-handler';
 
-type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel';
+type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel' | 'comparativo_regimes' | 'precificador' | 'split_payment';
 
 const TABLE_MAP: Record<SimulationType, { table: string; cols: string }> = {
   in_2306: {
@@ -24,6 +24,18 @@ const TABLE_MAP: Record<SimulationType, { table: string; cols: string }> = {
   ganho_capital_imovel: {
     table: 'property_simulations',
     cols: 'id, ano, simulation_kind, input_data, result_data, title, created_at',
+  },
+  comparativo_regimes: {
+    table: 'comparativo_regimes_simulations',
+    cols: 'id, ano, input_data, result_data, title, created_at',
+  },
+  precificador: {
+    table: 'precificador_simulations',
+    cols: 'id, input_data, result_data, title, created_at',
+  },
+  split_payment: {
+    table: 'split_payment_simulations',
+    cols: 'id, input_data, result_data, title, created_at',
   },
 };
 

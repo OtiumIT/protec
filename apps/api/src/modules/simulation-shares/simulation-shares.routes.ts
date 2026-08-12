@@ -16,7 +16,7 @@ simulationSharesRoutes.use('/*', tenantMiddleware);
 simulationSharesRoutes.use('/*', authMiddleware);
 
 const CreateShareSchema = z.object({
-  simulation_type: z.enum(['in_2306', 'irpf_alta_renda', 'distribuicao_lucros', 'locacao_pf_pj', 'ganho_capital_imovel']),
+  simulation_type: z.enum(['in_2306', 'irpf_alta_renda', 'distribuicao_lucros', 'locacao_pf_pj', 'ganho_capital_imovel', 'comparativo_regimes', 'precificador', 'split_payment']),
   simulation_id: z.string().uuid(),
   title: z.string().max(255).optional(),
   expires_in_days: z.number().int().min(1).max(365).default(30),

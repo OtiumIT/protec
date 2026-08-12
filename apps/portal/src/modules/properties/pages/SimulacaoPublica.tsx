@@ -196,6 +196,77 @@ function DistribuicaoLucrosResult({ snapshot }: { snapshot: Record<string, unkno
   );
 }
 
+function ComparativoRegimesResult({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const rd = (snapshot.result_data ?? snapshot) as Record<string, any>;
+  const regimes = ['lucro_presumido', 'lucro_real', 'simples_nacional'] as const;
+  const labels: Record<string, string> = { lucro_presumido: 'Lucro Presumido', lucro_real: 'Lucro Real', simples_nacional: 'Simples Nacional' };
+  const best = rd.regime_mais_economico as string | undefined;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {regimes.map((key) => {
+        const r = rd[key] as Record<string, any> | undefined;
+        if (!r) return null;
+        const isBest = best === key;
+        return (
+          <Card key={key} className={`p-4 ${isBest ? 'ring-2 ring-green-400' : ''}`}>
+            <h3 className="text-sm font-semibold text-slate-600 mb-1">
+              {labels[key]}{isBest && <span className="ml-1 text-xs text-green-600">Mais econômico</span>}
+            </h3>
+            <p className="text-2xl font-bold text-slate-800">{formatMoney(r.carga_total_anual ?? 0)}</p>
+            <p className="text-xs text-slate-500 mt-1">Alíquota efetiva: {fmtPct(r.aliquota_efetiva ?? 0)}</p>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function PrecificadorPublicResult({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const rd = (snapshot.result_data ?? snapshot) as Record<string, any>;
+  const regimes = [rd.lucro_presumido, rd.lucro_real, rd.simples_nacional, rd.reforma_ibs_cbs].filter(Boolean);
+  const best = rd.melhor_regime as string | undefined;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {regimes.map((r: any) => (
+        <Card key={r.regime} className={`p-4 ${r.regime === best ? 'ring-2 ring-green-400' : ''}`}>
+          <h3 className="text-sm font-semibold text-slate-600 mb-1">
+            {r.regime}{r.regime === best && <span className="ml-1 text-xs text-green-600">Melhor margem</span>}
+          </h3>
+          <p className="text-2xl font-bold text-slate-800">{formatMoney(r.preco_sugerido ?? 0)}</p>
+          <p className="text-xs text-slate-500 mt-1">Total impostos: {formatMoney(r.total_impostos ?? 0)}</p>
+          <p className="text-xs text-slate-500">Margem líq.: {formatMoney(r.margem_liquida_resultante ?? 0)}</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function SplitPaymentPublicResult({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const rd = (snapshot.result_data ?? snapshot) as Record<string, any>;
+  const resumo = rd.resumo as Record<string, any> | undefined;
+  if (!resumo) return <GenericSnapshotResult snapshot={snapshot} />;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-slate-600 mb-1">Capital de Giro Necessário</h3>
+        <p className="text-xl font-bold text-slate-800">{formatMoney(resumo.capital_giro_necessario ?? 0)}</p>
+      </Card>
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-slate-600 mb-1">Custo Financeiro Mensal</h3>
+        <p className="text-xl font-bold text-slate-800">{formatMoney(resumo.custo_financeiro_mensal ?? 0)}</p>
+      </Card>
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-slate-600 mb-1">Custo Financeiro Anual</h3>
+        <p className="text-xl font-bold text-slate-800">{formatMoney(resumo.custo_financeiro_anual ?? 0)}</p>
+      </Card>
+      <Card className="p-4">
+        <h3 className="text-sm font-semibold text-slate-600 mb-1">Redução no Caixa</h3>
+        <p className="text-xl font-bold text-slate-800">{fmtPct(resumo.reducao_caixa_percentual ?? 0)}</p>
+      </Card>
+    </div>
+  );
+}
+
 function GenericSnapshotResult({ snapshot }: { snapshot: Record<string, unknown> }) {
   const rd = (snapshot.result_data ?? snapshot) as Record<string, any>;
   const entries = Object.entries(rd).filter(([, v]) => typeof v === 'number' || typeof v === 'string').slice(0, 10);
@@ -217,6 +288,9 @@ const TYPE_LABELS: Record<string, string> = {
   in_2306: 'Simulador LC 224/2025 (IN 2306)',
   irpf_alta_renda: 'IRPF Alta Renda — Lei 15.270/2025',
   distribuicao_lucros: 'Distribuição de Lucros — Lei 15.270/2025',
+  comparativo_regimes: 'Comparativo de Regimes Tributários',
+  precificador: 'Precificador com Custo Tributário',
+  split_payment: 'Simulador de Impacto — Split Payment',
 };
 
 export function SimulacaoPublica() {
@@ -285,6 +359,12 @@ export function SimulacaoPublica() {
         return <IrpfResult snapshot={snapshot} />;
       case 'distribuicao_lucros':
         return <DistribuicaoLucrosResult snapshot={snapshot} />;
+      case 'comparativo_regimes':
+        return <ComparativoRegimesResult snapshot={snapshot} />;
+      case 'precificador':
+        return <PrecificadorPublicResult snapshot={snapshot} />;
+      case 'split_payment':
+        return <SplitPaymentPublicResult snapshot={snapshot} />;
       default:
         return <GenericSnapshotResult snapshot={snapshot} />;
     }

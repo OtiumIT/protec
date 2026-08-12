@@ -5,6 +5,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { ConfirmModal } from '../../../shared/components/ui/ConfirmModal';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { useBranding } from '../../../shared/hooks/useBranding';
 import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { propertyService, type PropertyWithClient } from '../../properties/services/property.service';
@@ -13,13 +14,14 @@ import {
   gestaoImobiliariaService as svc,
   type StatementData, type AlertItem,
 } from '../services/gestao-imobiliaria.service';
-import type { PropertyLease, PropertyLedgerEntry } from '@shared/core';
+import type { PropertyLease, PropertyTenant, PropertyLedgerEntry } from '@shared/core';
 
 const TABS = [
   { key: 'portfolio', label: 'Portfólio' },
   { key: 'imoveis', label: 'Imóveis' },
   { key: 'contratos', label: 'Contratos' },
   { key: 'custos', label: 'Custos' },
+  { key: 'notas-fiscais', label: 'Notas Fiscais' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 /** Telas ocultas no menu (código mantido para reativação). */
@@ -150,6 +152,7 @@ export function GestaoImobiliaria() {
       {tab === 'imoveis' && <ImoveisTab clients={clients} clientId={clientId} properties={properties} onChanged={() => { reloadProperties(); }} onClientsChanged={reloadClients} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'contratos' && <ContratosTab clientId={clientId} properties={properties} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'custos' && <CustosTab clientId={clientId} properties={properties} onChanged={reloadProperties} onError={showError} onSuccess={success} />}
+      {tab === 'notas-fiscais' && <NotasFiscaisTab clientId={clientId} properties={properties} />}
     </div>
   );
 }
@@ -1360,6 +1363,318 @@ function ImportIrpfModal({ clients, defaultClientId, existingIdentificadores, on
         <div className="p-8 text-center text-slate-500 text-sm">Cadastrando imóveis…</div>
       )}
     </Modal>
+  );
+}
+
+// ---------------- Notas Fiscais ----------------
+
+type NfFormState = {
+  leaseId: string;
+  competencia: string;
+  valorServico: string;
+  descricaoServico: string;
+  issAliquota: string;
+  issRetido: boolean;
+  tomadorNome: string;
+  tomadorDocumento: string;
+  tomadorEndereco: string;
+  prestadorNome: string;
+  prestadorCnpj: string;
+  prestadorEndereco: string;
+};
+
+function emptyNfForm(): NfFormState {
+  return {
+    leaseId: '', competencia: currentCompetencia(), valorServico: '', descricaoServico: '',
+    issAliquota: '5', issRetido: false,
+    tomadorNome: '', tomadorDocumento: '', tomadorEndereco: '',
+    prestadorNome: '', prestadorCnpj: '', prestadorEndereco: '',
+  };
+}
+
+function buildPropertyAddress(p: PropertyWithClient): string {
+  const a = p as any;
+  const parts: string[] = [];
+  if (a.logradouro) parts.push(a.logradouro);
+  if (a.numero) parts.push(a.numero);
+  if (a.complemento) parts.push(a.complemento);
+  if (a.bairro) parts.push(a.bairro);
+  if (a.cidade) parts.push(a.cidade + (a.uf ? `/${a.uf}` : ''));
+  return parts.join(', ') || p.identificador;
+}
+
+function NotasFiscaisTab({ clientId, properties }: { clientId: string; properties: PropertyWithClient[] }) {
+  const branding = useBranding();
+  const [leases, setLeases] = useState<PropertyLease[]>([]);
+  const [tenants, setTenants] = useState<PropertyTenant[]>([]);
+  const [form, setForm] = useState<NfFormState>(emptyNfForm());
+  const [showPreview, setShowPreview] = useState(false);
+
+  useEffect(() => {
+    svc.listLeases(clientId ? { client_id: clientId, status: 'ativo' } : { status: 'ativo' })
+      .then(setLeases).catch(() => setLeases([]));
+    svc.listTenants(clientId || undefined).then(setTenants).catch(() => setTenants([]));
+  }, [clientId]);
+
+  const activeLeases = useMemo(() => leases.filter((l) => l.status === 'ativo' || l.status === 'inadimplente'), [leases]);
+
+  const selectedLease = useMemo(() => activeLeases.find((l) => l.id === form.leaseId), [activeLeases, form.leaseId]);
+  const selectedProperty = useMemo(() => properties.find((p) => p.id === selectedLease?.property_id), [properties, selectedLease]);
+  const selectedTenant = useMemo(() => tenants.find((t) => t.id === selectedLease?.tenant_id), [tenants, selectedLease]);
+
+  useEffect(() => {
+    if (!selectedLease || !selectedProperty) return;
+    const addr = buildPropertyAddress(selectedProperty);
+    const comp = form.competencia || currentCompetencia();
+    const [y, m] = comp.split('-');
+    const compLabel = `${m}/${y}`;
+
+    setForm((f) => ({
+      ...f,
+      valorServico: f.valorServico || String(selectedLease.valor_aluguel ?? 0),
+      descricaoServico: f.descricaoServico || `Locação de imóvel - ${addr} - Competência ${compLabel}`,
+      tomadorNome: selectedTenant?.nome ?? '',
+      tomadorDocumento: selectedTenant?.documento ?? '',
+      tomadorEndereco: '',
+      prestadorNome: branding?.report_brand_name ?? '',
+      prestadorCnpj: '',
+      prestadorEndereco: '',
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLease?.id, selectedProperty?.id, selectedTenant?.id, branding?.report_brand_name]);
+
+  const handleLeaseChange = (leaseId: string) => {
+    const lease = activeLeases.find((l) => l.id === leaseId);
+    const prop = properties.find((p) => p.id === lease?.property_id);
+    const tenant = tenants.find((t) => t.id === lease?.tenant_id);
+    const addr = prop ? buildPropertyAddress(prop) : '';
+    const comp = form.competencia || currentCompetencia();
+    const [y, m] = comp.split('-');
+    const compLabel = `${m}/${y}`;
+
+    setForm({
+      ...emptyNfForm(),
+      leaseId,
+      competencia: form.competencia,
+      valorServico: String(lease?.valor_aluguel ?? ''),
+      descricaoServico: lease ? `Locação de imóvel - ${addr} - Competência ${compLabel}` : '',
+      issAliquota: '5',
+      issRetido: false,
+      tomadorNome: tenant?.nome ?? '',
+      tomadorDocumento: tenant?.documento ?? '',
+      tomadorEndereco: '',
+      prestadorNome: branding?.report_brand_name ?? '',
+      prestadorCnpj: '',
+      prestadorEndereco: '',
+    });
+    setShowPreview(false);
+  };
+
+  const valorServico = Number(form.valorServico) || 0;
+  const issAliquota = Number(form.issAliquota) || 0;
+  const valorIss = valorServico * (issAliquota / 100);
+  const valorLiquido = form.issRetido ? valorServico - valorIss : valorServico;
+
+  const canPreview = !!form.leaseId && valorServico > 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 flex items-start gap-2">
+        <svg className="h-5 w-5 flex-shrink-0 mt-0.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div>
+          <strong>Pré-visualização de NF:</strong> Esta tela permite preencher e visualizar os dados da nota fiscal de serviço.
+          A emissão real será integrada com o sistema de Nota Fiscal em uma próxima atualização.
+        </div>
+      </div>
+
+      <Card title="Dados da Nota Fiscal">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label="Contrato *">
+            <select value={form.leaseId} onChange={(e) => handleLeaseChange(e.target.value)} className={inputCls}>
+              <option value="">Selecione um contrato ativo…</option>
+              {activeLeases.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.property_identificador ?? '—'} — {l.tenant_nome ?? 'Sem inquilino'} ({brl(Number(l.valor_aluguel))})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Competência">
+            <input type="month" value={form.competencia} onChange={(e) => setForm({ ...form, competencia: e.target.value })} className={inputCls} />
+          </Field>
+          <Field label="Valor do Serviço (R$)">
+            <input type="number" step="0.01" min="0" value={form.valorServico} onChange={(e) => setForm({ ...form, valorServico: e.target.value })} className={inputCls} />
+          </Field>
+          <div className="md:col-span-3">
+            <Field label="Descrição do Serviço">
+              <textarea value={form.descricaoServico} onChange={(e) => setForm({ ...form, descricaoServico: e.target.value })} className={`${inputCls} min-h-[60px]`} rows={2} />
+            </Field>
+          </div>
+          <Field label="ISS Alíquota (%)">
+            <input type="number" step="0.01" min="0" max="100" value={form.issAliquota} onChange={(e) => setForm({ ...form, issAliquota: e.target.value })} className={inputCls} />
+          </Field>
+          <div className="flex items-end pb-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={form.issRetido} onChange={(e) => setForm({ ...form, issRetido: e.target.checked })} className="rounded border-slate-300" />
+              ISS retido na fonte?
+            </label>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 mt-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Dados do Tomador</div>
+              <div className="space-y-2">
+                <Field label="Nome / Razão Social">
+                  <input value={form.tomadorNome} onChange={(e) => setForm({ ...form, tomadorNome: e.target.value })} className={inputCls} />
+                </Field>
+                <Field label="CPF / CNPJ">
+                  <input value={form.tomadorDocumento} onChange={(e) => setForm({ ...form, tomadorDocumento: e.target.value })} className={inputCls} />
+                </Field>
+                <Field label="Endereço">
+                  <input value={form.tomadorEndereco} onChange={(e) => setForm({ ...form, tomadorEndereco: e.target.value })} className={inputCls} placeholder="Endereço completo do tomador" />
+                </Field>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Dados do Prestador</div>
+              <div className="space-y-2">
+                <Field label="Nome / Razão Social">
+                  <input value={form.prestadorNome} onChange={(e) => setForm({ ...form, prestadorNome: e.target.value })} className={inputCls} />
+                </Field>
+                <Field label="CNPJ">
+                  <input value={form.prestadorCnpj} onChange={(e) => setForm({ ...form, prestadorCnpj: e.target.value })} className={inputCls} />
+                </Field>
+                <Field label="Endereço">
+                  <input value={form.prestadorEndereco} onChange={(e) => setForm({ ...form, prestadorEndereco: e.target.value })} className={inputCls} placeholder="Endereço completo do prestador" />
+                </Field>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={() => { setForm(emptyNfForm()); setShowPreview(false); }}>Limpar</Button>
+          <Button size="sm" onClick={() => setShowPreview(true)} disabled={!canPreview}>Pré-visualizar NF</Button>
+        </div>
+      </Card>
+
+      {showPreview && canPreview && (
+        <Card title="Pré-visualização da Nota Fiscal">
+          <div className="border border-slate-300 rounded-xl p-6 bg-white space-y-5 print:border-none">
+            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3">
+              <div>
+                <div className="text-lg font-bold text-slate-900">NOTA FISCAL DE SERVIÇO</div>
+                <div className="text-xs text-slate-500 mt-1">Pré-visualização — documento não fiscal</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-bold text-indigo-700">{form.prestadorNome || 'Prestador'}</div>
+                {form.prestadorCnpj && <div className="text-xs text-slate-500">CNPJ: {form.prestadorCnpj}</div>}
+                {form.prestadorEndereco && <div className="text-xs text-slate-500">{form.prestadorEndereco}</div>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="text-xs font-bold uppercase text-slate-500 mb-1">Prestador</div>
+                <div className="font-medium">{form.prestadorNome || '—'}</div>
+                {form.prestadorCnpj && <div className="text-slate-600">CNPJ: {form.prestadorCnpj}</div>}
+                {form.prestadorEndereco && <div className="text-slate-600">{form.prestadorEndereco}</div>}
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="text-xs font-bold uppercase text-slate-500 mb-1">Tomador</div>
+                <div className="font-medium">{form.tomadorNome || '—'}</div>
+                {form.tomadorDocumento && <div className="text-slate-600">{selectedTenant?.tipo_pessoa === 'pf' ? 'CPF' : 'CNPJ'}: {form.tomadorDocumento}</div>}
+                {form.tomadorEndereco && <div className="text-slate-600">{form.tomadorEndereco}</div>}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-bold uppercase text-slate-500 mb-1">Descrição do Serviço</div>
+              <div className="text-sm text-slate-700 whitespace-pre-wrap">{form.descricaoServico || '—'}</div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-b border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">Valor do Serviço</td>
+                    <td className="px-4 py-2 text-right font-semibold">{brl(valorServico)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">Base de Cálculo</td>
+                    <td className="px-4 py-2 text-right font-semibold">{brl(valorServico)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">Alíquota ISS</td>
+                    <td className="px-4 py-2 text-right font-semibold">{issAliquota.toFixed(2)}%</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">Valor ISS {form.issRetido ? '(retido na fonte)' : ''}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-amber-700">{brl(valorIss)}</td>
+                  </tr>
+                  <tr className="bg-slate-900 text-white">
+                    <td className="px-4 py-3 font-bold">Valor Líquido</td>
+                    <td className="px-4 py-3 text-right font-bold text-lg">{brl(valorLiquido)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+              <svg className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>NF será gerada após integração com o sistema de emissão.</span>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="relative group">
+                <Button size="sm" disabled>
+                  <span className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Gerar NF
+                  </span>
+                </Button>
+                <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-10">
+                  <div className="rounded-lg bg-slate-900 text-white text-xs px-3 py-2 whitespace-nowrap shadow-lg">
+                    Integração com sistema de emissão em breve
+                    <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Card title="Notas Fiscais Emitidas">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 text-xs uppercase">
+                <th className="py-2">Competência</th>
+                <th>Imóvel</th>
+                <th>Inquilino</th>
+                <th className="text-right">Valor</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={6} className="py-10 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <svg className="h-10 w-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <p className="text-slate-400 text-sm">Nenhuma nota fiscal gerada.</p>
+                    <p className="text-slate-400 text-xs">A integração com o sistema de emissão será disponibilizada em breve.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 

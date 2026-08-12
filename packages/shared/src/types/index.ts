@@ -162,6 +162,28 @@ export type DistribuicaoLucrosSimulation = {
   updated_at: Date | string;
 };
 
+/** Simulação persistida: Impacto do Split Payment */
+export type SplitPaymentSimulation = {
+  id: string;
+  client_id: string | null;
+  input_data: Record<string, unknown>;
+  result_data: Record<string, unknown>;
+  title: string | null;
+  created_by: string | null;
+  created_at: Date | string;
+};
+
+/** Simulação persistida: Precificador com Custo Tributário */
+export type PrecificadorSimulation = {
+  id: string;
+  client_id: string | null;
+  input_data: Record<string, unknown>;
+  result_data: Record<string, unknown>;
+  title: string | null;
+  created_by: string | null;
+  created_at: Date | string;
+};
+
 // Re-exportar LegalThesis para manter compatibilidade
 export type { LegalThesis };
 
