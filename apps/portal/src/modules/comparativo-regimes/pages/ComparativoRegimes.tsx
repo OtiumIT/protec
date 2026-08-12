@@ -81,6 +81,26 @@ export function ComparativoRegimes() {
     loadSimulations();
   }, [loadSimulations]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        setFaturamentoMensal([80000, 85000, 90000, 75000, 95000, 88000, 82000, 91000, 87000, 93000, 86000, 100000]);
+        setFolhaMensal([26000, 28000, 30000, 25000, 32000, 29000, 27000, 31000, 28000, 30000, 27000, 33000]);
+        setCustosDedutiveis(15000);
+        setCnae('6920-6/01');
+        setIssAliquota(5);
+        setRegimeAtual('lucro_presumido');
+        setAno(2025);
+        setTitle('Consultoria Contábil - Análise 2025');
+        setResult(null);
+        success('Dados de exemplo preenchidos');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [success]);
+
   function buildInput(): ComparativoRegimesInput {
     return {
       faturamento_mensal: faturamentoMensal,

@@ -156,6 +156,25 @@ export function Precificador() {
 
   useEffect(() => { void loadClients(); }, [loadClients]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        setCustoServico(3500);
+        setMargemDesejada(40);
+        setMargemTipo('percentual');
+        setFaturamentoMensal(85000);
+        setFolhaMensal(28000);
+        setIssAliquota(5);
+        setAno(2025);
+        setSaveTitle('Consultoria - Precificação 2025');
+        success('Dados de exemplo preenchidos');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [success]);
+
   const loadSimulations = useCallback(async () => {
     if (!clientId) { setSimulations([]); return; }
     setLoadingSims(true);

@@ -104,6 +104,24 @@ export function SplitPaymentSimulador() {
 
   useEffect(() => { void loadClients(); }, [loadClients]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        setFaturamento([110000, 115000, 125000, 130000, 120000, 118000, 135000, 128000, 122000, 140000, 132000, 145000]);
+        setRegime('lucro_presumido');
+        setPctEletronico(75);
+        setPrazoMedio(35);
+        setCustoCapital(13.75);
+        setAliquotaIbsCbs(26.5);
+        setSaveTitle('Cenário Split 75% eletrônico');
+        success('Dados de exemplo preenchidos');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [success]);
+
   const loadSimulations = useCallback(async () => {
     if (!clientId) { setSimulations([]); return; }
     setLoadingSims(true);
