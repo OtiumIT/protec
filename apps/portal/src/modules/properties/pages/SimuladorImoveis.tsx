@@ -2540,7 +2540,7 @@ export function SimuladorImoveis() {
         </details>
 
         <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2 border-t border-slate-100">
-          <Button type="submit" variant="primary" disabled={loading} className="min-w-[220px] sm:ml-auto">
+          <Button type="submit" variant="primary" loading={loading} className="min-w-[220px] sm:ml-auto">
             {loading
               ? 'Calculando...'
               : editingSimulationId

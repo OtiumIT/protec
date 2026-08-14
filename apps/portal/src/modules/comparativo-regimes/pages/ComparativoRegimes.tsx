@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { comparativoRegimesService, type ComparativoRegimesInput } from '../services/comparativo-regimes.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
+import { PageLoading } from '../../../shared/components/ui/Spinner';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Input } from '../../../shared/components/ui/Input';
@@ -50,6 +51,7 @@ export function ComparativoRegimes() {
   const { print: doPrint } = useReportPrint('comparativo-regimes-print-wrapper');
 
   const [loading, setLoading] = useState(false);
+  const [loadingSims, setLoadingSims] = useState(true);
   const [result, setResult] = useState<(ComparativoRegimesResult & { simulation_id?: string }) | null>(null);
   const [simulations, setSimulations] = useState<ComparativoRegimesSimulation[]>([]);
   const [viewSimulation, setViewSimulation] = useState<ComparativoRegimesSimulation | null>(null);
@@ -66,11 +68,14 @@ export function ComparativoRegimes() {
   const [title, setTitle] = useState('');
 
   const loadSimulations = useCallback(async () => {
+    setLoadingSims(true);
     try {
       const data = await comparativoRegimesService.list({ limit: 50 });
       setSimulations(data.simulations);
     } catch {
       /* silent */
+    } finally {
+      setLoadingSims(false);
     }
   }, []);
 
@@ -371,12 +376,13 @@ export function ComparativoRegimes() {
                 placeholder="Ex: Empresa ABC - Análise 2026"
               />
             </div>
-            <Button onClick={handleSimulate} disabled={loading || faturamentoAnual <= 0}>
+            <Button onClick={handleSimulate} loading={loading} disabled={faturamentoAnual <= 0}>
               {loading ? 'Simulando...' : 'Simular'}
             </Button>
             <Button
               onClick={handleSimulateAndSave}
-              disabled={loading || faturamentoAnual <= 0}
+              loading={loading}
+              disabled={faturamentoAnual <= 0}
               variant="secondary"
             >
               {loading ? 'Salvando...' : 'Simular e Salvar'}
@@ -557,7 +563,9 @@ export function ComparativoRegimes() {
 
       {/* History Section */}
       <Card title="Simulações Salvas">
-          {simulations.length === 0 ? (
+          {loadingSims ? (
+            <PageLoading label="Carregando simulações…" />
+          ) : simulations.length === 0 ? (
             <p className="text-sm text-slate-500">
               Nenhuma simulação salva. Use "Simular e Salvar" para criar uma.
             </p>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { useToast } from '../../../shared/components/ui/Toast';
+import { PageLoading } from '../../../shared/components/ui/Spinner';
 import { useClients } from '../../../shared/hooks/useClients';
 import { mapeamentoService as svc, type DiagnosisFull, type PortfolioSummary } from '../services/mapeamento-despesas-pj.service';
 import type { ExpenseItemAnswer, ExpenseMappingResult, ExpenseMappingDiagnosis, ClassifiedExpenseItem } from '@shared/core';
@@ -154,9 +155,9 @@ export function MapeamentoDespesasPj() {
   const [view, setView] = useState<View>({ mode: 'list' });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <ToastContainer />
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4 min-w-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mapeamento de Despesas PF → PJ</h1>
           <p className="text-sm text-slate-500">Mostra quanto o sócio gasta do bolso e qual a vantagem de a empresa assumir. Não é parecer nem promessa de crédito.</p>
@@ -176,13 +177,28 @@ export function MapeamentoDespesasPj() {
 function ListView({ onOpen, onError }: { onOpen: (id: string) => void; onError: (m: string) => void }) {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [diagnoses, setDiagnoses] = useState<ExpenseMappingDiagnosis[]>([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    svc.getDashboard().then(setSummary).catch(() => onError('Falha ao carregar o painel'));
-    svc.list({ limit: 50 }).then((r) => setDiagnoses(r.diagnoses)).catch(() => onError('Falha ao listar diagnósticos'));
+    let cancelled = false;
+    Promise.all([svc.getDashboard(), svc.list({ limit: 50 })])
+      .then(([dash, list]) => {
+        if (cancelled) return;
+        setSummary(dash);
+        setDiagnoses(list.diagnoses);
+      })
+      .catch(() => {
+        if (!cancelled) onError('Falha ao carregar diagnósticos');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [onError]);
 
+  if (loading) return <PageLoading label="Carregando diagnósticos…" />;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiBox label="Clientes mapeados" value={String(summary.clientes_mapeados)} />
@@ -192,8 +208,8 @@ function ListView({ onOpen, onError }: { onOpen: (id: string) => void; onError: 
         </div>
       )}
       <Card title="Diagnósticos">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto -mx-1">
+          <table className="w-full min-w-[520px] text-sm">
             <thead><tr className="text-left text-slate-500 text-xs uppercase"><th className="py-2">Cliente</th><th>Ano</th><th>Analisado</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {diagnoses.map((d) => (
@@ -216,7 +232,7 @@ function ListView({ onOpen, onError }: { onOpen: (id: string) => void; onError: 
 
 function KpiBox({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'warn' }) {
   const color = tone === 'pos' ? 'text-emerald-700' : tone === 'warn' ? 'text-amber-700' : 'text-slate-900';
-  return <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="text-xs font-semibold uppercase text-slate-500">{label}</div><div className={`mt-1 text-lg font-bold ${color}`}>{value}</div></div>;
+  return <div className="rounded-xl border border-slate-200 bg-white p-4 min-w-0"><div className="text-xs font-semibold uppercase text-slate-500">{label}</div><div className={`mt-1 text-lg font-bold break-words ${color}`}>{value}</div></div>;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -228,7 +244,7 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------- Wizard ----------------
 function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; onError: (m: string) => void; onSuccess: (m: string) => void }) {
   const [step, setStep] = useState(1);
-  const { clients } = useClients();
+  const { clients, loading: loadingClients } = useClients();
   const [ctx, setCtx] = useState({
     client_id: '', title: '', reference_year: new Date().getFullYear(), activity: '',
     tax_regime: 'simples_nacional', ibs_cbs_treatment: 'avaliar_por_fora', objective: '',
@@ -236,6 +252,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
   const [items, setItems] = useState<WizardItem[]>([]);
   const [preview, setPreview] = useState<ExpenseMappingResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [customInput, setCustomInput] = useState<Record<string, string>>({});
 
@@ -281,8 +298,10 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
     const input = buildInput();
     if (!input.context.client_id) return onError('Selecione o cliente');
     if (input.items.length === 0) return onError('Adicione ao menos uma despesa com descrição');
+    setAnalyzing(true);
     try { setPreview(await svc.analyze(input)); setStep(4); }
     catch (e) { onError(e instanceof Error ? e.message : 'Erro ao analisar'); }
+    finally { setAnalyzing(false); }
   };
   const save = async () => {
     setSaving(true);
@@ -303,7 +322,10 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
         <Card title="Contexto da PJ">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="block"><span className="block text-xs font-semibold uppercase text-slate-500 mb-1">Cliente</span>
-              <select value={ctx.client_id} onChange={(e) => setCtx({ ...ctx, client_id: e.target.value })} className={inputCls}><option value="">Selecione…</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              <select value={ctx.client_id} onChange={(e) => setCtx({ ...ctx, client_id: e.target.value })} className={inputCls} disabled={loadingClients}>
+                <option value="">{loadingClients ? 'Carregando clientes…' : 'Selecione…'}</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select></label>
             <label className="block"><span className="block text-xs font-semibold uppercase text-slate-500 mb-1">Ano de referência</span>
               <input type="number" value={ctx.reference_year} onChange={(e) => setCtx({ ...ctx, reference_year: Number(e.target.value) })} className={inputCls} /></label>
             <label className="block"><span className="block text-xs font-semibold uppercase text-slate-500 mb-1">Atividade principal</span>
@@ -353,9 +375,9 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
                       {section.presets.map((preset) => {
                         const checked = isChecked(preset.label, preset.category_key);
                         return (
-                          <div key={preset.label} className={`flex items-center gap-3 py-2 px-3 rounded-lg transition-colors ${checked ? 'bg-indigo-50/70' : 'hover:bg-slate-50'}`}>
+                          <div key={preset.label} className={`flex flex-wrap items-center gap-2 sm:gap-3 py-2 px-3 rounded-lg transition-colors ${checked ? 'bg-indigo-50/70' : 'hover:bg-slate-50'}`}>
                             <input type="checkbox" checked={checked} onChange={() => togglePreset(preset.label, preset.category_key, section.id)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 shrink-0" />
-                            <span className={`flex-1 text-sm ${checked ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>{preset.label}</span>
+                            <span className={`flex-1 min-w-0 text-sm ${checked ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>{preset.label}</span>
                             {checked && (
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-slate-400">R$</span>
@@ -391,7 +413,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
               );
             })}
           </div>
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+          <div className="mt-4 sticky bottom-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="text-sm font-semibold text-slate-700">Total mensal estimado</span>
               <span className="text-xs text-slate-400 ml-2">({items.filter((i) => i.label.trim()).length} despesa{items.filter((i) => i.label.trim()).length !== 1 ? 's' : ''})</span>
@@ -437,7 +459,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
           </div>
           <div className="mt-4 flex justify-between">
             <Button size="sm" variant="secondary" onClick={() => setStep(2)}>← Despesas</Button>
-            <Button size="sm" onClick={runPreview}>Gerar diagnóstico →</Button>
+            <Button size="sm" onClick={runPreview} loading={analyzing}>{analyzing ? 'Gerando…' : 'Gerar diagnóstico →'}</Button>
           </div>
         </Card>
       )}
@@ -447,7 +469,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
           <ResultView result={preview} />
           <div className="flex justify-between">
             <Button size="sm" variant="secondary" onClick={() => setStep(3)}>← Ajustar</Button>
-            <Button size="sm" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Salvar diagnóstico'}</Button>
+            <Button size="sm" onClick={save} loading={saving}>{saving ? 'Salvando…' : 'Salvar diagnóstico'}</Button>
           </div>
         </div>
       )}
@@ -779,7 +801,7 @@ function DetailView({ id, onError, onSuccess, onBack }: { id: string; onError: (
   const reload = () => svc.getById(id).then(setFull).catch(() => onError('Falha ao carregar diagnóstico'));
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [id]);
 
-  if (!full) return <Card>Carregando…</Card>;
+  if (!full) return <Card><PageLoading label="Carregando diagnóstico…" /></Card>;
   const d = full.diagnosis;
 
   const asResult: ExpenseMappingResult = {

@@ -1,16 +1,20 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Spinner } from './Spinner';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'tertiary';
   size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
   children: ReactNode;
 }
 
 export const Button = ({
   variant = 'primary',
   size = 'md',
+  loading = false,
   children,
   className = '',
+  disabled,
   ...props
 }: ButtonProps) => {
   const baseClasses =
@@ -33,9 +37,11 @@ export const Button = ({
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} inline-flex items-center justify-center gap-2 ${className}`}
+      disabled={disabled || loading}
       {...props}
     >
+      {loading && <Spinner className="h-4 w-4" />}
       {children}
     </button>
   );
