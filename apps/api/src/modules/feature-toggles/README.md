@@ -37,9 +37,15 @@ Sistema de módulos/feature toggles que permite ativar e desativar funcionalidad
   3. Retornar sucesso
 
 ### Regra 4: Listagem de Módulos
-- **Módulos Disponíveis**: Todos os módulos cadastrados no sistema
-- **Módulos Ativos**: Apenas módulos ativados para o tenant atual
-- **Resposta**: Inclui informações de ativação (enabled_until)
+- **Módulos Disponíveis**: Módulos com `hidden = false`. Super admin pode pedir `?includeHidden=true`.
+- **Módulos Ativos**: Ativados para o tenant **e** não escondidos
+- **Resposta**: Inclui `hidden` e `enabled_until`
+
+### Regra 5: Módulo escondido
+- **Quando aplicar**: Super admin marca o módulo como escondido em Gerenciar Módulos
+- **Efeito**: Some do menu, de `/modules/active` e da ativação por tenant/plano. `requireModule` responde 402 `MODULE_HIDDEN`.
+- **Exceção**: Super admin continua vendo o cadastro para reexibir. O registro em `tenant_modules` não é apagado — ao reexibir, o tenant que já tinha o módulo volta a vê-lo.
+- **Ativação**: Não é possível ativar um módulo escondido (409 `MODULE_HIDDEN`). Reexiba antes.
 
 ## Dependências
 - **Módulos**: Nenhum (módulo base)
@@ -48,9 +54,14 @@ Sistema de módulos/feature toggles que permite ativar e desativar funcionalidad
 ## Endpoints
 
 ### GET /modules
-- **Descrição**: Listar todos os módulos disponíveis no sistema
+- **Descrição**: Listar módulos visíveis. Super admin: `?includeHidden=true` inclui os escondidos.
 - **Resposta**: `{ data: { modules: [] } }`
 - **Autenticação**: Requerida
+
+### PATCH /modules/:id/visibility
+- **Descrição**: Esconder ou reexibir módulo no menu (apenas super_admin)
+- **Body**: `{ hidden: boolean }`
+- **Resposta**: `{ data: { module } }`
 
 ### GET /modules/active
 - **Descrição**: Listar módulos ativos do tenant atual

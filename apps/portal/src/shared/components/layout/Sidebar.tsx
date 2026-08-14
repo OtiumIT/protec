@@ -32,6 +32,7 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   IRPF_ALTA_RENDA: 'IRPF',
   GESTAO_IMOVEIS: 'Gestão Imobiliária',
   COMPARATIVO_REGIMES: 'Reforma Tributária',
+  MAPEAMENTO_DESPESAS_PJ: 'Mapeamento PF → PJ',
 };
 
 /** Itens do menu que não dependem de módulo ativo no tenant (ex.: promoções pontuais) */
@@ -324,15 +325,6 @@ const adminMenuItems: MenuItem[] = [
     ),
     children: [
       {
-        name: 'Portfólio',
-        path: '/gestao-imobiliaria/portfolio',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M9 17V9m4 8V5m4 12v-6" />
-          </svg>
-        ),
-      },
-      {
         name: 'Imóveis',
         path: '/gestao-imobiliaria/imoveis',
         icon: (
@@ -342,16 +334,7 @@ const adminMenuItems: MenuItem[] = [
         ),
       },
       {
-        name: 'Contratos',
-        path: '/gestao-imobiliaria/contratos',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        ),
-      },
-      {
-        name: 'Locação - Simulador PF vs PJ vs Reforma',
+        name: 'Locação PF vs PJ vs Reforma',
         path: '/properties/simulador',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,11 +343,56 @@ const adminMenuItems: MenuItem[] = [
         ),
       },
       {
-        name: 'Venda - Simulador Ganho de Capital',
+        name: 'Venda — ganho de capital',
         path: '/properties/simulador-ganho-capital',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        ),
+      },
+      {
+        name: 'ITBI na integralização',
+        path: '/properties/simulador-itbi',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-6 0l6 6M5 7h14M5 17h14" />
+          </svg>
+        ),
+      },
+      {
+        name: 'ITCMD na doação',
+        path: '/properties/simulador-itcmd',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v-1" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Relatório do projeto',
+        path: '/properties/relatorio-projeto',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Portfólio',
+        path: '/gestao-imobiliaria/portfolio',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M9 17V9m4 8V5m4 12v-6" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Contratos',
+        path: '/gestao-imobiliaria/contratos',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         ),
       },
@@ -623,12 +651,14 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
     const gestaoImoveis = get(undefined, undefined, 'GESTAO_IMOVEIS');
 
     const reformaTributaria = get(undefined, undefined, 'COMPARATIVO_REGIMES');
+    const mapeamento = get(undefined, undefined, 'MAPEAMENTO_DESPESAS_PJ');
     const moduleOrder: Array<{ key: string; item: MenuItem | undefined }> = [
       { key: 'GESTAO_IMOVEIS', item: gestaoImoveis },
+      { key: 'IRPF_ALTA_RENDA', item: irpf },
+      { key: 'MAPEAMENTO_DESPESAS_PJ', item: mapeamento },
       { key: 'FISCAL_FILES', item: fiscalFiles },
       { key: 'RATING_VALIDATOR', item: rating },
       { key: 'SIMULADOR_IN_2306', item: simulador },
-      { key: 'IRPF_ALTA_RENDA', item: irpf },
       { key: 'COMPARATIVO_REGIMES', item: reformaTributaria },
     ];
     const moduleIcons: Record<string, React.ReactNode> = {
@@ -638,25 +668,28 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       IRPF_ALTA_RENDA: CATEGORY_ICONS.diamond,
       GESTAO_IMOVEIS: CATEGORY_ICONS.building,
       COMPARATIVO_REGIMES: CATEGORY_ICONS.reformaTributaria,
+      MAPEAMENTO_DESPESAS_PJ: CATEGORY_ICONS.bookOpen,
     };
     const MODULE_SUBTITLES: Record<string, string> = {
       SIMULADOR_IN_2306: 'aumento lucro presumido',
     };
 
     moduleOrder.forEach(({ key, item }) => {
-      if (item) {
-        const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
-        const isLocked =
-          !isSuperAdmin && !ALWAYS_UNLOCKED_MODULE_KEYS.has(key) && !activeModules.has(key);
-        categories.push({
-          id: key.toLowerCase(),
-          name: moduleName,
-          subtitle: MODULE_SUBTITLES[key],
-          icon: moduleIcons[key] ?? item.icon,
-          items: [item],
-          locked: isLocked,
-        });
+      if (!item) return;
+      const isActiveModule =
+        ALWAYS_UNLOCKED_MODULE_KEYS.has(key) || activeModules.has(key);
+      if (!FORCE_SHOW_ALL_MODULES && !isSuperAdmin && !isActiveModule) {
+        return;
       }
+      const moduleName = activeModules.get(key)?.name || MODULE_DISPLAY_NAMES[key] || key;
+      categories.push({
+        id: key.toLowerCase(),
+        name: moduleName,
+        subtitle: MODULE_SUBTITLES[key],
+        icon: moduleIcons[key] ?? item.icon,
+        items: [item],
+        locked: false,
+      });
     });
 
     const adminItems: MenuItem[] = [meuPlano, faturas, clientes].filter(Boolean) as MenuItem[];

@@ -3,7 +3,7 @@ import { Button } from './Button';
 import { Modal } from './Modal';
 import apiRequest from '../../services/api';
 
-type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel' | 'comparativo_regimes' | 'precificador' | 'split_payment';
+type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel' | 'comparativo_regimes' | 'precificador' | 'split_payment' | 'itbi_integralizacao' | 'itcmd_doacao' | 'projeto_pps';
 
 interface ShareSimulationButtonProps {
   simulationId: string;

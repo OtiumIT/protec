@@ -81,7 +81,9 @@ export type RuleModule =
   | 'irpf-alta-renda'
   | 'rating-validator'
   | 'simulador-imoveis'
-  | 'editais-pgfn';
+  | 'editais-pgfn'
+  | 'itbi'
+  | 'itcmd';
 
 export interface ModuleInfo {
   key: RuleModule;
@@ -126,5 +128,19 @@ export const MODULES_INFO: ModuleInfo[] = [
     descricao: 'Transação tributária e descontos por modalidade',
     icone: 'file-text',
     cor: 'red',
+  },
+  {
+    key: 'itbi',
+    nome: 'ITBI na integralização',
+    descricao: 'Tema 796 — imunidade na holding patrimonial',
+    icone: 'building',
+    cor: 'teal',
+  },
+  {
+    key: 'itcmd',
+    nome: 'ITCMD na doação',
+    descricao: 'Doação com ou sem reserva de usufruto',
+    icone: 'file-text',
+    cor: 'indigo',
   },
 ];

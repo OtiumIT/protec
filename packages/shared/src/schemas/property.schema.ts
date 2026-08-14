@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { ItbiSimulationInputSchema, ItbiSimulationResultSchema } from './itbi.schema.js';
+import { ItcmdSimulationInputSchema, ItcmdSimulationResultSchema } from './itcmd.schema.js';
 
 const monetaryValue = z.number().nonnegative().multipleOf(0.01).or(z.literal(0));
 
@@ -561,11 +563,20 @@ export const PropertySimulationIdParamSchema = z.object({
 });
 
 /** Tipo de simulação persistida em `property_simulations` */
-export const SimulationKindSchema = z.enum(['locacao_pf_pj', 'ganho_capital_imovel']);
+export const SimulationKindSchema = z.enum([
+  'locacao_pf_pj',
+  'ganho_capital_imovel',
+  'itbi_integralizacao',
+  'itcmd_doacao',
+  'projeto_pps',
+]);
 export type SimulationKind = z.infer<typeof SimulationKindSchema>;
 
 export const SIMULATION_KIND_LOCACAO_PF_PJ = 'locacao_pf_pj' as const;
 export const SIMULATION_KIND_GANHO_CAPITAL_IMOVEL = 'ganho_capital_imovel' as const;
+export const SIMULATION_KIND_ITBI_INTEGRALIZACAO = 'itbi_integralizacao' as const;
+export const SIMULATION_KIND_ITCMD_DOACAO = 'itcmd_doacao' as const;
+export const SIMULATION_KIND_PROJETO_PPS = 'projeto_pps' as const;
 
 /** Simulador Ganho de Capital (imóvel) — snapshot de entrada (client-side) */
 export const GanhoCapitalTabIdSchema = z.enum([
@@ -655,6 +666,63 @@ export type GanhoCapitalSimuladorInput = z.infer<typeof GanhoCapitalSimuladorInp
 export type GanhoCapitalSimuladorResult = z.infer<typeof GanhoCapitalSimuladorResultSchema>;
 export type SaveGanhoCapitalSimulationInput = z.infer<typeof SaveGanhoCapitalSimulationInputSchema>;
 export type UpdateGanhoCapitalSimulationInput = z.infer<typeof UpdateGanhoCapitalSimulationInputSchema>;
+
+export const ProjetoPpsSelectedSchema = z.object({
+  locacao_id: z.string().uuid().optional(),
+  ganho_capital_id: z.string().uuid().optional(),
+  itbi_id: z.string().uuid().optional(),
+  itcmd_id: z.string().uuid().optional(),
+  irpf_id: z.string().uuid().optional(),
+  in2306_id: z.string().uuid().optional(),
+  regime_id: z.string().uuid().optional(),
+});
+
+export const ProjetoPpsInputSchema = z.object({
+  snapshot_version: z.literal(1),
+  client_id: z.string().uuid(),
+  recomendacao: z.string().max(8000),
+  selected: ProjetoPpsSelectedSchema,
+});
+
+export const ProjetoPpsResultSchema = z.object({
+  resumos: z.array(
+    z.object({
+      kind: z.string(),
+      titulo: z.string(),
+      linhas: z.array(z.object({ label: z.string(), valor: z.string() })),
+    })
+  ),
+});
+
+export const SaveSnapshotSimulationInputSchema = z.discriminatedUnion('simulation_kind', [
+  z.object({
+    client_id: z.string().uuid(),
+    title: z.string().max(255).optional(),
+    ano: z.number().int().min(2020).max(2035),
+    simulation_kind: z.literal('itbi_integralizacao'),
+    input: ItbiSimulationInputSchema,
+    result: ItbiSimulationResultSchema,
+  }),
+  z.object({
+    client_id: z.string().uuid(),
+    title: z.string().max(255).optional(),
+    ano: z.number().int().min(2020).max(2035),
+    simulation_kind: z.literal('itcmd_doacao'),
+    input: ItcmdSimulationInputSchema,
+    result: ItcmdSimulationResultSchema,
+  }),
+  z.object({
+    client_id: z.string().uuid(),
+    title: z.string().max(255).optional(),
+    ano: z.number().int().min(2020).max(2035),
+    simulation_kind: z.literal('projeto_pps'),
+    input: ProjetoPpsInputSchema,
+    result: ProjetoPpsResultSchema,
+  }),
+]);
+export type SaveSnapshotSimulationInput = z.infer<typeof SaveSnapshotSimulationInputSchema>;
+export type ProjetoPpsInput = z.infer<typeof ProjetoPpsInputSchema>;
+export type ProjetoPpsResult = z.infer<typeof ProjetoPpsResultSchema>;
 
 export const ListPropertySimulationsQuerySchema = z.object({
   client_id: z.string().uuid().optional(),

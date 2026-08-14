@@ -24,6 +24,8 @@ const moduleIcons: Record<string, any> = {
   'rating-validator': faChartBar,
   'simulador-imoveis': faBuilding,
   'editais-pgfn': faFileAlt,
+  itbi: faBuilding,
+  itcmd: faFileAlt,
 };
 
 export function Documentacao() {

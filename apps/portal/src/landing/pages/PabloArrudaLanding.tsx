@@ -212,9 +212,9 @@ export function PabloArrudaLanding() {
           {/* Benefícios */}
           <ul className="mb-12 space-y-4 text-white">
             {[
-              'Automatize rotinas complexas de planejamento',
-              'Escale sua atuação com tecnologia tributária',
-              'Tecnologia com segurança',
+              'Locação PF × PJ, LC 224 e comparativo de regimes',
+              'ITBI na integralização e ITCMD na doação',
+              'Relatório único em PDF com a marca do seu escritório',
             ].map((text) => (
               <li key={text} className="flex items-center gap-3 font-medium">
                 <svg

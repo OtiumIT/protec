@@ -50,6 +50,7 @@ export type Module = {
   name: string;
   key: string;
   description?: string;
+  hidden?: boolean;
   created_at: Date;
 };
 

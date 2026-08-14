@@ -157,7 +157,7 @@ Gerencia autenticação e autorização do sistema, incluindo registro de empres
 - **Super Admin**: Role especial que pode acessar qualquer tenant (implementar se necessário)
 - **Token Rotation**: Opcionalmente rotacionar refresh token a cada uso
 - **Rate Limiting**: Aplicar rate limiting em rotas de autenticação
-- **Landing pages de parceiro (`source`)**: O registro aceita `source` opcional (máx. 50 chars) para rastrear a origem do cadastro (coluna `companies.source`). Origens de parceiro (`EPS`, `PabloArruda`) **não** ativam os módulos do plano Free; em vez disso ativam apenas os módulos específicos da parceria (`GESTAO_IMOVEIS`, `SIMULADOR_IN_2306`). Demais origens seguem a ativação padrão dos módulos do plano.
+- **Landing pages de parceiro (`source`)**: O registro aceita `source` opcional (máx. 50 chars) para rastrear a origem do cadastro (coluna `companies.source`). Origens de parceiro (`EPS`, `PabloArruda`) **não** ativam os módulos do plano Free; em vez disso ativam `PABLO_MODULE_KEYS` (`GESTAO_IMOVEIS`, `SIMULADOR_IN_2306`, `IRPF_ALTA_RENDA`, `MAPEAMENTO_DESPESAS_PJ`, `COMPARATIVO_REGIMES`). Demais origens seguem a ativação padrão dos módulos do plano.
 
 ## Exemplos de Uso
 ```typescript

@@ -24,3 +24,5 @@ export * from './mapeamento-despesas-pj.schema.js';
 export * from './precificador.schema.js';
 export * from './split-payment.schema.js';
 export * from './comparativo-regimes.schema.js';
+export * from './itbi.schema.js';
+export * from './itcmd.schema.js';

@@ -60,6 +60,22 @@ export function requireModule(moduleKey: string) {
       return;
     }
 
+    const visibility = await query<{ hidden: boolean }>(
+      `SELECT hidden FROM public.modules WHERE key = $1`,
+      [moduleKey]
+    );
+    if (visibility.rows[0]?.hidden) {
+      return c.json(
+        {
+          error: {
+            message: `Module ${moduleKey} is hidden`,
+            code: 'MODULE_HIDDEN',
+          },
+        },
+        402
+      );
+    }
+
     if (!isFreePlanBypassEmail(user?.email)) {
       const subResult = await query<{ plan_name: string; free_plan_started_at: Date | null }>(
         `SELECT p.name AS plan_name, s.free_plan_started_at
@@ -95,7 +111,8 @@ export function requireModule(moduleKey: string) {
       `SELECT tm.id, tm.enabled_until
        FROM public.tenant_modules tm
        JOIN public.modules m ON m.id = tm.module_id
-       WHERE tm.tenant_id = $1 AND m.key = $2 
+       WHERE tm.tenant_id = $1 AND m.key = $2
+       AND m.hidden = false
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
       [companyId, moduleKey]
     );

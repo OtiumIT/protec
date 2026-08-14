@@ -14,107 +14,107 @@ const HERO_IMAGE_SRC = '/hero-o-produto.png';
 const BENEFICIOS = [
   {
     id: 'rotina-organizada',
-    title: 'Tudo no lugar, nada perdido',
+    title: 'Número para a reunião',
     description:
-      'SPED, ECD, PGDAS e balanços por cliente e competência em um só lugar. Simulações e indicadores integrados — sem planilhas paralelas e sem tempo perdido procurando arquivo.',
+      'Locação PF×PJ, LC 224, regime da empresa, ITBI e ITCMD no mesmo cliente. Sem planilha paralela: o aluno chega na reunião com imposto, base e memória.',
   },
   {
     id: 'decisoes-seguras',
     title: 'Decisões com fundamento, não no feeling',
     description:
-      'Simulações padronizadas e validações automáticas reduzem risco e dão base técnica para suas recomendações. Menos contas manuais, mais segurança para você e para o cliente.',
+      'Simulações padronizadas e memória de cálculo para holding, doação e a empresa do cliente. Você estrutura o instrumento; o IATax entrega o número.',
   },
   {
     id: 'oportunidades-visiveis',
-    title: 'Oportunidades que viram receita',
+    title: 'Um PDF com a sua marca',
     description:
-      'Enxergue na carteira editais elegíveis, cenários tributários e ratings revisáveis. Cada módulo aponta onde há espaço para novos projetos e honorários recorrentes.',
+      'Relatório único white-label junta as simulações salvas e o parágrafo de recomendação. Pronto para enviar ao cliente depois da reunião.',
   },
 ] as const;
 
 const MODULOS = [
   {
-    id: 'transacao-tributaria',
-    title: 'Validador de Rating (CAPAG) — Transação Tributária',
+    id: 'gestao-imoveis',
+    title: 'Imóveis — locação PF × PJ × Reforma',
     description:
-      'A Receita classifica seu cliente em A, B, C ou D — e essa classificação define descontos em transações. O IATax analisa Balanço e DRE, recalcula os indicadores (Liquidez Corrente, Liquidez Geral, Solvência) e gera relatório para revisão do enquadramento. Fundamentação com números, não com impressão.',
-    barColor: 'bg-[#1e3a5f]',
-    imageSrc: '/modulo-validador-rating.png',
-    imageAlt: 'Validador de Rating - Análise da capacidade de pagamento',
+      'Cadastre imóveis por cliente e compare a carga na pessoa física, na holding e após a Reforma. Número para a reunião de patrimônio — sem ERP, boleto ou minuta.',
+    barColor: 'bg-[#0f766e]',
+    imageSrc: '/modulo-simulador-in2306.png',
+    imageAlt: 'Simulador imobiliário — cenários tributários',
     bullets: [
-      'Revisão do enquadramento com dados contábeis analisados pelo sistema.',
-      'Relatório pronto para fundamentar pedido de revisão à Receita.',
-      'Simulação manual ou extração a partir do PDF da ECD.',
+      'Cenários PF, PJ e Reforma 2027 com redutor para locação.',
+      'Ganho de capital na venda, no mesmo cliente.',
+      'Importação de imóveis a partir da DIRPF.',
     ],
   },
   {
     id: 'simulador-in2306',
-    title: 'Simulador IN 2.306 / LC 224/2025 — Lucro Presumido',
+    title: 'LC 224/2025 — Lucro Presumido',
     description:
-      'A LC 224/2025 e a IN 2.306/2026 mudam as regras do lucro presumido. Compare em poucos cliques: tributação antes e depois, cenário de equiparação hospitalar, adicional de IRPJ e ajuste anual. Identifique quanto sobe o imposto e onde há espaço para economia — com memória de cálculo para o cliente.',
+      'A LC 224/2025 e a IN 2.306/2026 mudam o presumido. Compare antes e depois, adicional de IRPJ e ajuste anual — com memória de cálculo para o cliente da empresa.',
     barColor: 'bg-brand',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Simulador IN 2.306 - Impacto no lucro presumido',
+    imageAlt: 'Simulador IN 2.306 — impacto no lucro presumido',
     bullets: [
-      'Compare cenários 2025 x 2026 x equiparação hospitalar.',
-      'Identifique o aumento tributário e oportunidades de economia.',
-      'Receitas por trimestre (produtos, serviços, hospitalar, demais) e memória de cálculo.',
+      'Compare cenários 2025 × 2026 × equiparação hospitalar.',
+      'Identifique o aumento tributário e espaço de economia.',
+      'Receitas por trimestre e memória de cálculo.',
     ],
   },
   {
     id: 'irpf-alta-renda',
     title: 'IRPF Alta Renda — Lei 15.270/2025',
     description:
-      'Dividendos e alta renda passam a ser tributados. O IATax importa a declaração (PDF da DAA ou arquivo .dec), calcula a base e a alíquota e simula cenários de redução: holding, segregação com cônjuge/filhos, otimização isento vs. tributado. Resultado claro para o cliente e recomendações objetivas.',
+      'Dividendos e alta renda. Importe a declaração, calcule a base e simule holding ou segregação. Resultado claro para o sócio e para o escritório.',
     barColor: 'bg-protec',
     imageSrc: '/modulo-simulador-in2306.png',
     imageAlt: 'Simulador IRPF Alta Renda',
     bullets: [
       'Importe DAA (PDF) ou arquivo da declaração (.dec/.dbk).',
       'Compare cenários antes e depois da nova legislação.',
-      'Soluções para redução: holding, segregação de renda, memória legal.',
+      'Holding e segregação de renda com memória legal.',
     ],
   },
   {
-    id: 'gestao-imoveis',
-    title: 'Gestão Imobiliária — Simule PF, PJ e Reforma 2027',
+    id: 'comparativo-regimes',
+    title: 'Comparativo LP × LR × Simples',
     description:
-      'Cadastre imóveis por cliente, lance receitas e despesas (dedutíveis e operacionais) e simule a carga tributária em três cenários: Pessoa Física (Carnê-Leão), PJ (Lucro Presumido/Holding) e pós-Reforma (IBS/CBS com redutor para locação). Ideal para consultoria patrimonial e planejamento de investimentos em imóveis.',
+      'O regime da empresa do cliente: lucro presumido, real e Simples no mesmo quadro. Serve o advogado e o contador que cuida da PJ operacional.',
+    barColor: 'bg-[#1e3a5f]',
+    imageSrc: '/modulo-simulador-in2306.png',
+    imageAlt: 'Comparativo de regimes tributários',
+    bullets: [
+      'Carga estimada por regime no mesmo faturamento.',
+      'Memória para a reunião de planejamento da empresa.',
+      'Entra no relatório único do projeto.',
+    ],
+  },
+  {
+    id: 'itbi-itcmd',
+    title: 'ITBI na integralização e ITCMD na doação',
+    description:
+      'Tema 796 na holding patrimonial, alíquota informada, usufruto por idade e tabelas de oito estados. Número para a reunião de sucessão — sem guia nem jurisprudência municipal.',
     barColor: 'bg-[#0f766e]',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Simulador Imobiliário - Cenários tributários',
+    imageAlt: 'ITBI e ITCMD',
     bullets: [
-      'Cenários PF, PJ e Reforma 2027 com redutor para locação.',
-      'Break-even e fluxo de caixa; modo detalhado ou reduzido.',
-      'Locação fixa e flexível (Airbnb); custos operacionais para créditos Reforma.',
+      'ITBI: incidência, imunidade total ou parcial (Tema 796).',
+      'ITCMD: SP, RJ, MG, RS, PR, SC, GO, DF; demais UFs com alíquota manual.',
+      'PDF white-label com aviso de simulação.',
     ],
   },
   {
-    id: 'arquivos-fiscais',
-    title: 'Arquivos Fiscais — Base organizada por cliente',
+    id: 'relatorio-projeto',
+    title: 'Relatório único do projeto',
     description:
-      'Upload seguro de SPED, ECD, PGDAS, XML e PDF por cliente e competência. Centralize a base do escritório e alimente simulações e validações sem perder tempo procurando arquivos. A organização que todo módulo de análise precisa.',
-    barColor: 'bg-[#1e3a5f]',
-    imageSrc: '/modulo-validador-rating.png',
-    imageAlt: 'Arquivos Fiscais - Organização por cliente e competência',
-    bullets: [
-      'Upload por cliente e competência; tipos: SPED, ECD, PGDAS, XML, PDF.',
-      'Base organizada para todos os módulos (rating, IN 2306, IRPF, etc.).',
-      'Status de processamento e dados prontos para extração e simulação.',
-    ],
-  },
-  {
-    id: 'processos-judiciais',
-    title: 'Processos Judiciais e Editais de Contencioso',
-    description:
-      'Cadastre processos judiciais por cliente e tese (IPI Praça, PRL, IRPJ/CSLL desmutualização). O sistema verifica elegibilidade para editais (52, 53, 54/2025) e integra com o validador de rating na modalidade contencioso — para não perder oportunidade de desconto com fundamento em processo ativo.',
+      'Escolha o cliente, marque as simulações já salvas e escreva a recomendação. Um PDF com a logo do escritório — capa, memória resumida e aviso legal.',
     barColor: 'bg-brand',
     imageSrc: '/modulo-simulador-in2306.png',
-    imageAlt: 'Processos Judiciais - Editais de contencioso',
+    imageAlt: 'Relatório do projeto',
     bullets: [
-      'Teses elegíveis: IPI Praça, PRL, IRPJ/CSLL desmutualização.',
-      'Integração com validação de rating (modalidade contencioso).',
-      'Gestão de processos ativos por cliente para editais PGFN.',
+      'Locação, ganho de capital, ITBI, ITCMD, IRPF, LC 224 e regime.',
+      'Parágrafo de recomendação editável.',
+      'Não recalcula o que não foi salvo.',
     ],
   },
 ] as const;
@@ -172,7 +172,7 @@ export function OProduto() {
                   Inteligência tributária que gera resultado: simule, valide e recupere com os dados que você já tem
                 </h1>
                 <p className="mt-5 text-base text-slate-300 sm:text-lg leading-relaxed">
-                  Seis módulos integrados para escritórios que querem transformar SPED, ECD, PGDAS e balanços em oportunidades concretas: revisão de rating, impacto da LC 224/2025, tributação da alta renda, simulação imobiliária, arquivos organizados e elegibilidade a editais. Menos planilha, mais consultoria.
+                  Ferramentas para advogados e contadores: imóveis, LC 224, IRPF, regime da PJ, ITBI, ITCMD e um PDF com a marca do escritório. Número para a reunião — você estrutura o instrumento.
                 </p>
               </div>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start lg:mt-auto lg:mb-1">
@@ -217,16 +217,16 @@ export function OProduto() {
           id="video"
           eyebrow="Demonstração"
           title="Veja o fluxo completo em poucos minutos"
-          subtitle="Da organização dos arquivos fiscais às simulações e validação de rating, em uma demonstração guiada que mostra como cada módulo gera valor na rotina do escritório."
+          subtitle="Da locação e da LC 224 ao ITBI, ITCMD e ao PDF do projeto — uma demonstração guiada da reunião de patrimônio e da empresa do cliente."
           tone="white"
         >
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="max-w-xl">
               <ul className="mt-1 space-y-2 text-sm text-slate-700">
-                <li>• Revisão da capacidade de pagamento (rating) com dados contábeis e relatório para fundamentação.</li>
-                <li>• Comparativo do lucro presumido antes e depois da LC 224/2025 e IN 2.306/2026.</li>
-                <li>• Simulação da tributação da alta renda (Lei 15.270/2025) e cenários de redução.</li>
-                <li>• Gestão imobiliária, arquivos fiscais centralizados e elegibilidade a editais de contencioso.</li>
+                <li>• Locação PF × PJ × Reforma e ganho de capital no mesmo cliente.</li>
+                <li>• Comparativo do lucro presumido (LC 224/2025) e do regime LP × LR × Simples.</li>
+                <li>• IRPF alta renda, ITBI na integralização (Tema 796) e ITCMD na doação.</li>
+                <li>• Relatório único white-label com as simulações salvas.</li>
               </ul>
             </div>
             <div
@@ -243,7 +243,7 @@ export function OProduto() {
                 poucos minutos, como os três módulos funcionam na rotina do seu escritório.
               </p>
               <p className="text-xs text-slate-500 text-center px-8">
-                Na demo, percorremos a análise da capacidade de pagamento, a simulação LC 224/2025 e a tributação da alta renda com exemplos de clientes reais —
+                Na demo, percorremos locação, LC 224, regime, ITBI e ITCMD com exemplos de clientes reais —
                 focado em organização, agilidade e segurança nas decisões.
               </p>
             </div>
@@ -275,8 +275,8 @@ export function OProduto() {
         <LandingSection
           id="modulos"
           eyebrow="Módulos"
-          title="Seis módulos, uma rotina integrada"
-          subtitle="Cada ferramenta foi pensada para um ponto crítico da sua consultoria: validar rating com fundamentação, comparar impacto da reforma do lucro presumido, simular alta renda e imóveis, organizar arquivos e qualificar clientes para editais. Tudo com dados que você já tem."
+          title="Ferramentas da reunião, um só cliente"
+          subtitle="Patrimônio e sucessão de um lado; empresa do cliente do outro. Locação, LC 224, regime, IRPF, ITBI, ITCMD e o PDF do projeto — sem CAPAG, SPED no menu nem processos judiciais neste lançamento."
           tone="white"
           className="border-y border-slate-200/70"
         >

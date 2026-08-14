@@ -19,6 +19,8 @@ Toda vez que uma regra de cálculo tributário for **criada ou modificada**, a d
   - `rules-irpf-alta-renda.ts` - Lei 15.270/2025
   - `rules-rating-validator.ts` - Rating PGFN (CAPAG)
   - `rules-imoveis.ts` - Simulador PF vs PJ vs Reforma
+  - `rules-itbi.ts` - ITBI na integralização (Tema 796)
+  - `rules-itcmd.ts` - ITCMD na doação
 
 ## Checklist Obrigatório
 

@@ -35,11 +35,13 @@ import type {
   SimulateStandaloneMesInput,
   SaveGanhoCapitalSimulationInput,
   UpdateGanhoCapitalSimulationInput,
+  SaveSnapshotSimulationInput,
   SimulationKind,
 } from '@shared/core';
 import {
   SaveGanhoCapitalSimulationInputSchema,
   UpdateGanhoCapitalSimulationInputSchema,
+  SaveSnapshotSimulationInputSchema,
   SIMULATION_KIND_LOCACAO_PF_PJ,
   SIMULATION_KIND_GANHO_CAPITAL_IMOVEL,
 } from '@shared/core';
@@ -1517,6 +1519,32 @@ export class PropertyService {
     return { simulation };
   }
 
+  async createSnapshotSimulation(
+    input: SaveSnapshotSimulationInput,
+    userId?: string
+  ): Promise<{ simulation: PropertySimulation }> {
+    const parsed = SaveSnapshotSimulationInputSchema.parse(input);
+    if (!this.simulationRepo) {
+      throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
+    }
+    if (this.clientRepo) {
+      const client = await this.clientRepo.findById(parsed.client_id);
+      if (!client) {
+        throw new AppError('Cliente não encontrado', 'CLIENT_NOT_FOUND', 404);
+      }
+    }
+    const simulation = await this.simulationRepo.create({
+      client_id: parsed.client_id,
+      ano: parsed.ano,
+      simulation_kind: parsed.simulation_kind,
+      input_data: parsed.input as unknown as Record<string, unknown>,
+      result_data: parsed.result as unknown as Record<string, unknown>,
+      title: parsed.title ?? null,
+      created_by: userId ?? null,
+    });
+    return { simulation };
+  }
+
   async updateGanhoCapitalSimulation(
     id: string,
     input: UpdateGanhoCapitalSimulationInput
@@ -1646,7 +1674,7 @@ export class PropertyService {
   async getPublicSimulation(tokenHash: string): Promise<{
     simulation: PropertySimulation;
     share: { title: string | null; simulation_kind: string };
-    branding: { report_brand_name: string | null };
+    branding: { report_brand_name: string | null; report_logo_url?: string | null };
   }> {
     if (!this.simulationRepo) {
       throw new AppError('Simulador de persistência não configurado', 'INTERNAL_ERROR', 500);
@@ -1681,7 +1709,7 @@ export class PropertyService {
     return {
       simulation,
       share: { title: share.title, simulation_kind: share.simulation_kind },
-      branding: { report_brand_name: null },
+      branding: { report_brand_name: null, report_logo_url: null },
     };
   }
 

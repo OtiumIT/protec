@@ -6,6 +6,7 @@ export interface Module {
   name: string;
   key: string;
   description?: string;
+  hidden?: boolean;
   created_at: string;
 }
 
@@ -48,20 +49,36 @@ export const moduleService = {
    * Listar módulos disponíveis no sistema
    * NOTA: Esta rota não precisa de tenantId (lista módulos globais)
    */
-  async listAvailable(): Promise<Module[]> {
+  async listAvailable(includeHidden = false): Promise<Module[]> {
     try {
-      const { token } = getAuthHeaders(false); // Não requer tenantId
-      console.log('[moduleService.listAvailable] Token obtido:', !!token);
+      const { token } = getAuthHeaders(false);
+      const qs = includeHidden ? '?includeHidden=true' : '';
       const response = await apiRequest<{ data: { modules: Module[] } }>(
-        '/api/v1/modules',
-        { token, tenantId: undefined } // Explicitamente não enviar tenantId
+        `/api/v1/modules${qs}`,
+        { token, tenantId: undefined }
       );
-      console.log('[moduleService.listAvailable] Módulos recebidos:', response.data.modules);
       return response.data.modules;
     } catch (error) {
       console.error('[moduleService.listAvailable] Erro:', error);
       throw error;
     }
+  },
+
+  /**
+   * Esconder ou reexibir módulo no menu (apenas super_admin)
+   */
+  async setHidden(moduleId: string, hidden: boolean): Promise<Module> {
+    const { token } = getAuthHeaders(false);
+    const response = await apiRequest<{ data: { module: Module } }>(
+      `/api/v1/modules/${moduleId}/visibility`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ hidden }),
+        token,
+        tenantId: undefined,
+      }
+    );
+    return response.data.module;
   },
 
   /**

@@ -8,6 +8,7 @@ import type {
   FiscalIndicesIpcaSeriesResponse,
   SaveGanhoCapitalSimulationInput,
   UpdateGanhoCapitalSimulationInput,
+  SaveSnapshotSimulationInput,
   SimulationKind,
   QuickSimulationResult,
 } from '@shared/core';
@@ -640,6 +641,21 @@ export const propertyService = {
       token,
       tenantId,
     });
+  },
+
+  async saveSnapshotSimulation(
+    params: SaveSnapshotSimulationInput
+  ): Promise<{ simulation: PropertySimulation }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{
+      data: { simulation: PropertySimulation };
+    }>('/api/v1/properties/simulations/snapshot', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      token,
+      tenantId,
+    });
+    return response.data;
   },
 
   async saveGanhoCapitalSimulation(

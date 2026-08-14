@@ -8,7 +8,7 @@ e copiar dados de primeiro acesso para envio manual (WhatsApp).
 ## Regras de Negócio
 - **Importação CSV**: Colunas obrigatórias são `nome` e `email`. Demais opcionais: `telefone`, `cpf`, `empresa`.
 - **Duplicatas**: E-mails já existentes na access_list são ignorados na importação.
-- **Ativação**: Cria company/tenant, schema, ativa módulo GESTAO_IMOVEIS, cria usuário admin com senha provisória.
+- **Ativação**: Cria company/tenant, schema, ativa `PABLO_MODULE_KEYS` (imóveis, LC 224, IRPF, mapeamento PF→PJ, comparativo de regimes), cria usuário admin com senha provisória.
 - **Senha provisória**: Gerada com 12 chars legíveis, armazenada cifrada (AES-256-GCM) no banco.
 - **must_change_password**: Flag ativado na criação; usuário deve trocar senha no primeiro login.
 - **Desativação**: Seta status do user para `inactive`, revoga refresh tokens, atualiza access_list.

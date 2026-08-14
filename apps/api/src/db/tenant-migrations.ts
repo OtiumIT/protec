@@ -37,6 +37,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '080_comparativo_regimes_simulations.sql',
   '081_precificador_simulations.sql',
   '082_split_payment_simulations.sql',
+  '088_property_simulations_v1_kinds.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {

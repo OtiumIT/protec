@@ -191,8 +191,9 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
         </Card>
       )}
 
-      {(step === 2 || step === 3) && (
+      {step === 2 && (
         <Card title="Despesas mantidas na pessoa física">
+          <p className="text-sm text-slate-500 mb-3">Adicione as despesas pessoais que deseja avaliar para migração à PJ.</p>
           <div className="space-y-3">
             {items.map((it, idx) => (
               <div key={idx} className="rounded-lg border border-slate-200 p-3">
@@ -201,20 +202,8 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
                   <input placeholder="Descrição (ex.: combustível)" value={it.label} onChange={(e) => updateItem(idx, { label: e.target.value })} className={`${inputCls} md:col-span-2`} />
                   <input type="number" placeholder="R$ / mês" value={it.monthly_amount || ''} onChange={(e) => updateItem(idx, { monthly_amount: Number(e.target.value) })} className={inputCls} />
                 </div>
-                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <label className="text-xs text-slate-500">Vínculo
-                    <select value={it.vinculo_atividade} onChange={(e) => updateItem(idx, { vinculo_atividade: e.target.value as any })} className={inputCls}><option value="sim">Sim</option><option value="parcial">Parcial</option><option value="nao">Não</option></select></label>
-                  <label className="text-xs text-slate-500">Uso empresarial %
-                    <input type="number" min={0} max={100} value={it.business_use_pct || ''} onChange={(e) => updateItem(idx, { business_use_pct: Number(e.target.value) })} className={inputCls} /></label>
-                  <label className="text-xs text-slate-500">Beneficiário
-                    <select value={it.beneficiario} onChange={(e) => updateItem(idx, { beneficiario: e.target.value as any })} className={inputCls}><option value="empresa">Empresa</option><option value="empregado">Empregado</option><option value="socio">Sócio</option><option value="familiar">Familiar</option><option value="misto">Misto</option></select></label>
-                  <label className="text-xs text-slate-500">Doc. em nome da PJ
-                    <select value={it.documento_pj} onChange={(e) => updateItem(idx, { documento_pj: e.target.value as any })} className={inputCls}><option value="sim">Sim</option><option value="parcial">Parcial</option><option value="nao">Não</option></select></label>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                  <label className="flex items-center gap-1"><input type="checkbox" checked={it.possui_evidencia} onChange={(e) => updateItem(idx, { possui_evidencia: e.target.checked })} /> Possui contrato/evidência</label>
-                  <label className="flex items-center gap-1"><input type="checkbox" checked={it.is_tributo_ou_principal} onChange={(e) => updateItem(idx, { is_tributo_ou_principal: e.target.checked })} /> É tributo/parcela de principal (ex.: IPVA)</label>
-                  <button onClick={() => removeItem(idx)} className="ml-auto text-red-600">Remover</button>
+                <div className="mt-2 flex justify-end">
+                  <button onClick={() => removeItem(idx)} className="text-xs text-red-600">Remover</button>
                 </div>
               </div>
             ))}
@@ -222,6 +211,40 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
           </div>
           <div className="mt-4 flex justify-between">
             <Button size="sm" variant="secondary" onClick={() => setStep(1)}>← Contexto</Button>
+            <Button size="sm" onClick={() => { if (items.filter((i) => i.label.trim()).length === 0) { onError('Adicione ao menos uma despesa com descrição'); return; } setStep(3); }}>Continuar →</Button>
+          </div>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card title="Qualificação das despesas">
+          <p className="text-sm text-slate-500 mb-3">Detalhe o vínculo, uso empresarial e documentação de cada despesa informada.</p>
+          <div className="space-y-3">
+            {items.filter((i) => i.label.trim()).map((it, idx) => {
+              const realIdx = items.indexOf(it);
+              return (
+                <div key={realIdx} className="rounded-lg border border-slate-200 p-3">
+                  <div className="text-sm font-semibold text-slate-700 mb-2">{it.label || `Despesa ${idx + 1}`} <span className="font-normal text-slate-400">({CATEGORIES.find((c) => c.key === it.category_key)?.nome})</span></div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <label className="text-xs text-slate-500">Vínculo com atividade
+                      <select value={it.vinculo_atividade} onChange={(e) => updateItem(realIdx, { vinculo_atividade: e.target.value as any })} className={inputCls}><option value="sim">Sim</option><option value="parcial">Parcial</option><option value="nao">Não</option></select></label>
+                    <label className="text-xs text-slate-500">Uso empresarial %
+                      <input type="number" min={0} max={100} value={it.business_use_pct || ''} onChange={(e) => updateItem(realIdx, { business_use_pct: Number(e.target.value) })} className={inputCls} /></label>
+                    <label className="text-xs text-slate-500">Beneficiário
+                      <select value={it.beneficiario} onChange={(e) => updateItem(realIdx, { beneficiario: e.target.value as any })} className={inputCls}><option value="empresa">Empresa</option><option value="empregado">Empregado</option><option value="socio">Sócio</option><option value="familiar">Familiar</option><option value="misto">Misto</option></select></label>
+                    <label className="text-xs text-slate-500">Doc. em nome da PJ
+                      <select value={it.documento_pj} onChange={(e) => updateItem(realIdx, { documento_pj: e.target.value as any })} className={inputCls}><option value="sim">Sim</option><option value="parcial">Parcial</option><option value="nao">Não</option></select></label>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={it.possui_evidencia} onChange={(e) => updateItem(realIdx, { possui_evidencia: e.target.checked })} /> Possui contrato/evidência</label>
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={it.is_tributo_ou_principal} onChange={(e) => updateItem(realIdx, { is_tributo_ou_principal: e.target.checked })} /> É tributo/parcela de principal (ex.: IPVA)</label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex justify-between">
+            <Button size="sm" variant="secondary" onClick={() => setStep(2)}>← Categorias</Button>
             <Button size="sm" onClick={runPreview}>Gerar diagnóstico →</Button>
           </div>
         </Card>

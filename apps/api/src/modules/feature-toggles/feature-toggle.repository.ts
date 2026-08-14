@@ -2,17 +2,19 @@ import { BaseRepository } from '../../shared/repositories/base.repository';
 import type { Module, TenantModule } from '@shared/core';
 
 export class FeatureToggleRepository extends BaseRepository {
+  private readonly moduleColumns = 'id, name, key, description, hidden, created_at';
+
   /**
-   * Buscar todos os módulos disponíveis
+   * Buscar módulos disponíveis.
+   * Por padrão omite os escondidos (não poluem menu/ativação de tenant).
    */
-  async findAll(): Promise<Module[]> {
-    console.log('[FeatureToggleRepository.findAll] Executando query...');
+  async findAll(includeHidden = false): Promise<Module[]> {
+    const where = includeHidden ? '' : 'WHERE hidden = false';
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM public.modules ORDER BY name',
+      `SELECT ${this.moduleColumns} FROM public.modules ${where} ORDER BY hidden ASC, name`,
       [],
-      false // modules não requerem filtro de tenant
+      false
     );
-    console.log(`[FeatureToggleRepository.findAll] Query executada, encontrados ${result.rows.length} módulos`);
     return result.rows;
   }
 
@@ -21,7 +23,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async findByKey(key: string): Promise<Module | null> {
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM public.modules WHERE key = $1',
+      `SELECT ${this.moduleColumns} FROM public.modules WHERE key = $1`,
       [key],
       false
     );
@@ -33,7 +35,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async findById(id: string): Promise<Module | null> {
     const result = await this.query<Module>(
-      'SELECT id, name, key, description, created_at FROM public.modules WHERE id = $1',
+      `SELECT ${this.moduleColumns} FROM public.modules WHERE id = $1`,
       [id],
       false
     );
@@ -41,31 +43,48 @@ export class FeatureToggleRepository extends BaseRepository {
   }
 
   /**
-   * Buscar módulos ativos por tenant
+   * Esconder ou reexibir módulo no menu (global).
+   */
+  async setHidden(moduleId: string, hidden: boolean): Promise<Module> {
+    const result = await this.query<Module>(
+      `UPDATE public.modules
+       SET hidden = $2
+       WHERE id = $1
+       RETURNING ${this.moduleColumns}`,
+      [moduleId, hidden],
+      false
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Buscar módulos ativos por tenant (ignora escondidos).
    */
   async findActiveByTenant(tenantId: string): Promise<(Module & { enabled_until?: Date })[]> {
     const result = await this.query<Module & { enabled_until?: Date }>(
-      `SELECT m.id, m.name, m.key, m.description, m.created_at, tm.enabled_until
+      `SELECT m.id, m.name, m.key, m.description, m.hidden, m.created_at, tm.enabled_until
        FROM public.modules m
        INNER JOIN public.tenant_modules tm ON tm.module_id = m.id
-       WHERE tm.tenant_id = $1 
+       WHERE tm.tenant_id = $1
+       AND m.hidden = false
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())
        ORDER BY m.name`,
       [tenantId],
-      false // tenant_modules já filtra por tenant_id
+      false
     );
     return result.rows;
   }
 
   /**
-   * Verificar se módulo está ativo para tenant
+   * Verificar se módulo está ativo para tenant (módulo escondido conta como inativo).
    */
   async isActive(tenantId: string, moduleKey: string): Promise<boolean> {
     const result = await this.query<{ id: string }>(
-      `SELECT tm.id 
+      `SELECT tm.id
        FROM public.tenant_modules tm
        JOIN public.modules m ON m.id = tm.module_id
-       WHERE tm.tenant_id = $1 AND m.key = $2 
+       WHERE tm.tenant_id = $1 AND m.key = $2
+       AND m.hidden = false
        AND (tm.enabled_until IS NULL OR tm.enabled_until > NOW())`,
       [tenantId, moduleKey],
       false
@@ -110,7 +129,7 @@ export class FeatureToggleRepository extends BaseRepository {
    */
   async findModulesByPlan(planId: string): Promise<(Module & { is_default: boolean })[]> {
     const result = await this.query<Module & { is_default: boolean }>(
-      `SELECT m.id, m.name, m.key, m.description, m.created_at, pm.is_default
+      `SELECT m.id, m.name, m.key, m.description, m.hidden, m.created_at, pm.is_default
        FROM public.modules m
        INNER JOIN public.plan_modules pm ON pm.module_id = m.id
        WHERE pm.plan_id = $1
@@ -156,6 +175,7 @@ export class FeatureToggleRepository extends BaseRepository {
     
     // Ativar apenas módulos marcados como default
     for (const planModule of planModules) {
+      if (planModule.hidden) continue;
       if (planModule.is_default) {
         // Verificar se já não está ativo
         const isActive = await this.isActive(tenantId, planModule.key);

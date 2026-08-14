@@ -31,6 +31,9 @@ import { IrpfAltaRenda } from './modules/irpf-alta-renda/pages/IrpfAltaRenda';
 import { SimuladorDistribuicaoLucros } from './modules/simulador-distribuicao-lucros/pages/SimuladorDistribuicaoLucros';
 import { SimuladorImoveis } from './modules/properties/pages/SimuladorImoveis';
 import SimuladorGanhoCapitalImovel from './modules/properties/pages/SimuladorGanhoCapitalImovel';
+import { SimuladorItbi } from './modules/properties/pages/SimuladorItbi';
+import { SimuladorItcmd } from './modules/properties/pages/SimuladorItcmd';
+import { RelatorioProjeto } from './modules/properties/pages/RelatorioProjeto';
 import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { GestaoImobiliaria } from './modules/gestao-imobiliaria/pages/GestaoImobiliaria';
@@ -46,7 +49,6 @@ import { AccessList } from './modules/access-list/pages/AccessList';
 import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { WhiteLabelSettings } from './modules/settings/pages/WhiteLabelSettings';
-import { EPSLanding } from './landing/pages/EPSLanding';
 import { PabloArrudaLanding } from './landing/pages/PabloArrudaLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
 import { PrivateAppShell } from './shared/components/layout/PrivateAppShell';
@@ -154,7 +156,7 @@ function AppRoutes() {
         <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/EPS" element={<EPSLanding />} />
+        <Route path="/EPS" element={<Navigate to="/PabloArruda" replace />} />
         <Route path="/PabloArruda" element={<PabloArrudaLanding />} />
         <Route path="/prestacao-de-contas" element={<PrestacaoContasPublica />} />
         <Route path="/simulacao-publica" element={<SimulacaoPublica />} />
@@ -197,6 +199,9 @@ function AppRoutes() {
           <Route path="/simulador-distribuicao-lucros-lei-15270" element={<SimuladorDistribuicaoLucros />} />
           <Route path="/properties/simulador" element={<SimuladorImoveis />} />
           <Route path="/properties/simulador-ganho-capital" element={<SimuladorGanhoCapitalImovel />} />
+          <Route path="/properties/simulador-itbi" element={<SimuladorItbi />} />
+          <Route path="/properties/simulador-itcmd" element={<SimuladorItcmd />} />
+          <Route path="/properties/relatorio-projeto" element={<RelatorioProjeto />} />
           <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
           <Route path="/properties/:id" element={<PropertyDetail />} />
           <Route path="/properties" element={<Properties />} />

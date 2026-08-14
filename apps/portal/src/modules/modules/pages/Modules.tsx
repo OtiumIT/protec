@@ -11,7 +11,7 @@ import { useAuth } from '../../../shared/contexts/AuthContext';
 import { TenantSelector } from '../../../shared/components/ui/TenantSelector';
 import apiRequest from '../../../shared/services/api';
 
-type Tab = 'by-plan' | 'by-tenant';
+type Tab = 'by-plan' | 'by-tenant' | 'visibility';
 
 export function Modules() {
   const { user, isLoading: authLoading } = useAuth();
@@ -35,6 +35,7 @@ export function Modules() {
   const [tenantActiveModules, setTenantActiveModules] = useState<ActiveModule[]>([]);
   const [isLoadingTenantModules, setIsLoadingTenantModules] = useState(false);
   const [isTogglingTenantModule, setIsTogglingTenantModule] = useState<string | null>(null);
+  const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
 
   // Refs para evitar loops infinitos
   const tenantInitializedRef = useRef(false);
@@ -94,7 +95,7 @@ export function Modules() {
     setIsLoading(true);
     try {
       const [modulesData, plansData, tenantsData] = await Promise.all([
-        moduleService.listAvailable(),
+        moduleService.listAvailable(isSuperAdmin),
         isSuperAdmin ? planService.list() : Promise.resolve([]),
         isSuperAdmin ? companyService.list() : Promise.resolve([]),
       ]);
@@ -188,6 +189,23 @@ export function Modules() {
     }
   };
 
+  const handleToggleVisibility = async (module: Module) => {
+    setIsTogglingVisibility(module.id);
+    try {
+      await moduleService.setHidden(module.id, !module.hidden);
+      success(module.hidden ? 'Módulo visível no menu' : 'Módulo escondido do menu');
+      const modulesData = await moduleService.listAvailable(true);
+      setAvailableModules(modulesData);
+    } catch (error) {
+      console.error('Error toggling module visibility:', error);
+      showError('Erro ao alterar visibilidade do módulo');
+    } finally {
+      setIsTogglingVisibility(null);
+    }
+  };
+
+  const visibleModules = availableModules.filter((m) => !m.hidden);
+
   const handleToggleTenantModule = async (module: Module) => {
     if (!selectedTenantId) return;
     setIsTogglingTenantModule(module.id);
@@ -261,7 +279,7 @@ export function Modules() {
           <h1 className="text-3xl font-bold text-slate-900">Gerenciar Módulos</h1>
           <p className="text-slate-600 mt-2">
             {isSuperAdmin
-              ? 'Configure módulos por plano ou ative módulos para tenants específicos'
+              ? 'Configure módulos por plano, por tenant ou esconda do menu os que não entram agora'
               : 'Ative ou desative módulos para o seu tenant'}
           </p>
         </div>
@@ -289,6 +307,16 @@ export function Modules() {
                 }`}
               >
                 Por Tenant
+              </button>
+              <button
+                onClick={() => setActiveTab('visibility')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'visibility'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Visibilidade no menu
               </button>
             </nav>
           </div>
@@ -335,21 +363,21 @@ export function Modules() {
                               Módulos do Plano: {plans.find((p) => p.id === selectedPlanId)?.name}
                             </h3>
                             <p className="text-sm text-slate-600 mt-1">
-                              {planModules.length} de {availableModules.length} módulos incluídos
+                              {planModules.filter((m) => !m.hidden).length} de {visibleModules.length} módulos visíveis incluídos
                             </p>
                           </div>
                           <Badge className="bg-blue-100 text-blue-800 border border-blue-300 text-lg px-4 py-2">
-                            {planModules.length} / {availableModules.length}
+                            {planModules.filter((m) => !m.hidden).length} / {visibleModules.length}
                           </Badge>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {availableModules.length === 0 ? (
+                        {visibleModules.length === 0 ? (
                         <p className="text-slate-500 text-center py-8 col-span-full">
-                          Nenhum módulo disponível no sistema
+                          Nenhum módulo visível no sistema
                         </p>
                       ) : (
-                        availableModules.map((module) => {
+                        visibleModules.map((module) => {
                           const isInPlan = planModules.some((m) => m.id === module.id);
                           const planModule = planModules.find((m) => m.id === module.id);
                           const isToggling = isTogglingPlanModule === module.id;
@@ -447,12 +475,12 @@ export function Modules() {
                           : 'Atual'}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {availableModules.length === 0 ? (
+                        {visibleModules.length === 0 ? (
                           <p className="text-slate-500 text-center py-8 col-span-full">
-                            Nenhum módulo disponível no sistema
+                            Nenhum módulo visível no sistema
                           </p>
                         ) : (
-                          availableModules.map((module) => {
+                          visibleModules.map((module) => {
                             const isActive = tenantActiveModules.some((m) => m.id === module.id);
                             const activeModule = tenantActiveModules.find((m) => m.id === module.id);
                             const isToggling = isTogglingTenantModule === module.id;
@@ -513,6 +541,64 @@ export function Modules() {
                   )}
                 </div>
               )}
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'visibility' && isSuperAdmin && (
+          <div className="space-y-6">
+            <Card>
+              <h2 className="text-lg font-semibold mb-4">Visibilidade no menu</h2>
+              <p className="text-sm text-slate-600 mb-4">
+                Módulo escondido some do menu de todos os tenants e não pode ser ativado.
+                O vínculo em tenant_modules é mantido: ao reexibir, quem já tinha o módulo volta a vê-lo.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {availableModules.length === 0 ? (
+                  <p className="text-slate-500 text-center py-8 col-span-full">
+                    Nenhum módulo cadastrado
+                  </p>
+                ) : (
+                  availableModules.map((module) => {
+                    const isToggling = isTogglingVisibility === module.id;
+                    return (
+                      <Card key={module.id} className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-slate-900">{module.name}</h4>
+                            <p className="text-xs text-slate-500 mt-1">Key: {module.key}</p>
+                          </div>
+                          <Badge
+                            className={
+                              module.hidden
+                                ? 'bg-slate-100 text-slate-600 border border-slate-300'
+                                : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                            }
+                          >
+                            {module.hidden ? 'Escondido' : 'No menu'}
+                          </Badge>
+                        </div>
+                        {module.description && (
+                          <p className="text-sm text-slate-600 mb-3">{module.description}</p>
+                        )}
+                        <Button
+                          variant={module.hidden ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => handleToggleVisibility(module)}
+                          disabled={isToggling}
+                          className="w-full"
+                        >
+                          {isToggling
+                            ? 'Processando...'
+                            : module.hidden
+                              ? 'Mostrar no menu'
+                              : 'Esconder do menu'}
+                        </Button>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
             </Card>
           </div>
         )}

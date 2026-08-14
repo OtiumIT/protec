@@ -8,7 +8,7 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### Regra 0: Simulações por tipo (`simulation_kind`)
 
-- **Valores**: `locacao_pf_pj` (Simulador PF×PJ locação, resultado calculado na API) e `ganho_capital_imovel` (ganho de capital na venda, resultado calculado no cliente e persistido como JSON validado).
+- **Valores**: `locacao_pf_pj` (locação, cálculo na API), `ganho_capital_imovel` (venda, cálculo no cliente), `itbi_integralizacao`, `itcmd_doacao` e `projeto_pps` (cálculo no shared/cliente, persistidos via `POST /properties/simulations/snapshot`).
 - **Listagem**: Filtrar por `simulation_kind` para não misturar históricos entre ferramentas.
 - **Atualização**: `PATCH /simulations/:id` só para locação; ganho de capital usa `PATCH /simulations/:id/ganho-capital`.
 
@@ -281,9 +281,15 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 
 ### GET /properties/simulations
 
-- Lista simulações salvas. Query: `client_id?`, `ano?`, `simulation_kind?` (`locacao_pf_pj` | `ganho_capital_imovel`), `page`, `limit`
+- Lista simulações salvas. Query: `client_id?`, `ano?`, `simulation_kind?` (`locacao_pf_pj` | `ganho_capital_imovel` | `itbi_integralizacao` | `itcmd_doacao` | `projeto_pps`), `page`, `limit`
 - Cada registro inclui `simulation_kind` (coluna em `property_simulations`).
 - Resposta: `{ data: { simulations, total, page, limit } }`
+
+### POST /properties/simulations/snapshot
+
+- Persiste ITBI, ITCMD ou relatório do projeto (cálculo no shared/portal).
+- Body: `SaveSnapshotSimulationInputSchema` (`client_id`, `title?`, `ano`, `simulation_kind`, `input`, `result`)
+- Resposta: `{ data: { simulation } }`
 
 ### POST /properties/simulations/ganho-capital
 

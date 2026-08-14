@@ -28,6 +28,7 @@ import {
   ListPropertySimulationsQuerySchema,
   SaveGanhoCapitalSimulationInputSchema,
   UpdateGanhoCapitalSimulationInputSchema,
+  SaveSnapshotSimulationInputSchema,
   PropertyIdParamSchema,
   PropertySimulationIdParamSchema,
   TransactionIdParamSchema,
@@ -448,6 +449,22 @@ propertyRoutes.post(
       const input = c.req.valid('json');
       const userId = c.get('user')?.id;
       const { simulation } = await propertyService.createGanhoCapitalSimulation(input, userId);
+      return c.json({ data: { simulation } }, 201);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+/** POST /properties/simulations/snapshot — ITBI, ITCMD ou relatório do projeto */
+propertyRoutes.post(
+  '/simulations/snapshot',
+  zValidator('json', SaveSnapshotSimulationInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { simulation } = await propertyService.createSnapshotSimulation(input, userId);
       return c.json({ data: { simulation } }, 201);
     } catch (err) {
       return errorHandler(err, c);

@@ -11,8 +11,7 @@ import { AppError } from '../../shared/utils/error-handler';
 import { normalizeUserEmail } from '@shared/core';
 import { query } from '../../db/client';
 import type { AccessListEntry } from '@shared/core';
-
-const GESTAO_IMOVEIS_KEY = 'GESTAO_IMOVEIS';
+import { PABLO_MODULE_KEYS } from '../../shared/constants/pablo-modules';
 
 interface ImportRow {
   nome: string;
@@ -164,7 +163,7 @@ export class AccessListService {
       phone: entry.phone || undefined,
     });
 
-    await this.activateModuleForTenant(company.id);
+    await this.activatePabloModulesForTenant(company.id);
 
     const tempPassword = generateReadablePassword();
     const passwordHash = await hashPassword(tempPassword);
@@ -214,24 +213,27 @@ export class AccessListService {
     });
   }
 
-  private async activateModuleForTenant(companyId: string): Promise<void> {
-    const moduleResult = await query<{ id: string }>(
-      `SELECT id FROM modules WHERE key = $1`,
-      [GESTAO_IMOVEIS_KEY]
+  private async activatePabloModulesForTenant(companyId: string): Promise<void> {
+    const moduleResult = await query<{ id: string; key: string }>(
+      `SELECT id, key FROM modules WHERE key = ANY($1::text[])`,
+      [PABLO_MODULE_KEYS]
     );
 
-    if (moduleResult.rows.length === 0) {
-      throw new AppError(`Módulo ${GESTAO_IMOVEIS_KEY} não encontrado`, 'MODULE_NOT_FOUND', 500);
+    const found = new Set(moduleResult.rows.map((row) => row.key));
+    for (const key of PABLO_MODULE_KEYS) {
+      if (!found.has(key)) {
+        throw new AppError(`Módulo ${key} não encontrado`, 'MODULE_NOT_FOUND', 500);
+      }
     }
 
-    const moduleId = moduleResult.rows[0].id;
-
-    await query(
-      `INSERT INTO tenant_modules (tenant_id, module_id, enabled_until)
-       VALUES ($1, $2, NULL)
-       ON CONFLICT (tenant_id, module_id) DO NOTHING`,
-      [companyId, moduleId]
-    );
+    for (const row of moduleResult.rows) {
+      await query(
+        `INSERT INTO tenant_modules (tenant_id, module_id, enabled_until)
+         VALUES ($1, $2, NULL)
+         ON CONFLICT (tenant_id, module_id) DO NOTHING`,
+        [companyId, row.id]
+      );
+    }
   }
 
   async deactivate(ids: string[], adminUserId: string): Promise<ActivationResult[]> {

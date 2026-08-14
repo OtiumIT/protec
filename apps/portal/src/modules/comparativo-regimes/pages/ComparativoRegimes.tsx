@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  comparativoRegimesService,
-  type ComparativoRegimesInput,
-} from '../services/comparativo-regimes.service';
+import { comparativoRegimesService, type ComparativoRegimesInput } from '../services/comparativo-regimes.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
@@ -157,7 +154,7 @@ export function ComparativoRegimes() {
   }
 
   function handleLoadSimulation(sim: ComparativoRegimesSimulation) {
-    const input = sim.input_data as ComparativoRegimesInput;
+    const input = sim.input_data as unknown as ComparativoRegimesInput;
     if (input.faturamento_mensal) setFaturamentoMensal(input.faturamento_mensal);
     if (input.folha_mensal) setFolhaMensal(input.folha_mensal);
     if (input.custos_dedutiveis_mensal !== undefined) setCustosDedutiveis(input.custos_dedutiveis_mensal);
@@ -201,8 +198,8 @@ export function ComparativoRegimes() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Comparativo de Regimes Tributários</h1>
-          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Comparativo de Regimes Tributários</h1>
+          <p className="text-sm sm:text-base text-slate-500 mt-1">
             Compare a carga tributária entre Lucro Presumido, Lucro Real e Simples Nacional
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
@@ -223,12 +220,11 @@ export function ComparativoRegimes() {
       </div>
 
       {/* Input Form */}
-      <Card>
-        <div className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Dados da Empresa</h2>
+      <Card title="Dados da Empresa">
+        <div className="space-y-6">
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-600 dark:text-gray-400">Ano:</label>
+              <label className="text-sm text-slate-600">Ano:</label>
               <Input
                 type="number"
                 value={ano}
@@ -243,11 +239,11 @@ export function ComparativoRegimes() {
           {/* Faturamento Mensal */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Faturamento Mensal (R$)
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Preencher todos:</span>
+                <span className="text-xs text-slate-500">Preencher todos:</span>
                 <MoneyInput
                   value={0}
                   onChange={(v) => setUniformValue(setFaturamentoMensal, v)}
@@ -259,7 +255,7 @@ export function ComparativoRegimes() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {MESES.map((mes, i) => (
                 <div key={`fat-${i}`}>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">{mes}</label>
+                  <label className="text-xs text-slate-500">{mes}</label>
                   <MoneyInput
                     value={faturamentoMensal[i]}
                     onChange={(v) => {
@@ -271,7 +267,7 @@ export function ComparativoRegimes() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Total anual: <strong>{formatCurrency(faturamentoAnual)}</strong>
             </p>
           </div>
@@ -279,11 +275,11 @@ export function ComparativoRegimes() {
           {/* Folha Mensal */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Folha de Pagamento Mensal (R$)
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Preencher todos:</span>
+                <span className="text-xs text-slate-500">Preencher todos:</span>
                 <MoneyInput
                   value={0}
                   onChange={(v) => setUniformValue(setFolhaMensal, v)}
@@ -295,7 +291,7 @@ export function ComparativoRegimes() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {MESES.map((mes, i) => (
                 <div key={`folha-${i}`}>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">{mes}</label>
+                  <label className="text-xs text-slate-500">{mes}</label>
                   <MoneyInput
                     value={folhaMensal[i]}
                     onChange={(v) => {
@@ -307,7 +303,7 @@ export function ComparativoRegimes() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Total anual: <strong>{formatCurrency(folhaAnual)}</strong>
               {faturamentoAnual > 0 && (
                 <span className="ml-2">
@@ -320,13 +316,13 @@ export function ComparativoRegimes() {
           {/* Other inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Custos Dedutíveis (mensal)
               </label>
               <MoneyInput value={custosDedutiveis} onChange={setCustosDedutiveis} />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">CNAE</label>
+              <label className="text-sm font-medium text-slate-700">CNAE</label>
               <Input
                 value={cnae}
                 onChange={(e) => setCnae(e.target.value)}
@@ -334,7 +330,7 @@ export function ComparativoRegimes() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Alíquota ISS (%)
               </label>
               <Input
@@ -347,13 +343,13 @@ export function ComparativoRegimes() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Regime Atual
               </label>
               <select
                 value={regimeAtual}
                 onChange={(e) => setRegimeAtual(e.target.value as typeof regimeAtual)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-[#d2dae2] rounded-md px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:border-[#1351b4] focus:ring-1 focus:ring-[#1351b4]/20"
               >
                 <option value="">Selecione...</option>
                 <option value="lucro_presumido">Lucro Presumido</option>
@@ -366,7 +362,7 @@ export function ComparativoRegimes() {
           {/* Title + Actions */}
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-slate-700">
                 Título (opcional)
               </label>
               <Input
@@ -416,29 +412,24 @@ export function ComparativoRegimes() {
           </div>
 
           {/* Comparison Chart */}
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Comparativo de Carga Tributária Anual
-              </h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="regime" />
-                    <YAxis tickFormatter={(v: number) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), 'Carga Total']}
-                    />
-                    <Legend />
-                    <Bar dataKey="carga" name="Carga Tributária Anual" fill="#3b82f6">
-                      {chartData.map((entry, index) => (
-                        <rect key={index} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          <Card title="Comparativo de Carga Tributária Anual">
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="regime" />
+                  <YAxis tickFormatter={(v: number) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Carga Total']}
+                  />
+                  <Legend />
+                  <Bar dataKey="carga" name="Carga Tributária Anual" fill="#3b82f6">
+                    {chartData.map((entry, index) => (
+                      <rect key={index} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </Card>
 
@@ -455,19 +446,18 @@ export function ComparativoRegimes() {
                   key={key}
                   className={`relative ${
                     isBest
-                      ? 'ring-2 ring-green-500 dark:ring-green-400'
+                      ? 'ring-2 ring-emerald-400 border-emerald-500'
                       : ''
                   }`}
                 >
-                  <div className="p-6">
                     {isBest && (
-                      <span className="absolute top-3 right-3 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                      <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                         Mais Econômico
                       </span>
                     )}
                     {isExceedLimit && (
-                      <span className="absolute top-3 right-3 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs font-semibold px-2 py-1 rounded-full">
+                      <span className="absolute top-3 right-3 bg-rose-100 text-rose-800 text-xs font-semibold px-2 py-1 rounded-full">
                         Excede limite
                       </span>
                     )}
@@ -480,34 +470,34 @@ export function ComparativoRegimes() {
                     </h3>
 
                     {key === 'simples_nacional' && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                        Fator R: {formatPct(regime.fator_r)} | {regime.anexo}
+                      <p className="text-xs text-slate-500 mb-3">
+                        Fator R: {formatPct(result.simples_nacional.fator_r)} | {result.simples_nacional.anexo}
                       </p>
                     )}
 
                     <div className="space-y-3 mt-4">
                       <div className="flex justify-between items-baseline">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="text-sm text-slate-600">
                           Carga Total Anual
                         </span>
-                        <span className="text-xl font-bold text-gray-900 dark:text-white">
+                        <span className="text-xl font-bold text-slate-900">
                           {formatCurrency(regime.carga_total_anual)}
                         </span>
                       </div>
                       <div className="flex justify-between items-baseline">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="text-sm text-slate-600">
                           Alíquota Efetiva
                         </span>
-                        <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <span className="text-lg font-semibold text-slate-900">
                           {formatPct(regime.aliquota_efetiva)}
                         </span>
                       </div>
                       {!isBest && diffFromBest > 0 && (
                         <div className="flex justify-between items-baseline text-xs">
-                          <span className="text-rose-600 dark:text-rose-400">
+                          <span className="text-rose-600">
                             Diferença vs melhor regime
                           </span>
-                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                          <span className="font-semibold text-rose-600">
                             +{formatCurrency(diffFromBest)}
                           </span>
                         </div>
@@ -515,8 +505,8 @@ export function ComparativoRegimes() {
                     </div>
 
                     {/* Impostos detalhados */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Detalhamento
                       </h4>
                       {regime.impostos_detalhados.map((imp, idx) => (
@@ -524,21 +514,20 @@ export function ComparativoRegimes() {
                           key={idx}
                           className="flex justify-between text-sm group relative"
                         >
-                          <span className="text-gray-600 dark:text-gray-400">
+                          <span className="text-slate-600">
                             {imp.nome}
                             {imp.aliquota !== undefined && (
-                              <span className="text-xs text-gray-400 ml-1">
+                              <span className="text-xs text-slate-400 ml-1">
                                 ({formatPct(imp.aliquota)})
                               </span>
                             )}
                           </span>
-                          <span className="font-medium text-gray-900 dark:text-white">
+                          <span className="font-medium text-slate-900">
                             {formatCurrency(imp.valor)}
                           </span>
                         </div>
                       ))}
                     </div>
-                  </div>
                 </Card>
               );
             })}
@@ -546,16 +535,16 @@ export function ComparativoRegimes() {
 
           {/* Economia anual */}
           {result && bestRegime && economiaAnual > 0 && (
-            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-              <div className="p-6 text-center">
-                <p className="text-sm text-green-700 dark:text-green-300">
+            <Card className="bg-emerald-50/40 border-emerald-200">
+              <div className="text-center">
+                <p className="text-sm text-emerald-700">
                   Economia anual potencial ao optar por {REGIME_LABELS[bestRegime]}
                   {regimeAtual ? ` vs ${REGIME_LABELS[regimeAtual]}` : ` vs regime mais caro (${REGIME_LABELS[worstRegime!]})`}
                 </p>
-                <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-1">
+                <p className="text-3xl font-bold text-emerald-700 mt-1">
                   {formatCurrency(regimeAtual && result.economia_vs_atual ? result.economia_vs_atual : economiaAnual)}/ano
                 </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                <p className="text-xs text-emerald-600 mt-2">
                   Equivale a {formatCurrency((regimeAtual && result.economia_vs_atual ? result.economia_vs_atual : economiaAnual) / 12)}/mês
                 </p>
               </div>
@@ -567,20 +556,16 @@ export function ComparativoRegimes() {
       )}
 
       {/* History Section */}
-      <Card>
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Simulações Salvas
-          </h2>
+      <Card title="Simulações Salvas">
           {simulations.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-slate-500">
               Nenhuma simulação salva. Use "Simular e Salvar" para criar uma.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <tr className="text-left text-slate-500 border-b border-slate-200">
                     <th className="pb-2 font-medium">Título</th>
                     <th className="pb-2 font-medium">Ano</th>
                     <th className="pb-2 font-medium">Regime Indicado</th>
@@ -588,16 +573,16 @@ export function ComparativoRegimes() {
                     <th className="pb-2 font-medium text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody className="divide-y divide-slate-100">
                   {simulations.map((sim) => {
                     const rd = sim.result_data as Record<string, unknown>;
                     const regimeKey = (rd.regime_mais_economico as string) || '';
                     return (
-                      <tr key={sim.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="py-3 text-gray-900 dark:text-white">
+                      <tr key={sim.id} className="hover:bg-slate-50">
+                        <td className="py-3 text-slate-900">
                           {sim.title || 'Sem título'}
                         </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">{sim.ano}</td>
+                        <td className="py-3 text-slate-600">{sim.ano}</td>
                         <td className="py-3">
                           <span
                             className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
@@ -609,7 +594,7 @@ export function ComparativoRegimes() {
                             {REGIME_LABELS[regimeKey] || regimeKey}
                           </span>
                         </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">
+                        <td className="py-3 text-slate-600">
                           {new Date(sim.created_at).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="py-3 text-right">
@@ -637,7 +622,7 @@ export function ComparativoRegimes() {
                             <Button
                               variant="tertiary"
                               size="sm"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-rose-700 hover:text-rose-800"
                               onClick={() => setDeleteConfirmId(sim.id)}
                             >
                               Excluir
@@ -651,7 +636,6 @@ export function ComparativoRegimes() {
               </table>
             </div>
           )}
-        </div>
       </Card>
 
       {/* View Simulation Modal */}
@@ -662,13 +646,13 @@ export function ComparativoRegimes() {
           title={viewSimulation.title || 'Simulação'}
         >
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-slate-600">
               <p>Ano: {viewSimulation.ano}</p>
               <p>Criada em: {new Date(viewSimulation.created_at).toLocaleDateString('pt-BR')}</p>
             </div>
             {(() => {
               const rd = viewSimulation.result_data as unknown as ComparativoRegimesResult;
-              if (!rd?.lucro_presumido) return <p className="text-sm text-gray-500">Dados indisponíveis</p>;
+              if (!rd?.lucro_presumido) return <p className="text-sm text-slate-500">Dados indisponíveis</p>;
               return (
                 <div className="space-y-3">
                   {(['lucro_presumido', 'lucro_real', 'simples_nacional'] as const).map((key) => {
@@ -679,24 +663,24 @@ export function ComparativoRegimes() {
                         key={key}
                         className={`p-3 rounded-lg border ${
                           isBest
-                            ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
-                            : 'border-gray-200 dark:border-gray-700'
+                            ? 'border-emerald-300 bg-emerald-50'
+                            : 'border-slate-200'
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-gray-900 dark:text-white">
+                          <span className="font-medium text-slate-900">
                             {REGIME_LABELS[key]}
                             {isBest && (
-                              <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+                              <span className="ml-2 text-xs text-emerald-600">
                                 Mais econômico
                               </span>
                             )}
                           </span>
                           <div className="text-right">
-                            <p className="font-bold text-gray-900 dark:text-white">
+                            <p className="font-bold text-slate-900">
                               {formatCurrency(r.carga_total_anual)}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-slate-500">
                               Alíquota: {formatPct(r.aliquota_efetiva)}
                             </p>
                           </div>
@@ -727,7 +711,7 @@ export function ComparativoRegimes() {
           title="Confirmar Exclusão"
         >
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-slate-600">
               Tem certeza que deseja excluir esta simulação? Esta ação não pode ser desfeita.
             </p>
             <div className="flex justify-end gap-2">
@@ -736,7 +720,7 @@ export function ComparativoRegimes() {
               </Button>
               <Button
                 variant="primary"
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-rose-600 hover:bg-rose-700"
                 onClick={() => handleDelete(deleteConfirmId)}
               >
                 Excluir

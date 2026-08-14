@@ -3,12 +3,16 @@ import { rulesIN2306 } from './rules-in-2306';
 import { rulesIrpfAltaRenda } from './rules-irpf-alta-renda';
 import { rulesRatingValidator } from './rules-rating-validator';
 import { rulesImoveis } from './rules-imoveis';
+import { rulesItbi } from './rules-itbi';
+import { rulesItcmd } from './rules-itcmd';
 
 export const allRules: RuleDocumentation[] = [
   ...rulesIN2306,
   ...rulesIrpfAltaRenda,
   ...rulesRatingValidator,
   ...rulesImoveis,
+  ...rulesItbi,
+  ...rulesItcmd,
 ];
 
 export function getRulesByModule(modulo: string): RuleDocumentation[] {
@@ -40,4 +44,4 @@ export function searchRules(query: string): RuleDocumentation[] {
   });
 }
 
-export { rulesIN2306, rulesIrpfAltaRenda, rulesRatingValidator, rulesImoveis };
+export { rulesIN2306, rulesIrpfAltaRenda, rulesRatingValidator, rulesImoveis, rulesItbi, rulesItcmd };

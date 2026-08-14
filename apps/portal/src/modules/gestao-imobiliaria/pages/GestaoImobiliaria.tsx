@@ -21,11 +21,10 @@ const TABS = [
   { key: 'imoveis', label: 'Imóveis' },
   { key: 'contratos', label: 'Contratos' },
   { key: 'custos', label: 'Custos' },
-  { key: 'notas-fiscais', label: 'Notas Fiscais' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 /** Telas ocultas no menu (código mantido para reativação). */
-const HIDDEN_SECTIONS = new Set(['financeiro', 'operacao', 'integracoes', 'alertas']);
+const HIDDEN_SECTIONS = new Set(['financeiro', 'operacao', 'integracoes', 'alertas', 'notas-fiscais']);
 
 /** Categorias do livro operacional (combo — alinhado aos lançamentos tributários). */
 const LEDGER_CATEGORIAS: { value: string; label: string }[] = [
@@ -152,7 +151,7 @@ export function GestaoImobiliaria() {
       {tab === 'imoveis' && <ImoveisTab clients={clients} clientId={clientId} properties={properties} onChanged={() => { reloadProperties(); }} onClientsChanged={reloadClients} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'contratos' && <ContratosTab clientId={clientId} properties={properties} onError={showError} onSuccess={success} isAdmin={isAdmin} />}
       {tab === 'custos' && <CustosTab clientId={clientId} properties={properties} onChanged={reloadProperties} onError={showError} onSuccess={success} />}
-      {tab === 'notas-fiscais' && <NotasFiscaisTab clientId={clientId} properties={properties} />}
+      {false && <NotasFiscaisTab clientId={clientId} properties={properties} />}
     </div>
   );
 }
@@ -749,7 +748,7 @@ export function FinanceiroTab({ clientId, properties, onError, onSuccess, isAdmi
 }
 
 // ---------------- Extratos ----------------
-function ExtratosTab({ clients, clientId, onError, onSuccess, isAdmin }: {
+export function ExtratosTab({ clients, clientId, onError, onSuccess, isAdmin }: {
   clients: ClientWithCreatedAt[]; clientId: string; onError: (m: string) => void; onSuccess: (m: string) => void; isAdmin: boolean;
 }) {
   const [selClient, setSelClient] = useState(clientId);

@@ -9,6 +9,10 @@ export const DeactivateModuleSchema = z.object({
   moduleId: z.string().uuid(),
 });
 
+export const SetModuleHiddenSchema = z.object({
+  hidden: z.boolean(),
+});
+
 export const AddModuleToPlanSchema = z.object({
   moduleId: z.string().uuid(),
   isDefault: z.boolean().default(true),

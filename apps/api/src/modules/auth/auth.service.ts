@@ -19,6 +19,7 @@ import { emailService } from '../../shared/services/email.service';
 import type { User, Company } from '@shared/core';
 import { normalizeUserEmail } from '@shared/core';
 import { randomBytes } from 'crypto';
+import { PABLO_MODULE_KEYS } from '../../shared/constants/pablo-modules';
 
 export interface AuthTokens {
   access: string;
@@ -113,7 +114,7 @@ export class AuthService {
     // Ativação de módulos: landing pages parceiras recebem apenas módulos específicos
     if (data.source === 'EPS' || data.source === 'PabloArruda') {
       const featureToggleRepo = new FeatureToggleRepository();
-      for (const moduleKey of ['GESTAO_IMOVEIS', 'SIMULADOR_IN_2306']) {
+      for (const moduleKey of PABLO_MODULE_KEYS) {
         const module = await featureToggleRepo.findByKey(moduleKey);
         if (module) {
           await featureToggleRepo.activateForTenant(company.id, module.id);

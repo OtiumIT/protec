@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { query } from '../../db/client';
 import { AppError } from '../../shared/utils/error-handler';
 
-type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel' | 'comparativo_regimes' | 'precificador' | 'split_payment';
+type SimulationType = 'in_2306' | 'irpf_alta_renda' | 'distribuicao_lucros' | 'locacao_pf_pj' | 'ganho_capital_imovel' | 'comparativo_regimes' | 'precificador' | 'split_payment' | 'itbi_integralizacao' | 'itcmd_doacao' | 'projeto_pps';
 
 const TABLE_MAP: Record<SimulationType, { table: string; cols: string }> = {
   in_2306: {
@@ -36,6 +36,18 @@ const TABLE_MAP: Record<SimulationType, { table: string; cols: string }> = {
   split_payment: {
     table: 'split_payment_simulations',
     cols: 'id, input_data, result_data, title, created_at',
+  },
+  itbi_integralizacao: {
+    table: 'property_simulations',
+    cols: 'id, ano, simulation_kind, input_data, result_data, title, created_at',
+  },
+  itcmd_doacao: {
+    table: 'property_simulations',
+    cols: 'id, ano, simulation_kind, input_data, result_data, title, created_at',
+  },
+  projeto_pps: {
+    table: 'property_simulations',
+    cols: 'id, ano, simulation_kind, input_data, result_data, title, created_at',
   },
 };
 

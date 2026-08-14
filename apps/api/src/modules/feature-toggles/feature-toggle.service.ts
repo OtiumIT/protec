@@ -1,5 +1,6 @@
 import { FeatureToggleRepository } from './feature-toggle.repository';
 import type { Module, TenantModule } from '@shared/core';
+import { AppError } from '../../shared/utils/error-handler';
 
 export class FeatureToggleService {
   constructor(private repo: FeatureToggleRepository) {}
@@ -14,10 +15,21 @@ export class FeatureToggleService {
   }
 
   /**
-   * Listar módulos disponíveis
+   * Listar módulos disponíveis. Super admin pode pedir os escondidos.
    */
-  async listAvailable(): Promise<Module[]> {
-    return this.repo.findAll();
+  async listAvailable(includeHidden = false): Promise<Module[]> {
+    return this.repo.findAll(includeHidden);
+  }
+
+  /**
+   * Esconder ou reexibir módulo no menu (apenas super_admin na rota).
+   */
+  async setHidden(moduleId: string, hidden: boolean): Promise<Module> {
+    const module = await this.repo.findById(moduleId);
+    if (!module) {
+      throw new AppError('Module not found', 'MODULE_NOT_FOUND', 404);
+    }
+    return this.repo.setHidden(moduleId, hidden);
   }
 
   /**
@@ -38,7 +50,14 @@ export class FeatureToggleService {
     // Verificar se módulo existe
     const module = await this.repo.findById(moduleId);
     if (!module) {
-      throw new Error('Module not found');
+      throw new AppError('Module not found', 'MODULE_NOT_FOUND', 404);
+    }
+    if (module.hidden) {
+      throw new AppError(
+        'Este módulo está escondido e não pode ser ativado. Reexiba-o em Gerenciar Módulos.',
+        'MODULE_HIDDEN',
+        409
+      );
     }
 
     return this.repo.activateForTenant(companyId, moduleId, enabledUntil);

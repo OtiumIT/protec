@@ -5,7 +5,7 @@ import { FeatureToggleService } from './feature-toggle.service';
 import { FeatureToggleRepository } from './feature-toggle.repository';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
-import { ActivateModuleSchema, AddModuleToPlanSchema, PlanIdParamSchema } from '@shared/core';
+import { ActivateModuleSchema, AddModuleToPlanSchema, PlanIdParamSchema, SetModuleHiddenSchema } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
 const featureToggleRoutes = new Hono();
@@ -30,9 +30,10 @@ const service = new FeatureToggleService(repo);
  */
 featureToggleRoutes.get('/', async (c) => {
   try {
-    console.log('[GET /modules] Listando módulos disponíveis...');
-    const modules = await service.listAvailable();
-    console.log(`[GET /modules] Encontrados ${modules.length} módulos:`, modules.map(m => ({ id: m.id, name: m.name, key: m.key })));
+    const currentUser = c.get('user');
+    const includeHidden =
+      currentUser?.role === 'super_admin' && c.req.query('includeHidden') === 'true';
+    const modules = await service.listAvailable(includeHidden);
 
     return c.json({
       data: {
@@ -44,6 +45,32 @@ featureToggleRoutes.get('/', async (c) => {
     return errorHandler(error, c);
   }
 });
+
+/**
+ * PATCH /modules/:id/visibility
+ * Esconder ou reexibir módulo no menu (apenas super_admin)
+ */
+featureToggleRoutes.patch(
+  '/:id/visibility',
+  zValidator('param', z.object({ id: z.string().uuid() })),
+  zValidator('json', SetModuleHiddenSchema),
+  async (c) => {
+    try {
+      const currentUser = c.get('user');
+      if (currentUser.role !== 'super_admin') {
+        return c.json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } }, 403);
+      }
+
+      const { id } = c.req.valid('param');
+      const { hidden } = c.req.valid('json');
+      const module = await service.setHidden(id, hidden);
+
+      return c.json({ data: { module } });
+    } catch (error) {
+      return errorHandler(error, c);
+    }
+  }
+);
 
 /**
  * GET /modules/active
