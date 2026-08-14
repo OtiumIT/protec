@@ -39,8 +39,10 @@ export const ImobiliariaTipoEnum = z.enum(['percentual', 'fixo']);
 export const CreatePropertyLeaseSchema = z.object({
   property_id: uuid,
   tenant_id: uuid.optional().nullable(),
+  numero: z.string().max(60).optional().nullable(),
   data_inicio: isoDate,
   data_fim: isoDate.optional().nullable(),
+  prazo_meses: z.number().int().min(1).max(240).optional().nullable(),
   valor_aluguel: money.default(0),
   dia_vencimento: z.number().int().min(1).max(31).default(10),
   indice_reajuste: IndiceReajusteEnum.default('IPCA'),
@@ -140,16 +142,31 @@ export const GenerateRecurringSchema = z.object({
 // ==========================================================================
 // Documentos
 // ==========================================================================
+export const DocumentCategoriaEnum = z.enum([
+  'contrato_assinado',
+  'identidade_inquilino',
+  'garantia',
+  'aditivo',
+  'outro',
+]);
+
 export const CreatePropertyDocumentSchema = z.object({
   property_id: uuid.optional().nullable(),
   lease_id: uuid.optional().nullable(),
-  categoria: z.string().max(40).default('outro'),
+  categoria: DocumentCategoriaEnum.default('outro'),
   nome_arquivo: z.string().min(1).max(255),
   mime_type: z.string().max(120).optional().nullable(),
   tamanho_bytes: z.number().int().min(0).optional().nullable(),
+  storage_key: z.string().max(500).optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 }).refine((d) => d.property_id || d.lease_id, {
   message: 'Informe property_id ou lease_id',
+});
+
+export const DocumentUploadUrlSchema = z.object({
+  lease_id: uuid,
+  filename: z.string().min(1).max(255),
+  mime_type: z.string().max(120).optional().nullable(),
 });
 
 // ==========================================================================
@@ -310,6 +327,7 @@ export type ListLedgerQuery = z.infer<typeof ListLedgerQuerySchema>;
 export type CreateRecurringRuleInput = z.infer<typeof CreateRecurringRuleSchema>;
 export type UpdateRecurringRuleInput = z.infer<typeof UpdateRecurringRuleSchema>;
 export type CreatePropertyDocumentInput = z.infer<typeof CreatePropertyDocumentSchema>;
+export type DocumentUploadUrlInput = z.infer<typeof DocumentUploadUrlSchema>;
 export type CreateStatementShareInput = z.infer<typeof CreateStatementShareSchema>;
 export type StatementQuery = z.infer<typeof StatementQuerySchema>;
 export type CreateOwnershipShareInput = z.infer<typeof CreateOwnershipShareSchema>;
@@ -348,6 +366,8 @@ export interface PropertyLease {
   id: string;
   property_id: string;
   tenant_id: string | null;
+  numero: string | null;
+  prazo_meses: number | null;
   data_inicio: string;
   data_fim: string | null;
   valor_aluguel: number;
@@ -371,6 +391,36 @@ export interface PropertyLease {
   updated_at: string;
   tenant_nome?: string;
   property_identificador?: string;
+  property_client_id?: string;
+  property_client_name?: string;
+  tem_anexo?: boolean;
+}
+
+export interface PropertyGuarantee {
+  id: string;
+  lease_id: string;
+  tipo: 'caucao' | 'fiador' | 'seguro_fianca' | 'titulo_capitalizacao' | 'outro';
+  valor: number | null;
+  descricao: string | null;
+  status: string;
+  data_devolucao: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyDocument {
+  id: string;
+  property_id: string | null;
+  lease_id: string | null;
+  categoria: string;
+  nome_arquivo: string;
+  mime_type: string | null;
+  tamanho_bytes: number | null;
+  storage_key: string | null;
+  storage_status: 'em_criacao' | 'armazenado' | 'erro';
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PropertyLedgerEntry {

@@ -1,6 +1,7 @@
-import apiRequest from '../../../shared/services/api';
+import apiRequest, { getApiUrl } from '../../../shared/services/api';
 import type {
   PropertyTenant, PropertyLease, PropertyLedgerEntry, PropertyStatementShare,
+  PropertyGuarantee, PropertyDocument,
 } from '@shared/core';
 
 function getAuthHeaders() {
@@ -84,8 +85,9 @@ export const gestaoImobiliariaService = {
   saveLeaseRegime: (leaseId: string, regime: 'pf' | 'pj') => send<any>(`/leases/${leaseId}/regime`, 'PATCH', { regime }),
   listAmendments: (leaseId: string) => get<any[]>(`/leases/${leaseId}/amendments`),
   createAmendment: (leaseId: string, body: Record<string, unknown>) => send<any>(`/leases/${leaseId}/amendments`, 'POST', body),
-  listGuarantees: (leaseId: string) => get<any[]>(`/leases/${leaseId}/guarantees`),
-  createGuarantee: (leaseId: string, body: Record<string, unknown>) => send<any>(`/leases/${leaseId}/guarantees`, 'POST', body),
+  listGuarantees: (leaseId: string) => get<PropertyGuarantee[]>(`/leases/${leaseId}/guarantees`),
+  createGuarantee: (leaseId: string, body: Record<string, unknown>) => send<PropertyGuarantee>(`/leases/${leaseId}/guarantees`, 'POST', body),
+  updateGuarantee: (id: string, body: Record<string, unknown>) => send<PropertyGuarantee>(`/guarantees/${id}`, 'PATCH', body),
 
   // Ledger
   listLedger: (filters?: Record<string, string | number>) => {
@@ -109,10 +111,43 @@ export const gestaoImobiliariaService = {
   // Documentos
   listDocuments: (filters: { property_id?: string; lease_id?: string }) => {
     const q = new URLSearchParams(filters as Record<string, string>);
-    return get<any[]>(`/documents${q.toString() ? `?${q}` : ''}`);
+    return get<PropertyDocument[]>(`/documents${q.toString() ? `?${q}` : ''}`);
   },
-  createDocument: (body: Record<string, unknown>) => send<any>('/documents', 'POST', body),
+  createDocument: (body: Record<string, unknown>) => send<PropertyDocument>('/documents', 'POST', body),
   deleteDocument: (id: string) => send<{ success: boolean }>(`/documents/${id}`, 'DELETE'),
+  getDocumentDownloadUrl: (id: string) => get<{ download_url: string; nome_arquivo: string; mime_type: string | null; expires_in: number }>(`/documents/${id}/download`),
+  async uploadLeaseDocument(leaseId: string, file: File, categoria: string): Promise<PropertyDocument> {
+    const { token, tenantId } = getAuthHeaders();
+    const baseUrl = getApiUrl().replace(/\/$/, '');
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-ID': tenantId ?? '',
+    };
+    const uploadUrlRes = await fetch(`${baseUrl}/api/v1/gestao-imobiliaria/documents/upload-url`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lease_id: leaseId, filename: file.name, mime_type: file.type || null }),
+    });
+    if (!uploadUrlRes.ok) {
+      const err = await uploadUrlRes.json().catch(() => ({ error: { message: 'Falha ao gerar URL de upload' } }));
+      throw new Error(err.error?.message || 'Falha ao gerar URL de upload');
+    }
+    const { data: uploadData } = await uploadUrlRes.json();
+    const uploadRes = await fetch(uploadData.upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error('Falha ao enviar o arquivo');
+    return send<PropertyDocument>('/documents', 'POST', {
+      lease_id: leaseId,
+      categoria,
+      nome_arquivo: file.name,
+      mime_type: file.type || null,
+      tamanho_bytes: file.size,
+      storage_key: uploadData.storage_path,
+    });
+  },
 
   // Ownership
   listOwnership: (propertyId: string) => get<any[]>(`/ownership-shares?property_id=${propertyId}`),

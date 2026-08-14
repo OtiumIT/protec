@@ -4,6 +4,34 @@ import { ClientRepository } from '../clients/client.repository';
 import { AppError } from '../../shared/utils/error-handler';
 import { query } from '../../db/client';
 import { calcularPF, calcularPJ } from '../properties/calculations';
+import { createPropertyDocumentUploadUrl, generatePropertyDocumentSignedUrl, deletePropertyDocumentFile } from '../../shared/services/storage.service';
+
+const LEASE_DOC_MAX_BYTES = 15 * 1024 * 1024;
+const LEASE_DOC_MIMES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+]);
+
+function sanitizeFilename(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_');
+}
+
+function deriveDataFim(dataInicio: string, prazoMeses?: number | null, dataFim?: string | null): string | null {
+  if (dataFim) return dataFim;
+  if (!prazoMeses || prazoMeses <= 0) return dataFim ?? null;
+  const d = new Date(`${dataInicio}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dataFim ?? null;
+  d.setMonth(d.getMonth() + prazoMeses);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /** Erro padronizado para funcionalidades que dependem de integração externa (em criação). */
 export function integrationNotReady(nome: string): AppError {
@@ -50,7 +78,11 @@ export class GestaoImobiliariaService {
   // ---- Contratos ----
   async createLease(data: any, userId?: string) {
     await this.assertProperty(data.property_id);
-    return this.repo.createLease(data, userId ?? null);
+    const payload = {
+      ...data,
+      data_fim: deriveDataFim(data.data_inicio, data.prazo_meses, data.data_fim),
+    };
+    return this.repo.createLease(payload, userId ?? null);
   }
   listLeases(filters: any) { return this.repo.listLeases(filters); }
   async getLease(id: string) {
@@ -59,8 +91,14 @@ export class GestaoImobiliariaService {
     return lease;
   }
   async updateLease(id: string, data: any) {
-    await this.getLease(id);
-    return this.repo.updateLease(id, data);
+    const existing = await this.getLease(id);
+    const shouldDerive = data.prazo_meses !== undefined || data.data_inicio !== undefined || data.data_fim !== undefined;
+    const payload = { ...data };
+    if (shouldDerive) {
+      const inicio = String(data.data_inicio ?? existing.data_inicio ?? '').slice(0, 10);
+      payload.data_fim = deriveDataFim(inicio, data.prazo_meses ?? existing.prazo_meses, data.data_fim);
+    }
+    return this.repo.updateLease(id, payload);
   }
   async deleteLease(id: string) {
     await this.getLease(id);
@@ -153,9 +191,60 @@ export class GestaoImobiliariaService {
   }
 
   // ---- Documentos ----
-  createDocument(data: any, userId?: string) { return this.repo.createDocument(data, userId ?? null); }
+  async createDocumentUploadUrl(companyId: string, leaseId: string, filename: string, mimeType?: string | null) {
+    await this.getLease(leaseId);
+    if (mimeType && !LEASE_DOC_MIMES.has(mimeType)) {
+      throw new AppError('Tipo de arquivo não permitido. Use PDF, imagem ou DOCX.', 'INVALID_MIME', 400);
+    }
+    const uid = randomBytes(8).toString('hex');
+    const storagePath = `${companyId}/leases/${leaseId}/${uid}-${sanitizeFilename(filename)}`;
+    const signed = await createPropertyDocumentUploadUrl(storagePath);
+    return {
+      upload_url: signed.signedUrl,
+      storage_path: signed.path,
+      token: signed.token,
+      expires_in: 600,
+    };
+  }
+
+  async createDocument(data: any, userId?: string, companyId?: string) {
+    if (data.lease_id) await this.getLease(data.lease_id);
+    if (data.property_id) await this.assertProperty(data.property_id);
+    if (data.mime_type && !LEASE_DOC_MIMES.has(data.mime_type)) {
+      throw new AppError('Tipo de arquivo não permitido. Use PDF, imagem ou DOCX.', 'INVALID_MIME', 400);
+    }
+    if (data.tamanho_bytes != null && Number(data.tamanho_bytes) > LEASE_DOC_MAX_BYTES) {
+      throw new AppError('Arquivo excede o limite de 15 MB.', 'FILE_TOO_LARGE', 400);
+    }
+    if (data.storage_key && companyId && !String(data.storage_key).startsWith(`${companyId}/`)) {
+      throw new AppError('storage_key inválido para este tenant.', 'FORBIDDEN', 403);
+    }
+    return this.repo.createDocument(data, userId ?? null);
+  }
+
   listDocuments(filters: any) { return this.repo.listDocuments(filters); }
-  deleteDocument(id: string) { return this.repo.deleteDocument(id); }
+
+  async getDocumentDownloadUrl(id: string, companyId: string) {
+    const doc = await this.repo.getDocument(id);
+    if (!doc) throw new AppError('Documento não encontrado', 'DOCUMENT_NOT_FOUND', 404);
+    if (!doc.storage_key || doc.storage_status !== 'armazenado') {
+      throw new AppError('Arquivo ainda não está disponível.', 'DOCUMENT_NOT_READY', 409);
+    }
+    if (!String(doc.storage_key).startsWith(`${companyId}/`)) {
+      throw new AppError('Documento não encontrado', 'DOCUMENT_NOT_FOUND', 404);
+    }
+    const download_url = await generatePropertyDocumentSignedUrl(doc.storage_key, 600);
+    return { download_url, nome_arquivo: doc.nome_arquivo, mime_type: doc.mime_type, expires_in: 600 };
+  }
+
+  async deleteDocument(id: string, companyId: string) {
+    const doc = await this.repo.getDocument(id);
+    if (!doc) throw new AppError('Documento não encontrado', 'DOCUMENT_NOT_FOUND', 404);
+    if (doc.storage_key && String(doc.storage_key).startsWith(`${companyId}/`)) {
+      await deletePropertyDocumentFile(doc.storage_key).catch(() => undefined);
+    }
+    await this.repo.deleteDocument(id);
+  }
 
   // ---- Ownership ----
   async createOwnershipShare(data: any, userId?: string) {

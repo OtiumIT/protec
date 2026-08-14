@@ -37,6 +37,7 @@ import { RelatorioProjeto } from './modules/properties/pages/RelatorioProjeto';
 import { Properties } from './modules/properties/pages/Properties';
 import { PropertyDetail } from './modules/properties/pages/PropertyDetail';
 import { GestaoImobiliaria } from './modules/gestao-imobiliaria/pages/GestaoImobiliaria';
+import { ContratoFicha } from './modules/gestao-imobiliaria/pages/ContratoFicha';
 import { PrestacaoContasPublica } from './modules/gestao-imobiliaria/pages/PrestacaoContasPublica';
 import { SimulacaoPublica } from './modules/properties/pages/SimulacaoPublica';
 import { MapeamentoDespesasPj } from './modules/mapeamento-despesas-pj/pages/MapeamentoDespesasPj';
@@ -205,6 +206,8 @@ function AppRoutes() {
           <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
           <Route path="/properties/:id" element={<PropertyDetail />} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/gestao-imobiliaria/contratos/novo" element={<ContratoFicha />} />
+          <Route path="/gestao-imobiliaria/contratos/:leaseId" element={<ContratoFicha />} />
           <Route path="/gestao-imobiliaria" element={<GestaoImobiliaria />} />
           <Route path="/gestao-imobiliaria/:section" element={<GestaoImobiliaria />} />
           <Route path="/mapeamento-despesas-pj" element={<MapeamentoDespesasPj />} />

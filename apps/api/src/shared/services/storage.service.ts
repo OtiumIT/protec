@@ -301,6 +301,65 @@ export async function getFileUrl(filePath: string): Promise<string> {
   return data.publicUrl;
 }
 
+const PROPERTY_DOCS_BUCKET = 'property-documents';
+let propertyDocsBucketChecked = false;
+
+async function ensurePropertyDocsBucket(): Promise<void> {
+  if (propertyDocsBucketChecked) return;
+  const supabase = getSupabaseClient();
+  const { data: buckets } = await supabase.storage.listBuckets();
+  if (buckets?.some((b) => b.name === PROPERTY_DOCS_BUCKET)) {
+    propertyDocsBucketChecked = true;
+    return;
+  }
+  const { error } = await supabase.storage.createBucket(PROPERTY_DOCS_BUCKET, {
+    public: false,
+    fileSizeLimit: 15 * 1024 * 1024,
+    allowedMimeTypes: [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+    ],
+  });
+  if (error && !error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+    throw new AppError(`Failed to create property-documents bucket: ${error.message}`, 'BUCKET_CREATE_ERROR', 500);
+  }
+  propertyDocsBucketChecked = true;
+}
+
+/** Signed upload URL for lease/property attachments (private bucket). */
+export async function createPropertyDocumentUploadUrl(filePath: string): Promise<{ signedUrl: string; token: string; path: string }> {
+  const supabase = getSupabaseClient();
+  await ensurePropertyDocsBucket();
+  const { data, error } = await supabase.storage.from(PROPERTY_DOCS_BUCKET).createSignedUploadUrl(filePath);
+  if (error || !data) {
+    throw new AppError(`Error generating upload URL: ${error?.message ?? 'unknown'}`, 'STORAGE_SIGNED_URL_ERROR', 500);
+  }
+  return { signedUrl: data.signedUrl, token: data.token, path: filePath };
+}
+
+export async function generatePropertyDocumentSignedUrl(filePath: string, expiresIn = 600): Promise<string> {
+  const supabase = getSupabaseClient();
+  await ensurePropertyDocsBucket();
+  const { data, error } = await supabase.storage.from(PROPERTY_DOCS_BUCKET).createSignedUrl(filePath, expiresIn);
+  if (error) {
+    throw new AppError(`Error generating signed URL: ${error.message}`, 'STORAGE_SIGNED_URL_ERROR', 500);
+  }
+  return data.signedUrl;
+}
+
+export async function deletePropertyDocumentFile(filePath: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  await ensurePropertyDocsBucket();
+  const { error } = await supabase.storage.from(PROPERTY_DOCS_BUCKET).remove([filePath]);
+  if (error) {
+    throw new AppError(`Error deleting file: ${error.message}`, 'STORAGE_DELETE_ERROR', 500);
+  }
+}
+
 /**
  * Gerar URL assinada (signed URL) para download temporário
  * @param filePath - Path do arquivo no storage

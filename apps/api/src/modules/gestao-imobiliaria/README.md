@@ -8,30 +8,36 @@ simuladores tributários existentes (`properties`), sem alterá-los.
 
 Chave do módulo: `GESTAO_IMOVEIS` (mesma dos simuladores). Base: `/api/v1/gestao-imobiliaria`.
 
-UI (portal): abas/menu ativos — Portfólio, Imóveis, Contratos, Custos, Extratos.
-Alertas, Financeiro, Operação e Integrações estão ocultos no menu (código/API mantidos).
+UI (portal): abas/menu ativos — Portfólio, Imóveis, Contratos, Custos.
+Ficha do contrato: `/gestao-imobiliaria/contratos/novo` e `/gestao-imobiliaria/contratos/:id`.
+Alertas, Financeiro, Operação, Extratos e Integrações estão ocultos no menu (código/API mantidos).
 
-Aba Imóveis: inclui botão **Importar do IRPF** (PDF/.dec/.dbk) que chama `POST /properties/import-from-irpf`,
-exibe preview checkável dos bens imóveis e cadastra em lote via `POST /properties/batch`.
+Aba Imóveis: cadastro do **bem** (dono, endereço, matrícula, IPTU). Badge ocupado/vago e atalho
+ao contrato. Importar do IRPF (PDF/.dec/.dbk) via `POST /properties/import-from-irpf`.
+Encargos mensais ficam na aba **Custos**.
 
-## Integração com Simulador de Locação (Contrato como Centro)
-- **Simulação automática**: ao salvar um **contrato** (com aluguel > 0), o sistema executa uma simulação
-  rápida PF vs PJ (`POST /leases/:id/quick-simulate`), usando `calcularPF()` e `calcularPJ()`.
-  Custos dedutiveis e operacionais vêm do imóvel vinculado; taxa imobiliária vem do contrato.
-- **Regime tributário**: o usuário escolhe PF ou PJ; a escolha é salva no campo `property_leases.regime_tributario`
-  via `PATCH /leases/:id/regime`. O resultado é cacheado em `property_leases.ultimo_resultado_simulacao` (JSONB).
-- **Imobiliária**: cada contrato pode indicar se possui imobiliária (`tem_imobiliaria`), tipo da taxa
-  (`imobiliaria_tipo`: percentual ou fixo) e valor (`imobiliaria_valor`). O custo da imobiliária é
-  considerado como custo operacional na simulação tributária.
-- **Portfólio**: receita = aluguel do contrato ativo (imóveis sem contrato mostram receita zero);
-  custos = campos `*_mensal_padrao` do imóvel; imposto = cache do contrato/regime selecionado.
-- **Tab Custos**: edição inline de todos os 12 campos de custo por imóvel.
-- **Contratos**: incluem botão Editar, badge de regime tributário (PF/PJ) e exibição do resultado
-  da simulação pós-save com opção de escolha de regime.
+## Contrato como centro jurídico
+O contrato (`property_leases`) é o vínculo: partes, vigência, aluguel, índice, garantia e anexos.
+O proprietário vem do imóvel (`properties.client_id`). O inquilino é `property_tenants`
+(nome, PF/PJ, CPF/CNPJ, e-mail).
+
+- **Campos**: `numero` (opcional), `prazo_meses` (opcional; se informado, deriva `data_fim` =
+  início + N meses − 1 dia), aluguel, dia de vencimento, índice, status, taxa da imobiliária.
+- **Garantia**: um registro em `property_guarantees` (caução, fiador, seguro-fiança, título).
+- **Anexos**: upload real no bucket privado `property-documents`. Path
+  `{company_id}/leases/{lease_id}/{uid}-{arquivo}`. MIME: PDF, imagem, DOCX. Limite 15 MB.
+  `storage_key` gravado; `storage_status = armazenado`. Download via signed URL (10 min).
+  Isolamento: `storage_key` deve começar com `{companyId}/`.
+- **Simulação tributária**: depois do save jurídico, se aluguel > 0, `POST /leases/:id/quick-simulate`
+  (PF vs PJ). Regime em `PATCH /leases/:id/regime`.
+- **Portfólio**: receita = aluguel do contrato ativo; custos = `*_mensal_padrao` do imóvel;
+  imposto = cache do regime. Colunas de ocupação, inquilino e fim do contrato. Clique abre a ficha
+  (ou a aba Imóveis se vago).
 
 ## Regras de Negócio
 - **Tenant**: todas as tabelas vivem no schema do tenant (`tenant_{company_id}`); nenhuma query
   cruza tenants. O acesso é isolado por schema (queries usam `requireCompanyId=false`).
+  Anexos no Storage usam prefixo `{company_id}/`; download/delete recusam `storage_key` de outro tenant.
 - **Ledger x Tributário**: `property_ledger_entries` é o livro **operacional** (competência +
   vencimento + status: previsto/confirmado/pago/atrasado/cancelado). NÃO substitui
   `property_transactions` (diário tributário do IR). São camadas distintas por decisão de produto.
@@ -49,8 +55,9 @@ exibe preview checkável dos bens imóveis e cadastra em lote via `POST /propert
 
 ## Dependências
 - Módulos consumidos: `clients` (validação de cliente), `properties` (imóveis), `feature-toggles`.
-- Tabelas principais (migration `069_gestao_imobiliaria_contabil.sql`): `property_tenants`,
-  `property_leases`, `property_lease_amendments`, `property_guarantees`, `property_ledger_entries`,
+- Tabelas principais (migration `069_gestao_imobiliaria_contabil.sql` + `089_leases_numero_prazo.sql`):
+  `property_tenants`,
+  `property_leases` (`numero`, `prazo_meses`), `property_lease_amendments`, `property_guarantees`, `property_ledger_entries`,
   `property_recurring_rules`, `property_documents`, `property_statement_shares`,
   `property_ownership_shares`, `property_vendors`, `property_maintenance_tickets`,
   `property_inspections`, `property_inventory_items`, `property_payment_charges`,
@@ -64,7 +71,9 @@ exibe preview checkável dos bens imóveis e cadastra em lote via `POST /propert
 - Inquilinos: `POST/GET/PATCH/DELETE /tenants`.
 - Contratos: `POST/GET/PATCH/DELETE /leases`, simulação `POST /leases/:id/quick-simulate`,
   regime `PATCH /leases/:id/regime`, aditivos `.../amendments`, garantias `.../guarantees`.
+- Documentos: `POST /documents/upload-url`, `POST /documents` (confirma `storage_key`),
+  `GET /documents`, `GET /documents/:id/download`, `DELETE /documents/:id`.
 - Ledger: `POST/GET/PATCH/DELETE /ledger`, `POST /ledger/:id/settle`, `.../cancel`, `.../mark-overdue`.
 - Recorrências: `POST/GET/PATCH/DELETE /recurring`, `POST /recurring/generate`.
-- Documentos, fracionada, fornecedores, manutenções, vistorias, inventário: CRUD dedicado.
+- Fracionada, fornecedores, manutenções, vistorias, inventário: CRUD dedicado.
 - Integrações (stubs): `POST/GET /payment-charges`, `/communications`, `/bank-imports`.

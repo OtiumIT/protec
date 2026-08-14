@@ -16,7 +16,7 @@ import {
   CreateLeaseAmendmentSchema, CreateGuaranteeSchema, UpdateGuaranteeSchema,
   CreateLedgerEntrySchema, UpdateLedgerEntrySchema, SettleLedgerEntrySchema, ListLedgerQuerySchema,
   CreateRecurringRuleSchema, UpdateRecurringRuleSchema, GenerateRecurringSchema,
-  CreatePropertyDocumentSchema,
+  CreatePropertyDocumentSchema, DocumentUploadUrlSchema,
   CreateStatementShareSchema, StatementQuerySchema, PublicStatementParamSchema,
   CreateOwnershipShareSchema, UpdateOwnershipShareSchema,
   CreateVendorSchema, UpdateVendorSchema,
@@ -256,9 +256,18 @@ routes.post('/recurring/generate', zValidator('json', GenerateRecurringSchema), 
 });
 
 // ---- Documentos ----
+routes.post('/documents/upload-url', zValidator('json', DocumentUploadUrlSchema), async (c) => {
+  try {
+    const companyId = c.get('companyId') as string;
+    const body = c.req.valid('json');
+    return c.json({ data: await service.createDocumentUploadUrl(companyId, body.lease_id, body.filename, body.mime_type) });
+  } catch (err) { return errorHandler(err, c); }
+});
 routes.post('/documents', zValidator('json', CreatePropertyDocumentSchema), async (c) => {
-  try { return c.json({ data: await service.createDocument(c.req.valid('json'), uid(c)) }, 201); }
-  catch (err) { return errorHandler(err, c); }
+  try {
+    const companyId = c.get('companyId') as string;
+    return c.json({ data: await service.createDocument(c.req.valid('json'), uid(c), companyId) }, 201);
+  } catch (err) { return errorHandler(err, c); }
 });
 routes.get('/documents', zValidator('query', z.object({
   property_id: z.string().uuid().optional(), lease_id: z.string().uuid().optional(),
@@ -266,9 +275,18 @@ routes.get('/documents', zValidator('query', z.object({
   try { return c.json({ data: await service.listDocuments(c.req.valid('query')) }); }
   catch (err) { return errorHandler(err, c); }
 });
+routes.get('/documents/:id/download', zValidator('param', idParam), async (c) => {
+  try {
+    const companyId = c.get('companyId') as string;
+    return c.json({ data: await service.getDocumentDownloadUrl(c.req.valid('param').id, companyId) });
+  } catch (err) { return errorHandler(err, c); }
+});
 routes.delete('/documents/:id', zValidator('param', idParam), async (c) => {
-  try { await service.deleteDocument(c.req.valid('param').id); return c.json({ data: { success: true } }); }
-  catch (err) { return errorHandler(err, c); }
+  try {
+    const companyId = c.get('companyId') as string;
+    await service.deleteDocument(c.req.valid('param').id, companyId);
+    return c.json({ data: { success: true } });
+  } catch (err) { return errorHandler(err, c); }
 });
 
 // ---- Ownership shares ----

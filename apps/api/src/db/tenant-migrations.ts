@@ -38,6 +38,7 @@ export const TENANT_MIGRATION_FILES: readonly string[] = [
   '081_precificador_simulations.sql',
   '082_split_payment_simulations.sql',
   '088_property_simulations_v1_kinds.sql',
+  '089_leases_numero_prazo.sql',
 ];
 
 export function isTenantMigration(filename: string): boolean {

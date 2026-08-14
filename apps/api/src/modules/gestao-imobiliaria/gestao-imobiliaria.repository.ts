@@ -75,16 +75,30 @@ export class GestaoImobiliariaRepository extends BaseRepository {
   async createLease(data: Record<string, unknown>, createdBy?: string | null): Promise<PropertyLease> {
     const r = await this.query<PropertyLease>(
       `INSERT INTO property_leases
-        (property_id, tenant_id, data_inicio, data_fim, valor_aluguel, dia_vencimento, indice_reajuste, status, observacao, created_by,
+        (property_id, tenant_id, numero, prazo_meses, data_inicio, data_fim, valor_aluguel, dia_vencimento, indice_reajuste, status, observacao, created_by,
          tem_imobiliaria, imobiliaria_tipo, imobiliaria_valor)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-      [data.property_id, data.tenant_id ?? null, data.data_inicio, data.data_fim ?? null,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      [data.property_id, data.tenant_id ?? null, data.numero ?? null, data.prazo_meses ?? null,
+       data.data_inicio, data.data_fim ?? null,
        data.valor_aluguel ?? 0, data.dia_vencimento ?? 10, data.indice_reajuste ?? 'IPCA',
        data.status ?? 'ativo', data.observacao ?? null, createdBy ?? null,
        data.tem_imobiliaria ?? false, data.imobiliaria_tipo ?? null, data.imobiliaria_valor ?? 0],
       false
     );
     return r.rows[0];
+  }
+
+  private leaseSelect() {
+    return `SELECT l.*, t.nome AS tenant_nome, p.identificador AS property_identificador,
+       p.client_id AS property_client_id, c.name AS property_client_name,
+       EXISTS (
+         SELECT 1 FROM property_documents d
+         WHERE d.lease_id = l.id AND d.storage_status = 'armazenado'
+       ) AS tem_anexo
+       FROM property_leases l
+       LEFT JOIN property_tenants t ON t.id = l.tenant_id
+       LEFT JOIN properties p ON p.id = l.property_id
+       LEFT JOIN clients c ON c.id = p.client_id`;
   }
 
   async listLeases(filters: { property_id?: string; status?: string; client_id?: string }): Promise<PropertyLease[]> {
@@ -95,12 +109,7 @@ export class GestaoImobiliariaRepository extends BaseRepository {
     if (filters.client_id) { conds.push(`p.client_id = $${params.length + 1}`); params.push(filters.client_id); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await this.query<PropertyLease>(
-      `SELECT l.*, t.nome AS tenant_nome, p.identificador AS property_identificador
-       FROM property_leases l
-       LEFT JOIN property_tenants t ON t.id = l.tenant_id
-       LEFT JOIN properties p ON p.id = l.property_id
-       ${where}
-       ORDER BY l.data_inicio DESC`,
+      `${this.leaseSelect()} ${where} ORDER BY l.data_inicio DESC`,
       params, false
     );
     return r.rows;
@@ -108,11 +117,7 @@ export class GestaoImobiliariaRepository extends BaseRepository {
 
   async getLease(id: string): Promise<PropertyLease | null> {
     const r = await this.query<PropertyLease>(
-      `SELECT l.*, t.nome AS tenant_nome, p.identificador AS property_identificador
-       FROM property_leases l
-       LEFT JOIN property_tenants t ON t.id = l.tenant_id
-       LEFT JOIN properties p ON p.id = l.property_id
-       WHERE l.id = $1`, [id], false
+      `${this.leaseSelect()} WHERE l.id = $1`, [id], false
     );
     return r.rows[0] ?? null;
   }
@@ -324,14 +329,21 @@ export class GestaoImobiliariaRepository extends BaseRepository {
   // Documentos
   // ========================================================================
   async createDocument(data: Record<string, unknown>, createdBy?: string | null) {
+    const status = data.storage_key ? 'armazenado' : 'em_criacao';
     const r = await this.query(
-      `INSERT INTO property_documents (property_id, lease_id, categoria, nome_arquivo, mime_type, tamanho_bytes, storage_status, metadata, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,'em_criacao',$7::jsonb,$8) RETURNING *`,
+      `INSERT INTO property_documents (property_id, lease_id, categoria, nome_arquivo, mime_type, tamanho_bytes, storage_key, storage_status, metadata, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING *`,
       [data.property_id ?? null, data.lease_id ?? null, data.categoria ?? 'outro', data.nome_arquivo,
-       data.mime_type ?? null, data.tamanho_bytes ?? null, JSON.stringify(data.metadata ?? {}), createdBy ?? null],
+       data.mime_type ?? null, data.tamanho_bytes ?? null, data.storage_key ?? null, status,
+       JSON.stringify(data.metadata ?? {}), createdBy ?? null],
       false
     );
     return r.rows[0];
+  }
+
+  async getDocument(id: string) {
+    const r = await this.query('SELECT * FROM property_documents WHERE id = $1', [id], false);
+    return r.rows[0] ?? null;
   }
 
   async listDocuments(filters: { property_id?: string; lease_id?: string }) {
