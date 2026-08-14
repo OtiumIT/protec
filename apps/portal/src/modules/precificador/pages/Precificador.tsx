@@ -14,7 +14,8 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
@@ -121,8 +122,7 @@ export function Precificador() {
   const branding = useBranding();
   const { print: doPrint } = useReportPrint('precificador-print-wrapper');
 
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients, refetch: reloadClients } = useClients();
   const [clientId, setClientId] = useState('');
   const [showClientModal, setShowClientModal] = useState(false);
 
@@ -139,22 +139,6 @@ export function Precificador() {
   const [folhaMensal, setFolhaMensal] = useState(15000);
   const [ano, setAno] = useState(new Date().getFullYear());
 
-  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) setIsLoadingClients(true);
-    try {
-      const list = await clientService.list();
-      setClients(Array.isArray(list) ? list : []);
-    } catch (e) {
-      if (!options?.silent) {
-        showError(e instanceof Error ? e.message : 'Erro ao carregar clientes');
-        setClients([]);
-      }
-    } finally {
-      if (!options?.silent) setIsLoadingClients(false);
-    }
-  }, [showError]);
-
-  useEffect(() => { void loadClients(); }, [loadClients]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -587,9 +571,8 @@ export function Precificador() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
-          void loadClients({ silent: true });
+          void reloadClients();
         }}
       />
     </>

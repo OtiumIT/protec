@@ -10,7 +10,8 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { propertyService } from '../services/property.service';
 import {
   calcularItcmd,
@@ -68,7 +69,7 @@ export function SimuladorItcmd() {
   const branding = useBranding();
   const { print } = useReportPrint('simulador-itcmd-print-wrapper');
 
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients } = useClients();
   const [clientId, setClientId] = useState('');
   const [uf, setUf] = useState('SP');
   const [tipoBem, setTipoBem] = useState<ItcmdBemTipo>('imovel');
@@ -83,10 +84,6 @@ export function SimuladorItcmd() {
   const [deleteSimulationModal, setDeleteSimulationModal] = useState<{ id: string; title: string } | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [reportClientName, setReportClientName] = useState('');
-
-  useEffect(() => {
-    clientService.list().then(setClients).catch(() => showError('Não foi possível carregar clientes'));
-  }, [showError]);
 
   const usaTabela = temTabelaItcmd(uf);
 

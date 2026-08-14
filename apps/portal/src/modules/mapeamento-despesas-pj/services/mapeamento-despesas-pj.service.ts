@@ -56,11 +56,11 @@ export const mapeamentoService = {
   getDashboard: () => get<PortfolioSummary>('/dashboard'),
   analyze: (input: AnalyzeExpenseMappingInput) => send<ExpenseMappingResult>('/analyze', 'POST', input),
 
-  create: (input: CreateDiagnosisInput) => send<DiagnosisFull>('/', 'POST', input),
+  create: (input: CreateDiagnosisInput) => send<DiagnosisFull>('', 'POST', input),
   list: (params?: { client_id?: string; reference_year?: number; status?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     Object.entries(params ?? {}).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
-    return get<{ diagnoses: ExpenseMappingDiagnosis[]; total: number; page: number; limit: number }>(`/${q.toString() ? `?${q}` : ''}`);
+    return get<{ diagnoses: ExpenseMappingDiagnosis[]; total: number; page: number; limit: number }>(q.toString() ? `?${q}` : '');
   },
   getById: (id: string) => get<DiagnosisFull>(`/${id}`),
   update: (id: string, input: UpdateDiagnosisInput) => send<DiagnosisFull>(`/${id}`, 'PATCH', input),

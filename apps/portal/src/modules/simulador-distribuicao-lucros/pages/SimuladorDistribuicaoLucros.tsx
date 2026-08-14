@@ -19,7 +19,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { Input } from '../../../shared/components/ui/Input';
 import { useToast } from '../../../shared/components/ui/Toast';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { distribuicaoLucrosSimulationsService } from '../services/distribuicao-lucros-simulations.service';
 import {
@@ -97,8 +97,7 @@ function parseStoredInput(raw: Record<string, unknown>): {
 
 export function SimuladorDistribuicaoLucros() {
   const { success, error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients, refetch: loadClients } = useClients();
   const [clientId, setClientId] = useState('');
   const [showClientModal, setShowClientModal] = useState(false);
 
@@ -113,25 +112,6 @@ export function SimuladorDistribuicaoLucros() {
   const [irpjRate, setIrpjRate] = useState(0.34);
   const [appKey, setAppKey] = useState<AppKey>('cdb_pre');
   const [chartTab, setChartTab] = useState<ChartTab>(1);
-
-  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) setIsLoadingClients(true);
-    try {
-      const list = await clientService.list();
-      setClients(Array.isArray(list) ? list : []);
-    } catch (e) {
-      if (!options?.silent) {
-        showError(e instanceof Error ? e.message : 'Erro ao carregar clientes');
-        setClients([]);
-      }
-    } finally {
-      if (!options?.silent) setIsLoadingClients(false);
-    }
-  }, [showError]);
-
-  useEffect(() => {
-    void loadClients();
-  }, [loadClients]);
 
   const loadSimulations = useCallback(async () => {
     if (!clientId) {
@@ -912,7 +892,7 @@ export function SimuladorDistribuicaoLucros() {
         onSuccess={(client) => {
           setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
-          void loadClients({ silent: true });
+          void loadClients();
         }}
       />
     </>

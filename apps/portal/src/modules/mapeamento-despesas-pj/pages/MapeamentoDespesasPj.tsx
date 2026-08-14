@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { useToast } from '../../../shared/components/ui/Toast';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { mapeamentoService as svc, type DiagnosisFull, type PortfolioSummary } from '../services/mapeamento-despesas-pj.service';
 import type { ExpenseItemAnswer, ExpenseMappingResult, ExpenseMappingDiagnosis, ClassifiedExpenseItem } from '@shared/core';
 
@@ -20,6 +20,113 @@ const CATEGORIES = [
   { key: 'outras', nome: 'Outras despesas' },
 ];
 
+const PRESET_EXPENSE_CATALOG = [
+  {
+    id: 'ocupacao',
+    nome: 'Ocupação e Infraestrutura',
+    defaultCategoryKey: 'imovel' as const,
+    presets: [
+      { label: 'Aluguel do escritório/sala comercial', category_key: 'imovel' as const },
+      { label: 'Condomínio', category_key: 'imovel' as const },
+      { label: 'IPTU', category_key: 'imovel' as const },
+      { label: 'Energia elétrica', category_key: 'imovel' as const },
+      { label: 'Água', category_key: 'imovel' as const },
+      { label: 'Internet', category_key: 'tecnologia' as const },
+      { label: 'Telefone fixo/celular corporativo', category_key: 'tecnologia' as const },
+      { label: 'Seguro do imóvel', category_key: 'imovel' as const },
+      { label: 'Manutenção e reformas', category_key: 'imovel' as const },
+    ],
+  },
+  {
+    id: 'pessoal',
+    nome: 'Pessoal e Benefícios',
+    defaultCategoryKey: 'saude_beneficios' as const,
+    presets: [
+      { label: 'Folha de pagamento (CLT)', category_key: 'saude_beneficios' as const },
+      { label: 'Pró-labore', category_key: 'saude_beneficios' as const },
+      { label: 'INSS patronal', category_key: 'saude_beneficios' as const },
+      { label: 'FGTS', category_key: 'saude_beneficios' as const },
+      { label: 'Plano de saúde', category_key: 'saude_beneficios' as const },
+      { label: 'Plano odontológico', category_key: 'saude_beneficios' as const },
+      { label: 'Vale refeição/alimentação', category_key: 'saude_beneficios' as const },
+      { label: 'Vale transporte', category_key: 'saude_beneficios' as const },
+      { label: 'Seguro de vida em grupo', category_key: 'saude_beneficios' as const },
+    ],
+  },
+  {
+    id: 'servicos_prof',
+    nome: 'Serviços Profissionais',
+    defaultCategoryKey: 'servicos' as const,
+    presets: [
+      { label: 'Contabilidade', category_key: 'servicos' as const },
+      { label: 'Advocacia/jurídico', category_key: 'servicos' as const },
+      { label: 'Consultoria especializada', category_key: 'servicos' as const },
+      { label: 'Marketing e publicidade', category_key: 'servicos' as const },
+      { label: 'TI / suporte técnico', category_key: 'servicos' as const },
+      { label: 'Limpeza e conservação', category_key: 'servicos' as const },
+      { label: 'Segurança patrimonial', category_key: 'servicos' as const },
+    ],
+  },
+  {
+    id: 'tecnologia_sw',
+    nome: 'Tecnologia e Software',
+    defaultCategoryKey: 'tecnologia' as const,
+    presets: [
+      { label: 'Licenças de software (ERP, CRM, etc.)', category_key: 'tecnologia' as const },
+      { label: 'Hospedagem de site/servidores', category_key: 'tecnologia' as const },
+      { label: 'E-mail corporativo / Google Workspace / Microsoft 365', category_key: 'tecnologia' as const },
+      { label: 'Sistemas de gestão', category_key: 'tecnologia' as const },
+      { label: 'Certificado digital', category_key: 'tecnologia' as const },
+    ],
+  },
+  {
+    id: 'veiculos_transp',
+    nome: 'Veículos e Transporte',
+    defaultCategoryKey: 'veiculos' as const,
+    presets: [
+      { label: 'Combustível', category_key: 'veiculos' as const },
+      { label: 'Manutenção de veículos', category_key: 'veiculos' as const },
+      { label: 'Seguro de veículos', category_key: 'veiculos' as const },
+      { label: 'IPVA', category_key: 'veiculos' as const },
+      { label: 'Estacionamento', category_key: 'veiculos' as const },
+      { label: 'Uber/99/táxi corporativo', category_key: 'veiculos' as const },
+      { label: 'Pedágios', category_key: 'veiculos' as const },
+    ],
+  },
+  {
+    id: 'material',
+    nome: 'Material e Suprimentos',
+    defaultCategoryKey: 'outras' as const,
+    presets: [
+      { label: 'Material de escritório', category_key: 'outras' as const },
+      { label: 'Material de limpeza', category_key: 'outras' as const },
+      { label: 'Impressão e cópias', category_key: 'outras' as const },
+      { label: 'Café, água e copa', category_key: 'outras' as const },
+    ],
+  },
+  {
+    id: 'financeiro',
+    nome: 'Financeiro e Bancário',
+    defaultCategoryKey: 'outras' as const,
+    presets: [
+      { label: 'Tarifas bancárias', category_key: 'outras' as const },
+      { label: 'Taxas de cartão de crédito/maquininha', category_key: 'outras' as const },
+      { label: 'Juros de empréstimos', category_key: 'outras' as const },
+      { label: 'Seguros empresariais', category_key: 'outras' as const },
+    ],
+  },
+  {
+    id: 'tributos',
+    nome: 'Tributos e Taxas',
+    defaultCategoryKey: 'outras' as const,
+    presets: [
+      { label: 'Alvará de funcionamento', category_key: 'outras' as const },
+      { label: 'Taxa de licenciamento', category_key: 'outras' as const },
+      { label: 'Taxas de conselho de classe (CRC, OAB, CREA, etc.)', category_key: 'outras' as const },
+    ],
+  },
+];
+
 const CLASS_BADGE: Record<string, string> = {
   potencial: 'bg-emerald-100 text-emerald-800',
   condicionado: 'bg-amber-100 text-amber-800',
@@ -30,10 +137,12 @@ const CLASS_LABEL: Record<string, string> = {
   potencial: 'Potencial', condicionado: 'Condicionado', rateio: 'Rateio', nao_recomendado: 'Não recomendado',
 };
 
+type WizardItem = ExpenseItemAnswer & { _sectionId?: string };
+
 function newItem(): ExpenseItemAnswer {
   return {
     category_key: 'veiculos', label: '', monthly_amount: 0, current_payer: 'pf',
-    vinculo_atividade: 'parcial', business_use_pct: 0, beneficiario: 'empresa',
+    vinculo_atividade: 'sim', business_use_pct: 100, beneficiario: 'empresa',
     documento_pj: 'nao', possui_evidencia: false, is_tributo_ou_principal: false, notes: null,
   };
 }
@@ -50,7 +159,7 @@ export function MapeamentoDespesasPj() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mapeamento de Despesas PF → PJ</h1>
-          <p className="text-sm text-slate-500">Diagnóstico e evidência para organização de despesas. Não é parecer nem promessa de crédito.</p>
+          <p className="text-sm text-slate-500">Mostra quanto o sócio gasta do bolso e qual a vantagem de a empresa assumir. Não é parecer nem promessa de crédito.</p>
         </div>
         {view.mode === 'list' && <Button size="sm" onClick={() => setView({ mode: 'wizard' })}>+ Novo diagnóstico</Button>}
         {view.mode !== 'list' && <Button size="sm" variant="secondary" onClick={() => setView({ mode: 'list' })}>← Voltar</Button>}
@@ -119,20 +228,44 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------- Wizard ----------------
 function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; onError: (m: string) => void; onSuccess: (m: string) => void }) {
   const [step, setStep] = useState(1);
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients } = useClients();
   const [ctx, setCtx] = useState({
     client_id: '', title: '', reference_year: new Date().getFullYear(), activity: '',
-    tax_regime: 'simples_nacional', ibs_cbs_treatment: 'nao_avaliar', objective: '',
+    tax_regime: 'simples_nacional', ibs_cbs_treatment: 'avaliar_por_fora', objective: '',
   });
-  const [items, setItems] = useState<ExpenseItemAnswer[]>([newItem()]);
+  const [items, setItems] = useState<WizardItem[]>([]);
   const [preview, setPreview] = useState<ExpenseMappingResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [customInput, setCustomInput] = useState<Record<string, string>>({});
 
-  useEffect(() => { clientService.list().then(setClients).catch(() => onError('Falha ao carregar clientes')); }, [onError]);
-
-  const updateItem = (idx: number, patch: Partial<ExpenseItemAnswer>) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
-  const addItem = () => setItems((prev) => [...prev, newItem()]);
+  const updateItem = (idx: number, patch: Partial<WizardItem>) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
   const removeItem = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  const toggleSection = (id: string) =>
+    setOpenSections((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const findItemIdx = (label: string, catKey: string) =>
+    items.findIndex((it) => it.label === label && it.category_key === catKey);
+  const isChecked = (label: string, catKey: string) => findItemIdx(label, catKey) >= 0;
+  const togglePreset = (label: string, catKey: string, sectionId: string) => {
+    const idx = findItemIdx(label, catKey);
+    if (idx >= 0) removeItem(idx);
+    else setItems((prev) => [...prev, { ...newItem(), label, category_key: catKey as any, _sectionId: sectionId }]);
+  };
+  const getAmount = (label: string, catKey: string) => { const idx = findItemIdx(label, catKey); return idx >= 0 ? items[idx].monthly_amount : 0; };
+  const setAmount = (label: string, catKey: string, amount: number) => { const idx = findItemIdx(label, catKey); if (idx >= 0) updateItem(idx, { monthly_amount: amount }); };
+  const addCustomExpense = (sectionId: string, catKey: string) => {
+    const label = (customInput[sectionId] || '').trim();
+    if (!label) return;
+    setItems((prev) => [...prev, { ...newItem(), label, category_key: catKey as any, _sectionId: sectionId }]);
+    setCustomInput((prev) => ({ ...prev, [sectionId]: '' }));
+  };
+  const customItemsForSection = (sectionId: string) => {
+    const cat = PRESET_EXPENSE_CATALOG.find((c) => c.id === sectionId);
+    const presetLabels = new Set(cat?.presets.map((p) => p.label) ?? []);
+    return items.filter((it) => it._sectionId === sectionId && !presetLabels.has(it.label));
+  };
+  const monthlyTotal = items.reduce((sum, it) => sum + (Number(it.monthly_amount) || 0), 0);
 
   const buildInput = () => ({
     context: {
@@ -140,7 +273,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
       activity: ctx.activity || null, tax_regime: ctx.tax_regime as any, ibs_cbs_treatment: ctx.ibs_cbs_treatment as any,
       objective: ctx.objective || null,
     },
-    items: items.filter((i) => i.label.trim()).map((i) => ({ ...i, monthly_amount: Number(i.monthly_amount) || 0, business_use_pct: Number(i.business_use_pct) || 0 })),
+    items: items.filter((i) => i.label.trim()).map(({ _sectionId: _, ...i }) => ({ ...i, monthly_amount: Number(i.monthly_amount) || 0, business_use_pct: Number(i.business_use_pct) || 0 })),
     answers: [],
   });
 
@@ -161,7 +294,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1">
-        {['Contexto', 'Categorias', 'Perguntas', 'Diagnóstico'].map((s, i) => (
+        {['Contexto', 'Despesas', 'Perguntas', 'Diagnóstico'].map((s, i) => (
           <div key={s} className={`flex-1 min-w-[120px] border-t-[3px] pt-2 text-xs font-semibold ${step >= i + 1 ? 'border-indigo-600 text-indigo-700' : 'border-slate-200 text-slate-400'}`}>{i + 1}. {s}</div>
         ))}
       </div>
@@ -185,7 +318,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
               <input value={ctx.title} onChange={(e) => setCtx({ ...ctx, title: e.target.value })} className={inputCls} /></label>
           </div>
           <div className="mt-3 rounded-lg bg-cyan-50 border border-cyan-200 p-3 text-xs text-cyan-800">
-            A lente de crédito IBS/CBS só aparece quando o regime permite. Optantes do Simples só apropriam crédito ao apurar por fora.
+            Migrar despesa para a PJ não reduz a alíquota do Simples nem do Presumido. Crédito de CBS/IBS só existe com NF no CNPJ e apuração no regime regular (ou Simples por fora).
           </div>
           <div className="mt-4 flex justify-end"><Button size="sm" onClick={() => setStep(2)}>Continuar</Button></div>
         </Card>
@@ -193,32 +326,91 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
 
       {step === 2 && (
         <Card title="Despesas mantidas na pessoa física">
-          <p className="text-sm text-slate-500 mb-3">Adicione as despesas pessoais que deseja avaliar para migração à PJ.</p>
-          <div className="space-y-3">
-            {items.map((it, idx) => (
-              <div key={idx} className="rounded-lg border border-slate-200 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <select value={it.category_key} onChange={(e) => updateItem(idx, { category_key: e.target.value as any })} className={inputCls}>{CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.nome}</option>)}</select>
-                  <input placeholder="Descrição (ex.: combustível)" value={it.label} onChange={(e) => updateItem(idx, { label: e.target.value })} className={`${inputCls} md:col-span-2`} />
-                  <input type="number" placeholder="R$ / mês" value={it.monthly_amount || ''} onChange={(e) => updateItem(idx, { monthly_amount: Number(e.target.value) })} className={inputCls} />
+          <p className="text-sm text-slate-500 mb-4">Marque as despesas que o cliente paga como pessoa física e informe o valor mensal aproximado.</p>
+          <div className="space-y-2">
+            {PRESET_EXPENSE_CATALOG.map((section) => {
+              const isOpen = openSections.has(section.id);
+              const presetChecked = section.presets.filter((p) => isChecked(p.label, p.category_key));
+              const customs = customItemsForSection(section.id);
+              const totalSelected = presetChecked.length + customs.length;
+              const sectionSum = [
+                ...presetChecked.map((p) => getAmount(p.label, p.category_key)),
+                ...customs.map((c) => Number(c.monthly_amount) || 0),
+              ].reduce((a, b) => a + b, 0);
+
+              return (
+                <div key={section.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                  <button type="button" onClick={() => toggleSection(section.id)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      <span className="font-semibold text-sm text-slate-800">{section.nome}</span>
+                      {totalSelected > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{totalSelected}</span>}
+                    </div>
+                    {sectionSum > 0 && <span className="text-xs font-semibold text-emerald-600">{brl(sectionSum)}/mês</span>}
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 py-2 space-y-0.5 border-t border-slate-100">
+                      {section.presets.map((preset) => {
+                        const checked = isChecked(preset.label, preset.category_key);
+                        return (
+                          <div key={preset.label} className={`flex items-center gap-3 py-2 px-3 rounded-lg transition-colors ${checked ? 'bg-indigo-50/70' : 'hover:bg-slate-50'}`}>
+                            <input type="checkbox" checked={checked} onChange={() => togglePreset(preset.label, preset.category_key, section.id)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30 shrink-0" />
+                            <span className={`flex-1 text-sm ${checked ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>{preset.label}</span>
+                            {checked && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400">R$</span>
+                                <input type="number" min={0} placeholder="0,00" value={getAmount(preset.label, preset.category_key) || ''} onChange={(e) => setAmount(preset.label, preset.category_key, Number(e.target.value))} className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                                <span className="text-xs text-slate-400">/mês</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {customs.map((cItem) => {
+                        const idx = items.indexOf(cItem);
+                        return (
+                          <div key={`c-${idx}`} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-indigo-50/70">
+                            <span className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-sm text-slate-900 font-medium">{cItem.label}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-400">R$</span>
+                              <input type="number" min={0} placeholder="0,00" value={cItem.monthly_amount || ''} onChange={(e) => updateItem(idx, { monthly_amount: Number(e.target.value) })} className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                              <span className="text-xs text-slate-400">/mês</span>
+                            </div>
+                            <button type="button" onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-500 transition-colors text-sm">✕</button>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center gap-2 pt-2 pb-1 pl-7">
+                        <input placeholder="Adicionar item personalizado…" value={customInput[section.id] || ''} onChange={(e) => setCustomInput((prev) => ({ ...prev, [section.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') addCustomExpense(section.id, section.defaultCategoryKey); }} className="flex-1 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                        <button type="button" onClick={() => addCustomExpense(section.id, section.defaultCategoryKey)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">+ Adicionar</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-2 flex justify-end">
-                  <button onClick={() => removeItem(idx)} className="text-xs text-red-600">Remover</button>
-                </div>
-              </div>
-            ))}
-            <Button size="sm" variant="secondary" onClick={addItem}>+ Adicionar despesa</Button>
+              );
+            })}
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-semibold text-slate-700">Total mensal estimado</span>
+              <span className="text-xs text-slate-400 ml-2">({items.filter((i) => i.label.trim()).length} despesa{items.filter((i) => i.label.trim()).length !== 1 ? 's' : ''})</span>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-slate-900">{brl(monthlyTotal)}</div>
+              <div className="text-xs text-slate-400">{brl(monthlyTotal * 12)}/ano</div>
+            </div>
           </div>
           <div className="mt-4 flex justify-between">
             <Button size="sm" variant="secondary" onClick={() => setStep(1)}>← Contexto</Button>
-            <Button size="sm" onClick={() => { if (items.filter((i) => i.label.trim()).length === 0) { onError('Adicione ao menos uma despesa com descrição'); return; } setStep(3); }}>Continuar →</Button>
+            <Button size="sm" onClick={() => { if (items.filter((i) => i.label.trim()).length === 0) { onError('Selecione ao menos uma despesa'); return; } setStep(3); }}>Continuar →</Button>
           </div>
         </Card>
       )}
 
       {step === 3 && (
         <Card title="Qualificação das despesas">
-          <p className="text-sm text-slate-500 mb-3">Detalhe o vínculo, uso empresarial e documentação de cada despesa informada.</p>
+          <p className="text-sm text-slate-500 mb-3">Itens do checklist já vêm como uso empresarial 100%. Ajuste só o que for misto, pessoal ou sem vínculo com a atividade.</p>
           <div className="space-y-3">
             {items.filter((i) => i.label.trim()).map((it, idx) => {
               const realIdx = items.indexOf(it);
@@ -244,7 +436,7 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
             })}
           </div>
           <div className="mt-4 flex justify-between">
-            <Button size="sm" variant="secondary" onClick={() => setStep(2)}>← Categorias</Button>
+            <Button size="sm" variant="secondary" onClick={() => setStep(2)}>← Despesas</Button>
             <Button size="sm" onClick={runPreview}>Gerar diagnóstico →</Button>
           </div>
         </Card>
@@ -263,23 +455,245 @@ function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; 
   );
 }
 
+// ---------------- Tax savings helpers ----------------
+/** IRPF evitado se o sócio precisasse retirar o valor como renda tributada para pagar na PF. */
+const IRPF_RETIRADA_RATE = 0.275;
+
+function getDeductionRate(regime: string): { rate: number; label: string } {
+  if (regime === 'lucro_real') {
+    return { rate: 0.34, label: 'IRPJ + CSLL sobre o lucro (despesa reduz a base)' };
+  }
+  return { rate: 0, label: '' };
+}
+
+/** CBS teste 2026 (0,9%) e CBS de referência no regime pleno (~8,8%). Não é alíquota da empresa. */
+const CBS_TESTE_2026 = 0.009;
+const CBS_PLENA_REF = 0.088;
+
+function creditRegimeEnabled(regime: string, treatment: string): boolean {
+  if (treatment === 'nao_avaliar' || treatment === 'simples_por_dentro') return false;
+  if (regime === 'mei') return false;
+  if (regime === 'simples_nacional' && treatment !== 'regime_regular' && treatment !== 'avaliar_por_fora') return false;
+  return true;
+}
+
+function getRegimeLabel(regime: string): string {
+  const map: Record<string, string> = {
+    simples_nacional: 'Simples Nacional',
+    lucro_presumido: 'Lucro Presumido',
+    lucro_real: 'Lucro Real',
+    mei: 'MEI',
+    outro: 'Outro',
+  };
+  return map[regime] ?? regime;
+}
+
 // ---------------- Result view (shared) ----------------
 function ResultView({ result }: { result: ExpenseMappingResult }) {
   const t = result.totals;
+  const { rate: deductionRate, label: deductionLabel } = getDeductionRate(result.tax_regime);
+  const baseMigravel = t.potencial_anual + t.condicionado_anual;
+  const irpfEvitado = Math.round(baseMigravel * IRPF_RETIRADA_RATE * 100) / 100;
+  const economiaDedutivel = Math.round(baseMigravel * deductionRate * 100) / 100;
+  const vantagemTotal = irpfEvitado + economiaDedutivel;
+  const rendaBrutaEquivalente = baseMigravel > 0
+    ? Math.round((baseMigravel / (1 - IRPF_RETIRADA_RATE)) * 100) / 100
+    : 0;
+
+  const migrateItems = result.items.filter((i) => i.classification === 'potencial');
+  const organizeItems = result.items.filter((i) => i.classification === 'condicionado' || i.classification === 'rateio');
+  const avoidItems = result.items.filter((i) => i.classification === 'nao_recomendado');
+  const cbsEnabled = creditRegimeEnabled(result.tax_regime, result.ibs_cbs_treatment);
+  const baseCreditoCbs = result.items
+    .filter((i) => i.credit_lens === 'potential' || i.credit_lens === 'conditioned')
+    .reduce((s, i) => s + i.annual_amount, 0);
+  const cbsTeste = Math.round(baseCreditoCbs * CBS_TESTE_2026 * 100) / 100;
+  const cbsPlena = Math.round(baseCreditoCbs * CBS_PLENA_REF * 100) / 100;
+  const isLucroReal = result.tax_regime === 'lucro_real';
+  const isSimples = result.tax_regime === 'simples_nacional' || result.tax_regime === 'mei';
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiBox label="Total analisado (ano)" value={brl(t.total_analisado_anual)} />
-        <KpiBox label="Potencial" value={brl(t.potencial_anual)} tone="pos" />
-        <KpiBox label="Condicionado / rateio" value={brl(t.condicionado_anual + t.rateio_anual)} tone="warn" />
-        <KpiBox label="Não recomendado" value={brl(t.nao_recomendado_anual)} />
+    <div className="space-y-5">
+      <Card title="A vantagem fiscal, sem rodeio">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">A alíquota cai?</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">Não</p>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              {isSimples
+                ? 'No Simples/MEI o DAS continua sobre o faturamento. Colocar despesa na PJ não reduz a alíquota.'
+                : isLucroReal
+                  ? 'A alíquota de IRPJ/CSLL não muda. O que muda é a base: a despesa operacional reduz o lucro tributável.'
+                  : 'No Lucro Presumido a alíquota também não cai. A base é presumida sobre a receita — despesa não reduz IRPJ/CSLL.'}
+            </p>
+          </div>
+          <div className={`rounded-xl border p-4 ${cbsEnabled ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+            <p className="text-xs font-semibold uppercase text-slate-500">Gera crédito de CBS?</p>
+            <p className={`mt-1 text-lg font-bold ${cbsEnabled ? 'text-emerald-800' : 'text-amber-800'}`}>
+              {cbsEnabled ? 'Só com NF no CNPJ' : 'Não neste regime'}
+            </p>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              {cbsEnabled
+                ? `Pago na PF = zero crédito. Pago na PJ com documento eletrônico em nome da empresa, a base de ${brl(baseCreditoCbs)}/ano pode gerar cerca de ${brl(cbsTeste)} de CBS em 2026 (0,9%) e ~${brl(cbsPlena)} no regime pleno (~8,8%). Não é crédito automático.`
+                : isSimples
+                  ? 'Simples “por dentro” e MEI não apropriam crédito de CBS/IBS. Só entra crédito se a PJ apurar o IVA no regime regular (por fora).'
+                  : 'A avaliação de crédito está desligada neste diagnóstico. Para estimar CBS, escolha “avaliar por fora” ou regime regular no contexto.'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">Então qual é a vantagem?</p>
+            <p className="mt-1 text-lg font-bold text-emerald-800">
+              {isLucroReal ? 'Caixa + base menor + CBS' : cbsEnabled ? 'Caixa + crédito de CBS' : 'Caixa e organização'}
+            </p>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              A PJ passa a pagar o custo da atividade. O sócio deixa de usar renda pessoal já tributada
+              {isLucroReal ? ', o lucro tributável cai' : ''}
+              {cbsEnabled ? ' e a NF no CNPJ abre a porta do crédito de CBS/IBS.' : '.'}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="rounded-2xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6">
+        <div className="text-center mb-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Números deste diagnóstico</p>
+          <h3 className="text-xl font-bold text-slate-900 mt-1">
+            {brl(baseMigravel)}/ano hoje saem do bolso do sócio
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Regime {getRegimeLabel(result.tax_regime)} · {result.reference_year}
+          </p>
+        </div>
+
+        {baseMigravel > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
+              <div className="text-center p-3 rounded-xl bg-white border border-slate-200">
+                <div className="text-xs font-semibold uppercase text-slate-500 mb-1">IRPF evitado na retirada</div>
+                <div className="text-xl font-bold text-slate-800">{brl(irpfEvitado)}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">se o sócio retirasse renda tributada (27,5%) só para pagar a despesa</div>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-white border border-slate-200">
+                <div className="text-xs font-semibold uppercase text-slate-500 mb-1">
+                  {isLucroReal ? 'IRPJ/CSLL a menos' : 'Alíquota da PJ'}
+                </div>
+                <div className="text-xl font-bold text-slate-800">
+                  {isLucroReal ? brl(economiaDedutivel) : 'não muda'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {isLucroReal ? deductionLabel : 'despesa não reduz DAS nem base presumida'}
+                </div>
+              </div>
+              <div className={`text-center p-3 rounded-xl bg-white border ${cbsEnabled ? 'border-emerald-200' : 'border-slate-200'}`}>
+                <div className="text-xs font-semibold uppercase text-slate-500 mb-1">Crédito CBS (estimativa)</div>
+                <div className={`text-xl font-bold ${cbsEnabled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  {cbsEnabled ? brl(cbsPlena) : '—'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {cbsEnabled
+                    ? `${brl(cbsTeste)} em 2026 (0,9%) · ~${brl(cbsPlena)} no regime pleno (8,8%)`
+                    : 'sem NF no CNPJ e regime regular, crédito = zero'}
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 text-center mt-4 leading-relaxed">
+              Para pagar {brl(baseMigravel)}/ano na PF, o sócio precisa de cerca de{' '}
+              <span className="font-semibold text-slate-800">{brl(rendaBrutaEquivalente)}</span> de renda
+              tributada. Na PJ a empresa paga o valor — isso não é desconto de alíquota
+              {cbsEnabled ? '; o ganho fiscal da reforma é o crédito de CBS/IBS sobre a NF da empresa.' : '.'}
+            </p>
+          </>
+        ) : (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 text-center">
+            Nenhuma despesa com vínculo empresarial suficiente para estimar vantagem.
+            Volte em Qualificação e marque o que de fato é custo da atividade.
+          </div>
+        )}
       </div>
+
+      {/* Priority action list */}
+      <Card title="Plano de ação por prioridade">
+        {migrateItems.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-xs">🟢</span>
+              <h4 className="text-sm font-bold text-emerald-800">Migrar Imediatamente</h4>
+              <span className="text-xs text-slate-400">— Documentação adequada, 100% uso empresarial</span>
+            </div>
+            <div className="rounded-lg border border-emerald-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {migrateItems.map((it, i) => (
+                    <tr key={i} className={i > 0 ? 'border-t border-emerald-50' : ''}>
+                      <td className="py-2 px-3 font-medium text-slate-800">{it.label}</td>
+                      <td className="py-2 px-3 text-right text-emerald-700 font-semibold">{brl(it.annual_amount)}/ano</td>
+                      <td className="py-2 px-3 text-right text-xs text-slate-400">{it.business_use_pct}% empresarial</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="bg-emerald-50 px-3 py-2 text-right text-xs font-semibold text-emerald-700">
+                Subtotal: {brl(migrateItems.reduce((s, it) => s + it.annual_amount, 0))}/ano · Vantagem: {brl(migrateItems.reduce((s, it) => s + it.annual_amount, 0) * (IRPF_RETIRADA_RATE + deductionRate))}/ano
+              </div>
+            </div>
+          </div>
+        )}
+        {organizeItems.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-xs">🟡</span>
+              <h4 className="text-sm font-bold text-amber-800">Organizar Documentação</h4>
+              <span className="text-xs text-slate-400">— Ajustar contratos, obter NFs em nome da PJ</span>
+            </div>
+            <div className="rounded-lg border border-amber-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {organizeItems.map((it, i) => (
+                    <tr key={i} className={i > 0 ? 'border-t border-amber-50' : ''}>
+                      <td className="py-2 px-3 font-medium text-slate-800">{it.label}</td>
+                      <td className="py-2 px-3 text-right text-amber-700 font-semibold">{brl(it.annual_amount)}/ano</td>
+                      <td className="py-2 px-3 text-right text-xs text-slate-500 max-w-[200px] truncate">{it.pendencias[0] ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="bg-amber-50 px-3 py-2 text-right text-xs font-semibold text-amber-700">
+                Subtotal: {brl(organizeItems.reduce((s, it) => s + it.annual_amount, 0))}/ano · Vantagem após regularizar: {brl(organizeItems.reduce((s, it) => s + it.annual_amount, 0) * (IRPF_RETIRADA_RATE + deductionRate))}/ano
+              </div>
+            </div>
+          </div>
+        )}
+        {avoidItems.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs">🔴</span>
+              <h4 className="text-sm font-bold text-red-800">Não Recomendado</h4>
+              <span className="text-xs text-slate-400">— Despesas pessoais que não devem ser misturadas</span>
+            </div>
+            <div className="rounded-lg border border-red-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {avoidItems.map((it, i) => (
+                    <tr key={i} className={i > 0 ? 'border-t border-red-50' : ''}>
+                      <td className="py-2 px-3 font-medium text-slate-800">{it.label}</td>
+                      <td className="py-2 px-3 text-right text-red-600 font-semibold">{brl(it.annual_amount)}/ano</td>
+                      <td className="py-2 px-3 text-right text-xs text-slate-500 max-w-[200px] truncate">{it.motivo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {result.alertas.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <ul className="list-disc pl-5 space-y-1">{result.alertas.map((a, i) => <li key={i}>{a}</li>)}</ul>
         </div>
       )}
-      <Card title="Despesas classificadas">
+
+      <Card title="Detalhamento completo">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-slate-500 text-xs uppercase"><th className="py-2">Despesa</th><th>Anual</th><th>Uso %</th><th>Classificação</th><th>Motivo / pendências</th></tr></thead>
@@ -297,6 +711,7 @@ function ResultView({ result }: { result: ExpenseMappingResult }) {
           </table>
         </div>
       </Card>
+
       <Card title="Matriz: migrar PF→PJ × crédito IBS/CBS">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <MatrixCell title="Priorizar" tone="pos" items={result.matriz.priorizar} />
@@ -305,6 +720,42 @@ function ResultView({ result }: { result: ExpenseMappingResult }) {
           <MatrixCell title="Evitar" tone="neg" items={result.matriz.evitar} />
         </div>
       </Card>
+
+      {/* Next steps card */}
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5">
+        <h4 className="text-sm font-bold text-indigo-900 mb-3">Próximos passos recomendados</h4>
+        <ol className="space-y-2">
+          <li className="flex items-start gap-3">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-bold">1</span>
+            <div>
+              <p className="text-sm font-medium text-slate-800">Transfira os contratos marcados em verde para o CNPJ</p>
+              <p className="text-xs text-slate-500">Altere a titularidade de serviços como internet, aluguel e softwares.</p>
+            </div>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-bold">2</span>
+            <div>
+              <p className="text-sm font-medium text-slate-800">Solicite notas fiscais em nome da empresa</p>
+              <p className="text-xs text-slate-500">Sem NF no CNPJ não existe crédito de CBS/IBS. Pago no CPF do sócio = crédito zero.</p>
+            </div>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-bold">3</span>
+            <div>
+              <p className="text-sm font-medium text-slate-800">Consulte seu contador para ajustes no regime tributário</p>
+              <p className="text-xs text-slate-500">Valide se o regime atual ({getRegimeLabel(result.tax_regime)}) é o mais vantajoso considerando as despesas migradas.</p>
+            </div>
+          </li>
+        </ol>
+        {baseMigravel > 0 && (
+          <div className="mt-4 pt-3 border-t border-indigo-200 text-center">
+            <p className="text-xs text-indigo-700">
+              {brl(baseMigravel)}/ano podem sair do bolso do sócio e entrar no caixa da PJ · vantagem estimada de {brl(vantagemTotal)}/ano
+            </p>
+          </div>
+        )}
+      </div>
+
       <p className="text-[11px] leading-relaxed text-slate-400">{result.disclaimer}</p>
     </div>
   );

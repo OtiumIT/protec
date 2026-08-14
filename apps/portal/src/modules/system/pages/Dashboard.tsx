@@ -3,7 +3,8 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { useAuth } from '../../../shared/contexts/AuthContext';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import type { ClientWithCreatedAt } from '../../clients/services/client.service';
+import { getCachedClients } from '../../../shared/hooks/useClients';
 import { userService } from '../../users/services/user.service';
 import { planService } from '../../plans/services/plan.service';
 import { companyService } from '../../companies/services/company.service';
@@ -176,7 +177,7 @@ export function Dashboard() {
         setUsageSummary(moduleUsageData || null);
       } else {
         const [clients, users, plans] = await Promise.all([
-          clientService.list(),
+          getCachedClients(),
           userService.list(),
           planService.list(),
         ]);

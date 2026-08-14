@@ -13,7 +13,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
@@ -70,8 +70,7 @@ export function SplitPaymentSimulador() {
   const branding = useBranding();
   const { print: doPrint } = useReportPrint('split-payment-print-wrapper');
 
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients, refetch: loadClients } = useClients();
   const [clientId, setClientId] = useState('');
   const [showClientModal, setShowClientModal] = useState(false);
 
@@ -86,23 +85,6 @@ export function SplitPaymentSimulador() {
   const [prazoMedio, setPrazoMedio] = useState(30);
   const [custoCapital, setCustoCapital] = useState(13.75);
   const [aliquotaIbsCbs, setAliquotaIbsCbs] = useState(26.5);
-
-  const loadClients = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setIsLoadingClients(true);
-    try {
-      const list = await clientService.list();
-      setClients(Array.isArray(list) ? list : []);
-    } catch (e) {
-      if (!opts?.silent) {
-        showError(e instanceof Error ? e.message : 'Erro ao carregar clientes');
-        setClients([]);
-      }
-    } finally {
-      if (!opts?.silent) setIsLoadingClients(false);
-    }
-  }, [showError]);
-
-  useEffect(() => { void loadClients(); }, [loadClients]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -694,9 +676,8 @@ export function SplitPaymentSimulador() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
-          void loadClients({ silent: true });
+          void loadClients();
         }}
       />
     </>

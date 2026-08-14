@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '../../../shared/components/ui/Card';
 import { Badge } from '../../../shared/components/ui/Badge';
 import { Button } from '../../../shared/components/ui/Button';
@@ -11,12 +11,12 @@ import {
   type ClientWithCreatedAt as Client,
   type CreateClientData,
 } from '../services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { formatCnpj, formatCpf, parseDigits, isValidCpf, isValidCnpj } from '../../../shared/utils/masks';
 
 export function Clients() {
   const { error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { clients, loading: isLoading, refetch: loadClients } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,21 +41,6 @@ export function Clients() {
     email: '',
   });
 
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
-    setIsLoading(true);
-    try {
-      const data = await clientService.list();
-      setClients(data);
-    } catch (error) {
-      console.error('Error loading clients:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleOpenModal = (client?: Client) => {
     if (client) {

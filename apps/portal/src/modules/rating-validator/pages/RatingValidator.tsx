@@ -16,7 +16,7 @@ import {
   type RealValidationOverrides,
   type RealValidationPrefill,
 } from '../services/rating-validator.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { judicialProcessService } from '../../judicial-processes/services/judicial-process.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -123,8 +123,7 @@ export function RatingValidator() {
   const { success, error: showError, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('simulation');
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients } = useClients();
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<RatingSimulationResult | null>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -290,10 +289,6 @@ export function RatingValidator() {
 
   const showQuickFilledSummary = currentStep === 7 && simulationResult === null;
 
-  useEffect(() => {
-    loadClients();
-  }, []);
-
   const handleEcdPdfUpload = useCallback(
     async (file: File) => {
       if (!file || file.size === 0) {
@@ -390,20 +385,6 @@ export function RatingValidator() {
       console.error('Error loading eligible theses:', error);
       // Não mostrar erro ao usuário, apenas não exibir CONTENCIOSO se não houver processos
       setEligibleTheses([]);
-    }
-  };
-
-  const loadClients = async () => {
-    setIsLoadingClients(true);
-    try {
-      const clientsList = await clientService.list();
-      setClients(clientsList || []);
-    } catch (error: any) {
-      console.error('Error loading clients:', error);
-      showError(error.message || 'Erro ao carregar clientes');
-      setClients([]);
-    } finally {
-      setIsLoadingClients(false);
     }
   };
 

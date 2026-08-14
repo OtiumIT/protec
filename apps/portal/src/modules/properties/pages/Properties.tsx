@@ -11,15 +11,14 @@ import {
   propertyService,
   type PropertyWithClient,
 } from '../services/property.service';
-import { clientService } from '../../clients/services/client.service';
 import type { ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 
 export function Properties() {
   const { error: showError, ToastContainer } = useToast();
   const [properties, setProperties] = useState<PropertyWithClient[]>([]);
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients, refetch: reloadClients } = useClients();
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -83,24 +82,8 @@ export function Properties() {
   ].filter((x) => !x || x <= 0).length;
 
   useEffect(() => {
-    loadClients();
-  }, []);
-
-  useEffect(() => {
     loadProperties();
   }, [clientFilter, page]);
-
-  const loadClients = async (options?: { silent?: boolean }) => {
-    if (!options?.silent) setIsLoadingClients(true);
-    try {
-      const data = await clientService.list();
-      setClients(data);
-    } catch (err) {
-      console.error('Error loading clients:', err);
-    } finally {
-      if (!options?.silent) setIsLoadingClients(false);
-    }
-  };
 
   const loadProperties = async () => {
     setIsLoading(true);
@@ -325,9 +308,8 @@ export function Properties() {
           isOpen={showClientModal}
           onClose={() => setShowClientModal(false)}
           onSuccess={(client) => {
-            setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
             setClientFilter(client.id);
-            void loadClients({ silent: true });
+            void reloadClients();
           }}
         />
 

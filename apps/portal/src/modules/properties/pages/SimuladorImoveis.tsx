@@ -5,7 +5,7 @@ import { Input } from '../../../shared/components/ui/Input';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService, type PropertyWithClient } from '../services/property.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { PropertyFormModal } from '../components/PropertyFormModal';
 import { PropertyTransactionsModal } from '../components/PropertyTransactionsModal';
@@ -310,8 +310,7 @@ export function SimuladorImoveis() {
   const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients, refetch: loadClients } = useClients();
   const [simulations, setSimulations] = useState<PropertySimulation[]>([]);
   const [viewingSimulation, setViewingSimulation] = useState<PropertySimulation | null>(null);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
@@ -759,34 +758,19 @@ export function SimuladorImoveis() {
     };
   }, [fillDemo1, fillDemo2CenarioIbsCbs]);
 
-  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) setIsLoadingClients(true);
-    try {
-      const data = await clientService.list();
-      setClients(Array.isArray(data) ? data : []);
-    } catch {
-      if (!options?.silent) setClients([]);
-    } finally {
-      if (!options?.silent) setIsLoadingClients(false);
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [clientsResult, simResult] = await Promise.allSettled([
-        clientService.list(),
-        propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ }),
-      ]);
-      if (!cancelled) {
-        setClients(clientsResult.status === 'fulfilled' && Array.isArray(clientsResult.value) ? clientsResult.value : []);
-        setSimulations(simResult.status === 'fulfilled' ? (simResult.value?.simulations ?? []) : []);
-        if (simResult.status === 'rejected' && isPaymentRequiredError(simResult.reason)) {
+      const simResult = await propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ }).catch((reason) => {
+        if (isPaymentRequiredError(reason)) {
           setModuleBlockedMessage(
             'Módulo de Gestão Imobiliária não está ativo no plano deste tenant. Solicite a ativação para usar o simulador.'
           );
         }
-        setIsLoadingClients(false);
+        return null;
+      });
+      if (!cancelled && simResult) {
+        setSimulations(simResult.simulations ?? []);
       }
     })();
     return () => { cancelled = true; };
@@ -4573,7 +4557,7 @@ export function SimuladorImoveis() {
           // Inclui na lista imediatamente para o select não oscilar enquanto recarrega
           setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
-          void loadClients({ silent: true });
+          void loadClients();
         }}
       />
 

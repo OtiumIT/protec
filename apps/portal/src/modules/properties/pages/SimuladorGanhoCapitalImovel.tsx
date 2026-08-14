@@ -6,7 +6,7 @@ import { Modal } from '../../../shared/components/ui/Modal';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService } from '../services/property.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { stripReportExcludedFromClone } from '../../../lib/report-pdf/strip-report-excluded';
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
@@ -583,8 +583,7 @@ export default function SimuladorGanhoCapitalImovel() {
 
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients } = useClients();
   const [simulations, setSimulations] = useState<PropertySimulation[]>([]);
   const [editingSimulationId, setEditingSimulationId] = useState<string | null>(null);
   const [deleteSimulationModal, setDeleteSimulationModal] = useState<{ id: string; title: string } | null>(null);
@@ -928,8 +927,7 @@ export default function SimuladorGanhoCapitalImovel() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [cl, simResult] = await Promise.allSettled([
-        clientService.list(),
+      const simResult = await Promise.allSettled([
         propertyService.listSimulations({
           page: 1,
           limit: 20,
@@ -937,14 +935,13 @@ export default function SimuladorGanhoCapitalImovel() {
         }),
       ]);
       if (cancelled) return;
-      setClients(cl.status === 'fulfilled' && Array.isArray(cl.value) ? cl.value : []);
-      setSimulations(simResult.status === 'fulfilled' ? simResult.value?.simulations ?? [] : []);
-      if (simResult.status === 'rejected' && isPaymentRequiredError(simResult.reason)) {
+      const sim = simResult[0];
+      setSimulations(sim.status === 'fulfilled' ? sim.value?.simulations ?? [] : []);
+      if (sim.status === 'rejected' && isPaymentRequiredError(sim.reason)) {
         setModuleBlockedMessage(
           'Módulo de Gestão Imobiliária não está ativo no plano deste tenant. Solicite a ativação para usar o simulador.'
         );
       }
-      setIsLoadingClients(false);
     })();
     return () => {
       cancelled = true;

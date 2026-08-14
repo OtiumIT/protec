@@ -4,7 +4,8 @@ import {
   FiscalFileApiError,
   type InspectSpedResult,
 } from '../services/fiscal-file.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -34,10 +35,9 @@ interface FileMetadataFallback {
 
 export function FiscalFilesUpload() {
   const { success, error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients, loading: isLoadingClients } = useClients();
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [fileMetadataFallbacks, setFileMetadataFallbacks] = useState<Record<string, FileMetadataFallback>>({});
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
   
   // Upload em lote
   const [filesToUpload, setFilesToUpload] = useState<FileUpload[]>([]);
@@ -96,31 +96,12 @@ export function FiscalFilesUpload() {
     };
   };
 
-  // Carregar clientes
-  useEffect(() => {
-    loadClients();
-  }, []);
-
   useEffect(() => {
     if (filesToUpload.length > 0 && !isLoadingClients) {
       void inspectClientFromFiles(filesToUpload);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients.length, isLoadingClients]);
-
-  const loadClients = async () => {
-    setIsLoadingClients(true);
-    try {
-      const clientsList = await clientService.list();
-      setClients(clientsList || []);
-    } catch (error: any) {
-      console.error('Error loading clients:', error);
-      showError(error.message || 'Erro ao carregar clientes');
-      setClients([]);
-    } finally {
-      setIsLoadingClients(false);
-    }
-  };
 
   const handleFilesSelect = (fileList: FileList | null) => {
     if (!fileList) return;

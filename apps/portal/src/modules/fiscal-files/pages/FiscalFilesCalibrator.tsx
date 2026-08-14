@@ -11,7 +11,8 @@ import {
   type SpedCalibratorRule,
   type UpdateSpedCalibratorRuleInput,
 } from '../services/fiscal-file.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 
 type TargetKind = 'receita' | 'deducao' | 'retencao';
 type ScopeType = 'global' | 'cliente';
@@ -30,8 +31,7 @@ const TARGET_FIELD_OPTIONS: Record<TargetKind, string[]> = {
 
 export function FiscalFilesCalibrator() {
   const { success, error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients } = useClients();
   const [rules, setRules] = useState<SpedCalibratorRule[]>([]);
   const [isLoadingRules, setIsLoadingRules] = useState(false);
   const [filterClientId, setFilterClientId] = useState('');
@@ -54,10 +54,6 @@ export function FiscalFilesCalibrator() {
   );
 
   useEffect(() => {
-    void loadClients();
-  }, []);
-
-  useEffect(() => {
     void loadRules(filterClientId || undefined);
   }, [filterClientId]);
 
@@ -67,17 +63,6 @@ export function FiscalFilesCalibrator() {
     }
   }, [filteredFieldOptions, targetField]);
 
-  const loadClients = async () => {
-    setIsLoadingClients(true);
-    try {
-      const data = await clientService.list();
-      setClients(data || []);
-    } catch (error: any) {
-      showError(error?.message || 'Erro ao carregar clientes');
-    } finally {
-      setIsLoadingClients(false);
-    }
-  };
 
   const loadRules = async (clientId?: string) => {
     setIsLoadingRules(true);

@@ -4,7 +4,8 @@ import {
   type FiscalFile,
   type FiscalFileExtractionSummary,
 } from '../services/fiscal-file.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
@@ -16,9 +17,8 @@ import { Link } from 'react-router-dom';
 
 export function FiscalFiles() {
   const { success, error: showError, ToastContainer } = useToast();
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients, loading: isLoadingClients } = useClients();
   const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
   
   // Lista de arquivos
   const [files, setFiles] = useState<FiscalFile[]>([]);
@@ -43,29 +43,11 @@ export function FiscalFiles() {
     onConfirm: () => {},
   });
 
-  // Carregar clientes
-  useEffect(() => {
-    loadClients();
-  }, []);
-
   // Carregar arquivos quando filtros mudarem
   useEffect(() => {
     loadFiles();
   }, [selectedClientId, statusFilter, competenceFilter, fileTypeFilter]);
 
-  const loadClients = async () => {
-    setIsLoadingClients(true);
-    try {
-      const clientsList = await clientService.list();
-      setClients(clientsList || []);
-    } catch (error: any) {
-      console.error('Error loading clients:', error);
-      showError(error.message || 'Erro ao carregar clientes');
-      setClients([]);
-    } finally {
-      setIsLoadingClients(false);
-    }
-  };
 
   const loadFiles = async () => {
     setIsLoading(true);

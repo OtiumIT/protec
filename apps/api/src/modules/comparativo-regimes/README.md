@@ -37,8 +37,13 @@ Simulador que compara a carga tributária entre **Lucro Presumido**, **Lucro Rea
 - `simulate-and-save`: cálculo + persistência no banco
 - `client_id` é opcional em ambos os casos
 
+### Regra 6: Visibilidade
+- **Quando aplicar**: Sempre. O módulo está **escondido** (`modules.hidden = true`, migration 089) até o simulador cobrir mais hipóteses da reforma.
+- **Efeito**: Some do menu e de `/modules/active`. `requireModule` responde 402 `MODULE_HIDDEN`.
+- **Exceção**: Super admin pode reexibir em Gerenciar Módulos. `tenant_modules` não é apagado.
+
 ## Dependências
-- **Módulos**: Feature toggle `COMPARATIVO_REGIMES`
+- **Módulos**: Feature toggle `COMPARATIVO_REGIMES` (hoje `hidden = true`)
 - **Shared**: `simularComparativoRegimes()` em `packages/shared/src/utils/comparativo-regimes-simulador.ts`
 - **Tabelas**: `comparativo_regimes_simulations` (tenant), `clients` (tenant, referência opcional)
 

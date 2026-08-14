@@ -10,7 +10,7 @@ import {
   type IN2306SimulationResult,
   type IN2306SpedPrefillPayload,
 } from '../services/simulador-in-2306.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';
@@ -91,7 +91,7 @@ type Tab = 'tributario' | 'parcelamento';
 export function SimuladorIN2306() {
   const { success, error: showError, ToastContainer } = useToast();
   const [tab, setTab] = useState<Tab>('tributario');
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients } = useClients();
   const [simulations, setSimulations] = useState<IN2306Simulation[]>([]);
   const [loading, setLoading] = useState(false);
   const [tributarioResult, setTributarioResult] = useState<(SimuladorTributarioResponse & { simulation_id?: string }) | null>(null);
@@ -236,12 +236,8 @@ export function SimuladorIN2306() {
     let cancelled = false;
     (async () => {
       try {
-        const [clientsRes, listRes] = await Promise.all([
-          clientService.list(),
-          simuladorIN2306Service.list({ page: 1, limit: 20 }),
-        ]);
+        const listRes = await simuladorIN2306Service.list({ page: 1, limit: 20 });
         if (!cancelled) {
-          setClients(Array.isArray(clientsRes) ? clientsRes : []);
           setSimulations(listRes.simulations);
         }
       } catch (e) {

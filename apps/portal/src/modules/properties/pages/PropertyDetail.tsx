@@ -10,7 +10,8 @@ import {
   propertyService,
   type PropertyWithClient,
 } from '../services/property.service';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import {
   BarChart,
   Bar,
@@ -89,8 +90,7 @@ export function PropertyDetail() {
     valor: '0',
     observacao: '',
   });
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const { clients, loading: isLoadingClients } = useClients();
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
   /** Último input enviado na simulação (para Salvar no histórico após resultado). */
@@ -105,22 +105,6 @@ export function PropertyDetail() {
   useEffect(() => {
     if (id) loadProperty();
   }, [id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!cancelled) setIsLoadingClients(true);
-      try {
-        const list = await clientService.list();
-        if (!cancelled && Array.isArray(list)) setClients(list);
-      } catch {
-        if (!cancelled) setClients([]);
-      } finally {
-        if (!cancelled) setIsLoadingClients(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (property && (property as { client_id?: string }).client_id && !saveClientId) {

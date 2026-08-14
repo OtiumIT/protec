@@ -6,7 +6,8 @@ import { Modal } from '../../../shared/components/ui/Modal';
 import { ConfirmModal } from '../../../shared/components/ui/ConfirmModal';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import type { ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { propertyService, type PropertyWithClient } from '../../properties/services/property.service';
 import type { IrpfPropertyCandidate, IrpfPropertyImportResult } from '../../properties/services/property.service';
@@ -89,7 +90,7 @@ export function GestaoImobiliaria() {
   const tab = (tabKeys.includes(section ?? '') ? section : 'portfolio') as TabKey;
   const setTab = (k: TabKey) => navigate(`/gestao-imobiliaria/${k}`);
   const showMonth = tab === 'portfolio';
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients, refetch: reloadClients } = useClients();
   const [clientId, setClientId] = useState<string>('');
   const [properties, setProperties] = useState<PropertyWithClient[]>([]);
   const [competencia, setCompetencia] = useState<string>(currentCompetencia());
@@ -99,16 +100,11 @@ export function GestaoImobiliaria() {
     catch { return false; }
   }, []);
 
-  const reloadClients = useCallback(() => {
-    clientService.list().then(setClients).catch(() => showError('Não foi possível carregar clientes'));
-  }, [showError]);
-
   const reloadProperties = useCallback(() => {
     propertyService.list(clientId ? { client_id: clientId, limit: 100 } : { limit: 100 })
       .then((r) => setProperties(r.properties)).catch(() => setProperties([]));
   }, [clientId]);
 
-  useEffect(() => { reloadClients(); }, [reloadClients]);
   useEffect(() => { reloadProperties(); }, [reloadProperties]);
   useEffect(() => {
     if (section && HIDDEN_SECTIONS.has(section)) navigate('/gestao-imobiliaria/portfolio', { replace: true });

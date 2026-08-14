@@ -9,7 +9,8 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { clientService, type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { type ClientWithCreatedAt } from '../../clients/services/client.service';
+import { useClients } from '../../../shared/hooks/useClients';
 import { propertyService } from '../services/property.service';
 import { irpfAltaRendaService, type IrpfAltaRendaRecord } from '../../irpf-alta-renda/services/irpf-alta-renda.service';
 import { simuladorIN2306Service } from '../../simulador-in-2306/services/simulador-in-2306.service';
@@ -164,7 +165,7 @@ export function RelatorioProjeto() {
   const branding = useBranding();
   const { print } = useReportPrint('relatorio-projeto-print-wrapper');
 
-  const [clients, setClients] = useState<ClientWithCreatedAt[]>([]);
+  const { clients } = useClients();
   const [clientId, setClientId] = useState('');
   const [recomendacao, setRecomendacao] = useState('');
   const [saving, setSaving] = useState(false);
@@ -199,10 +200,6 @@ export function RelatorioProjeto() {
     setIn2306Id(selected.in2306_id ?? '');
     setRegimeId(selected.regime_id ?? '');
   }, []);
-
-  useEffect(() => {
-    clientService.list().then(setClients).catch(() => showError('Não foi possível carregar clientes'));
-  }, [showError]);
 
   useEffect(() => {
     if (!clientId) {
