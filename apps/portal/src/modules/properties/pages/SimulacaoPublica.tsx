@@ -6,6 +6,8 @@ import { getApiUrl } from '../../../shared/services/api';
 import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
+import { LocacaoResultadoReport, isLocacaoResult } from '../components/LocacaoResultadoReport';
+import type { SimulateStandaloneMesInput } from '@shared/core';
 
 interface PropertyShareData {
   simulation: {
@@ -117,105 +119,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function locacaoContextFromInput(input: Record<string, unknown>) {
+  const opcoes = asRecord(input.opcoes_reforma);
+  const meses = Array.isArray(input.meses) ? (input.meses as SimulateStandaloneMesInput[]) : undefined;
+  return {
+    meses,
+    quantidadeImoveis: num(input.quantidade_imoveis) ?? num(input.quantidade_imoveis_residenciais),
+    aliquotaCBS: num(opcoes?.aliquota_cbs_estimada),
+    aliquotaPlenaIBS: num(opcoes?.aliquota_ibs_plena),
+    perfilLocacao: typeof opcoes?.perfil_locacao === 'string' ? opcoes.perfil_locacao : undefined,
+    receitaResidencialAnual: num(input.receita_locacao_residencial_anual),
+    receitaNaoResidencialAnual: num(input.receita_locacao_nao_residencial_anual),
+  };
+}
+
 function LocacaoResult({ snapshot }: { snapshot: Record<string, unknown> }) {
   const result = getResult(snapshot);
-  const cenarios = asRecord(result.cenarios) ?? asRecord(snapshot.cenarios);
-  const pf = asRecord(cenarios?.pf);
-  const pj = asRecord(cenarios?.pj);
-  const reformaPf = asRecord(cenarios?.reforma_2027_pf) ?? asRecord(cenarios?.reforma_2027);
-  const reformaPj = asRecord(cenarios?.reforma_2027_pj);
-  const breakEven = asRecord(result.break_even) ?? asRecord(snapshot.break_even);
-  const memoria = asRecord(result.memoria_calculo) ?? asRecord(snapshot.memoria_calculo);
-
-  if (!pf && !pj && !reformaPf) {
+  if (!isLocacaoResult(result)) {
     return <p className="text-sm text-slate-500">Sem dados de cenários.</p>;
   }
-
-  return (
-    <div className="space-y-5">
-      {pf && (
-        <Section title="Pessoa Física">
-          <DlRows
-            rows={[
-              { label: 'Receita bruta', value: formatMoney(pf.receita_bruta_total) },
-              { label: 'Despesas dedutíveis', value: formatMoney(pf.despesas_dedutiveis_total) },
-              { label: 'Base de cálculo', value: formatMoney(pf.base_calculo_total) },
-              { label: 'IR (carnê-leão)', value: formatMoney(pf.imposto_total) },
-              { label: 'Alíquota efetiva', value: fmtPct(pf.aliquota_efetiva_anual ?? pf.aliquota_efetiva) },
-            ]}
-          />
-        </Section>
-      )}
-      {pj && (
-        <Section title="Pessoa Jurídica (Lucro Presumido)">
-          <DlRows
-            rows={[
-              { label: 'Receita bruta', value: formatMoney(pj.receita_bruta_total) },
-              { label: 'Base IRPJ', value: formatMoney(pj.base_presumida_irpj) },
-              { label: 'Base CSLL', value: formatMoney(pj.base_presumida_csll) },
-              { label: 'IRPJ', value: formatMoney(pj.irpj) },
-              { label: 'CSLL', value: formatMoney(pj.csll) },
-              { label: 'PIS', value: formatMoney(pj.pis) },
-              { label: 'COFINS', value: formatMoney(pj.cofins) },
-              { label: 'Imposto total', value: formatMoney(pj.imposto_total) },
-              { label: 'Alíquota efetiva', value: fmtPct(pj.aliquota_efetiva) },
-            ]}
-          />
-          {asRecord(pj.dividendos) && (
-            <p className="text-xs text-slate-600 mt-2">
-              Dividendos — IRRF {formatMoney(asRecord(pj.dividendos)?.irrf_total)} · líquido sócio{' '}
-              {formatMoney(asRecord(pj.dividendos)?.lucro_liquido_socio)}
-            </p>
-          )}
-        </Section>
-      )}
-      {(reformaPf || reformaPj) && (
-        <Section title="Reforma LC 214/2025">
-          {reformaPf && (
-            <div className="mb-3">
-              <p className="text-xs font-semibold text-slate-600 mb-1">Ótica PF</p>
-              <DlRows
-                rows={[
-                  { label: 'IBS/CBS líquido', value: formatMoney(reformaPf.ibs_cbs_liquido) },
-                  { label: 'Imposto total', value: formatMoney(reformaPf.imposto_total) },
-                  { label: 'Alíquota efetiva', value: fmtPct(reformaPf.aliquota_efetiva) },
-                ]}
-              />
-            </div>
-          )}
-          {reformaPj && (
-            <div>
-              <p className="text-xs font-semibold text-slate-600 mb-1">Ótica PJ</p>
-              <DlRows
-                rows={[
-                  { label: 'IBS/CBS líquido', value: formatMoney(reformaPj.ibs_cbs_liquido) },
-                  { label: 'Imposto total', value: formatMoney(reformaPj.imposto_total) },
-                  { label: 'Alíquota efetiva', value: fmtPct(reformaPj.aliquota_efetiva) },
-                ]}
-              />
-            </div>
-          )}
-        </Section>
-      )}
-      {breakEven && (
-        <Section title="Break-even">
-          <DlRows
-            rows={[
-              { label: 'Valor mensal', value: formatMoney(breakEven.valor_mensal_break_even) },
-            ]}
-          />
-          {typeof breakEven.descricao === 'string' && (
-            <p className="text-xs text-slate-600 mt-2">{breakEven.descricao}</p>
-          )}
-        </Section>
-      )}
-      {memoria && (
-        <Section title="Memória de cálculo">
-          <ScalarDump data={memoria} />
-        </Section>
-      )}
-    </div>
-  );
+  return <LocacaoResultadoReport result={result} context={locacaoContextFromInput(getInput(snapshot))} />;
 }
 
 function GanhoCapitalResult({ snapshot }: { snapshot: Record<string, unknown> }) {
@@ -545,7 +468,7 @@ function ScalarDump({ data }: { data: Record<string, unknown> }) {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  locacao_pf_pj: 'Locação — PF vs PJ vs Reforma',
+  locacao_pf_pj: 'Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025',
   ganho_capital_imovel: 'Ganho de Capital — Venda de Imóvel',
   in_2306: 'Simulador LC 224/2025 (IN 2306)',
   irpf_alta_renda: 'IRPF Alta Renda — Lei 15.270/2025',
@@ -652,11 +575,23 @@ export function SimulacaoPublica() {
     }
   }
 
-  const coverDetails = [
-    { label: 'Tipo', value: typeLabel },
-    ...(ano != null ? [{ label: 'Ano-base', value: String(ano) }] : []),
-    ...(createdAt ? [{ label: 'Gerada em', value: new Date(createdAt).toLocaleDateString('pt-BR') }] : []),
-  ];
+  const locacaoResult = simulationType === 'locacao_pf_pj' ? getResult(snapshot) : undefined;
+  const locacaoReceita = (() => {
+    const fc = locacaoResult && Array.isArray(locacaoResult.fluxo_caixa) ? locacaoResult.fluxo_caixa[0] : undefined;
+    const rec = asRecord(fc)?.receita_total;
+    return typeof rec === 'number' ? rec : undefined;
+  })();
+
+  const coverDetails = simulationType === 'locacao_pf_pj'
+    ? [
+        ...(ano != null ? [{ label: 'Ano-base', value: String(ano) }] : []),
+        ...(locacaoReceita != null ? [{ label: 'Receita (Carnê-Leão / LP)', value: formatMoney(locacaoReceita) }] : []),
+      ]
+    : [
+        { label: 'Tipo', value: typeLabel },
+        ...(ano != null ? [{ label: 'Ano-base', value: String(ano) }] : []),
+        ...(createdAt ? [{ label: 'Gerada em', value: new Date(createdAt).toLocaleDateString('pt-BR') }] : []),
+      ];
 
   return (
     <div className="min-h-screen bg-slate-200 print:bg-white py-6 px-3">

@@ -17,6 +17,7 @@ import {
   type RealValidationPrefill,
 } from '../services/rating-validator.service';
 import { useClients } from '../../../shared/hooks/useClients';
+import { useScrollOnChange } from '../../../shared/hooks/useScrollOnChange';
 import { judicialProcessService } from '../../judicial-processes/services/judicial-process.service';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
@@ -123,6 +124,7 @@ export function RatingValidator() {
   const { success, error: showError, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('simulation');
   const [currentStep, setCurrentStep] = useState<Step>(1);
+  useScrollOnChange(currentStep);
   const { clients, loading: isLoadingClients } = useClients();
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<RatingSimulationResult | null>(null);

@@ -4,6 +4,7 @@ import { Button } from '../../../shared/components/ui/Button';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { PageLoading } from '../../../shared/components/ui/Spinner';
 import { useClients } from '../../../shared/hooks/useClients';
+import { useScrollOnChange } from '../../../shared/hooks/useScrollOnChange';
 import { mapeamentoService as svc, type DiagnosisFull, type PortfolioSummary } from '../services/mapeamento-despesas-pj.service';
 import type { ExpenseItemAnswer, ExpenseMappingResult, ExpenseMappingDiagnosis, ClassifiedExpenseItem } from '@shared/core';
 
@@ -244,6 +245,7 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------- Wizard ----------------
 function Wizard({ onDone, onError, onSuccess }: { onDone: (id: string) => void; onError: (m: string) => void; onSuccess: (m: string) => void }) {
   const [step, setStep] = useState(1);
+  useScrollOnChange(step);
   const { clients, loading: loadingClients } = useClients();
   const [ctx, setCtx] = useState({
     client_id: '', title: '', reference_year: new Date().getFullYear(), activity: '',

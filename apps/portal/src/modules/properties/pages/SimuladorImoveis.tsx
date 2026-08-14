@@ -6,6 +6,7 @@ import { useToast } from '../../../shared/components/ui/Toast';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { propertyService, type PropertyWithClient } from '../services/property.service';
 import { useClients } from '../../../shared/hooks/useClients';
+import { useScrollOnChange } from '../../../shared/hooks/useScrollOnChange';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { PropertyFormModal } from '../components/PropertyFormModal';
 import { PropertyTransactionsModal } from '../components/PropertyTransactionsModal';
@@ -342,7 +343,6 @@ export function SimuladorImoveis() {
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const printPreviewContentRef = useRef<HTMLDivElement>(null);
   const printWrapperRef = useRef<HTMLDivElement>(null);
-  const wizardStep2TopRef = useRef<HTMLDivElement>(null);
   /** Payload da última simulação (para Salvar no histórico após o resultado). */
   const lastSimulationPayloadRef = useRef<{
     ano: number;
@@ -407,6 +407,7 @@ export function SimuladorImoveis() {
   const [lc214ManualRedutorMensal, setLc214ManualRedutorMensal] = useState('');
   /** 1 = imóveis; 2 = planilha e parâmetros; 3 = resultado. */
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  useScrollOnChange(wizardStep);
   const [isApplyingSimulacao, setIsApplyingSimulacao] = useState(false);
   /** Chave da última seleção de imóveis aplicada à etapa 2 (impede recarregar se a seleção não mudou). */
   const [lastAppliedKey, setLastAppliedKey] = useState<string | null>(null);
@@ -798,12 +799,6 @@ export function SimuladorImoveis() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (result && wizardStep === 3) {
-      resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [result, wizardStep]);
-
   /** Inicializa saveClientId com clientId quando disponível (para Salvar no histórico). */
   useEffect(() => {
     if (clientId && !saveClientId) {
@@ -979,9 +974,6 @@ export function SimuladorImoveis() {
       setShowLoadedHighlight(false);
       highlightTimerRef.current = null;
     }, 2500);
-    setTimeout(() => {
-      wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
   }, [imoveisSelectedIds, imoveisDraftSelecionados, ano, success, imoveisList]);
 
   useEffect(() => {
@@ -1400,7 +1392,6 @@ export function SimuladorImoveis() {
       success('Nova simulação criada com sucesso!');
       const listRes = await propertyService.listSimulations({ page: 1, limit: 20, simulation_kind: SIMULATION_KIND_LOCACAO_PF_PJ });
       setSimulations(listRes.simulations);
-      resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
@@ -1701,10 +1692,6 @@ export function SimuladorImoveis() {
               [...propertyIds].sort().join(',') + '||' + draftRows.map((r) => r.rowId).sort().join(',');
             if (lastAppliedKey !== null && newKey === lastAppliedKey) {
               setWizardStep(2);
-              setTimeout(
-                () => wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                50
-              );
               return;
             }
             setIsApplyingSimulacao(true);
@@ -1739,7 +1726,6 @@ export function SimuladorImoveis() {
             onClick={() => {
               setResult(null);
               setWizardStep(2);
-              setTimeout(() => wizardStep2TopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
             }}
           >
             Ir para parâmetros e planilha (sem carregar imóveis)
@@ -1749,7 +1735,7 @@ export function SimuladorImoveis() {
 
       {wizardStep === 2 && (
       <form onSubmit={handleSimulate} className="space-y-6">
-        <div ref={wizardStep2TopRef} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Parâmetros e planilha mensal</h2>
             <p className="text-sm text-slate-600 mt-0.5">
