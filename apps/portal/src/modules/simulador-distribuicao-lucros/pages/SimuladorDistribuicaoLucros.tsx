@@ -890,7 +890,6 @@ export function SimuladorDistribuicaoLucros() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
           void loadClients();
         }}

@@ -9,7 +9,6 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { propertyService } from '../services/property.service';
 import { irpfAltaRendaService, type IrpfAltaRendaRecord } from '../../irpf-alta-renda/services/irpf-alta-renda.service';

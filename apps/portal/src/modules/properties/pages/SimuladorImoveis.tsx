@@ -654,7 +654,7 @@ export function SimuladorImoveis() {
     'Simulador Imobiliário – PF vs PJ vs Reforma LC 214/2025';
 
   /** Cliente cadastrado para documento na capa do PDF (visualização > salvar > cliente da simulação) */
-  const effectiveClientRecord: ClientWithCreatedAt | null =
+  const effectiveClientRecord =
     (viewingSimulation?.client_id
       ? clients.find((c) => c.id === viewingSimulation.client_id)
       : undefined) ??
@@ -4604,8 +4604,6 @@ export function SimuladorImoveis() {
         isOpen={showClientModal}
         onClose={() => setShowClientModal(false)}
         onSuccess={(client) => {
-          // Inclui na lista imediatamente para o select não oscilar enquanto recarrega
-          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [...prev, client]));
           setClientId(client.id);
           void loadClients();
         }}

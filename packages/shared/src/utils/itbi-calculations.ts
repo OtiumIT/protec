@@ -5,12 +5,19 @@
  * A tela da v1 expõe só integralização; permuta/onerosa reusam este motor na v2.2.
  *
  * Tema 796 / STF: imunidade do ITBI na integralização de capital em holding
- * patrimonial até o valor de referência (mercado se informado, senão venal).
+ * patrimonial até o valor de referência declarado (mercado, referência ITBI ou IPTU).
+ * Sims antigas sem criterio_referencia: fallback mercado → venal → integralização.
  * Atividade operacional: incidência integral.
  *
  * Alíquota é informada pelo aluno. Não consulta prefeitura. Laudêmio: alerta, sem cálculo.
  */
-import type { ItbiSimulationInput, ItbiSimulationResult, ItbiMemoriaItemSchema } from '../schemas/itbi.schema.js';
+import {
+  ITBI_CRITERIO_LABEL,
+  type ItbiCriterioReferencia,
+  type ItbiSimulationInput,
+  type ItbiSimulationResult,
+  type ItbiMemoriaItemSchema,
+} from '../schemas/itbi.schema.js';
 import type { z } from 'zod';
 
 type MemoriaItem = z.infer<typeof ItbiMemoriaItemSchema>;
@@ -22,11 +29,38 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+function resolveReferencia(input: ItbiSimulationInput): {
+  valor: number;
+  criterio?: ItbiCriterioReferencia;
+  label: string;
+} {
+  const criterio = input.criterio_referencia;
+  if (criterio === 'mercado') {
+    return { valor: input.valor_mercado, criterio, label: ITBI_CRITERIO_LABEL.mercado };
+  }
+  if (criterio === 'referencia_itbi') {
+    return {
+      valor: input.valor_referencia_itbi ?? 0,
+      criterio,
+      label: ITBI_CRITERIO_LABEL.referencia_itbi,
+    };
+  }
+  if (criterio === 'iptu') {
+    return { valor: input.valor_venal, criterio, label: ITBI_CRITERIO_LABEL.iptu };
+  }
+  const valor =
+    input.valor_mercado > 0
+      ? input.valor_mercado
+      : input.valor_venal > 0
+        ? input.valor_venal
+        : input.valor_integralizacao;
+  return { valor, label: 'valor de referência (mercado, senão IPTU/venal, senão integralização)' };
+}
+
 export function calcularItbi(input: ItbiSimulationInput): ItbiSimulationResult {
   const percentual = input.percentual_imovel / 100;
-  const referenciaBruta =
-    input.valor_mercado > 0 ? input.valor_mercado : input.valor_venal > 0 ? input.valor_venal : input.valor_integralizacao;
-  const valorReferencia = round2(referenciaBruta);
+  const resolvido = resolveReferencia(input);
+  const valorReferencia = round2(resolvido.valor);
   const baseCheia = round2(valorReferencia * percentual);
   const capitalImuneBruto = round2(input.valor_integralizacao * percentual);
   const aliquota = input.aliquota_percent;
@@ -34,7 +68,7 @@ export function calcularItbi(input: ItbiSimulationInput): ItbiSimulationResult {
   const memoria: MemoriaItem[] = [
     { ordem: 1, descricao: `Fato gerador: ${input.fato_gerador}` },
     { ordem: 2, descricao: `UF/município: ${input.uf}/${input.municipio}` },
-    { ordem: 3, descricao: 'Valor de referência (mercado, senão venal, senão integralização)', valor: valorReferencia },
+    { ordem: 3, descricao: `Referência usada: ${resolvido.label}`, valor: valorReferencia },
     { ordem: 4, descricao: `% do imóvel (${input.percentual_imovel}%) sobre a referência`, valor: baseCheia },
   ];
 
@@ -106,6 +140,8 @@ export function calcularItbi(input: ItbiSimulationInput): ItbiSimulationResult {
   return {
     enquadramento,
     valor_referencia: valorReferencia,
+    criterio_referencia: resolvido.criterio,
+    criterio_referencia_label: resolvido.label,
     base_cheia: baseCheia,
     capital_imune: capitalImune,
     base_tributavel: baseTributavel,

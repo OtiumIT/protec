@@ -4,10 +4,17 @@
  * Tabelas embutidas (simulação): SP, RJ, MG, RS, PR, SC, GO, DF.
  * Demais UFs: alíquota informada pelo aluno.
  * Usufruto: sim/não + idade → nua propriedade pelas faixas etárias usuais.
+ * Critério de base: imóvel (mercado / referência ITBI / IPTU) ou cotas (PL / mercado).
  *
- * Fora da v1: 27 UFs completas, causa mortis, otimizador de domicílio.
+ * Fora da v1: 27 UFs completas, causa mortis, otimizador de domicílio, regra por UF para cotas.
  */
-import { ITCMD_TABELA_UFS, type ItcmdSimulationInput, type ItcmdSimulationResult } from '../schemas/itcmd.schema.js';
+import {
+  ITCMD_CRITERIO_IMOVEL_LABEL,
+  ITCMD_CRITERIO_QUOTAS_LABEL,
+  ITCMD_TABELA_UFS,
+  type ItcmdSimulationInput,
+  type ItcmdSimulationResult,
+} from '../schemas/itcmd.schema.js';
 
 const AVISO =
   'Simulação para reunião. Não substitui guia estadual, DAA nem parecer. Tabelas embutidas são referenciais de simulação e podem divergir da legislação vigente do estado.';
@@ -71,10 +78,38 @@ function aliquotaDaTabela(uf: (typeof ITCMD_TABELA_UFS)[number], base: number): 
   return faixas[faixas.length - 1].aliquotaPercent;
 }
 
+function resolveValorBem(input: ItcmdSimulationInput): { valor: number; criterioLabel?: string } {
+  if (input.tipo_bem === 'imovel' && input.criterio_base_imovel) {
+    const c = input.criterio_base_imovel;
+    const mapa = {
+      mercado: input.valor_mercado,
+      referencia_itbi: input.valor_referencia_itbi,
+      iptu: input.valor_iptu,
+    } as const;
+    return {
+      valor: round2(mapa[c] ?? input.valor),
+      criterioLabel: ITCMD_CRITERIO_IMOVEL_LABEL[c],
+    };
+  }
+  if (input.tipo_bem === 'quotas' && input.criterio_quotas) {
+    const c = input.criterio_quotas;
+    const mapa = {
+      patrimonio_liquido: input.valor_pl,
+      valor_mercado: input.valor_mercado,
+    } as const;
+    return {
+      valor: round2(mapa[c] ?? input.valor),
+      criterioLabel: ITCMD_CRITERIO_QUOTAS_LABEL[c],
+    };
+  }
+  return { valor: round2(input.valor) };
+}
+
 export function calcularItcmd(input: ItcmdSimulationInput): ItcmdSimulationResult {
   const uf = input.uf.toUpperCase();
   const tabelaEmbutida = temTabelaItcmd(uf);
-  const valorBem = round2(input.valor);
+  const resolvido = resolveValorBem(input);
+  const valorBem = resolvido.valor;
 
   let fracaoUsufruto = 0;
   let fracaoNua = 1;
@@ -93,17 +128,38 @@ export function calcularItcmd(input: ItcmdSimulationInput): ItcmdSimulationResul
     : (input.aliquota_manual_percent as number);
   const itcmd = round2(base * (aliquota / 100));
 
+  const tipoSociedadeLabel =
+    input.tipo_sociedade === 'ltda' ? 'Ltda' : input.tipo_sociedade === 'sa_fechada' ? 'S.A. fechada' : undefined;
+  const tipoLinha = [
+    `Tipo: ${input.tipo_bem === 'quotas' ? 'cotas' : 'imóvel'}`,
+    tipoSociedadeLabel,
+    resolvido.criterioLabel ? `critério: ${resolvido.criterioLabel}` : null,
+    `parentesco: ${input.parentesco}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const memoria = [
     { ordem: 1, descricao: `UF ${uf} — ${tabelaEmbutida ? 'tabela embutida (simulação)' : 'alíquota informada'}` },
-    { ordem: 2, descricao: `Tipo: ${input.tipo_bem} · parentesco: ${input.parentesco}`, valor: valorBem },
+    { ordem: 2, descricao: tipoLinha, valor: valorBem },
     { ordem: 3, descricao: efeitoUsufruto, valor: base },
     { ordem: 4, descricao: `Alíquota ${aliquota}% sobre a base`, valor: itcmd },
   ];
+
+  if (input.tipo_bem === 'quotas') {
+    memoria.push({
+      ordem: 5,
+      descricao:
+        'Cotas de Ltda/S.A. fechada: a base (PL do balanço vs valor de mercado) varia por estado. Isto não substitui o enquadramento da UF.',
+    });
+  }
 
   return {
     uf,
     tabela_embutida: tabelaEmbutida,
     valor_bem: valorBem,
+    criterio_base: resolvido.criterioLabel,
+    tipo_sociedade: input.tipo_sociedade,
     fracao_usufruto: fracaoUsufruto,
     fracao_nua_propriedade: fracaoNua,
     base,

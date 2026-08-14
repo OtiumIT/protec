@@ -10,7 +10,6 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { propertyService, type PropertyWithClient } from '../services/property.service';
 import {
@@ -20,6 +19,7 @@ import {
   ItbiSimulationInputSchema,
   SIMULATION_KIND_ITBI_INTEGRALIZACAO,
   type ItbiAtividadePj,
+  type ItbiCriterioReferencia,
   type ItbiMunicipio,
   type ItbiSimulationInput,
   type ItbiSimulationResult,
@@ -49,6 +49,12 @@ function ItbiReportMemory({ result }: { result: ItbiSimulationResult }) {
         <dd className="text-right font-medium">{ENQ[result.enquadramento]}</dd>
         <dt className="text-slate-500">Referência</dt>
         <dd className="text-right font-medium">{fmtBRL(result.valor_referencia)}</dd>
+        {result.criterio_referencia_label && (
+          <>
+            <dt className="text-slate-500">Critério</dt>
+            <dd className="text-right font-medium capitalize">{result.criterio_referencia_label}</dd>
+          </>
+        )}
         <dt className="text-slate-500">Base cheia</dt>
         <dd className="text-right font-medium">{fmtBRL(result.base_cheia)}</dd>
         <dt className="text-slate-500">Capital imune</dt>
@@ -91,8 +97,10 @@ export function SimuladorItbi() {
   const [municipio, setMunicipio] = useState('');
   const [municipioManual, setMunicipioManual] = useState(false);
   const [municipiosLista, setMunicipiosLista] = useState<ItbiMunicipio[]>(() => getItbiMunicipios('SP'));
+  const [criterioReferencia, setCriterioReferencia] = useState<ItbiCriterioReferencia>('mercado');
   const [valorVenal, setValorVenal] = useState(0);
   const [valorMercado, setValorMercado] = useState(0);
+  const [valorReferenciaItbi, setValorReferenciaItbi] = useState(0);
   const [valorIntegralizacao, setValorIntegralizacao] = useState(0);
   const [percentual, setPercentual] = useState(100);
   const [atividade, setAtividade] = useState<ItbiAtividadePj>('holding_patrimonial');
@@ -165,8 +173,10 @@ export function SimuladorItbi() {
       property_id: propertyId || undefined,
       uf,
       municipio: municipio.trim() || '—',
+      criterio_referencia: criterioReferencia,
       valor_venal: valorVenal,
       valor_mercado: valorMercado,
+      valor_referencia_itbi: valorReferenciaItbi,
       valor_integralizacao: valorIntegralizacao,
       percentual_imovel: percentual,
       atividade_pj: atividade,
@@ -178,8 +188,10 @@ export function SimuladorItbi() {
       propertyId,
       uf,
       municipio,
+      criterioReferencia,
       valorVenal,
       valorMercado,
+      valorReferenciaItbi,
       valorIntegralizacao,
       percentual,
       atividade,
@@ -264,8 +276,10 @@ export function SimuladorItbi() {
       } else {
         setMunicipioManual(false);
       }
+      setCriterioReferencia(inp.criterio_referencia ?? (inp.valor_mercado > 0 ? 'mercado' : 'iptu'));
       setValorVenal(inp.valor_venal);
       setValorMercado(inp.valor_mercado);
+      setValorReferenciaItbi(inp.valor_referencia_itbi ?? 0);
       setValorIntegralizacao(inp.valor_integralizacao);
       setPercentual(inp.percentual_imovel);
       setAtividade(inp.atividade_pj);
@@ -388,8 +402,35 @@ export function SimuladorItbi() {
                 )}
               </div>
             )}
-            <MoneyInput label="Valor venal" value={valorVenal} onChange={setValorVenal} prefix="R$" />
-            <MoneyInput label="Valor de mercado" value={valorMercado} onChange={setValorMercado} prefix="R$" />
+            <label className="text-sm text-slate-700 sm:col-span-2">
+              Critério da base de referência
+              <select
+                value={criterioReferencia}
+                onChange={(e) => setCriterioReferencia(e.target.value as ItbiCriterioReferencia)}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="mercado">Valor de mercado</option>
+                <option value="referencia_itbi">Valor de referência do ITBI (planta/prefeitura)</option>
+                <option value="iptu">Valor de IPTU (venal)</option>
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">
+                Declare qual valor será a referência do Tema 796. Municípios costumam aceitar a planta de ITBI ou o venal de IPTU; o mercado é o valor atribuído na reunião.
+              </span>
+            </label>
+            {criterioReferencia === 'mercado' && (
+              <MoneyInput label="Valor de mercado" value={valorMercado} onChange={setValorMercado} prefix="R$" />
+            )}
+            {criterioReferencia === 'referencia_itbi' && (
+              <MoneyInput
+                label="Valor de referência do ITBI"
+                value={valorReferenciaItbi}
+                onChange={setValorReferenciaItbi}
+                prefix="R$"
+              />
+            )}
+            {criterioReferencia === 'iptu' && (
+              <MoneyInput label="Valor de IPTU (venal)" value={valorVenal} onChange={setValorVenal} prefix="R$" />
+            )}
             <MoneyInput label="Valor de integralização" value={valorIntegralizacao} onChange={setValorIntegralizacao} prefix="R$" />
             <Input
               label="% do imóvel"
@@ -449,6 +490,12 @@ export function SimuladorItbi() {
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 <dt className="text-slate-500">Referência</dt>
                 <dd className="text-right font-medium">{fmtBRL(result.valor_referencia)}</dd>
+                {result.criterio_referencia_label && (
+                  <>
+                    <dt className="text-slate-500">Critério</dt>
+                    <dd className="text-right font-medium">{result.criterio_referencia_label}</dd>
+                  </>
+                )}
                 <dt className="text-slate-500">Base cheia</dt>
                 <dd className="text-right font-medium">{fmtBRL(result.base_cheia)}</dd>
                 <dt className="text-slate-500">Capital imune</dt>

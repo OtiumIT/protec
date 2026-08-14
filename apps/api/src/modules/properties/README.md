@@ -36,6 +36,13 @@ Módulo de gestão patrimonial e planejamento tributário imobiliário. Permite 
 - A memória demonstra separadamente receita, base, IRPJ de 15% e CSLL de 9% em cada faixa, além do adicional de IRPJ de 10% sobre a base presumida desta venda que exceder R$ 60.000.
 - `faturamentoTrimestreAnterior` é opcional no snapshot e assume zero para manter compatibilidade com simulações antigas.
 
+### Regra 0.4: ITBI e ITCMD — critério declarado da base
+
+- **ITBI**: o aluno escolhe a referência do Tema 796 (`mercado`, `referencia_itbi` planta/prefeitura ou `iptu` venal). Sem `criterio_referencia` (sims v1), o motor mantém o fallback mercado → venal → integralização.
+- **ITCMD doação de imóvel**: o mesmo trio de critérios; o valor do motor é o do critério escolhido.
+- **ITCMD doação de cotas** (Ltda / S.A. fechada): o aluno declara `patrimonio_liquido` (último balanço) ou `valor_mercado`. Não há upload de balanço nem regra por UF — a divergência estadual fica explícita no aviso.
+- Fora do recorte: causa mortis, inventário e tabela de critério obrigatório por estado.
+
 ### Regra 1: Isolamento Multitenant
 
 - **Quando aplicar**: Todas as operações

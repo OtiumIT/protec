@@ -11,7 +11,6 @@ import {
   type SpedCalibratorRule,
   type UpdateSpedCalibratorRuleInput,
 } from '../services/fiscal-file.service';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 
 type TargetKind = 'receita' | 'deducao' | 'retencao';

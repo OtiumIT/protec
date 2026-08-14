@@ -14,7 +14,6 @@ import { Button } from '../../../shared/components/ui/Button';
 import { Input } from '../../../shared/components/ui/Input';
 import { MoneyInput } from '../../../shared/components/ui/MoneyInput';
 import { useToast } from '../../../shared/components/ui/Toast';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 import { ShareSimulationButton } from '../../../shared/components/ui/ShareSimulationButton';

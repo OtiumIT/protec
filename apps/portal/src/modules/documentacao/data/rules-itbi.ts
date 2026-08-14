@@ -9,7 +9,7 @@ export const rulesItbi: RuleDocumentation[] = [
       'O motor aceita integralizacao, permuta ou onerosa desde a v1. A tela da v1 expoe so integralizacao de capital. Permuta e onerosa reusam o mesmo calculo na v2.2, sem Tema 796.',
     formula: 'Fato \\in \\{integralizacao, permuta, onerosa\\}',
     formula_explicada:
-      'Integralizacao aplica Tema 796. Permuta e onerosa incidam sobre a base de referencia (mercado, senao venal, senao valor da operacao).',
+      'Integralizacao aplica Tema 796. A referencia e o criterio declarado (mercado, planta de ITBI ou IPTU). Sims antigas sem criterio: mercado, senao venal, senao valor da operacao.',
     embasamento_legal: [
       {
         norma: 'CTN',
@@ -44,10 +44,10 @@ export const rulesItbi: RuleDocumentation[] = [
     modulo: 'itbi',
     nome: 'Tema 796 — imunidade na integralizacao',
     descricao:
-      'Na integralizacao de imovel ao capital de PJ holding patrimonial, o ITBI nao incide ate o valor de referencia (mercado se informado, senao venal). O excesso e tributado (imunidade parcial). PJ operacional: incidencia integral, sem imunidade.',
+      'Na integralizacao de imovel ao capital de PJ holding patrimonial, o ITBI nao incide ate o valor de referencia declarado (mercado, planta de ITBI ou IPTU/venal). O excesso e tributado (imunidade parcial). PJ operacional: incidencia integral, sem imunidade.',
     formula: 'Base = max(0, Referencia \\times \\%imovel - Capital \\times \\%imovel)',
     formula_explicada:
-      'Referencia = mercado se > 0, senao venal, senao valor de integralizacao. Se capital >= referencia, imunidade total. Se 0 < capital < referencia, imunidade parcial. Operacional: Base = referencia × % do imovel.',
+      'Referencia = o valor do criterio_referencia. Sem criterio (v1): mercado se > 0, senao venal, senao integralizacao. Se capital >= referencia, imunidade total. Se 0 < capital < referencia, imunidade parcial. Operacional: Base = referencia × % do imovel.',
     embasamento_legal: [
       {
         norma: 'CF/1988',
@@ -64,8 +64,10 @@ export const rulesItbi: RuleDocumentation[] = [
       },
     ],
     variaveis: [
-      { nome: 'valor_venal', descricao: 'Valor venal do imovel', tipo: 'moeda', exemplo: 'R$ 800.000,00' },
-      { nome: 'valor_mercado', descricao: 'Valor de mercado (prevalece sobre o venal)', tipo: 'moeda', exemplo: 'R$ 1.000.000,00' },
+      { nome: 'criterio_referencia', descricao: 'mercado | referencia_itbi | iptu', tipo: 'texto', exemplo: 'mercado' },
+      { nome: 'valor_venal', descricao: 'Valor de IPTU (venal), quando o criterio e iptu', tipo: 'moeda', exemplo: 'R$ 800.000,00' },
+      { nome: 'valor_mercado', descricao: 'Valor de mercado, quando o criterio e mercado', tipo: 'moeda', exemplo: 'R$ 1.000.000,00' },
+      { nome: 'valor_referencia_itbi', descricao: 'Planta/referencia de ITBI da prefeitura', tipo: 'moeda', exemplo: 'R$ 900.000,00' },
       { nome: 'valor_integralizacao', descricao: 'Valor lancado a titulo de capital', tipo: 'moeda', exemplo: 'R$ 700.000,00' },
       { nome: 'percentual_imovel', descricao: 'Percentual do imovel integralizado', tipo: 'percentual', exemplo: '100' },
       { nome: 'atividade_pj', descricao: 'holding_patrimonial ou operacional', tipo: 'texto', exemplo: 'holding_patrimonial' },
@@ -93,7 +95,7 @@ export const rulesItbi: RuleDocumentation[] = [
       'Terreno de marinha: apenas alerta de laudemio; o motor nao calcula laudemio.',
     ],
     ultima_atualizacao: '2026-08-14',
-    tags: ['itbi', 'tema-796', 'holding'],
+    tags: ['itbi', 'tema-796', 'holding', 'criterio-base'],
     alertas: [
       {
         tipo: 'importante',

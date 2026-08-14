@@ -10,7 +10,6 @@ import { ReportCoverSection } from '../../../lib/report-pdf/ReportCoverSection';
 import { ReportPrintHeader, ReportPrintFooter } from '../../../lib/report-pdf/ReportPrintChrome';
 import { useReportPrint } from '../../../lib/report-pdf/useReportPrint';
 import { useBranding } from '../../../shared/hooks/useBranding';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { propertyService } from '../services/property.service';
 import {
@@ -20,9 +19,12 @@ import {
   SIMULATION_KIND_ITCMD_DOACAO,
   temTabelaItcmd,
   type ItcmdBemTipo,
+  type ItcmdCriterioImovel,
+  type ItcmdCriterioQuotas,
   type ItcmdParentesco,
   type ItcmdSimulationInput,
   type ItcmdSimulationResult,
+  type ItcmdTipoSociedade,
   type PropertySimulation,
 } from '@shared/core';
 
@@ -43,6 +45,12 @@ function ItcmdReportMemory({ result }: { result: ItcmdSimulationResult }) {
         <dd className="text-right font-medium">{result.uf}</dd>
         <dt className="text-slate-500">Valor do bem</dt>
         <dd className="text-right font-medium">{fmtBRL(result.valor_bem)}</dd>
+        {result.criterio_base && (
+          <>
+            <dt className="text-slate-500">Critério</dt>
+            <dd className="text-right font-medium">{result.criterio_base}</dd>
+          </>
+        )}
         <dt className="text-slate-500">Base</dt>
         <dd className="text-right font-medium">{fmtBRL(result.base)}</dd>
         <dt className="text-slate-500">Alíquota</dt>
@@ -73,7 +81,13 @@ export function SimuladorItcmd() {
   const [clientId, setClientId] = useState('');
   const [uf, setUf] = useState('SP');
   const [tipoBem, setTipoBem] = useState<ItcmdBemTipo>('imovel');
-  const [valor, setValor] = useState(0);
+  const [criterioImovel, setCriterioImovel] = useState<ItcmdCriterioImovel>('mercado');
+  const [criterioQuotas, setCriterioQuotas] = useState<ItcmdCriterioQuotas>('patrimonio_liquido');
+  const [tipoSociedade, setTipoSociedade] = useState<ItcmdTipoSociedade>('ltda');
+  const [valorMercado, setValorMercado] = useState(0);
+  const [valorReferenciaItbi, setValorReferenciaItbi] = useState(0);
+  const [valorIptu, setValorIptu] = useState(0);
+  const [valorPl, setValorPl] = useState(0);
   const [parentesco, setParentesco] = useState<ItcmdParentesco>('descendente');
   const [reserva, setReserva] = useState(false);
   const [idade, setIdade] = useState(60);
@@ -87,18 +101,52 @@ export function SimuladorItcmd() {
 
   const usaTabela = temTabelaItcmd(uf);
 
+  const valorResolvido =
+    tipoBem === 'imovel'
+      ? criterioImovel === 'mercado'
+        ? valorMercado
+        : criterioImovel === 'referencia_itbi'
+          ? valorReferenciaItbi
+          : valorIptu
+      : criterioQuotas === 'patrimonio_liquido'
+        ? valorPl
+        : valorMercado;
+
   const input: ItcmdSimulationInput = useMemo(
     () => ({
       snapshot_version: 1,
       uf,
       tipo_bem: tipoBem,
-      valor,
+      valor: valorResolvido,
       parentesco,
       reserva_usufruto: reserva,
       idade_usufrutuario: reserva ? idade : undefined,
       aliquota_manual_percent: usaTabela ? undefined : aliquotaManual,
+      criterio_base_imovel: tipoBem === 'imovel' ? criterioImovel : undefined,
+      criterio_quotas: tipoBem === 'quotas' ? criterioQuotas : undefined,
+      tipo_sociedade: tipoBem === 'quotas' ? tipoSociedade : undefined,
+      valor_mercado: valorMercado,
+      valor_referencia_itbi: valorReferenciaItbi,
+      valor_iptu: valorIptu,
+      valor_pl: valorPl,
     }),
-    [uf, tipoBem, valor, parentesco, reserva, idade, aliquotaManual, usaTabela]
+    [
+      uf,
+      tipoBem,
+      valorResolvido,
+      parentesco,
+      reserva,
+      idade,
+      aliquotaManual,
+      usaTabela,
+      criterioImovel,
+      criterioQuotas,
+      tipoSociedade,
+      valorMercado,
+      valorReferenciaItbi,
+      valorIptu,
+      valorPl,
+    ]
   );
 
   const parsed = ItcmdSimulationInputSchema.safeParse(input);
@@ -168,7 +216,13 @@ export function SimuladorItcmd() {
       const inp = loaded.data;
       setUf(inp.uf);
       setTipoBem(inp.tipo_bem);
-      setValor(inp.valor);
+      setCriterioImovel(inp.criterio_base_imovel ?? 'mercado');
+      setCriterioQuotas(inp.criterio_quotas ?? 'patrimonio_liquido');
+      setTipoSociedade(inp.tipo_sociedade ?? 'ltda');
+      setValorMercado(inp.valor_mercado ?? (inp.tipo_bem === 'imovel' ? inp.valor : 0));
+      setValorReferenciaItbi(inp.valor_referencia_itbi ?? 0);
+      setValorIptu(inp.valor_iptu ?? 0);
+      setValorPl(inp.valor_pl ?? (inp.tipo_bem === 'quotas' ? inp.valor : 0));
       setParentesco(inp.parentesco);
       setReserva(inp.reserva_usufruto);
       setIdade(inp.idade_usufrutuario ?? 60);
@@ -252,7 +306,7 @@ export function SimuladorItcmd() {
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               >
                 <option value="imovel">Imóvel</option>
-                <option value="quotas">Quotas</option>
+                <option value="quotas">Cotas (Ltda / S.A. fechada)</option>
               </select>
             </label>
             <label className="text-sm text-slate-700">
@@ -267,7 +321,76 @@ export function SimuladorItcmd() {
                 <option value="outros">Outros</option>
               </select>
             </label>
-            <MoneyInput label="Valor do bem" value={valor} onChange={setValor} prefix="R$" />
+            {tipoBem === 'imovel' ? (
+              <>
+                <label className="text-sm text-slate-700 sm:col-span-2">
+                  Critério da base
+                  <select
+                    value={criterioImovel}
+                    onChange={(e) => setCriterioImovel(e.target.value as ItcmdCriterioImovel)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value="mercado">Valor de mercado</option>
+                    <option value="referencia_itbi">Valor de referência do ITBI (planta/prefeitura)</option>
+                    <option value="iptu">Valor de IPTU (venal)</option>
+                  </select>
+                </label>
+                {criterioImovel === 'mercado' && (
+                  <MoneyInput label="Valor de mercado" value={valorMercado} onChange={setValorMercado} prefix="R$" />
+                )}
+                {criterioImovel === 'referencia_itbi' && (
+                  <MoneyInput
+                    label="Valor de referência do ITBI"
+                    value={valorReferenciaItbi}
+                    onChange={setValorReferenciaItbi}
+                    prefix="R$"
+                  />
+                )}
+                {criterioImovel === 'iptu' && (
+                  <MoneyInput label="Valor de IPTU (venal)" value={valorIptu} onChange={setValorIptu} prefix="R$" />
+                )}
+              </>
+            ) : (
+              <>
+                <label className="text-sm text-slate-700">
+                  Tipo de sociedade
+                  <select
+                    value={tipoSociedade}
+                    onChange={(e) => setTipoSociedade(e.target.value as ItcmdTipoSociedade)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value="ltda">Limitada</option>
+                    <option value="sa_fechada">S.A. fechada</option>
+                  </select>
+                </label>
+                <label className="text-sm text-slate-700">
+                  Critério da base
+                  <select
+                    value={criterioQuotas}
+                    onChange={(e) => setCriterioQuotas(e.target.value as ItcmdCriterioQuotas)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value="patrimonio_liquido">Patrimônio líquido (último balanço)</option>
+                    <option value="valor_mercado">Valor de mercado</option>
+                  </select>
+                </label>
+                {criterioQuotas === 'patrimonio_liquido' ? (
+                  <MoneyInput
+                    label="Patrimônio líquido (proporcional às cotas)"
+                    value={valorPl}
+                    onChange={setValorPl}
+                    prefix="R$"
+                  />
+                ) : (
+                  <MoneyInput label="Valor de mercado das cotas" value={valorMercado} onChange={setValorMercado} prefix="R$" />
+                )}
+                <p className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Doação de cotas de Ltda ou S.A. fechada: a base (PL do balanço vs valor de mercado) varia de estado para estado
+                  e gera as maiores divergências. Informe o critério usado na reunião. Isto não substitui o enquadramento da UF
+                  nem causa mortis.
+                </p>
+              </>
+            )}
             {!usaTabela && (
               <Input
                 label="Alíquota ITCMD (%)"
@@ -311,6 +434,12 @@ export function SimuladorItcmd() {
           ) : (
             <>
               <dl className="grid grid-cols-2 gap-2 text-sm">
+                {result.criterio_base && (
+                  <>
+                    <dt className="text-slate-500">Critério</dt>
+                    <dd className="text-right font-medium">{result.criterio_base}</dd>
+                  </>
+                )}
                 <dt className="text-slate-500">Base</dt>
                 <dd className="text-right font-medium">{fmtBRL(result.base)}</dd>
                 <dt className="text-slate-500">Alíquota</dt>

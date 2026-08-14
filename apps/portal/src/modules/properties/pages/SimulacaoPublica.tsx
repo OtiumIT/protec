@@ -361,6 +361,9 @@ function ItbiResult({ snapshot }: { snapshot: Record<string, unknown> }) {
           rows={[
             { label: 'Enquadramento', value: ITBI_ENQ[String(r.enquadramento)] ?? String(r.enquadramento ?? '—') },
             { label: 'Referência', value: formatMoney(r.valor_referencia) },
+            ...(typeof r.criterio_referencia_label === 'string'
+              ? [{ label: 'Critério', value: r.criterio_referencia_label }]
+              : []),
             { label: 'Base cheia', value: formatMoney(r.base_cheia) },
             { label: 'Capital imune', value: formatMoney(r.capital_imune) },
             { label: 'Base tributável', value: formatMoney(r.base_tributavel) },
@@ -396,6 +399,7 @@ function ItcmdResult({ snapshot }: { snapshot: Record<string, unknown> }) {
           rows={[
             { label: 'UF', value: String(r.uf ?? '—') },
             { label: 'Valor do bem', value: formatMoney(r.valor_bem) },
+            ...(typeof r.criterio_base === 'string' ? [{ label: 'Critério', value: r.criterio_base }] : []),
             { label: 'Base', value: formatMoney(r.base) },
             { label: 'Alíquota', value: fmtPct(r.aliquota_percent) },
             { label: 'ITCMD', value: formatMoney(r.itcmd) },

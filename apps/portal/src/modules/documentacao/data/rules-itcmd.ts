@@ -20,7 +20,9 @@ export const rulesItcmd: RuleDocumentation[] = [
     ],
     variaveis: [
       { nome: 'uf', descricao: 'Unidade da Federacao', tipo: 'texto', exemplo: 'SP' },
-      { nome: 'valor', descricao: 'Valor do bem (imovel ou quotas)', tipo: 'moeda', exemplo: 'R$ 500.000,00' },
+      { nome: 'valor', descricao: 'Valor resolvido do criterio escolhido (imovel ou cotas)', tipo: 'moeda', exemplo: 'R$ 500.000,00' },
+      { nome: 'criterio_base_imovel', descricao: 'mercado | referencia_itbi | iptu', tipo: 'texto', exemplo: 'mercado' },
+      { nome: 'criterio_quotas', descricao: 'patrimonio_liquido | valor_mercado', tipo: 'texto', exemplo: 'patrimonio_liquido' },
       { nome: 'aliquota_manual_percent', descricao: 'Obrigatoria se a UF nao tem tabela', tipo: 'percentual', exemplo: '4' },
     ],
     exemplo_numerico: {
@@ -35,11 +37,12 @@ export const rulesItcmd: RuleDocumentation[] = [
     observacoes: [
       'SP 4%; MG 5%; PR 4%; SC 8% (doacao).',
       'RJ 4–8%, RS 3–6%, GO 2–8%, DF 4–6% por faixas simplificadas de simulacao.',
-      'Nao cobre causa mortis, inventario nem otimizador de domicilio (v2.1).',
+      'Nao cobre causa mortis, inventario, upload de balanco nem regra por UF para cotas (v2.1).',
+      'Cotas: o aluno declara se a base e PL do ultimo balanco ou valor de mercado — a escolha varia por estado.',
       'Simulacao: nao substitui guia estadual.',
     ],
     ultima_atualizacao: '2026-08-14',
-    tags: ['itcmd', 'doacao', 'tabela'],
+    tags: ['itcmd', 'doacao', 'tabela', 'criterio-base'],
   },
   {
     id: 'itcmd-usufruto',
@@ -81,6 +84,42 @@ export const rulesItcmd: RuleDocumentation[] = [
       {
         tipo: 'atencao',
         mensagem: 'As fracoes etarias sao referenciais de simulacao, nao tabela oficial de todos os estados.',
+      },
+    ],
+  },
+  {
+    id: 'itcmd-criterio-base',
+    modulo: 'itcmd',
+    nome: 'Criterio da base — imovel vs cotas',
+    descricao:
+      'Imovel: o aluno declara se a base e valor de mercado, referencia de ITBI (planta) ou IPTU (venal). Cotas de Ltda ou S.A. fechada: declara patrimonio liquido do ultimo balanco ou valor de mercado. O motor nao escolhe o criterio por UF.',
+    formula: 'ValorBem = Valor(criterio)',
+    formula_explicada:
+      'O ITCMD incide sobre o valor do criterio declarado, apos o ajuste de nua propriedade se houver usufruto. Cotas: PL e mercado geram as maiores divergencias entre estados.',
+    embasamento_legal: [
+      {
+        norma: 'CF/1988',
+        artigo: 'Art. 155',
+        inciso: 'I',
+        descricao: 'ITCMD sobre transmissao causa mortis e doacao de quaisquer bens ou direitos — inclusive quotas sociais. A base e definida pela legislacao estadual.',
+      },
+    ],
+    variaveis: [
+      { nome: 'tipo_bem', descricao: 'imovel | quotas', tipo: 'texto', exemplo: 'quotas' },
+      { nome: 'tipo_sociedade', descricao: 'ltda | sa_fechada (so memoria)', tipo: 'texto', exemplo: 'ltda' },
+      { nome: 'criterio_quotas', descricao: 'patrimonio_liquido | valor_mercado', tipo: 'texto', exemplo: 'patrimonio_liquido' },
+      { nome: 'valor_pl', descricao: 'PL proporcional as cotas doadas', tipo: 'moeda', exemplo: 'R$ 200.000,00' },
+    ],
+    observacoes: [
+      'Nao ha upload de balanco. O PL e digitado a partir do ultimo balanco da reuniao.',
+      'Causa mortis fica fora desta versao.',
+    ],
+    ultima_atualizacao: '2026-08-14',
+    tags: ['itcmd', 'cotas', 'criterio-base'],
+    alertas: [
+      {
+        tipo: 'importante',
+        mensagem: 'A base de cotas varia por estado. Isto nao substitui o enquadramento da UF.',
       },
     ],
   },

@@ -4,7 +4,6 @@ import {
   type FiscalFile,
   type FiscalFileExtractionSummary,
 } from '../services/fiscal-file.service';
-import { type ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';

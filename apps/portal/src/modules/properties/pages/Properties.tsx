@@ -11,7 +11,6 @@ import {
   propertyService,
   type PropertyWithClient,
 } from '../services/property.service';
-import type { ClientWithCreatedAt } from '../../clients/services/client.service';
 import { useClients } from '../../../shared/hooks/useClients';
 import { ClientFormModal } from '../../clients/components/ClientFormModal';
 
