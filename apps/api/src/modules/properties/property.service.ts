@@ -873,7 +873,9 @@ export class PropertyService {
         redutorSocialResidencialAnualSimulate,
       receita_locacao_residencial_anual: receitaLocacaoResidencialAnualSimulate,
       receita_locacao_nao_residencial_anual: receitaLocacaoNaoResidencialAnualSimulate,
-      fator_credito_custos_operacionais: creditoInfo.fator_aproveitamento,
+      fator_credito_custos_operacionais: input.opcoes_reforma?.considerar_creditos_ibs_cbs
+        ? creditoInfo.fator_aproveitamento
+        : 0,
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedTotal,
@@ -1258,6 +1260,7 @@ export class PropertyService {
       redutor_social_residencial_anual:
         input.opcoes_reforma?.redutor_social_residencial_anual ??
         redutorSocialResidencialAnualStandalone,
+      fator_credito_custos_operacionais: input.opcoes_reforma?.considerar_creditos_ibs_cbs ? 1 : 0,
     };
     const cenarioReforma = calcularReforma2027(
       aggregatedReforma,

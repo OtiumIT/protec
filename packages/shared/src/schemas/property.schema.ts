@@ -198,6 +198,8 @@ export const OpcoesReformaSchema = z.object({
   limite_receita_absoluto_contribuinte_pf_manual: monetaryValue.optional(),
   /** Override: redutor social mensal por imóvel residencial (R$), antes de multiplicar por 12 × quantidade. */
   redutor_social_mensal_manual: monetaryValue.optional(),
+  /** Se false, o cenário Reforma não aproveita créditos de IBS/CBS sobre custos. Default false. */
+  considerar_creditos_ibs_cbs: z.boolean().optional().default(false),
 });
 
 export type OpcoesReforma = z.infer<typeof OpcoesReformaSchema>;

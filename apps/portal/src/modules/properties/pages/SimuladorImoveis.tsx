@@ -92,6 +92,26 @@ function mediaMensalAnual(annual: number) {
   return round2(annual / 12);
 }
 
+function impostoPfComparativo(
+  result: {
+    cenarios: {
+      pf: { imposto_total: number; aliquota_efetiva_anual: number };
+      pf_dirpf_simplificado?: { imposto_total: number; aliquota_efetiva_anual: number } | null;
+    };
+  },
+  usarSimplificado: boolean
+) {
+  const s = result.cenarios.pf_dirpf_simplificado;
+  if (usarSimplificado && s) {
+    return { imposto: s.imposto_total, aliquota: s.aliquota_efetiva_anual, modo: 'simplificado' as const };
+  }
+  return {
+    imposto: result.cenarios.pf.imposto_total,
+    aliquota: result.cenarios.pf.aliquota_efetiva_anual,
+    modo: 'carne_leao' as const,
+  };
+}
+
 /** Nome sugerido ao guardar PDF (Chrome usa `document.title` como nome do ficheiro). */
 function sanitizePdfDocumentTitle(raw: string): string {
   const t = raw
@@ -152,7 +172,7 @@ function hasCustoOperacionalData(mesesArr: SimulateStandaloneMesInput[]): boolea
 
 /** Texto explicativo: por que preencher custos operacionais (tooltip / acessível) */
 const CUSTOS_OPERACIONAIS_INFO =
-  'Custos operacionais alimentam créditos de IBS/CBS no cenário Reforma (LC 214/2025), reduzindo a carga tributária líquida desse bloco. Não alteram o IRPF (Carnê-Leão) nem o Lucro Presumido neste simulador — use Despesas dedutíveis para reduzir a base do IR na pessoa física. Evite duplicar a mesma despesa nas duas rubricas sem critério.';
+  'Custos operacionais só geram créditos de IBS/CBS no cenário Reforma se a opção “Possui créditos de IBS/CBS a utilizar?” estiver marcada. Não alteram o IRPF nem o Lucro Presumido — use Despesas dedutíveis para reduzir a base do IR na pessoa física.';
 
 const SECTION_CONFIG: Record<SectionKey, { title: string; subtitle: string; icon: React.ReactNode; bg: string; border: string; headerBg: string }> = {
   receita: {
@@ -305,8 +325,10 @@ export function SimuladorImoveis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PropertyTaxSimulationResponse | null>(null);
   const [contratoAntes16012025, setContratoAntes16012025] = useState(false);
-  /** Exibe cenário paralelo DIRPF com desconto simplificado (não altera o carnê-leão) */
-  const [exibirDirpfSimplificado, setExibirDirpfSimplificado] = useState(true);
+  /** Usa o IR da DIRPF com desconto simplificado no comparativo PF (em vez do carnê-leão puro). */
+  const [usarDescontoSimplificado, setUsarDescontoSimplificado] = useState(true);
+  /** Aproveita créditos de IBS/CBS sobre custos operacionais no cenário Reforma. */
+  const [considerarCreditosIbsCbs, setConsiderarCreditosIbsCbs] = useState(false);
   const [perfilLocacao, setPerfilLocacao] = useState<PerfilLocacaoReforma>('residencial_comum');
   const [saveClientId, setSaveClientId] = useState('');
   const [saveTitle, setSaveTitle] = useState('');
@@ -1012,6 +1034,7 @@ export function SimuladorImoveis() {
       redutor_short_stay_pct: 40,
       contrato_antes_16012025: contratoAntes16012025,
       perfil_locacao: perfilLocacao,
+      considerar_creditos_ibs_cbs: considerarCreditosIbsCbs,
     };
     const p240 =
       lc214ManualLim240.trim() !== '' ? Number(String(lc214ManualLim240).replace(',', '.')) : NaN;
@@ -1233,6 +1256,7 @@ export function SimuladorImoveis() {
           limite_receita_contribuinte_pf_manual?: number;
           limite_receita_absoluto_contribuinte_pf_manual?: number;
           redutor_social_mensal_manual?: number;
+          considerar_creditos_ibs_cbs?: boolean;
         };
       };
       if (input?.ano) setAno(input.ano);
@@ -1242,6 +1266,9 @@ export function SimuladorImoveis() {
         setCustosOperacionaisAberto(hasCustoOperacionalData(loaded));
       }
       if (input?.opcoes_reforma?.contrato_antes_16012025 != null) setContratoAntes16012025(input.opcoes_reforma.contrato_antes_16012025);
+      if (input?.opcoes_reforma?.considerar_creditos_ibs_cbs != null) {
+        setConsiderarCreditosIbsCbs(input.opcoes_reforma.considerar_creditos_ibs_cbs);
+      }
       if (input?.opcoes_reforma?.ano_referencia_reforma != null) setAnoReferenciaReforma(input.opcoes_reforma.ano_referencia_reforma);
       if (input?.opcoes_reforma?.aliquota_ibs_plena != null) setAliquotaPlenaIBS(input.opcoes_reforma.aliquota_ibs_plena);
       if (input?.opcoes_reforma?.aliquota_cbs_estimada != null) setAliquotaCBS(input.opcoes_reforma.aliquota_cbs_estimada);
@@ -1912,14 +1939,28 @@ export function SimuladorImoveis() {
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={exibirDirpfSimplificado}
-                onChange={(e) => setExibirDirpfSimplificado(e.target.checked)}
+                checked={usarDescontoSimplificado}
+                onChange={(e) => setUsarDescontoSimplificado(e.target.checked)}
                 className="mt-0.5 rounded border-slate-300 text-brand focus:ring-brand"
               />
               <span className="text-sm text-slate-700">
-                Exibir cenário DIRPF com desconto simplificado (20%, teto R$ 17.640)
+                Calcular PF com desconto simplificado da DIRPF (20%, teto R$ 17.640)
                 <span className="block text-xs text-slate-500 mt-0.5">
-                  Ajuste anual estimado — não reduz o carnê-leão mensal. Útil para comparar a carga líquida se o contribuinte optar pelo modelo simplificado na declaração.
+                  Quando marcado, o comparativo usa o IR da declaração de ajuste (modelo simplificado). Desmarcado, usa só o carnê-leão mensal.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={considerarCreditosIbsCbs}
+                onChange={(e) => setConsiderarCreditosIbsCbs(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <span className="text-sm text-slate-700">
+                Possui créditos de IBS/CBS a utilizar?
+                <span className="block text-xs text-slate-500 mt-0.5">
+                  Só no cenário Reforma. Se marcado, os custos operacionais geram crédito e reduzem o IBS/CBS líquido. Sem crédito, o débito da reforma fica integral.
                 </span>
               </span>
             </label>
@@ -2733,9 +2774,11 @@ export function SimuladorImoveis() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-2">Pessoa Física (Carnê-Leão)</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">
+              {usarDescontoSimplificado ? 'Pessoa Física (DIRPF simplificado)' : 'Pessoa Física (Carnê-Leão)'}
+            </h3>
             <p className="text-2xl font-bold text-brand">
-              {formatMoney(result.cenarios.pf.imposto_total)}
+              {formatMoney(impostoPfComparativo(result, usarDescontoSimplificado).imposto)}
             </p>
             <p
               className="text-sm text-slate-500 mt-1 tabular-nums"
@@ -2743,29 +2786,49 @@ export function SimuladorImoveis() {
             >
               <span className="text-slate-400">Média mensal:</span>{' '}
               <span className="font-medium text-slate-600">
-                {formatMoney(mediaMensalAnual(result.cenarios.pf.imposto_total))}
+                {formatMoney(mediaMensalAnual(impostoPfComparativo(result, usarDescontoSimplificado).imposto))}
               </span>
               <span className="text-slate-400 text-xs ml-1">(anual ÷ 12)</span>
             </p>
             <p className="text-sm text-slate-600 mt-1">
-              Alíquota efetiva: {result.cenarios.pf.aliquota_efetiva_anual.toFixed(2)}%
+              Alíquota efetiva: {impostoPfComparativo(result, usarDescontoSimplificado).aliquota.toFixed(2)}%
             </p>
+            {usarDescontoSimplificado && (
+              <p className="text-xs text-slate-500 mt-1">
+                Carnê-leão (obrigação mensal): {formatMoney(result.cenarios.pf.imposto_total)}
+              </p>
+            )}
             <details className="mt-3" data-report-exclude="pdf">
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                 Ver cálculo
               </summary>
               <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs font-mono space-y-1.5 border border-slate-200">
-                <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Base × Alíquota progressiva</p>
-                <p>Receita bruta: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.receita_bruta_total)}</span></p>
-                <p>− Despesas dedutíveis: <span className="text-slate-800">{formatMoney(result.cenarios.pf.despesas_dedutiveis_total)}</span></p>
-                <p className="border-t border-slate-200 pt-1">= Base de cálculo: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.base_calculo_total)}</span></p>
-                <p className="text-slate-500 text-[10px] mt-1">Tabela progressiva mensal aplicada (0% a 27,5%)</p>
-                <p className="border-t border-slate-200 pt-1 mt-1">= IR anual: <span className="text-brand font-bold">{formatMoney(result.cenarios.pf.imposto_total)}</span></p>
+                {usarDescontoSimplificado && result.cenarios.pf_dirpf_simplificado ? (
+                  <>
+                    <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">
+                      DIRPF simplificado ({result.cenarios.pf_dirpf_simplificado.aliquota_desconto_pct}% · teto{' '}
+                      {formatMoney(result.cenarios.pf_dirpf_simplificado.teto_desconto)})
+                    </p>
+                    <p>Base antes do desconto: <span className="font-semibold">{formatMoney(result.cenarios.pf_dirpf_simplificado.base_antes_desconto)}</span></p>
+                    <p>− Desconto simplificado: <span>{formatMoney(result.cenarios.pf_dirpf_simplificado.desconto_simplificado)}</span></p>
+                    <p className="border-t border-slate-200 pt-1">= Base: <span className="font-semibold">{formatMoney(result.cenarios.pf_dirpf_simplificado.base_calculo_total)}</span></p>
+                    <p className="border-t border-slate-200 pt-1 mt-1">= IR anual: <span className="text-brand font-bold">{formatMoney(result.cenarios.pf_dirpf_simplificado.imposto_total)}</span></p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-600 font-sans font-medium border-b border-slate-200 pb-1 mb-2">Fórmula: Base × Alíquota progressiva</p>
+                    <p>Receita bruta: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.receita_bruta_total)}</span></p>
+                    <p>− Despesas dedutíveis: <span className="text-slate-800">{formatMoney(result.cenarios.pf.despesas_dedutiveis_total)}</span></p>
+                    <p className="border-t border-slate-200 pt-1">= Base de cálculo: <span className="text-slate-800 font-semibold">{formatMoney(result.cenarios.pf.base_calculo_total)}</span></p>
+                    <p className="text-slate-500 text-[10px] mt-1">Tabela progressiva mensal aplicada (0% a 27,5%)</p>
+                    <p className="border-t border-slate-200 pt-1 mt-1">= IR anual: <span className="text-brand font-bold">{formatMoney(result.cenarios.pf.imposto_total)}</span></p>
+                  </>
+                )}
               </div>
             </details>
           </Card>
-          {exibirDirpfSimplificado && result.cenarios.pf_dirpf_simplificado && (
+          {!usarDescontoSimplificado && result.cenarios.pf_dirpf_simplificado && (
             <Card className="border-dashed border-slate-300">
               <h3 className="font-semibold text-slate-700 mb-1">
                 PF — DIRPF com desconto simplificado
@@ -3054,7 +3117,7 @@ export function SimuladorImoveis() {
             <h3 className="font-semibold text-slate-700 mb-2">Reforma LC 214/2025 – Pessoa Física (IR + IBS/CBS)</h3>
             {(() => {
               const refPf = result.cenarios.reforma_2027_pf ?? result.cenarios.reforma_2027;
-              const irHoje = result.cenarios.pf.imposto_total;
+              const irHoje = impostoPfComparativo(result, usarDescontoSimplificado).imposto;
               const receita = refPf?.receita_bruta_total ?? result.fluxo_caixa?.[0]?.receita_total ?? 0;
               
               // Verificar se PF é contribuinte de IBS/CBS (LC 214/2025).
@@ -3700,15 +3763,16 @@ export function SimuladorImoveis() {
           const ehContribuinteIbsCbs =
             quantidadeImoveisTotal > LIMITE_IMOVEIS && receitaComparativo > LIMITE_RECEITA;
 
-          const totalRefPf = pf.imposto_total + (refPf?.ibs_cbs_liquido ?? 0);
+          const pfComp = impostoPfComparativo(result, usarDescontoSimplificado);
+          const totalRefPf = pfComp.imposto + (refPf?.ibs_cbs_liquido ?? 0);
 
           const valores = [
-            { label: 'PF', value: pf.imposto_total },
+            { label: 'PF', value: pfComp.imposto },
             { label: 'PJ', value: pj.imposto_total },
-            { label: 'Ref. PF', value: ehContribuinteIbsCbs ? totalRefPf : refPf?.imposto_total ?? pf.imposto_total },
+            { label: 'Ref. PF', value: ehContribuinteIbsCbs ? totalRefPf : refPf?.imposto_total ?? pfComp.imposto },
             { label: 'Ref. PJ', value: refPj?.imposto_total ?? 0 }
           ];
-          const melhorAtual = pf.imposto_total < pj.imposto_total ? 'PF' : 'PJ';
+          const melhorAtual = pfComp.imposto < pj.imposto_total ? 'PF' : 'PJ';
           const melhorTotal = valores.reduce((a, b) => a.value < b.value ? a : b);
 
           return (
@@ -3719,7 +3783,7 @@ export function SimuladorImoveis() {
                     <th className="py-2 px-3 text-left font-medium text-slate-600">Métrica</th>
                     <th className="py-2 px-3 text-right font-medium text-slate-600">
                       <div className="flex items-center justify-end gap-1">
-                        PF (Carnê-Leão)
+                        {usarDescontoSimplificado ? 'PF (DIRPF simplificado)' : 'PF (Carnê-Leão)'}
                         {melhorAtual === 'PF' && <span className="text-emerald-600 text-xs">✓</span>}
                       </div>
                     </th>
@@ -3744,7 +3808,7 @@ export function SimuladorImoveis() {
                   <tr className="border-b border-slate-100">
                     <td className="py-2 px-3 text-slate-700">Imposto total</td>
                     <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PF' ? 'text-emerald-700' : 'text-slate-800'}`}>
-                      {formatMoney(pf.imposto_total)}
+                      {formatMoney(pfComp.imposto)}
                     </td>
                     <td className={`py-2 px-3 text-right font-semibold ${melhorAtual === 'PJ' ? 'text-emerald-700' : 'text-slate-800'}`}>
                       {formatMoney(pj.imposto_total)}
@@ -3758,7 +3822,7 @@ export function SimuladorImoveis() {
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="py-2 px-3 text-slate-700">Alíquota efetiva</td>
-                    <td className="py-2 px-3 text-right text-slate-600">{pf.aliquota_efetiva_anual.toFixed(2)}%</td>
+                    <td className="py-2 px-3 text-right text-slate-600">{pfComp.aliquota.toFixed(2)}%</td>
                     <td className="py-2 px-3 text-right text-slate-600">{pj.aliquota_efetiva.toFixed(2)}%</td>
                     <td className="py-2 px-3 text-right text-slate-600" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs
@@ -3776,20 +3840,20 @@ export function SimuladorImoveis() {
                   <tr>
                     <td className="py-2 px-3 text-slate-700">Diferença vs. melhor atual</td>
                     <td className="py-2 px-3 text-right text-slate-500">
-                      {melhorAtual === 'PF' ? '—' : `+${formatMoney(pf.imposto_total - pj.imposto_total)}`}
+                      {melhorAtual === 'PF' ? '—' : `+${formatMoney(pfComp.imposto - pj.imposto_total)}`}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-500">
-                      {melhorAtual === 'PJ' ? '—' : `+${formatMoney(pj.imposto_total - pf.imposto_total)}`}
+                      {melhorAtual === 'PJ' ? '—' : `+${formatMoney(pj.imposto_total - pfComp.imposto)}`}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-500" title={!ehContribuinteIbsCbs ? 'Não se aplica (PF não é contribuinte de IBS/CBS)' : undefined}>
                       {ehContribuinteIbsCbs
-                        ? `+${formatMoney(totalRefPf - Math.min(pf.imposto_total, pj.imposto_total))}`
+                        ? `+${formatMoney(totalRefPf - Math.min(pfComp.imposto, pj.imposto_total))}`
                         : '—'}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-500">
-                      {(refPj?.imposto_total ?? 0) <= Math.min(pf.imposto_total, pj.imposto_total)
-                        ? `−${formatMoney(Math.min(pf.imposto_total, pj.imposto_total) - (refPj?.imposto_total ?? 0))}`
-                        : `+${formatMoney((refPj?.imposto_total ?? 0) - Math.min(pf.imposto_total, pj.imposto_total))}`
+                      {(refPj?.imposto_total ?? 0) <= Math.min(pfComp.imposto, pj.imposto_total)
+                        ? `−${formatMoney(Math.min(pfComp.imposto, pj.imposto_total) - (refPj?.imposto_total ?? 0))}`
+                        : `+${formatMoney((refPj?.imposto_total ?? 0) - Math.min(pfComp.imposto, pj.imposto_total))}`
                       }
                     </td>
                   </tr>
@@ -4054,7 +4118,7 @@ export function SimuladorImoveis() {
                 })()}
               </div>
             </details>
-            {exibirDirpfSimplificado && result.cenarios.pf_dirpf_simplificado && (
+            {usarDescontoSimplificado && result.cenarios.pf_dirpf_simplificado && (
               <details className="border border-slate-200 rounded-lg overflow-hidden" data-report-include="pdf">
                 <summary className="p-3 bg-slate-50 font-medium cursor-pointer">
                   PF — DIRPF com desconto simplificado (ajuste anual)

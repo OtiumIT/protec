@@ -897,6 +897,7 @@ export const propertyService = {
       redutor_locacao_pct?: number;
       contrato_antes_16012025?: boolean;
       perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
+      considerar_creditos_ibs_cbs?: boolean;
     };
     quantidade_imoveis_residenciais?: number;
     quantidade_imoveis_comerciais?: number;
@@ -932,6 +933,7 @@ export const propertyService = {
       redutor_locacao_pct?: number;
       contrato_antes_16012025?: boolean;
       perfil_locacao?: 'residencial_comum' | 'hospedagem_temporada' | 'ambos';
+      considerar_creditos_ibs_cbs?: boolean;
     };
   }): Promise<{ simulation: PropertySimulation; result: PropertyTaxSimulationResponse }> {
     const { token, tenantId } = getAuthHeaders();
