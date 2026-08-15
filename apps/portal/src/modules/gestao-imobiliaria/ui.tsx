@@ -51,20 +51,55 @@ export type CostKey =
   | 'vacancia_mensal_padrao'
   | 'inadimplencia_mensal_padrao';
 
-export const COST_FIELDS: { key: CostKey; label: string }[] = [
-  { key: 'iptu_mensal_padrao', label: 'IPTU' },
-  { key: 'condominio_mensal_padrao', label: 'Condomínio' },
-  { key: 'seguro_mensal_padrao', label: 'Seguro' },
-  { key: 'camareira_mensal_padrao', label: 'Camareira' },
-  { key: 'seguranca_mensal_padrao', label: 'Segurança' },
-  { key: 'material_limpeza_mensal_padrao', label: 'Material limpeza' },
-  { key: 'lavanderia_enxoval_mensal_padrao', label: 'Lavanderia/enxoval' },
-  { key: 'checkin_checkout_mensal_padrao', label: 'Check-in/out' },
-  { key: 'taxas_pagamento_mensal_padrao', label: 'Taxas pagamento' },
-  { key: 'tarifas_bancarias_mensal_padrao', label: 'Tarifas bancárias' },
-  { key: 'vacancia_mensal_padrao', label: 'Vacância' },
-  { key: 'inadimplencia_mensal_padrao', label: 'Inadimplência' },
+export type CostPeriod = 'mensal' | 'anual';
+
+export type CostFieldDef = { key: CostKey; label: string; period: CostPeriod };
+
+export const COST_GROUPS: { id: string; title: string; hint: string; fields: CostFieldDef[] }[] = [
+  {
+    id: 'encargos',
+    title: 'Encargos do imóvel',
+    hint: 'IPTU e seguro entram no valor anual; o sistema converte para mensal na simulação.',
+    fields: [
+      { key: 'iptu_mensal_padrao', label: 'IPTU', period: 'anual' },
+      { key: 'condominio_mensal_padrao', label: 'Condomínio', period: 'mensal' },
+      { key: 'seguro_mensal_padrao', label: 'Seguro', period: 'anual' },
+    ],
+  },
+  {
+    id: 'operacao',
+    title: 'Operação e short stay',
+    hint: 'Mais comum em Airbnb e locação flexível.',
+    fields: [
+      { key: 'camareira_mensal_padrao', label: 'Camareira', period: 'mensal' },
+      { key: 'seguranca_mensal_padrao', label: 'Segurança', period: 'mensal' },
+      { key: 'material_limpeza_mensal_padrao', label: 'Material de limpeza', period: 'mensal' },
+      { key: 'lavanderia_enxoval_mensal_padrao', label: 'Lavanderia / enxoval', period: 'mensal' },
+      { key: 'checkin_checkout_mensal_padrao', label: 'Check-in / check-out', period: 'mensal' },
+    ],
+  },
+  {
+    id: 'financeiro',
+    title: 'Financeiro e provisões',
+    hint: 'Taxas, tarifas e reservas para vacância ou inadimplência.',
+    fields: [
+      { key: 'taxas_pagamento_mensal_padrao', label: 'Taxas de pagamento', period: 'mensal' },
+      { key: 'tarifas_bancarias_mensal_padrao', label: 'Tarifas bancárias', period: 'mensal' },
+      { key: 'vacancia_mensal_padrao', label: 'Vacância', period: 'mensal' },
+      { key: 'inadimplencia_mensal_padrao', label: 'Inadimplência', period: 'mensal' },
+    ],
+  },
 ];
+
+export const COST_FIELDS: CostFieldDef[] = COST_GROUPS.flatMap((g) => g.fields);
+
+export function monthlyCostValue(field: CostFieldDef, storedMonthly: number): number {
+  return field.period === 'anual' ? storedMonthly * 12 : storedMonthly;
+}
+
+export function toStoredMonthly(field: CostFieldDef, displayed: number): number {
+  return field.period === 'anual' ? displayed / 12 : displayed;
+}
 
 export function getPropertyCosts(p: PropertyWithClient): number {
   const a = p as unknown as Record<string, unknown>;
