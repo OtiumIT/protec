@@ -168,3 +168,173 @@ export interface RealEstateUnit {
   created_at: string;
   updated_at: string;
 }
+
+// ==========================================================================
+// Fase B — Contrato de venda
+// ==========================================================================
+
+export const OperacaoVendaEnum = z.enum(['01', '02']);
+export type OperacaoVenda = z.infer<typeof OperacaoVendaEnum>;
+
+export const ContractStatusEnum = z.enum(['rascunho', 'ativo', 'encerrado', 'cancelado']);
+export type ContractStatus = z.infer<typeof ContractStatusEnum>;
+
+export const InstallmentStatusEnum = z.enum(['aberto', 'pago']);
+export type InstallmentStatus = z.infer<typeof InstallmentStatusEnum>;
+
+export const SalePartySchema = z.object({
+  client_id: uuid,
+  participacao_pct: z.number().min(0).max(100),
+});
+export type SalePartyInput = z.infer<typeof SalePartySchema>;
+
+export const SaleContractUnitSchema = z.object({
+  unit_id: uuid,
+  valor_atribuido_contrato: money,
+});
+export type SaleContractUnitInput = z.infer<typeof SaleContractUnitSchema>;
+
+export const SaleInstallmentInputSchema = z.object({
+  sequencia: z.number().int().min(1),
+  vencimento: isoDate,
+  principal: money,
+  fonte_pagadora: z.string().max(60).optional().nullable(),
+});
+export type SaleInstallmentInput = z.infer<typeof SaleInstallmentInputSchema>;
+
+export const CreateSaleContractSchema = z.object({
+  numero: z.string().min(1).max(60),
+  data_contrato: isoDate,
+  valor_venda: money,
+  operacao: OperacaoVendaEnum.default('02'),
+  indice_atualizacao: z.string().max(30).optional().nullable(),
+  taxa_juros: z.number().min(0).optional().nullable(),
+  informacoes_complementares: z.string().max(2000).optional().nullable(),
+  status: ContractStatusEnum.default('rascunho'),
+  parties: z.array(SalePartySchema).min(1),
+  units: z.array(SaleContractUnitSchema).min(1),
+  installments: z.array(SaleInstallmentInputSchema).default([]),
+});
+export type CreateSaleContractInput = z.infer<typeof CreateSaleContractSchema>;
+
+export const UpdateSaleContractSchema = z.object({
+  numero: z.string().min(1).max(60).optional(),
+  data_contrato: isoDate.optional(),
+  valor_venda: money.optional(),
+  operacao: OperacaoVendaEnum.optional(),
+  indice_atualizacao: z.string().max(30).optional().nullable(),
+  taxa_juros: z.number().min(0).optional().nullable(),
+  informacoes_complementares: z.string().max(2000).optional().nullable(),
+  status: ContractStatusEnum.optional(),
+  parties: z.array(SalePartySchema).min(1).optional(),
+  units: z.array(SaleContractUnitSchema).min(1).optional(),
+  installments: z.array(SaleInstallmentInputSchema).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'Informe ao menos um campo para atualizar' });
+export type UpdateSaleContractInput = z.infer<typeof UpdateSaleContractSchema>;
+
+export const ContractIdParamSchema = z.object({ contractId: uuid });
+export const InstallmentIdParamSchema = z.object({ installmentId: uuid });
+export const ReceiptIdParamSchema = z.object({ receiptId: uuid });
+
+export const CreateReceiptSchema = z.object({
+  data_pagamento: isoDate,
+  principal: money,
+  correcao_monetaria: money.default(0),
+  juros: money.default(0),
+  multa: money.default(0),
+  desconto: money.default(0),
+  documento_ref: z.string().min(3).max(255),
+});
+export type CreateReceiptInput = z.infer<typeof CreateReceiptSchema>;
+
+export interface ContractIntegrity {
+  valor_venda: number;
+  units_sum: number;
+  units_diff: number;
+  units_ok: boolean;
+  installments_sum: number;
+  installments_diff: number;
+  installments_ok: boolean;
+  parties_sum: number;
+  parties_ok: boolean;
+  a_vista_ok: boolean;
+  ok: boolean;
+}
+
+export interface RealEstateSaleContract {
+  id: string;
+  development_id: string;
+  numero: string;
+  data_contrato: string;
+  valor_venda: number;
+  operacao: OperacaoVenda;
+  indice_atualizacao: string | null;
+  taxa_juros: number | null;
+  informacoes_complementares: string | null;
+  status: ContractStatus;
+  created_at: string;
+  updated_at: string;
+  party_names?: string;
+  integrity?: ContractIntegrity;
+}
+
+export interface RealEstateSaleParty {
+  id: string;
+  contract_id: string;
+  client_id: string;
+  participacao_pct: number;
+  created_at: string;
+  client_name?: string;
+  client_documento?: string | null;
+}
+
+export interface RealEstateSaleContractUnit {
+  id: string;
+  contract_id: string;
+  unit_id: string;
+  valor_atribuido_contrato: number;
+  created_at: string;
+  unit_codigo?: string;
+  unit_descricao?: string;
+}
+
+export interface RealEstateSaleInstallment {
+  id: string;
+  contract_id: string;
+  sequencia: number;
+  vencimento: string;
+  principal: number;
+  fonte_pagadora: string | null;
+  status: InstallmentStatus;
+  created_at: string;
+  updated_at: string;
+  recebido_principal?: number;
+}
+
+export interface RealEstateSaleReceipt {
+  id: string;
+  installment_id: string;
+  data_pagamento: string;
+  principal: number;
+  correcao_monetaria: number;
+  juros: number;
+  multa: number;
+  desconto: number;
+  total_recebido: number;
+  documento_ref: string;
+  created_at: string;
+}
+
+export interface SaleContractDetail {
+  contract: RealEstateSaleContract;
+  parties: RealEstateSaleParty[];
+  units: RealEstateSaleContractUnit[];
+  installments: RealEstateSaleInstallment[];
+  receipts: RealEstateSaleReceipt[];
+  integrity: ContractIntegrity;
+}
+
+export interface DominioExportFile {
+  filename: string;
+  content: string;
+}

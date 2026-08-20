@@ -8,6 +8,14 @@ import type {
   CreateUnitInput,
   UpdateUnitInput,
   ListDevelopmentsQuery,
+  CreateSaleContractInput,
+  UpdateSaleContractInput,
+  SaleContractDetail,
+  RealEstateSaleContract,
+  ContractIntegrity,
+  CreateReceiptInput,
+  RealEstateSaleReceipt,
+  DominioExportFile,
 } from '@shared/core';
 
 function getAuthHeaders() {
@@ -63,4 +71,22 @@ export const atividadeImobiliariaService = {
 
   // Integridade
   getIntegrity: (developmentId: string) => get<DevelopmentIntegrity>(`/developments/${developmentId}/integrity`),
+
+  // Contratos
+  listContracts: (developmentId: string) => get<RealEstateSaleContract[]>(`/developments/${developmentId}/contracts`),
+  getContract: (contractId: string) => get<SaleContractDetail>(`/contracts/${contractId}`),
+  createContract: (developmentId: string, data: CreateSaleContractInput) =>
+    send<SaleContractDetail>(`/developments/${developmentId}/contracts`, 'POST', data),
+  updateContract: (contractId: string, data: UpdateSaleContractInput) =>
+    send<SaleContractDetail>(`/contracts/${contractId}`, 'PATCH', data),
+  deleteContract: (contractId: string) => send<{ ok: boolean }>(`/contracts/${contractId}`, 'DELETE'),
+  getContractIntegrity: (contractId: string) => get<ContractIntegrity>(`/contracts/${contractId}/integrity`),
+
+  // Baixas
+  createReceipt: (installmentId: string, data: CreateReceiptInput) =>
+    send<RealEstateSaleReceipt>(`/installments/${installmentId}/receipts`, 'POST', data),
+  deleteReceipt: (receiptId: string) => send<{ ok: boolean }>(`/receipts/${receiptId}`, 'DELETE'),
+
+  // Exportação
+  exportDominio: (developmentId: string) => get<DominioExportFile>(`/developments/${developmentId}/export-dominio`),
 };

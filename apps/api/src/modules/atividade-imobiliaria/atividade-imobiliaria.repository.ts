@@ -3,6 +3,11 @@ import type {
   RealEstateDevelopment,
   RealEstateUnit,
   DevelopmentIntegrity,
+  RealEstateSaleContract,
+  RealEstateSaleParty,
+  RealEstateSaleContractUnit,
+  RealEstateSaleInstallment,
+  RealEstateSaleReceipt,
 } from '@shared/core';
 
 export class AtividadeImobiliariaRepository extends BaseRepository {
@@ -223,5 +228,244 @@ export class AtividadeImobiliariaRepository extends BaseRepository {
       valor_total: parseFloat(row.valor_total),
       unit_count: parseInt(row.unit_count as string, 10),
     };
+  }
+
+  // ========================================================================
+  // Contratos
+  // ========================================================================
+
+  async createContract(developmentId: string, data: Record<string, unknown>): Promise<RealEstateSaleContract> {
+    const r = await this.query<RealEstateSaleContract>(
+      `INSERT INTO real_estate_sale_contracts
+        (development_id, numero, data_contrato, valor_venda, operacao,
+         indice_atualizacao, taxa_juros, informacoes_complementares, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [
+        developmentId, data.numero, data.data_contrato, data.valor_venda, data.operacao ?? '02',
+        data.indice_atualizacao ?? null, data.taxa_juros ?? null,
+        data.informacoes_complementares ?? null, data.status ?? 'rascunho',
+      ],
+      false,
+    );
+    return r.rows[0];
+  }
+
+  async listContracts(developmentId: string): Promise<RealEstateSaleContract[]> {
+    const r = await this.query<RealEstateSaleContract>(
+      `SELECT c.*,
+         (SELECT string_agg(cl.name, ', ' ORDER BY p.participacao_pct DESC)
+          FROM real_estate_sale_contract_parties p
+          JOIN clients cl ON cl.id = p.client_id
+          WHERE p.contract_id = c.id) AS party_names
+       FROM real_estate_sale_contracts c
+       WHERE c.development_id = $1
+       ORDER BY c.data_contrato DESC, c.numero ASC`,
+      [developmentId],
+      false,
+    );
+    return r.rows;
+  }
+
+  async getContract(id: string): Promise<RealEstateSaleContract | null> {
+    const r = await this.query<RealEstateSaleContract>(
+      'SELECT * FROM real_estate_sale_contracts WHERE id = $1',
+      [id],
+      false,
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async updateContract(id: string, fields: Record<string, unknown>): Promise<RealEstateSaleContract | null> {
+    const { setSql, params } = this.buildUpdate(fields);
+    if (!setSql) return this.getContract(id);
+    const r = await this.query<RealEstateSaleContract>(
+      `UPDATE real_estate_sale_contracts SET ${setSql}, updated_at = NOW()
+       WHERE id = $${params.length + 1} RETURNING *`,
+      [...params, id],
+      false,
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async deleteContract(id: string): Promise<void> {
+    await this.query('DELETE FROM real_estate_sale_contracts WHERE id = $1', [id], false);
+  }
+
+  async contractNumeroExists(developmentId: string, numero: string, excludeId?: string): Promise<boolean> {
+    const sql = excludeId
+      ? 'SELECT 1 FROM real_estate_sale_contracts WHERE development_id = $1 AND numero = $2 AND id != $3 LIMIT 1'
+      : 'SELECT 1 FROM real_estate_sale_contracts WHERE development_id = $1 AND numero = $2 LIMIT 1';
+    const params = excludeId ? [developmentId, numero, excludeId] : [developmentId, numero];
+    const r = await this.query(sql, params, false);
+    return r.rows.length > 0;
+  }
+
+  async replaceParties(contractId: string, parties: Array<{ client_id: string; participacao_pct: number }>): Promise<void> {
+    await this.query('DELETE FROM real_estate_sale_contract_parties WHERE contract_id = $1', [contractId], false);
+    for (const p of parties) {
+      await this.query(
+        `INSERT INTO real_estate_sale_contract_parties (contract_id, client_id, participacao_pct)
+         VALUES ($1,$2,$3)`,
+        [contractId, p.client_id, p.participacao_pct],
+        false,
+      );
+    }
+  }
+
+  async listParties(contractId: string): Promise<RealEstateSaleParty[]> {
+    const r = await this.query<RealEstateSaleParty>(
+      `SELECT p.*, cl.name AS client_name,
+              COALESCE(cl.cpf, cl.cnpj) AS client_documento
+       FROM real_estate_sale_contract_parties p
+       JOIN clients cl ON cl.id = p.client_id
+       WHERE p.contract_id = $1
+       ORDER BY p.participacao_pct DESC, cl.name ASC`,
+      [contractId],
+      false,
+    );
+    return r.rows;
+  }
+
+  async replaceContractUnits(contractId: string, units: Array<{ unit_id: string; valor_atribuido_contrato: number }>): Promise<void> {
+    await this.query('DELETE FROM real_estate_sale_contract_units WHERE contract_id = $1', [contractId], false);
+    for (const u of units) {
+      await this.query(
+        `INSERT INTO real_estate_sale_contract_units (contract_id, unit_id, valor_atribuido_contrato)
+         VALUES ($1,$2,$3)`,
+        [contractId, u.unit_id, u.valor_atribuido_contrato],
+        false,
+      );
+    }
+  }
+
+  async listContractUnits(contractId: string): Promise<RealEstateSaleContractUnit[]> {
+    const r = await this.query<RealEstateSaleContractUnit>(
+      `SELECT cu.*, un.codigo AS unit_codigo, un.descricao AS unit_descricao
+       FROM real_estate_sale_contract_units cu
+       JOIN real_estate_units un ON un.id = cu.unit_id
+       WHERE cu.contract_id = $1
+       ORDER BY un.codigo ASC`,
+      [contractId],
+      false,
+    );
+    return r.rows;
+  }
+
+  async unitInOtherActiveContract(unitId: string, excludeContractId?: string): Promise<boolean> {
+    const sql = excludeContractId
+      ? `SELECT 1 FROM real_estate_sale_contract_units cu
+         JOIN real_estate_sale_contracts c ON c.id = cu.contract_id
+         WHERE cu.unit_id = $1 AND c.status = 'ativo' AND c.id != $2 LIMIT 1`
+      : `SELECT 1 FROM real_estate_sale_contract_units cu
+         JOIN real_estate_sale_contracts c ON c.id = cu.contract_id
+         WHERE cu.unit_id = $1 AND c.status = 'ativo' LIMIT 1`;
+    const params = excludeContractId ? [unitId, excludeContractId] : [unitId];
+    const r = await this.query(sql, params, false);
+    return r.rows.length > 0;
+  }
+
+  async setUnitsSituacao(unitIds: string[], situacao: string): Promise<void> {
+    if (unitIds.length === 0) return;
+    await this.query(
+      `UPDATE real_estate_units SET situacao = $1, updated_at = NOW()
+       WHERE id = ANY($2::uuid[])`,
+      [situacao, unitIds],
+      false,
+    );
+  }
+
+  async replaceInstallments(
+    contractId: string,
+    installments: Array<{ sequencia: number; vencimento: string; principal: number; fonte_pagadora?: string | null }>,
+  ): Promise<void> {
+    await this.query('DELETE FROM real_estate_sale_installments WHERE contract_id = $1', [contractId], false);
+    for (const i of installments) {
+      await this.query(
+        `INSERT INTO real_estate_sale_installments
+          (contract_id, sequencia, vencimento, principal, fonte_pagadora)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [contractId, i.sequencia, i.vencimento, i.principal, i.fonte_pagadora ?? null],
+        false,
+      );
+    }
+  }
+
+  async listInstallments(contractId: string): Promise<RealEstateSaleInstallment[]> {
+    const r = await this.query<RealEstateSaleInstallment>(
+      `SELECT i.*,
+         COALESCE((SELECT SUM(principal) FROM real_estate_sale_receipts r WHERE r.installment_id = i.id), 0) AS recebido_principal
+       FROM real_estate_sale_installments i
+       WHERE i.contract_id = $1
+       ORDER BY i.sequencia ASC`,
+      [contractId],
+      false,
+    );
+    return r.rows;
+  }
+
+  async getInstallment(id: string): Promise<RealEstateSaleInstallment | null> {
+    const r = await this.query<RealEstateSaleInstallment>(
+      'SELECT * FROM real_estate_sale_installments WHERE id = $1',
+      [id],
+      false,
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async updateInstallmentStatus(id: string, status: string): Promise<void> {
+    await this.query(
+      'UPDATE real_estate_sale_installments SET status = $1, updated_at = NOW() WHERE id = $2',
+      [status, id],
+      false,
+    );
+  }
+
+  async createReceipt(installmentId: string, data: Record<string, unknown>): Promise<RealEstateSaleReceipt> {
+    const r = await this.query<RealEstateSaleReceipt>(
+      `INSERT INTO real_estate_sale_receipts
+        (installment_id, data_pagamento, principal, correcao_monetaria, juros, multa, desconto, total_recebido, documento_ref)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [
+        installmentId, data.data_pagamento, data.principal,
+        data.correcao_monetaria ?? 0, data.juros ?? 0, data.multa ?? 0, data.desconto ?? 0,
+        data.total_recebido, data.documento_ref,
+      ],
+      false,
+    );
+    return r.rows[0];
+  }
+
+  async listReceiptsByContract(contractId: string): Promise<RealEstateSaleReceipt[]> {
+    const r = await this.query<RealEstateSaleReceipt>(
+      `SELECT r.* FROM real_estate_sale_receipts r
+       JOIN real_estate_sale_installments i ON i.id = r.installment_id
+       WHERE i.contract_id = $1
+       ORDER BY r.data_pagamento ASC, r.created_at ASC`,
+      [contractId],
+      false,
+    );
+    return r.rows;
+  }
+
+  async getReceipt(id: string): Promise<RealEstateSaleReceipt | null> {
+    const r = await this.query<RealEstateSaleReceipt>(
+      'SELECT * FROM real_estate_sale_receipts WHERE id = $1',
+      [id],
+      false,
+    );
+    return r.rows[0] ?? null;
+  }
+
+  async deleteReceipt(id: string): Promise<void> {
+    await this.query('DELETE FROM real_estate_sale_receipts WHERE id = $1', [id], false);
+  }
+
+  async sumReceiptPrincipal(installmentId: string): Promise<number> {
+    const r = await this.query<{ s: string }>(
+      'SELECT COALESCE(SUM(principal), 0) AS s FROM real_estate_sale_receipts WHERE installment_id = $1',
+      [installmentId],
+      false,
+    );
+    return parseFloat(r.rows[0].s);
   }
 }

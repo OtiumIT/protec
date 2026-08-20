@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../../../shared/components/ui/Card';
 import { Button } from '../../../shared/components/ui/Button';
 import { ConfirmModal } from '../../../shared/components/ui/ConfirmModal';
 import { useToast } from '../../../shared/components/ui/Toast';
 import { atividadeImobiliariaService as svc } from '../services/atividade-imobiliaria.service';
+import { ContratoVendaTab } from './ContratoVendaTab';
 import type {
   RealEstateDevelopment, RealEstateUnit,
   DevelopmentIntegrity, CreateUnitInput, SituacaoUnidade, NaturezaDominio,
@@ -32,6 +33,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const TABS = [
   { key: 'dados', label: 'Dados' },
   { key: 'unidades', label: 'Unidades' },
+  { key: 'contratos', label: 'Contratos' },
   { key: 'integridade', label: 'Integridade' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
@@ -270,6 +272,16 @@ export function EmpreendimentoFicha() {
         </div>
       )}
 
+      {tab === 'contratos' && (
+        <ContratoVendaTab
+          developmentId={dev.id}
+          units={units}
+          onChanged={() => { loadUnits(); loadIntegrity(); }}
+          onError={showError}
+          onSuccess={success}
+        />
+      )}
+
       {/* ---- Integridade ---- */}
       {tab === 'integridade' && integrity && (
         <Card title="Fechamentos de integridade (Domínio)">
@@ -309,6 +321,22 @@ export function EmpreendimentoFicha() {
                 Fechamento de áreas OK. O empreendimento pode ser ativado.
               </div>
             )}
+
+            <div className="pt-2">
+              <Button size="sm" variant="secondary" onClick={async () => {
+                try {
+                  const file = await svc.exportDominio(dev.id);
+                  const blob = new Blob([file.content], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = file.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  success('Arquivo Domínio gerado');
+                } catch (e) { showError(e instanceof Error ? e.message : 'Falha na exportação'); }
+              }}>Exportar leiaute Domínio (|)</Button>
+            </div>
           </div>
         </Card>
       )}
