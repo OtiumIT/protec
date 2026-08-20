@@ -98,7 +98,9 @@ const tenantTables = ['clients', 'fiscal_files', 'extracted_fiscal_data',
                          'expense_mapping_evidence', 'expense_mapping_audit_events', 'expense_mapping_import_batches',
                          'precificador_simulations',
                          // Split Payment (082)
-                         'split_payment_simulations'];
+                         'split_payment_simulations',
+                         // Atividade Imobiliária (091)
+                         'real_estate_developments', 'real_estate_units'];
     
     // Se a query acessa tabelas de tenant (isoladas por schema), NÃO requer company_id
     if (tenantTables.some(table => lowerSql.includes(table))) {

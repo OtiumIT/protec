@@ -26,3 +26,4 @@ export * from './split-payment.schema.js';
 export * from './comparativo-regimes.schema.js';
 export * from './itbi.schema.js';
 export * from './itcmd.schema.js';
+export * from './atividade-imobiliaria.schema.js';

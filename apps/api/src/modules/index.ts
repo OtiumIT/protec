@@ -26,6 +26,7 @@ import { simulationSharesRoutes, simulationSharesPublicRoutes } from './simulati
 import { comparativoRegimesRoutes } from './comparativo-regimes/comparativo-regimes.routes';
 import { precificadorRoutes } from './precificador/precificador.routes';
 import { splitPaymentRoutes } from './split-payment/split-payment.routes';
+import { atividadeImobiliariaRoutes } from './atividade-imobiliaria/atividade-imobiliaria.routes';
 import { feedbackRoutes } from './feedback/feedback.routes';
 import { FeedbackService } from './feedback/feedback.service';
 import { debugRoutes } from './debug/debug.routes';
@@ -329,6 +330,7 @@ app.route('/api/v1/split-payment', splitPaymentRoutes);
 app.route('/api/v1/simulation-shares/public', simulationSharesPublicRoutes);
 app.route('/api/v1/simulation-shares', simulationSharesRoutes);
 app.route('/api/v1/access-list', accessListRoutes);
+app.route('/api/v1/atividade-imobiliaria', atividadeImobiliariaRoutes);
 
 /** Thread de feedback no router raiz (evita 404 se o merge do sub-app não expuser GET /thread/:id). */
 const feedbackThreadParamSchema = z.object({ id: z.string().uuid() });

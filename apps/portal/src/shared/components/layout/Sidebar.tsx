@@ -325,11 +325,38 @@ const adminMenuItems: MenuItem[] = [
     ),
     children: [
       {
+        name: 'Portfólio',
+        path: '/gestao-imobiliaria/portfolio',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M9 17V9m4 8V5m4 12v-6" />
+          </svg>
+        ),
+      },
+      {
         name: 'Imóveis',
         path: '/gestao-imobiliaria/imoveis',
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10h14V10" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Contratos',
+        path: '/gestao-imobiliaria/contratos',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Empreendimentos',
+        path: '/atividade-imobiliaria/empreendimentos',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         ),
       },
@@ -366,24 +393,6 @@ const adminMenuItems: MenuItem[] = [
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v-1" />
-          </svg>
-        ),
-      },
-      {
-        name: 'Portfólio',
-        path: '/gestao-imobiliaria/portfolio',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M9 17V9m4 8V5m4 12v-6" />
-          </svg>
-        ),
-      },
-      {
-        name: 'Contratos',
-        path: '/gestao-imobiliaria/contratos',
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         ),
       },
@@ -560,7 +569,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       if (pathname === '/simulador-in-2306') return 'simulador_in_2306';
       if (pathname === '/irpf-alta-renda' || pathname === '/simulador-distribuicao-lucros-lei-15270')
         return 'irpf_alta_renda';
-      if (pathname.startsWith('/properties') || pathname.startsWith('/gestao-imobiliaria')) return 'gestao_imoveis';
+      if (pathname.startsWith('/properties') || pathname.startsWith('/gestao-imobiliaria') || pathname.startsWith('/atividade-imobiliaria')) return 'gestao_imoveis';
       if (pathname === '/comparativo-regimes' || pathname === '/precificador' || pathname === '/split-payment')
         return 'comparativo_regimes';
       if (pathname === '/mapeamento-despesas-pj') return 'mapeamento_despesas_pj';

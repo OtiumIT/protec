@@ -12,9 +12,10 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['@shared/core'],
+    exclude: ['@shared/core'],
   },
   server: {
-    port: 5174,
+    port: 5180,
+    strictPort: true,
   },
 });

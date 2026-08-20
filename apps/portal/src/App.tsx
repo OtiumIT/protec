@@ -50,6 +50,8 @@ import { AccessList } from './modules/access-list/pages/AccessList';
 import { FeedbackAdmin } from './modules/feedback/pages/FeedbackAdmin';
 import { ChangePassword } from './modules/auth/pages/ChangePassword';
 import { WhiteLabelSettings } from './modules/settings/pages/WhiteLabelSettings';
+import { Empreendimentos } from './modules/atividade-imobiliaria/pages/Empreendimentos';
+import { EmpreendimentoFicha } from './modules/atividade-imobiliaria/pages/EmpreendimentoFicha';
 import { PabloArrudaLanding } from './landing/pages/PabloArrudaLanding';
 import { initAnalytics, trackEvent, trackPageView } from './shared/services/analytics';
 import { PrivateAppShell } from './shared/components/layout/PrivateAppShell';
@@ -206,6 +208,8 @@ function AppRoutes() {
           <Route path="/properties/dashboard" element={<Navigate to="/properties/simulador" replace />} />
           <Route path="/properties/:id" element={<PropertyDetail />} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/atividade-imobiliaria/empreendimentos/:id" element={<EmpreendimentoFicha />} />
+          <Route path="/atividade-imobiliaria/empreendimentos" element={<Empreendimentos />} />
           <Route path="/gestao-imobiliaria/contratos/novo" element={<ContratoFicha />} />
           <Route path="/gestao-imobiliaria/contratos/:leaseId" element={<ContratoFicha />} />
           <Route path="/gestao-imobiliaria" element={<GestaoImobiliaria />} />
