@@ -404,6 +404,12 @@ const adminMenuItems: MenuItem[] = [
     icon: CATEGORY_ICONS.reformaTributaria,
     children: [
       {
+        name: 'Simples × Regime Regular',
+        path: '/comparativo-regimes/simples',
+        moduleKey: 'COMPARATIVO_REGIMES',
+        icon: <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />,
+      },
+      {
         name: 'Comparativo de Regimes',
         path: '/comparativo-regimes',
         moduleKey: 'COMPARATIVO_REGIMES',
@@ -570,7 +576,7 @@ export function Sidebar({ isOpen = false, onToggle, isCollapsed = false, onToggl
       if (pathname === '/irpf-alta-renda' || pathname === '/simulador-distribuicao-lucros-lei-15270')
         return 'irpf_alta_renda';
       if (pathname.startsWith('/properties') || pathname.startsWith('/gestao-imobiliaria') || pathname.startsWith('/atividade-imobiliaria')) return 'gestao_imoveis';
-      if (pathname === '/comparativo-regimes' || pathname === '/precificador' || pathname === '/split-payment')
+      if (pathname.startsWith('/comparativo-regimes') || pathname === '/precificador' || pathname === '/split-payment')
         return 'comparativo_regimes';
       if (pathname === '/mapeamento-despesas-pj') return 'mapeamento_despesas_pj';
       if (pathname === '/users' || pathname === '/documentacao' || pathname.startsWith('/documentacao')) return 'administracao';

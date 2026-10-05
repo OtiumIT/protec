@@ -485,6 +485,7 @@ export function IrpfAltaRenda() {
           cnpj_fonte: d.cnpj_fonte || undefined,
           valor: d.valor,
           codigo: (d.codigo as '09' | '13') || '09',
+          ...(d.maior_pagamento_mensal && d.maior_pagamento_mensal > 0 ? { maior_pagamento_mensal: d.maior_pagamento_mensal } : {}),
         })),
       lucros_aprovados_ate_31dez2025: lucrosAprovadosAte31dez2025,
       imposto_ja_pago_retencao_fonte: impostoJaPagoRetencao,
@@ -716,6 +717,7 @@ export function IrpfAltaRenda() {
             cnpj_fonte: x.cnpj_fonte,
             valor: x.valor ?? 0,
             codigo: (x.codigo as '09' | '13') || '09',
+            maior_pagamento_mensal: x.maior_pagamento_mensal,
           }));
     setDividendos(combined.length > 0 ? combined : [{ ...emptyDividendo }]);
 
@@ -804,7 +806,7 @@ export function IrpfAltaRenda() {
     };
     const combined = isentos09.length > 0 || isentos13.length > 0
       ? [...isentos09.map((x) => fmt(x, '09')), ...isentos13.map((x) => fmt(x, '13'))]
-      : isentosLegado.map((x) => ({ nome_fonte: x.nome_fonte ?? '', cnpj_fonte: x.cnpj_fonte, valor: x.valor ?? 0, codigo: (x.codigo as '09' | '13') || '09' }));
+      : isentosLegado.map((x) => ({ nome_fonte: x.nome_fonte ?? '', cnpj_fonte: x.cnpj_fonte, valor: x.valor ?? 0, codigo: (x.codigo as '09' | '13') || '09', maior_pagamento_mensal: x.maior_pagamento_mensal }));
     setDividendos(combined.length > 0 ? combined : [{ ...emptyDividendo }]);
     setLucrosAprovadosAte31dez2025((d as { lucros_aprovados_ate_31dez2025?: number }).lucros_aprovados_ate_31dez2025 ?? 0);
     const dd = d as {
@@ -1673,12 +1675,18 @@ export function IrpfAltaRenda() {
                 </Button>
               </div>
               <div className="rounded-md border border-slate-200 overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-                <table className="w-full text-sm min-w-[320px] sm:min-w-[420px]">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[160px] sm:min-w-[180px]">Tipo</th>
                       <th className="text-left py-1.5 px-2 sm:px-3 font-medium text-slate-700">Nome/CNPJ fonte</th>
                       <th className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[140px]">Valor</th>
+                      <th
+                        className="text-right py-1.5 px-2 sm:px-3 font-medium text-slate-700 min-w-[150px]"
+                        title="Opcional. Maior valor pago por esta fonte em um único mês. Acima de R$ 50.000 há retenção de 10% na fonte (Art. 5º). Sem esse dado, o sistema estima pela média anual ÷ 12."
+                      >
+                        Maior pagamento no mês
+                      </th>
                       <th className="w-14 py-1.5 px-2 sm:px-3 text-center" aria-hidden="true">Ações</th>
                     </tr>
                   </thead>
@@ -1714,6 +1722,14 @@ export function IrpfAltaRenda() {
                             aria-label={`Valor da fonte ${i + 1}`}
                           />
                         </td>
+                        <td className="py-1.5 px-2 sm:px-3 align-middle min-w-[150px]">
+                          <MoneyInput
+                            value={d.maior_pagamento_mensal ?? 0}
+                            onChange={(v) => updateDividendo(i, 'maior_pagamento_mensal', v)}
+                            className="w-full min-w-[120px] py-1.5 px-2 sm:px-3 text-sm font-mono tabular-nums"
+                            aria-label={`Maior pagamento em um mês da fonte ${i + 1} (opcional)`}
+                          />
+                        </td>
                         <td className="py-1.5 px-2 sm:px-3 align-middle text-center">
                           <button
                             type="button"
@@ -1738,6 +1754,7 @@ export function IrpfAltaRenda() {
                       <td className="py-1.5 px-2 sm:px-3 text-right font-mono tabular-nums">
                         {formatCurrency(dividendos.reduce((s, d) => s + (d.valor ?? 0), 0))}
                       </td>
+                      <td className="py-1.5 px-2 sm:px-3" />
                       <td className="py-1.5 px-2 sm:px-3" />
                     </tr>
                   </tbody>
@@ -2192,11 +2209,9 @@ export function IrpfAltaRenda() {
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
                     <h4 className="text-sm font-medium text-amber-800 mb-2">Risco de retenção mensal (10% na fonte)</h4>
                     <p className="text-sm text-amber-800">{result.risco_retencao_detalhe}</p>
-                    <p className="text-sm text-amber-700 mt-2">
-                      Possível retenção de 10% na fonte: valor mensal superior a R$ 50.000 em uma ou mais fontes (Sócio Simples (cód. 13)).
-                    </p>
                     <p className="text-xs text-amber-600 mt-2 italic">
-                      Avaliação indicativa: considera média anual. O gatilho real é pagamento mensal &gt; R$ 50.000.
+                      O gatilho legal é pagamento acima de R$ 50.000 no mês pela mesma fonte. Informe o maior pagamento mensal de cada fonte para
+                      trocar a estimativa pela média pelo valor real.
                     </p>
                   </div>
                 )}

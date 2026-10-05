@@ -12,14 +12,14 @@ function round2(n: number): number {
 
 // ─── Simples Nacional ───────────────────────────────────────────────
 
-interface FaixaSimples {
+export interface FaixaSimples {
   limiteInferior: number;
   limiteSuperior: number;
   aliquotaNominal: number;
   parcelaDeduzir: number;
 }
 
-const ANEXO_III: FaixaSimples[] = [
+export const ANEXO_III: FaixaSimples[] = [
   { limiteInferior: 0,          limiteSuperior: 180_000,     aliquotaNominal: 6.0,  parcelaDeduzir: 0 },
   { limiteInferior: 180_000,    limiteSuperior: 360_000,     aliquotaNominal: 11.2, parcelaDeduzir: 9_360 },
   { limiteInferior: 360_000,    limiteSuperior: 720_000,     aliquotaNominal: 13.5, parcelaDeduzir: 17_640 },
@@ -39,14 +39,14 @@ const ANEXO_V: FaixaSimples[] = [
 
 const LIMITE_SIMPLES_ANUAL = 4_800_000;
 
-function obterFaixa(rbt12: number, tabela: FaixaSimples[]): FaixaSimples {
+export function obterFaixa(rbt12: number, tabela: FaixaSimples[]): FaixaSimples {
   for (const faixa of tabela) {
     if (rbt12 <= faixa.limiteSuperior) return faixa;
   }
   return tabela[tabela.length - 1]!;
 }
 
-function calcularAliquotaEfetivaSN(rbt12: number, tabela: FaixaSimples[]): number {
+export function calcularAliquotaEfetivaSN(rbt12: number, tabela: FaixaSimples[]): number {
   if (rbt12 <= 0) return 0;
   const faixa = obterFaixa(rbt12, tabela);
   return round2(((rbt12 * (faixa.aliquotaNominal / 100) - faixa.parcelaDeduzir) / rbt12) * 100);

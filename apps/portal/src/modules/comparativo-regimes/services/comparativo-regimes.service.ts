@@ -1,5 +1,11 @@
 import apiRequest from '../../../shared/services/api';
-import type { ComparativoRegimesResult, ComparativoRegimesSimulation } from '@shared/core';
+import type {
+  ComparativoRegimesResult,
+  ComparativoRegimesSimulation,
+  SimplesIbsCbsInput,
+  SimplesIbsCbsResult,
+  SimulacaoKind,
+} from '@shared/core';
 
 export interface ComparativoRegimesInput {
   faturamento_mensal: number[];
@@ -39,14 +45,34 @@ export const comparativoRegimesService = {
     return response.data;
   },
 
+  async simulateSimples(input: SimplesIbsCbsInput): Promise<SimplesIbsCbsResult> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: SimplesIbsCbsResult }>(
+      '/api/v1/comparativo-regimes/simples/simulate',
+      { method: 'POST', body: JSON.stringify(input), token, tenantId }
+    );
+    return response.data;
+  },
+
+  async simulateSimplesAndSave(input: SimplesIbsCbsInput): Promise<SimplesIbsCbsResult & { simulation_id: string }> {
+    const { token, tenantId } = getAuthHeaders();
+    const response = await apiRequest<{ data: SimplesIbsCbsResult & { simulation_id: string } }>(
+      '/api/v1/comparativo-regimes/simples/simulate-and-save',
+      { method: 'POST', body: JSON.stringify(input), token, tenantId }
+    );
+    return response.data;
+  },
+
   async list(options: {
     client_id?: string;
+    kind?: SimulacaoKind;
     page?: number;
     limit?: number;
   } = {}): Promise<{ simulations: ComparativoRegimesSimulation[]; total: number; page: number; limit: number }> {
     const { token, tenantId } = getAuthHeaders();
     const params = new URLSearchParams();
     if (options.client_id) params.append('client_id', options.client_id);
+    if (options.kind) params.append('kind', options.kind);
     if (options.page) params.append('page', String(options.page));
     if (options.limit) params.append('limit', String(options.limit));
     const response = await apiRequest<{

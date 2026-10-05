@@ -10,8 +10,9 @@ Documentação das regras: [docs/regras_tributacao.md](../../../../../docs/regra
 
 - **BCC (Base de Cálculo Combinada)**: RT (Rendimentos Tributáveis) + soma dos rendimentos isentos de lucros (códigos 09 – Lucros e dividendos; 13 – Sócio ME/EPP Simples Nacional). Aplicações financeiras, JCP e poupança/LCI/LCA não entram.
 - **BCC (Base de Cálculo Combinada)**: RT + códigos 09/13 + `outros_isentos_que_entram_base` − exclusões (`lucros_aprovados_ate_31dez2025`, `ganho_capital_excluido`, `rendimentos_fiis_excluidos`, `outros_excluidos_art_16a`).
-- **Faixas**: Até R$ 600.000 isento; de R$ 600.000,01 a R$ 1.200.000 alíquota progressiva até 10%; acima de R$ 1.200.000 alíquota fixa 10%.
-- **Antecipação (Art. 5º)**: Retenção de 10% na fonte sobre dividendos quando pagamento no mês > R$ 50.000. O sistema sinaliza risco quando alguma fonte tem valor anual que, dividido por 12, supera esse limite.
+- **Faixas**: Até R$ 600.000 isento; de R$ 600.000,01 a R$ 1.200.000 alíquota `(BCC / 60.000) − 10` (Art. 16-A § 2º II); acima de R$ 1.200.000 alíquota fixa 10%.
+- **Antecipação (Art. 5º)**: Retenção de 10% na fonte sobre dividendos quando pagamento no mês > R$ 50.000. Com `maior_pagamento_mensal` informado na fonte, o gatilho usa esse valor e o detalhe diz "retenção". Sem ele, estima pela média (valor anual ÷ 12) e o detalhe diz "possível retenção", pedindo o mês real.
+- **Testes**: `pnpm run test-irpf-alta-renda` (limites de R$ 600 mil e R$ 1,2 milhão e retenção anual/mensal).
 - **Classificação automática de exclusões (Art. 16-A § 1º)**: parser/importação identifica CRI, CRA, LCI, LCA, LIG, poupança e debêntures de infraestrutura como `outros_excluidos_art_16a`.
 - **Doação/herança (Art. 16-A § 1º III)**: itens de transferência patrimonial (ex.: códigos 01 e 03) são classificados como exclusão da base, sem depender apenas de texto livre.
 - **Lei 7.713 (Art. 12-A)**: rendimentos exclusivos da fonte só são tratados nesse bloco quando não há opção por ajuste anual (`optou_ajuste_anual_lei_7713 = false`).

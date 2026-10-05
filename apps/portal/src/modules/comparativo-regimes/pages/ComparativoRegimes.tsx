@@ -70,7 +70,7 @@ export function ComparativoRegimes() {
   const loadSimulations = useCallback(async () => {
     setLoadingSims(true);
     try {
-      const data = await comparativoRegimesService.list({ limit: 50 });
+      const data = await comparativoRegimesService.list({ kind: 'regimes', limit: 50 });
       setSimulations(data.simulations);
     } catch {
       /* silent */

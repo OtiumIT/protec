@@ -83,7 +83,8 @@ export type RuleModule =
   | 'simulador-imoveis'
   | 'editais-pgfn'
   | 'itbi'
-  | 'itcmd';
+  | 'itcmd'
+  | 'simples-reforma';
 
 export interface ModuleInfo {
   key: RuleModule;
@@ -142,5 +143,12 @@ export const MODULES_INFO: ModuleInfo[] = [
     descricao: 'Doação com ou sem reserva de usufruto',
     icone: 'file-text',
     cor: 'indigo',
+  },
+  {
+    key: 'simples-reforma',
+    nome: 'Simples x regime regular',
+    descricao: 'Simples puro ou IBS/CBS por fora, com crédito das despesas',
+    icone: 'scale-balanced',
+    cor: 'amber',
   },
 ];

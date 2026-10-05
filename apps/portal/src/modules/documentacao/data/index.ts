@@ -5,6 +5,7 @@ import { rulesRatingValidator } from './rules-rating-validator';
 import { rulesImoveis } from './rules-imoveis';
 import { rulesItbi } from './rules-itbi';
 import { rulesItcmd } from './rules-itcmd';
+import { rulesSimplesReforma } from './rules-simples-reforma';
 
 export const allRules: RuleDocumentation[] = [
   ...rulesIN2306,
@@ -13,6 +14,7 @@ export const allRules: RuleDocumentation[] = [
   ...rulesImoveis,
   ...rulesItbi,
   ...rulesItcmd,
+  ...rulesSimplesReforma,
 ];
 
 export function getRulesByModule(modulo: string): RuleDocumentation[] {

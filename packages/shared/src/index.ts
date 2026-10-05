@@ -10,3 +10,4 @@ export * from './utils/index.js';
 export * from './utils/edital-calculations.js';
 export * from './utils/transicao-ibs.js';
 export * from './utils/comparativo-regimes-simulador.js';
+export * from './utils/simples-reforma-simulador.js';

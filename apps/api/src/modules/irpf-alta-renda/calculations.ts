@@ -116,21 +116,37 @@ export function aplicarFaixas(bcc: number): Omit<ResultadoSimulacao, 'risco_rete
 
 /**
  * Verifica risco de retenção 10% na fonte (Art. 5º): pagamento no mês > R$ 50.000.
- * Simplificação: se alguma fonte tem valor anual que, dividido por 12, supera 50k, sinaliza risco.
+ * Com `maior_pagamento_mensal` informado, usa o mês real da fonte. Sem ele, estima pela média
+ * (valor anual ÷ 12), que não enxerga meses concentrados.
  */
 export function avaliarRiscoRetencao(rendimentosIsentosDividendos: RendimentoIsentoDividendo[]): {
   risco_retencao_mensal: boolean;
   risco_retencao_detalhe?: string;
 } {
-  const fontesAcima = rendimentosIsentosDividendos.filter((d) => d.valor / 12 > LIMITE_RETENCAO_MENSAL);
-  if (fontesAcima.length === 0) {
+  const nomeDe = (f: RendimentoIsentoDividendo) => f.nome_fonte || f.cnpj_fonte || 'Fonte';
+  const comMes = rendimentosIsentosDividendos.filter((d) => d.maior_pagamento_mensal !== undefined);
+  const semMes = rendimentosIsentosDividendos.filter((d) => d.maior_pagamento_mensal === undefined);
+
+  const acimaNoMes = comMes.filter((d) => (d.maior_pagamento_mensal ?? 0) > LIMITE_RETENCAO_MENSAL);
+  const acimaPelaMedia = semMes.filter((d) => d.valor / 12 > LIMITE_RETENCAO_MENSAL);
+
+  if (acimaNoMes.length === 0 && acimaPelaMedia.length === 0) {
     return { risco_retencao_mensal: false };
   }
-  const nomes = fontesAcima.map((f) => f.nome_fonte || f.cnpj_fonte || 'Fonte').join(', ');
-  return {
-    risco_retencao_mensal: true,
-    risco_retencao_detalhe: `Possível retenção de 10% na fonte: valor mensal superior a R$ 50.000 em uma ou mais fontes (${nomes}).`,
-  };
+
+  const partes: string[] = [];
+  if (acimaNoMes.length > 0) {
+    partes.push(
+      `Retenção de 10% na fonte: pagamento informado acima de R$ 50.000 em um mês (${acimaNoMes.map(nomeDe).join(', ')}).`
+    );
+  }
+  if (acimaPelaMedia.length > 0) {
+    partes.push(
+      `Possível retenção de 10% na fonte: média anual ÷ 12 acima de R$ 50.000 (${acimaPelaMedia.map(nomeDe).join(', ')}). ` +
+        'Estimativa sem o mês real; informe o maior pagamento mensal da fonte para confirmar.'
+    );
+  }
+  return { risco_retencao_mensal: true, risco_retencao_detalhe: partes.join(' ') };
 }
 
 /**

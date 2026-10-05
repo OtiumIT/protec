@@ -113,8 +113,24 @@ function resumoIn2306(s: IN2306Simulation): ProjetoPpsResult['resumos'][number] 
   };
 }
 
+const REGIME_SIMPLES_LABELS: Record<string, string> = {
+  simples_puro: 'Simples puro',
+  regime_regular: 'Regime regular de IBS/CBS',
+  empate: 'Empate',
+};
+
 function resumoRegime(s: ComparativoRegimesSimulation): ProjetoPpsResult['resumos'][number] {
   const r = s.result_data as Record<string, unknown>;
+  if (s.kind === 'simples_ibs_cbs') {
+    return {
+      kind: 'regime',
+      titulo: s.title || `Simples puro x regime regular ${s.ano}`,
+      linhas: [
+        { label: 'Mais econômico', valor: REGIME_SIMPLES_LABELS[String(r.regime_mais_economico)] ?? '—' },
+        { label: 'Diferença anual de IBS/CBS', valor: fmtBRL(r.diferenca_anual as number | undefined) },
+      ],
+    };
+  }
   return {
     kind: 'regime',
     titulo: s.title || `Comparativo de regimes ${s.ano}`,

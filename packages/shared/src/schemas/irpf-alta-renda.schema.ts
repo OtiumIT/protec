@@ -29,6 +29,8 @@ export const RendimentoIsentoDividendoSchema = z.object({
   nome_fonte: z.string().max(255).optional(),
   valor: monetaryValue,
   codigo: z.enum(['09', '13']).optional(),
+  /** Maior valor pago por esta fonte em um único mês. Quando informado, define o gatilho de retenção do Art. 5º. */
+  maior_pagamento_mensal: monetaryValue.optional(),
 });
 
 /** Outros rendimentos (exclusivos da BCC — tributados exclusivamente na fonte) */

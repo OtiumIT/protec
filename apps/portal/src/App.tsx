@@ -44,6 +44,7 @@ import { MapeamentoDespesasPj } from './modules/mapeamento-despesas-pj/pages/Map
 import { Documentacao } from './modules/documentacao/pages/Documentacao';
 import { Glossario } from './modules/documentacao/pages/Glossario';
 import { ComparativoRegimes } from './modules/comparativo-regimes/pages/ComparativoRegimes';
+import { SimplesReforma } from './modules/comparativo-regimes/pages/SimplesReforma';
 import { Precificador } from './modules/precificador/pages/Precificador';
 import { SplitPaymentSimulador } from './modules/split-payment/pages/SplitPaymentSimulador';
 import { AccessList } from './modules/access-list/pages/AccessList';
@@ -216,6 +217,7 @@ function AppRoutes() {
           <Route path="/gestao-imobiliaria/:section" element={<GestaoImobiliaria />} />
           <Route path="/mapeamento-despesas-pj" element={<MapeamentoDespesasPj />} />
           <Route path="/comparativo-regimes" element={<ComparativoRegimes />} />
+          <Route path="/comparativo-regimes/simples" element={<SimplesReforma />} />
           <Route path="/precificador" element={<Precificador />} />
           <Route path="/split-payment" element={<SplitPaymentSimulador />} />
           <Route path="/configuracoes" element={<WhiteLabelSettings />} />

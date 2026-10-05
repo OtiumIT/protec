@@ -26,6 +26,7 @@ const moduleIcons: Record<string, any> = {
   'rating-validator': faChartBar,
   'simulador-imoveis': faBuilding,
   'editais-pgfn': faFileAlt,
+  'simples-reforma': faChartBar,
 };
 
 const moduleColors: Record<string, string> = {
@@ -34,6 +35,7 @@ const moduleColors: Record<string, string> = {
   'rating-validator': 'green',
   'simulador-imoveis': 'orange',
   'editais-pgfn': 'red',
+  'simples-reforma': 'orange',
 };
 
 interface RuleCardProps {

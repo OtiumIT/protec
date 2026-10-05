@@ -9,6 +9,7 @@ import {
   ComparativoRegimesInputSchema,
   ComparativoRegimesSimulationIdParamSchema,
   ListComparativoRegimesQuerySchema,
+  SimplesIbsCbsInputSchema,
 } from '@shared/core';
 import { errorHandler } from '../../shared/utils/error-handler';
 
@@ -50,6 +51,35 @@ comparativoRegimesRoutes.post(
   }
 );
 
+comparativoRegimesRoutes.post(
+  '/simples/simulate',
+  zValidator('json', SimplesIbsCbsInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const result = await service.simulateSimples(input);
+      return c.json({ data: result }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
+comparativoRegimesRoutes.post(
+  '/simples/simulate-and-save',
+  zValidator('json', SimplesIbsCbsInputSchema),
+  async (c) => {
+    try {
+      const input = c.req.valid('json');
+      const userId = c.get('user')?.id;
+      const { simulation_id, result } = await service.simulateSimplesAndSave(input, userId);
+      return c.json({ data: { simulation_id, ...result } }, 200);
+    } catch (err) {
+      return errorHandler(err, c);
+    }
+  }
+);
+
 comparativoRegimesRoutes.get(
   '/simulations',
   zValidator('query', ListComparativoRegimesQuerySchema),
@@ -58,6 +88,7 @@ comparativoRegimesRoutes.get(
       const query = c.req.valid('query');
       const result = await service.list({
         client_id: query.client_id,
+        kind: query.kind,
         page: query.page,
         limit: query.limit,
       });
@@ -95,7 +126,7 @@ comparativoRegimesRoutes.delete(
   async (c) => {
     try {
       const { id } = c.req.valid('param');
-      await service.delete(id);
+      await service.delete(id, { userId: c.get('user')?.id, companyId: c.get('companyId') });
       return c.json({ data: { success: true } });
     } catch (err) {
       return errorHandler(err, c);

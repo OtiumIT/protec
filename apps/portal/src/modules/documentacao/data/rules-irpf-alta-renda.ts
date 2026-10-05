@@ -507,8 +507,13 @@ export const rulesIrpfAltaRenda: RuleDocumentation[] = [
       'A retencao e POR FONTE PAGADORA - cada empresa conta separadamente.',
       'O valor retido e compensavel no imposto complementar anual.',
       'Considere holding ou fracionamento para otimizar retencoes.',
+      'Como o motor avalia: se a fonte tem "maior pagamento no mes" informado, o gatilho usa esse valor (retencao confirmada). Sem esse dado, estima pela media (valor anual / 12) e marca como possivel retencao.',
+      'A media anual nao enxerga mes concentrado: R$ 480.000 no ano pagos em um unico mes ficam abaixo de R$ 50.000 na media, mas geram retencao. Por isso o campo mensal e recomendado.',
     ],
-    ultima_atualizacao: '2026-03-14',
+    ultima_atualizacao: '2026-09-29',
+    historico: [
+      { data: '2026-09-29', versao: '1.1', descricao: 'Campo opcional de maior pagamento mensal por fonte; a media anual / 12 vira estimativa declarada.' },
+    ],
     tags: ['retencao', 'fonte', 'antecipacao'],
     vigencia: {
       inicio: '2026-01-01',

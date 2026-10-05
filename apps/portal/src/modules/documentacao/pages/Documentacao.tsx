@@ -26,6 +26,7 @@ const moduleIcons: Record<string, any> = {
   'editais-pgfn': faFileAlt,
   itbi: faBuilding,
   itcmd: faFileAlt,
+  'simples-reforma': faChartBar,
 };
 
 export function Documentacao() {

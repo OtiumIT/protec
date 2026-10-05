@@ -24,7 +24,9 @@
     "reset-password": "tsx src/scripts/reset-password.ts",
     "validate-db": "tsx src/scripts/validate-db.ts",
     "test-update-plan": "tsx src/scripts/test-update-plan.ts",
-    "test-expense-mapping": "tsx src/scripts/test-expense-mapping.ts"
+    "test-expense-mapping": "tsx src/scripts/test-expense-mapping.ts",
+    "test-simples-reforma": "tsx src/scripts/test-simples-reforma.ts",
+    "test-irpf-alta-renda": "tsx src/scripts/test-irpf-alta-renda.ts"
   },
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1102.0",
